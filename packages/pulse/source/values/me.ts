@@ -1,7 +1,7 @@
-let myId = BigInt(Math.random() * 1000)
+import { createRandomActorId } from "../functions/createRandomActorId"
+import { type Actor } from "../types/Actor"
 
-export const me = () => myId
-
-export const setMe = (id: bigint) => {
-	myId = id
+export const me: Actor = {
+	id: createRandomActorId(),
+	clock: 0n,
 }

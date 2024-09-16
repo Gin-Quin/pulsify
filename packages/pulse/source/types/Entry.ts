@@ -1,4 +1,4 @@
 export type Entry = {
-	client: bigint
+	actor: bigint
 	clock: bigint
 }

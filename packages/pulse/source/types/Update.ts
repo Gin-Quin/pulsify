@@ -1,29 +1,34 @@
-import { Entry } from "./Entry"
+import { type Entry } from "./Entry"
 
 /**
  * An update represents an entry with the data associated with it.
  */
-export type PulseUpdate =
-	| PulseArrayUpdate<any>
-	| PulseObjectUpdate<any, any>
-	| PulsePrimitiveUpdate<any>
+export type Update =
+	| ArrayUpdate<any>
+	| ObjectUpdate<any, any>
+	| ValueUpdate<any>
+	| IncrementableUpdate
 
-export type PulseArrayUpdate<Value> = Entry & {
+export type ArrayUpdate<Value> = Entry & {
 	content: Array<Value>
 	left: Entry
 	right: Entry
 }
 
-export type PulseObjectUpdate<
+export type ObjectUpdate<
 	Properties extends Record<string, any>,
 	Key extends keyof Properties
 > = Entry & {
 	key: Key
+	left: Entry
 	content: Array<Properties[Key]>
 }
 
-export type PulsePrimitiveUpdate<Value> = Entry & {
-	content: Value
-	left: Entry
-	right: Entry
+export type ValueUpdate<Value> = Entry & {
+	left: Entry | undefined
+	content: Array<Value>
+}
+
+export type IncrementableUpdate = Entry & {
+	value: number
 }

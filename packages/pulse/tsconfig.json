@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"noEmit": true,
+		"lib": ["ESNext", "DOM"],
+		"module": "esnext",
+		"target": "esnext",
+		// "composite": true,
+		"declaration": false,
+		"declarationMap": false,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "bundler",
+		"moduleDetection": "force",
+		"allowImportingTsExtensions": true,
+		"strict": true,
+		"downlevelIteration": true,
+		"skipLibCheck": false,
+		"allowSyntheticDefaultImports": true,
+		"rootDir": "../..",
+		"paths": {
+			"pulse/*": ["./*"]
+		}
+	},
+	"include": ["./**/*", "./**/*.json"],
+	"exclude": ["./**/node_modules/**"]
+}
