@@ -1,35 +1,12 @@
+import type { ValueState } from "../types/State"
 import { type ValueUpdate } from "../types/Update"
 import { me } from "../values/me"
 import { BasePulse } from "./BasePulse"
 
 export class PulseValue<T> extends BasePulse<T> {
-	state = Array<ValueUpdate<T>>()
-
-	/**
-	 * 
-	 */
-	static 
-
-	}
-
-	/**
-	 * Merge updates into the state.
-	 * This is where we handle conflicts, add pending udpates, etc.
-	 */
-	applyUpdates(updates: Array<ValueUpdate<T>>): this {
-		const lastUpdate = this.state.at(-1)
-
-		for (const update of updates) {
-			const index = this.state.findIndex(state => state.actor === update.actor)
-			if (index === -1) {
-				this.state.push(update)
-			} else {
-				this.state[index] = update
-			}
-		}
-
-		return this
-	}
+	state: ValueState<T> = []
+	pendingStates: Array<Array<ValueUpdate<T>>> = []
+	pendingUpdates: Array<ValueUpdate<T>> = []
 
 	/**
 	 * Set a new value to the Pulse.
@@ -48,7 +25,20 @@ export class PulseValue<T> extends BasePulse<T> {
 			},
 			content: [value],
 		}
-		this.applyUpdates([update])
+
+		if (
+			lastUpdate &&
+			lastUpdate.actor == update.actor &&
+			lastUpdate.clock + BigInt(lastUpdate.content.length) == update.clock
+		) {
+			// if the update is the same as the last update, we merge it
+			lastUpdate.content.push(value)
+		} else {
+			// otherwise, we push the update to the state
+			this.state.push(update)
+		}
+
+		this.emit("update", update)
 
 		return this
 	}

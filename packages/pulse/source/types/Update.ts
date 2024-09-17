@@ -3,16 +3,12 @@ import { type Entry } from "./Entry"
 /**
  * An update represents an entry with the data associated with it.
  */
-export type Update =
-	| ArrayUpdate<any>
-	| ObjectUpdate<any, any>
-	| ValueUpdate<any>
-	| IncrementableUpdate
+export type Update = ArrayUpdate<any> | ObjectUpdate<any, any> | ValueUpdate<any>
 
 export type ArrayUpdate<Value> = Entry & {
 	content: Array<Value>
-	left: Entry
-	right: Entry
+	left?: Entry
+	right?: Entry
 }
 
 export type ObjectUpdate<
@@ -21,12 +17,14 @@ export type ObjectUpdate<
 > = Entry & {
 	key: Key
 	left: Entry
+	right?: never
 	content: Array<Properties[Key]>
 }
 
 export type ValueUpdate<Value> = Entry & {
 	left: Entry | undefined
 	content: Array<Value>
+	right?: never
 }
 
 export type IncrementableUpdate = Entry & {

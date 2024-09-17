@@ -1,69 +1,140 @@
 import { type Update } from "../types/Update"
 import { type Connector } from "../types/Connector"
-import { connectors } from "../values/connectors"
+import { connectors as defaultConnectors } from "../values/connectors"
 import { encodeUpdate } from "../functions/encodeUpdate"
+import mitt from "mitt"
+import { bunker } from "@digitak/bunker"
+import { assimilateUpdate, AssimilateUpdateError } from "../functions/assimilateUpdate"
+import type { State } from "../types/State"
+
+type PulseEvents = {
+	update: Update
+}
 
 export abstract class BasePulse<T> {
 	readonly id: string
 	value: T
 
 	connectors?: Array<Connector>
+	synchronized = false
 
-	abstract state: unknown
+	private emitter = mitt<PulseEvents>()
+	on = this.emitter.on.bind(this.emitter)
+	off = this.emitter.off.bind(this.emitter)
+	emit = this.emitter.emit.bind(this.emitter)
 
-	constructor(value: T, properties: { id?: string; synchronize?: boolean } = {}) {
+	state: State = []
+	pendingUpdates: Array<Update> = []
+
+	constructor(
+		value: T,
+		{
+			id,
+			synchronize = true,
+			connectors = defaultConnectors,
+		}: { id?: string; connectors?: Array<Connector>; synchronize?: boolean } = {}
+	) {
 		this.value = value
-		this.id = properties.id ?? "default"
+		this.id = id ?? "default"
+		this.connectors = connectors
+		if (synchronize) this.synchronize()
 	}
-
-	/**
-	 * Default connectors to synchronize with when a new Pulse is synchronized.
-	 */
-	static connectors = Array<Connector>()
 
 	/**
 	 * Encode the state of the Pulse into a byte array.
 	 */
-	abstract encode(): Uint8Array
+	encode(): Uint8Array {
+		return bunker(this.state)
+	}
 
 	/**
 	 * Apply an update and send it to the connectors.
 	 */
-	update(update: Update): void {
-		this.applyUpdates([update])
+	sendUpdateToConnectors = (update: Update): void => {
 		const encodedUpdate = encodeUpdate(update)
-		this.getConnectors().forEach(connector => connector.send(encodedUpdate))
+		this.connectors?.forEach(connector => connector.send(encodedUpdate))
 	}
 
 	/**
-	 * Applies the given updates to the Pulse.
+	 * Merge updates into the state.
+	 * This is where we handle conflicts, add pending udpates, etc.
 	 */
-	abstract applyUpdates(updates: Update[]): void
+	applyUpdate(update: Update): number {
+		const assimilated = assimilateUpdate(this.state, update)
 
-	/**
-	 *
-	 */
-	getConnectors(): Array<Connector> {
-		return this.connectors ?? connectors ?? []
+		if (assimilated == AssimilateUpdateError.CantAssimilate) {
+			this.pendingUpdates.push(update)
+		} else if (assimilated >= 0) {
+			this.applyPendingUpdates(update, assimilated)
+		}
+
+		return assimilated
 	}
 
 	/**
-	 * Synchronizes the Pulse with the default connectors.
+	 * Apply pending updates.
+	 * This could be much faster because this function needs to check every update of the state.
+	 * We could use the trigger update here and directly checks if the trigger matches.
+	 * Even better, we could use the index where the trigger update has been assimilated.
 	 */
-	synchronize(): void {}
+	applyPendingUpdates(triggerUpdate: Update, triggerIndex: number): void {
+		let index = 0
+		while (index < this.pendingUpdates.length) {
+			const pendingUpdate = this.pendingUpdates[index]
+			if (assimilateUpdate(this.state, pendingUpdate)) {
+				this.pendingUpdates.splice(index, 1)
+				index = 0
+			} else {
+				index++
+			}
+		}
+	}
 
 	/**
-	 * Desynchronizes the Pulse from all connectors.
+	 * Merge mutiple updates into the state.
 	 */
-	desynchronize(): void {}
+	applyUpdates(updates: Array<Update>): void {
+		for (const update of updates) {
+			this.applyUpdate(update)
+		}
+	}
+
+	/**
+	 * Start synchronizing the Pulse with the default connectors.
+	 */
+	synchronize(): void {
+		// TODO: add initial sync step
+		this.on("update", this.sendUpdateToConnectors)
+	}
+
+	/**
+	 * Stop synchronizing the Pulse with the connectors.
+	 */
+	desynchronize(): void {
+		this.off("update", this.sendUpdateToConnectors)
+	}
 
 	/**
 	 * Synchronizes the Pulse with the given connectors.
 	 */
-	synchronizeWith(connectors: Array<Connector>): void {}
+	connect(connectors: Array<Connector>): void {
+		this.connectors ??= []
+
+		for (const connector of connectors) {
+			if (!this.connectors.includes(connector)) {
+				this.connectors.push(connector)
+			}
+		}
+	}
 
 	/**
 	 * Desynchronizes the Pulse from the given connectors.
 	 */
-	desynchronizeWith(connectors: Array<Connector>): void {}
+	disconnect(connectors: Array<Connector>): void {
+		if (!this.connectors) return
+		for (const connector of connectors) {
+			const index = this.connectors.indexOf(connector)
+			if (index !== -1) this.connectors.splice(index, 1)
+		}
+	}
 }
