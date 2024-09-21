@@ -1,74 +1,113 @@
-import { type Update } from "../types/Update"
-import { type Connector } from "../types/Connector"
-import { connectors as defaultConnectors } from "../values/connectors"
-import { encodeUpdate } from "../functions/encodeUpdate"
-import mitt from "mitt"
-import { bunker } from "@digitak/bunker"
-import { assimilateUpdate, AssimilateUpdateError } from "../functions/assimilateUpdate"
-import type { State } from "../types/State"
+import { encodeUpdate, type Update } from "../types/Update";
+import type { Connector } from "../types/Connector";
+import { connectors as defaultConnectors } from "../types/Connector";
+import mitt from "mitt";
+import { bunker } from "@digitak/bunker";
+import { assimilateUpdate, type State } from "../types/State";
+import { StateVector } from "../types/StateVector";
 
-type PulseEvents = {
-	update: Update
-}
+export type PulseEvents<Content> = {
+	update: Update<Content>;
+};
 
-export abstract class BasePulse<T> {
-	readonly id: string
-	value: T
+export type PulseProperties = {
+	id?: string;
+	connectors?: Array<Connector>;
+	synchronize?: boolean;
+};
 
-	connectors?: Array<Connector>
-	synchronized = false
+export abstract class BasePulse<Value, Content = Value> {
+	readonly id: string;
 
-	private emitter = mitt<PulseEvents>()
-	on = this.emitter.on.bind(this.emitter)
-	off = this.emitter.off.bind(this.emitter)
-	emit = this.emitter.emit.bind(this.emitter)
+	abstract value: Value;
+	abstract state: unknown;
 
-	state: State = []
-	pendingUpdates: Array<Update> = []
+	stateVector = new StateVector();
+	pendingUpdates: Array<Update<Content>> = [];
 
-	constructor(
-		value: T,
-		{
-			id,
-			synchronize = true,
-			connectors = defaultConnectors,
-		}: { id?: string; connectors?: Array<Connector>; synchronize?: boolean } = {}
-	) {
-		this.value = value
-		this.id = id ?? "default"
-		this.connectors = connectors
-		if (synchronize) this.synchronize()
+	connectors?: Array<Connector>;
+	synchronized = false;
+
+	private emitter = mitt<PulseEvents<Content>>();
+	on = this.emitter.on.bind(this.emitter);
+	off = this.emitter.off.bind(this.emitter);
+	emit = this.emitter.emit.bind(this.emitter);
+
+	constructor({
+		id,
+		synchronize = true,
+		connectors = defaultConnectors,
+	}: PulseProperties = {}) {
+		this.id = id ?? "default";
+		this.connectors = connectors;
+		if (synchronize) this.synchronize();
 	}
 
 	/**
 	 * Encode the state of the Pulse into a byte array.
 	 */
 	encode(): Uint8Array {
-		return bunker(this.state)
+		return bunker(this.state);
 	}
 
 	/**
 	 * Apply an update and send it to the connectors.
 	 */
-	sendUpdateToConnectors = (update: Update): void => {
-		const encodedUpdate = encodeUpdate(update)
-		this.connectors?.forEach(connector => connector.send(encodedUpdate))
-	}
+	sendUpdateToConnectors = (update: Update<Content>): void => {
+		const encodedUpdate = encodeUpdate(update);
+		this.connectors?.forEach((connector) => connector.send(encodedUpdate));
+	};
+
+	abstract assimilateUpdate(update: Update<Content>): boolean;
 
 	/**
 	 * Merge updates into the state.
 	 * This is where we handle conflicts, add pending udpates, etc.
 	 */
-	applyUpdate(update: Update): number {
-		const assimilated = assimilateUpdate(this.state, update)
+	applyUpdate(update: Update<Content>): boolean {
+		const currentActorClock = BigInt(this.stateVector.get(update.actor) ?? 0);
+		let updateToApply = update;
 
-		if (assimilated == AssimilateUpdateError.CantAssimilate) {
-			this.pendingUpdates.push(update)
-		} else if (assimilated >= 0) {
-			this.applyPendingUpdates(update, assimilated)
+		if (update.clock > currentActorClock) {
+			// cannot assimilate, missing updates from the actor
+			this.pendingUpdates.push(update);
+			console.log("Update came before another update from the same actor");
+			return false;
+		} else if (update.clock < currentActorClock) {
+			const clockOffset = Number(currentActorClock - update.clock);
+
+			if (clockOffset > this.pendingUpdates.length) {
+				console.log("Update already applied");
+				return false;
+			}
+
+			console.log("Update already partially applied");
+
+			// we only select the part of the update that has not yet been assimilated
+			updateToApply = {
+				actor: update.actor,
+				clock: update.clock + BigInt(clockOffset),
+				content: update.content.slice(clockOffset),
+				key: update.key,
+				left: update.left,
+				right: update.right,
+			};
 		}
 
-		return assimilated
+		this.stateVector.set(
+			update.actor,
+			update.clock + BigInt(update.content.length),
+		);
+
+		const assimilated = this.assimilateUpdate(updateToApply);
+
+		if (assimilated) {
+			this.applyPendingUpdates();
+		} else {
+			this.pendingUpdates.push(updateToApply);
+		}
+
+		return assimilated;
 	}
 
 	/**
@@ -77,15 +116,15 @@ export abstract class BasePulse<T> {
 	 * We could use the trigger update here and directly checks if the trigger matches.
 	 * Even better, we could use the index where the trigger update has been assimilated.
 	 */
-	applyPendingUpdates(triggerUpdate: Update, triggerIndex: number): void {
-		let index = 0
+	applyPendingUpdates(): void {
+		let index = 0;
 		while (index < this.pendingUpdates.length) {
-			const pendingUpdate = this.pendingUpdates[index]
-			if (assimilateUpdate(this.state, pendingUpdate)) {
-				this.pendingUpdates.splice(index, 1)
-				index = 0
+			const pendingUpdate = this.pendingUpdates[index];
+			if (this.assimilateUpdate(pendingUpdate)) {
+				this.pendingUpdates.splice(index, 1);
+				index = 0;
 			} else {
-				index++
+				index++;
 			}
 		}
 	}
@@ -93,9 +132,9 @@ export abstract class BasePulse<T> {
 	/**
 	 * Merge mutiple updates into the state.
 	 */
-	applyUpdates(updates: Array<Update>): void {
+	applyUpdates(updates: Array<Update<Content>>): void {
 		for (const update of updates) {
-			this.applyUpdate(update)
+			this.applyUpdate(update);
 		}
 	}
 
@@ -104,25 +143,25 @@ export abstract class BasePulse<T> {
 	 */
 	synchronize(): void {
 		// TODO: add initial sync step
-		this.on("update", this.sendUpdateToConnectors)
+		this.on("update", this.sendUpdateToConnectors);
 	}
 
 	/**
 	 * Stop synchronizing the Pulse with the connectors.
 	 */
 	desynchronize(): void {
-		this.off("update", this.sendUpdateToConnectors)
+		this.off("update", this.sendUpdateToConnectors);
 	}
 
 	/**
 	 * Synchronizes the Pulse with the given connectors.
 	 */
 	connect(connectors: Array<Connector>): void {
-		this.connectors ??= []
+		this.connectors ??= [];
 
 		for (const connector of connectors) {
 			if (!this.connectors.includes(connector)) {
-				this.connectors.push(connector)
+				this.connectors.push(connector);
 			}
 		}
 	}
@@ -131,10 +170,10 @@ export abstract class BasePulse<T> {
 	 * Desynchronizes the Pulse from the given connectors.
 	 */
 	disconnect(connectors: Array<Connector>): void {
-		if (!this.connectors) return
+		if (!this.connectors) return;
 		for (const connector of connectors) {
-			const index = this.connectors.indexOf(connector)
-			if (index !== -1) this.connectors.splice(index, 1)
+			const index = this.connectors.indexOf(connector);
+			if (index !== -1) this.connectors.splice(index, 1);
 		}
 	}
 }

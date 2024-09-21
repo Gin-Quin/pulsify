@@ -17,7 +17,7 @@
 		"allowSyntheticDefaultImports": true,
 		"rootDir": "../..",
 		"paths": {
-			"pulse/*": ["./*"]
+			"pulse/*": ["./source/*"]
 		}
 	},
 	"include": ["./**/*", "./**/*.json"],

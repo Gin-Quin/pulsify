@@ -1,32 +1,33 @@
-import { type Entry } from "./Entry"
+import { bunker, debunker } from "@digitak/bunker";
+import type { Actor } from "./Actor";
+import type { Entry } from "./Entry";
 
 /**
  * An update represents an entry with the data associated with it.
  */
-export type Update = ArrayUpdate<any> | ObjectUpdate<any, any> | ValueUpdate<any>
+export type Update<T> = Entry<T> & {
+	key?: string; // only used for object updates
+	left?: Actor.Event;
+	right?: Actor.Event;
+};
 
-export type ArrayUpdate<Value> = Entry & {
-	content: Array<Value>
-	left?: Entry
-	right?: Entry
+export type AtomicUpdate<T> = Actor.Event & {
+	content: T;
+	key?: string; // only used for object updates
+	left?: Actor.Event;
+	right?: Actor.Event;
+};
+
+/**
+ * Encode an update into a byte array.
+ */
+export function encodeUpdate<T>(update: Update<T>): Uint8Array {
+	return bunker(update);
 }
 
-export type ObjectUpdate<
-	Properties extends Record<string, any>,
-	Key extends keyof Properties
-> = Entry & {
-	key: Key
-	left: Entry
-	right?: never
-	content: Array<Properties[Key]>
-}
-
-export type ValueUpdate<Value> = Entry & {
-	left: Entry | undefined
-	content: Array<Value>
-	right?: never
-}
-
-export type IncrementableUpdate = Entry & {
-	value: number
+/**
+ * Decode an update from a byte array.
+ */
+export function decodeUpdate<T>(update: Uint8Array): Update<T> {
+	return debunker(update) as Update<T>;
 }

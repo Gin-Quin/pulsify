@@ -1,7 +1,3 @@
-import { createRandomActorId } from "../functions/createRandomActorId"
-import { type Actor } from "../types/Actor"
+import { createRandomActorId, type Actor } from "../types/Actor";
 
-export const me: Actor = {
-	id: createRandomActorId(),
-	clock: 0n,
-}
+export const me: Actor.Id = createRandomActorId();

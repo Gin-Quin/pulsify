@@ -1,0 +1,19 @@
+{
+	"files": { "ignore": ["**/node_modules/**"], "include": ["**/*.ts"] },
+	"linter": {
+		"rules": {
+			"style": {
+				"noUselessElse": "off"
+			},
+			"complexity": {
+				"noForEach": "off"
+			},
+			"correctness": {
+				"noUnreachable": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "off"
+			}
+		}
+	}
+}

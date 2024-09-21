@@ -1,221 +1,307 @@
-import type { ArrayUpdate } from "../types/Update"
-import { me } from "../values/me"
-import { BasePulse } from "./BasePulse"
-import { findLeftRightEntries } from "../functions/findLeftRightEntries"
+import { me } from "../values/me";
+import { BasePulse, type PulseProperties } from "./BasePulse";
+import { findLeftRightEvents } from "../functions/findLeftRightEvents";
+import type { Update } from "../types/Update";
+import type { Entry } from "../types/Entry";
+import { assimilateUpdate } from "pulse/types/State";
 
-export class PulseArray<T> extends BasePulse<Array<T>> {
-	state = Array<ArrayUpdate<T>>()
+export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
+	/**
+	 * Memoized value of the array.
+	 */
+	private memoizedValue: Array<Item> = [];
 
+	/**
+	 * Whether the memoized value is dirty and needs to be recalculated.
+	 */
+	private dirty = false;
+
+	/**
+	 * State of the array.
+	 */
+	state = Array<Entry<Item>>();
+
+	/**
+	 * Get current value of the array.
+	 */
+	get value(): Array<Item> {
+		if (this.dirty) {
+			this.memoizedValue = this.state.flatMap((entry) => entry.content);
+			this.dirty = false;
+		}
+		return this.memoizedValue;
+	}
+
+	/**
+	 * Get length of the array.
+	 */
 	get length(): number {
-		return this.value.length
+		return this.value.length;
+	}
+
+	constructor(content: Array<Item> = [], properties: PulseProperties = {}) {
+		super(properties);
+		if (content.length > 0) {
+			this.state = [
+				{
+					actor: me,
+					clock: 0n,
+					content,
+				},
+			];
+			this.stateVector.set(me, BigInt(content.length));
+			this.memoizedValue = content;
+		}
+
+		// biome-ignore lint: We have to use a proxy to handle the array indexing.
+		return new Proxy(this, {
+			get: (target, prop) => {
+				if (
+					typeof prop === "number" ||
+					(typeof prop === "string" && !Number.isNaN(Number(prop)))
+				) {
+					return target.value[Number(prop)];
+				}
+				return target[prop as keyof typeof target];
+			},
+			set: (target, prop, value) => {
+				if (
+					typeof prop === "number" ||
+					(typeof prop === "string" && !Number.isNaN(Number(prop)))
+				) {
+					target.value[Number(prop)] = value;
+				} else {
+					target[prop as keyof typeof target] = value;
+				}
+				return true;
+			},
+		});
+	}
+
+	/* -------------------------------------------------------------------------- */
+	/*                              Abstract methods                              */
+	/* -------------------------------------------------------------------------- */
+
+	assimilateUpdate(update: Update<Item>): boolean {
+		return assimilateUpdate(this.state, update);
 	}
 
 	/* -------------------------------------------------------------------------- */
 	/*                              Mutation methods                              */
 	/* -------------------------------------------------------------------------- */
 
-	insert(index: number, values: Array<T>): number {
-		const { left, right } = findLeftRightEntries(this.state, index)
-		const update: ArrayUpdate<T> = {
-			actor: me.id,
-			clock: me.clock,
+	insert(index: number, values: Array<Item>): number {
+		const finalLength = this.length + values.length;
+		const { left, right } = findLeftRightEvents(this.state, index);
+		const update: Update<Item> = {
+			actor: me,
+			clock: this.stateVector.get(me) ?? 0n,
 			content: values,
 			left,
 			right,
-		}
-		me.clock += BigInt(values.length)
-		this.applyUpdate(update)
-		this.value.splice(index, 0, ...values)
-		return this.value.length
+		};
+		this.applyUpdate(update);
+		this.dirty = true;
+		return finalLength;
 	}
 
-	push(...values: Array<T>): number {
-		return this.insert(this.state.length, values)
+	push(...values: Array<Item>): number {
+		const finalLength = this.length + values.length;
+		const lastEntry = this.state[this.state.length - 1];
+		const left = lastEntry && {
+			actor: lastEntry.actor,
+			clock: lastEntry.clock + BigInt(lastEntry.content.length) - 1n,
+		};
+		const update: Update<Item> = {
+			actor: me,
+			clock: this.stateVector.get(me) ?? 0n,
+			content: values,
+			left,
+		};
+		this.applyUpdate(update);
+		this.dirty = true;
+		return finalLength;
 	}
 
 	delete(index: number, count = 1): this {
-		if (count == 0) return this
-		throw "TODO"
-		this.value.splice(index, count)
-		return this
+		if (count === 0) return this;
+		console.warn("TODO: PulseArray::delete");
+		return this;
 	}
 
-	splice(index: number, deleteCount = 1, ...values: Array<T>): Array<T> {
-		const deletedElements = this.value.slice(index, index + deleteCount)
-		this.delete(index, deleteCount)
-		this.insert(index, values)
-		return deletedElements
+	splice(index: number, deleteCount = 1, ...values: Array<Item>): Array<Item> {
+		const deletedElements = this.value.slice(index, index + deleteCount);
+		this.delete(index, deleteCount);
+		this.insert(index, values);
+		return deletedElements;
 	}
 
 	pop() {
-		this.delete(this.state.length - 1)
-		return this.value.pop()
+		const lastItem = this.value.at(-1);
+		this.delete(this.state.length - 1);
+		return lastItem;
 	}
 
 	shift() {
-		this.delete(0, 1)
-		return this.value.shift()
+		const firstItem = this.value.at(0);
+		this.delete(0, 1);
+		return firstItem;
 	}
 
-	unshift(...values: Array<T>): number {
-		return this.insert(0, values)
+	unshift(...values: Array<Item>): number {
+		return this.insert(0, values);
 	}
 
 	/* -------------------------------------------------------------------------- */
 	/*                                Array methods                               */
 	/* -------------------------------------------------------------------------- */
 
-	forEach(
-		callbackfn: (value: T, index: number, array: Array<T>) => void,
-		thisArg?: any
-	): void {
-		this.value.forEach(callbackfn, thisArg)
+	get forEach() {
+		return this.value.forEach;
 	}
 
-	map<U>(
-		callbackfn: (value: T, index: number, array: Array<T>) => U,
-		thisArg?: any
-	): Array<U> {
-		return this.value.map(callbackfn, thisArg)
+	get map() {
+		return this.value.map;
 	}
 
-	filter<S extends T>(
-		callbackfn: (value: T, index: number, array: Array<T>) => value is S,
-		thisArg?: any
-	): Array<S> {
-		return this.value.filter(callbackfn, thisArg)
+	get filter() {
+		return this.value.filter;
 	}
 
-	concat(...items: Array<ConcatArray<T>>): Array<T> {
-		return this.value.concat(...items)
+	get concat() {
+		return this.value.concat;
 	}
 
-	join(separator?: string): string {
-		return this.value.join(separator)
+	get join() {
+		return this.value.join;
 	}
 
-	reverse(): Array<T> {
-		return this.value.reverse()
+	get reverse() {
+		return this.value.reverse;
 	}
 
-	slice(start?: number, end?: number): Array<T> {
-		return this.value.slice(start, end)
+	get slice() {
+		return this.value.slice;
 	}
 
-	copyWithin(target: number, start: number, end?: number): this {
-		this.value.copyWithin(target, start, end)
-		return this
+	// @ts-ignore
+	get copyWithin() {
+		return this.value.copyWithin;
 	}
 
-	fill(value: T, start?: number, end?: number): this {
-		this.value.fill(value, start, end)
-		return this
+	// @ts-ignore
+	get fill() {
+		return this.value.fill;
 	}
 
-	indexOf(searchElement: T, fromIndex?: number): number {
-		return this.value.indexOf(searchElement, fromIndex)
+	get indexOf() {
+		return this.value.indexOf;
 	}
 
-	lastIndexOf(searchElement: T, fromIndex?: number): number {
-		return this.value.lastIndexOf(searchElement, fromIndex)
+	get lastIndexOf() {
+		return this.value.lastIndexOf;
 	}
 
-	every<S extends T>(
-		predicate: (value: T, index: number, array: T[]) => value is S,
-		thisArg?: any
-	): this is S[] {
-		return this.value.every(predicate, thisArg)
+	get every() {
+		return this.value.every;
 	}
 
-	some(
-		callbackfn: (value: T, index: number, array: Array<T>) => unknown,
-		thisArg?: any
-	): boolean {
-		return this.value.some(callbackfn, thisArg)
+	get some() {
+		return this.value.some;
 	}
 
-	// sort, reduce, reduceRight, find
-
-	sort(compareFn?: (a: T, b: T) => number): this {
-		this.value.sort(compareFn)
-		return this
+	// @ts-ignore
+	get sort() {
+		return this.value.sort;
 	}
 
-	find<S extends T>(
-		predicate: (value: T, index: number, obj: Array<T>) => value is S,
-		thisArg?: any
-	): S | undefined {
-		return this.value.find(predicate, thisArg)
+	get find() {
+		return this.value.find;
 	}
 
-	findIndex(
-		predicate: (value: T, index: number, obj: Array<T>) => unknown,
-		thisArg?: any
-	): number {
-		return this.value.findIndex(predicate, thisArg)
+	get findIndex() {
+		return this.value.findIndex;
 	}
 
-	findLast<S extends T>(
-		predicate: (value: T, index: number, obj: Array<T>) => value is S,
-		thisArg?: any
-	): S | undefined {
-		return this.value.findLast(predicate, thisArg)
+	get findLast() {
+		return this.value.findLast;
 	}
 
-	findLastIndex(
-		predicate: (value: T, index: number, obj: Array<T>) => unknown,
-		thisArg?: any
-	): number {
-		return this.value.findLastIndex(predicate, thisArg)
+	get findLastIndex() {
+		return this.value.findLastIndex;
 	}
 
-	at(index: number) {
-		return this.value.at(index)
+	get at() {
+		return this.value.at;
 	}
 
-	entries() {
-		return this.value.entries()
+	get entries() {
+		return this.value.entries;
 	}
 
-	includes(value: T) {
-		return this.value.includes(value)
+	get includes() {
+		return this.value.includes;
 	}
 
-	toLocaleString() {
-		return this.value.toLocaleString()
+	get toLocaleString() {
+		return this.value.toLocaleString;
 	}
 
-	toString() {
-		return this.value.toString()
+	get toString() {
+		return this.value.toString;
 	}
 
-	valueOf() {
-		return this.value.valueOf()
+	get valueOf() {
+		return this.value.valueOf;
 	}
 
-	keys() {
-		return this.value.keys()
+	get keys() {
+		return this.value.keys;
 	}
 
-	values() {
-		return this.value.values()
+	get values() {
+		return this.value.values;
 	}
 
-	toReversed() {
-		return this.value.toReversed()
+	get toReversed() {
+		return this.value.toReversed;
 	}
 
-	toSorted(compareFn?: (a: T, b: T) => number) {
-		return this.value.toSorted(compareFn)
+	get toSorted() {
+		return this.value.toSorted;
 	}
 
-	toSpliced(start: number, deleteCount: number, ...values: Array<T>) {
-		return this.value.toSpliced(start, deleteCount, ...values)
+	get toSpliced() {
+		return this.value.toSpliced;
 	}
 
-	with(index: number, value: T) {
-		return this.value.with(index, value)
+	get with() {
+		return this.value.with;
 	}
 
-	[Symbol.iterator] = this.value[Symbol.iterator]
+	get reduce() {
+		return this.value.reduce;
+	}
+
+	get reduceRight() {
+		return this.value.reduceRight;
+	}
+
+	get flat() {
+		return this.value.flat;
+	}
+
+	get flatMap() {
+		return this.value.flatMap;
+	}
+
+	get [Symbol.iterator]() {
+		return this.value[Symbol.iterator];
+	}
+
+	get [Symbol.unscopables]() {
+		return this.value[Symbol.unscopables];
+	}
+
+	[index: number]: Item;
 }

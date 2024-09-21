@@ -1,22 +1,138 @@
-import type {
-	ArrayUpdate,
-	IncrementableUpdate,
-	ObjectUpdate,
-	ValueUpdate,
-} from "./Update"
+import type { Actor } from "./Actor";
+import type { Entry } from "./Entry";
+import type { Update } from "./Update";
+
+export type State<T> = Array<Entry<T>>;
 
 /**
- * An State represents a list of updates.
+ * Assimilate an update into a state.
+ * This does not prevent duplicates, so you should check beforehand if an update has already been assimilated.
+ * TODO: handle conflicts in a determined way.
  */
-export type State = ArrayState<any> | ObjectState<any, any> | ValueState<any>
+export function assimilateUpdate<T>(
+	state: State<T>,
+	update: Update<T>,
+): boolean {
+	const { left, right } = update;
 
-export type ArrayState<Value> = Array<ArrayUpdate<Value>>
+	if (!left && !right) {
+		// we insert at first position
+		if (state.length === 0) {
+			state.push({
+				actor: update.actor,
+				clock: update.clock,
+				content: update.content,
+			});
+		} else if (
+			state[0].actor !== update.actor &&
+			state[0].clock !== update.clock
+		) {
+			console.warn(
+				"Merge conflict detected between",
+				state[0],
+				"(present) and",
+				update,
+				"(incoming).",
+			);
+		}
+		return true;
+	}
 
-export type ObjectState<
-	Properties extends Record<string, any>,
-	Key extends keyof Properties
-> = Array<ObjectUpdate<Properties, Key>>
+	const position = findPositionInState(state, { left, right });
 
-export type ValueState<Value> = Array<ValueUpdate<Value>>
+	if (!position) {
+		return false;
+	}
 
-export type IncrementableState = Array<IncrementableUpdate>
+	const entry = state[position.index];
+
+	if (position.offset === 0) {
+		// we insert to the left of 'entry'
+		state.splice(position.index, 0, {
+			actor: update.actor,
+			clock: update.clock,
+			content: update.content,
+		});
+	} else if (position.offset === entry.content.length) {
+		// we insert to the right of 'entry'
+		state.splice(position.index + 1, 0, {
+			actor: update.actor,
+			clock: update.clock,
+			content: update.content,
+		});
+	} else {
+		// we insert in the middle of 'entry'
+		state.splice(
+			position.index,
+			1,
+			{
+				actor: entry.actor,
+				clock: entry.clock,
+				content: entry.content.slice(0, position.offset),
+			},
+			{
+				actor: update.actor,
+				clock: update.clock,
+				content: update.content,
+			},
+			{
+				actor: entry.actor,
+				clock: entry.clock + BigInt(position.offset),
+				content: entry.content.slice(position.offset),
+			},
+		);
+	}
+
+	return true;
+}
+
+/**
+ * Find the index of an event in a state.
+ */
+export function findActorEventIndexInState<T>(
+	state: State<T>,
+	event: Actor.Event,
+): number {
+	return state.findLastIndex(
+		<T>(entry: Entry<T>) =>
+			entry.actor === event.actor &&
+			event.clock >= entry.clock &&
+			event.clock < entry.clock + BigInt(entry.content.length),
+	);
+}
+
+/**
+ * Find the exact position of an event in a state.
+ */
+export function findPositionInState<T>(
+	state: Array<Entry<T>>,
+	{
+		left,
+		right,
+	}: {
+		left?: Actor.Event;
+		right?: Actor.Event;
+	},
+): Actor.EventPosition | null {
+	if (left) {
+		const index = findActorEventIndexInState(state, left);
+		if (index !== -1) {
+			return {
+				index,
+				offset: Number(left.clock - state[index].clock + 1n),
+			};
+		}
+	}
+
+	if (right) {
+		const index = findActorEventIndexInState(state, right);
+		if (index !== -1) {
+			return {
+				index,
+				offset: Number(right.clock - state[index].clock),
+			};
+		}
+	}
+
+	return null;
+}
