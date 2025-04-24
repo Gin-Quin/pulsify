@@ -14,7 +14,7 @@ export class PulseObject<
 		const key = update.key as keyof Properties;
 
 		if (!key) {
-			throw new Error(`Key is missing`);
+			throw new Error(`Key '${update.key}' is missing`);
 		}
 
 		this.state[key] ??= [];

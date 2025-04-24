@@ -5,7 +5,10 @@ import type { Update } from "../types/Update";
 import type { Entry } from "../types/Entry";
 import { assimilateUpdate } from "pulse/types/State";
 
-export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
+export class PulseArray<Item>
+	extends BasePulse<Array<Item>, Item>
+	implements Array<Item>
+{
 	/**
 	 * Memoized value of the array.
 	 */
@@ -69,7 +72,8 @@ export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
 					typeof prop === "number" ||
 					(typeof prop === "string" && !Number.isNaN(Number(prop)))
 				) {
-					target.value[Number(prop)] = value;
+					const index = Number(prop);
+					this.splice(index, 1, value);
 				} else {
 					target[prop as keyof typeof target] = value;
 				}
@@ -130,10 +134,15 @@ export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
 	}
 
 	splice(index: number, deleteCount = 1, ...values: Array<Item>): Array<Item> {
-		const deletedElements = this.value.slice(index, index + deleteCount);
-		this.delete(index, deleteCount);
-		this.insert(index, values);
-		return deletedElements;
+		if (deleteCount > 0) {
+			const deletedElements = this.value.slice(index, index + deleteCount);
+			this.delete(index, deleteCount);
+			this.insert(index, values);
+			return deletedElements;
+		} else {
+			this.insert(index, values);
+			return [];
+		}
 	}
 
 	pop() {
@@ -150,6 +159,25 @@ export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
 
 	unshift(...values: Array<Item>): number {
 		return this.insert(0, values);
+	}
+
+	get reverse() {
+		return this.value.reverse;
+	}
+
+	// @ts-ignore
+	get fill() {
+		return this.value.fill;
+	}
+
+	// @ts-ignore
+	get sort() {
+		return this.value.sort;
+	}
+
+	// @ts-ignore
+	get copyWithin() {
+		return this.value.copyWithin;
 	}
 
 	/* -------------------------------------------------------------------------- */
@@ -176,22 +204,8 @@ export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
 		return this.value.join;
 	}
 
-	get reverse() {
-		return this.value.reverse;
-	}
-
 	get slice() {
 		return this.value.slice;
-	}
-
-	// @ts-ignore
-	get copyWithin() {
-		return this.value.copyWithin;
-	}
-
-	// @ts-ignore
-	get fill() {
-		return this.value.fill;
 	}
 
 	get indexOf() {
@@ -208,11 +222,6 @@ export class PulseArray<Item> extends BasePulse<Array<Item>, Item> {
 
 	get some() {
 		return this.value.some;
-	}
-
-	// @ts-ignore
-	get sort() {
-		return this.value.sort;
 	}
 
 	get find() {

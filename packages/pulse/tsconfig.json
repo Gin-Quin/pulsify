@@ -16,6 +16,7 @@
 		"skipLibCheck": false,
 		"allowSyntheticDefaultImports": true,
 		"rootDir": "../..",
+		"types": ["bun"],
 		"paths": {
 			"pulse/*": ["./source/*"]
 		}

@@ -1,4 +1,4 @@
-import type { PulseValue } from "..";
+import type { PulseValue } from "../pulses/PulseValue";
 import type { PulseArray } from "../pulses/PulseArray";
 import type { PulseObject } from "../pulses/PulseObject";
 
@@ -8,6 +8,6 @@ export type Pulse<T> = T extends Array<infer Value>
 		? PulseObject<T>
 		: PulseValue<T>;
 
-export function createPulse<T>(value: T): Pulse<T> {
+export function pulse<T>(value: T): Pulse<T> {
 	throw "TODO";
 }

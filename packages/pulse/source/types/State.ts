@@ -7,7 +7,7 @@ export type State<T> = Array<Entry<T>>;
 /**
  * Assimilate an update into a state.
  * This does not prevent duplicates, so you should check beforehand if an update has already been assimilated.
- * TODO: handle conflicts in a determined way.
+ * TODO: handle conflicts in a deterministic way.
  */
 export function assimilateUpdate<T>(
 	state: State<T>,
@@ -27,6 +27,7 @@ export function assimilateUpdate<T>(
 			state[0].actor !== update.actor &&
 			state[0].clock !== update.clock
 		) {
+			// TODO: handle conflicts in a deterministic way.
 			console.warn(
 				"Merge conflict detected between",
 				state[0],
@@ -47,21 +48,21 @@ export function assimilateUpdate<T>(
 	const entry = state[position.index];
 
 	if (position.offset === 0) {
-		// we insert to the left of 'entry'
+		// we insert at the left of 'entry'
 		state.splice(position.index, 0, {
 			actor: update.actor,
 			clock: update.clock,
 			content: update.content,
 		});
 	} else if (position.offset === entry.content.length) {
-		// we insert to the right of 'entry'
+		// we insert at the right of 'entry'
 		state.splice(position.index + 1, 0, {
 			actor: update.actor,
 			clock: update.clock,
 			content: update.content,
 		});
 	} else {
-		// we insert in the middle of 'entry'
+		// we insert at the middle of 'entry'
 		state.splice(
 			position.index,
 			1,

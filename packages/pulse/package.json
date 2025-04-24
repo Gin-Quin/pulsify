@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"dev": "bun run --hot tests/index.test.ts",
-		"test": "bun run tests/index.test.ts"
+		"test": "bun test"
 	},
 	"keywords": [],
 	"author": "",
@@ -18,8 +18,8 @@
 		"tape": "^5.9.0"
 	},
 	"devDependencies": {
+		"@types/bun": "^1.2.10",
 		"@types/tape": "^5.6.4",
-		"fartest": "^2.1.8",
 		"vitest": "^2.1.1"
 	}
 }

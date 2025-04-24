@@ -3,7 +3,6 @@ import type { Connector } from "../types/Connector";
 import { connectors as defaultConnectors } from "../types/Connector";
 import mitt from "mitt";
 import { bunker } from "@digitak/bunker";
-import { assimilateUpdate, type State } from "../types/State";
 import { StateVector } from "../types/StateVector";
 
 export type PulseEvents<Content> = {
