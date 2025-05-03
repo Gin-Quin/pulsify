@@ -1,4 +1,4 @@
-import type { Entry } from "pulse/types/Entry";
+import type { Entries } from "pulse/types/Entry";
 import { BasePulse } from "./BasePulse";
 import type { Update } from "pulse/types/Update";
 import { assimilateUpdate } from "pulse/types/State";

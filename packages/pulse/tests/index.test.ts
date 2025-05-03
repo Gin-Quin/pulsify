@@ -26,13 +26,10 @@ describe("PulseArray", () => {
 
 			for (let i = 0; i < 100; i++) {
 				const operation = getRandomOperation(expected);
-				console.info(`${i}: ${operation}`);
 				applyRandomOperation(list, operation);
 				applyRandomOperation(expected, operation);
 				expect(list.value).toEqual(expected);
 			}
-
-			console.dir(list);
 		});
 	});
 });

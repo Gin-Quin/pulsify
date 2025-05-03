@@ -1,22 +1,25 @@
 import { bunker, debunker } from "@digitak/bunker";
 import type { Actor } from "./Actor";
-import type { Entry } from "./Entry";
+import type { Entries, Entry } from "./Entry";
+
+/**
+ * The position of an update, relative to other updates.
+ */
+interface UpdatePosition {
+	key?: string; // for objects and maps
+	left?: Actor.Event;
+	right?: Actor.Event; // for arrays
+}
 
 /**
  * An update represents an entry with the data associated with it.
  */
-export type Update<T> = Entry<T> & {
-	key?: string; // only used for object updates
-	left?: Actor.Event;
-	right?: Actor.Event;
-};
+export interface Update<T> extends Entries<T>, UpdatePosition {}
 
-export type AtomicUpdate<T> = Actor.Event & {
-	content: T;
-	key?: string; // only used for object updates
-	left?: Actor.Event;
-	right?: Actor.Event;
-};
+/**
+ * An atomic update represents a single entry at a specific position.
+ */
+export interface AtomicUpdate<T> extends Entry<T>, UpdatePosition {}
 
 /**
  * Encode an update into a byte array.

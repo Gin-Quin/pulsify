@@ -1,12 +1,12 @@
 import type { Actor } from "../types/Actor";
-import type { Entry } from "../types/Entry";
+import type { Entries } from "../types/Entry";
 
 export function findLeftRightEvents<T>(
-	state: Array<Entry<T>>,
+	state: Array<Entries<T>>,
 	index: number,
 ): { left?: Actor.Event; right?: Actor.Event } {
 	if (index === 0) {
-		const firstEntry = state[0] as Entry<T> | undefined;
+		const firstEntry = state[0] as Entries<T> | undefined;
 		return {
 			right: firstEntry && {
 				actor: firstEntry.actor,
@@ -14,7 +14,7 @@ export function findLeftRightEvents<T>(
 			},
 		};
 	} /* else if (index === state.length) {
-		const lastEntry = state[state.length - 1] as Entry<T> | undefined;
+		const lastEntry = state[state.length - 1] as Entries<T> | undefined;
 		return {
 			left: lastEntry && {
 				actor: lastEntry.actor,
@@ -47,7 +47,7 @@ export function findLeftRightEvents<T>(
 				clock: leftClock + 1n,
 			};
 		} else {
-			const nextUpdate = state[offset + 1] as Entry<T> | undefined;
+			const nextUpdate = state[offset + 1] as Entries<T> | undefined;
 			right = nextUpdate && {
 				actor: nextUpdate.actor,
 				clock: nextUpdate.clock,

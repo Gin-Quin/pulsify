@@ -1,5 +1,5 @@
 import { matchActorEvent, type Actor } from "../types/Actor";
-import type { Entry } from "../types/Entry";
+import type { Entries } from "../types/Entry";
 
 export type EventPosition = {
 	index: number;
@@ -11,7 +11,7 @@ export function findEventPosition<T>({
 	left,
 	right,
 }: {
-	state: Array<Entry<T>>;
+	state: Array<Entries<T>>;
 	left?: Actor.Event;
 	right?: Actor.Event;
 }): EventPosition | null {

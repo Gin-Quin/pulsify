@@ -1,8 +1,8 @@
 import type { Actor } from "./Actor";
-import type { Entry } from "./Entry";
+import type { Entries } from "./Entry";
 import type { Update } from "./Update";
 
-export type State<T> = Array<Entry<T>>;
+export type State<T> = Array<Entries<T>>;
 
 /**
  * Assimilate an update into a state.
@@ -95,7 +95,7 @@ export function findActorEventIndexInState<T>(
 	event: Actor.Event,
 ): number {
 	return state.findLastIndex(
-		<T>(entry: Entry<T>) =>
+		<T>(entry: Entries<T>) =>
 			entry.actor === event.actor &&
 			event.clock >= entry.clock &&
 			event.clock < entry.clock + BigInt(entry.content.length),
@@ -106,7 +106,7 @@ export function findActorEventIndexInState<T>(
  * Find the exact position of an event in a state.
  */
 export function findPositionInState<T>(
-	state: Array<Entry<T>>,
+	state: Array<Entries<T>>,
 	{
 		left,
 		right,

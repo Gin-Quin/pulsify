@@ -20,9 +20,9 @@ importers:
       '@digitak/bunker':
         specifier: ^3.3.9
         version: 3.3.9
-      '@types/bun':
-        specifier: ^1.2.10
-        version: 1.2.10
+      '@gin-quin/minimix':
+        specifier: ^1.0.3
+        version: 1.0.3
       ava:
         specifier: ^6.1.3
         version: 6.1.3
@@ -33,6 +33,9 @@ importers:
         specifier: ^5.9.0
         version: 5.9.0
     devDependencies:
+      '@types/bun':
+        specifier: ^1.2.10
+        version: 1.2.10
       '@types/tape':
         specifier: ^5.6.4
         version: 5.6.4
@@ -407,6 +410,9 @@ packages:
 
   '@fontsource/fira-mono@5.1.0':
     resolution: {integrity: sha512-6+nftSKApXyN0I9FC5GJuG5TUCh+in5OehtrXRIsHJvq38Pm//oA1kZZYNdXv99JYzLzJ3lzsTAavmS+xGLGDw==}
+
+  '@gin-quin/minimix@1.0.3':
+    resolution: {integrity: sha512-J1BPAjl4c6HkEuNMT8SAd/i3IsR4+Ia1aVRo/6/0Lv8UOIKO6F2zM6/RDP+3Sem9mxy9yPgu9vvjD2Ik78ArPg==}
 
   '@jridgewell/gen-mapping@0.3.5':
     resolution: {integrity: sha512-IzL8ZoEDIBRWEzlCcRhOaCupYyN5gdIK+Q6fbFdPDg6HqX6jpkItn7DFIpW9LQzXG6Df9sA7+OKnq0qlz/GaQg==}
@@ -2099,6 +2105,8 @@ snapshots:
     optional: true
 
   '@fontsource/fira-mono@5.1.0': {}
+
+  '@gin-quin/minimix@1.0.3': {}
 
   '@jridgewell/gen-mapping@0.3.5':
     dependencies:

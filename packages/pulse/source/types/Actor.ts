@@ -1,4 +1,4 @@
-import type { Entry } from "./Entry";
+import type { Entries } from "./Entry";
 
 /**
  * An actor is an entity that is able to update pulses.
@@ -53,7 +53,7 @@ export function decodeActorId(array: Uint8Array): bigint {
  * Find an update that matches a given actor event.
  */
 export function matchActorEvent(event: Actor.Event) {
-	return <T>(entry: Entry<T>) =>
+	return <T>(entry: Entries<T>) =>
 		entry.actor === event.actor &&
 		event.clock >= entry.clock &&
 		event.clock <= entry.clock + BigInt(entry.content.length);
