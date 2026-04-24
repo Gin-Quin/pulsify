@@ -1,11 +1,11 @@
 import type { Entries } from "pulse/types/Entry";
-import { BasePulse } from "./BasePulse";
+import { PulseState } from "./PulseState";
 import type { Update } from "pulse/types/Update";
 import { assimilateUpdate } from "pulse/types/State";
 
 export class PulseObject<
 	Properties extends Record<string, unknown>,
-> extends BasePulse<Properties, Properties[keyof Properties]> {
+> extends PulseState<Properties, Properties[keyof Properties]> {
 	state: Partial<
 		Record<keyof Properties, Array<Update<Properties[keyof Properties]>>>
 	> = {};

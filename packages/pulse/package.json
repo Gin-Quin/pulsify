@@ -13,7 +13,7 @@
 	"dependencies": {
 		"@biomejs/biome": "^1.9.2",
 		"@digitak/bunker": "^3.3.9",
-		"@gin-quin/minimix": "^1.0.3",
+		"@gin-quin/minimix": "^1.0.4",
 		"ava": "^6.1.3",
 		"mitt": "^3.0.1",
 		"tape": "^5.9.0"

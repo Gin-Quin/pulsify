@@ -1,3 +1,3 @@
-import type { BasePulse } from "./BasePulse";
+import type { PulseState } from "./PulseState";
 
-export type PulseValue<T> = T & BasePulse<T>;
+export type PulseValue<T> = T & PulseState<T>;

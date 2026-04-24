@@ -21,8 +21,8 @@ importers:
         specifier: ^3.3.9
         version: 3.3.9
       '@gin-quin/minimix':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^1.0.4
+        version: 1.0.4
       ava:
         specifier: ^6.1.3
         version: 6.1.3
@@ -411,8 +411,8 @@ packages:
   '@fontsource/fira-mono@5.1.0':
     resolution: {integrity: sha512-6+nftSKApXyN0I9FC5GJuG5TUCh+in5OehtrXRIsHJvq38Pm//oA1kZZYNdXv99JYzLzJ3lzsTAavmS+xGLGDw==}
 
-  '@gin-quin/minimix@1.0.3':
-    resolution: {integrity: sha512-J1BPAjl4c6HkEuNMT8SAd/i3IsR4+Ia1aVRo/6/0Lv8UOIKO6F2zM6/RDP+3Sem9mxy9yPgu9vvjD2Ik78ArPg==}
+  '@gin-quin/minimix@1.0.4':
+    resolution: {integrity: sha512-/V1i3eSv9rlIxn6X+NIZJrhVvOPBkSOu9T1Zdu3IPMB5P3jszisAlz+MIQK2mqesNxQ8Ou+5h/0MIPIWPXlc4g==}
 
   '@jridgewell/gen-mapping@0.3.5':
     resolution: {integrity: sha512-IzL8ZoEDIBRWEzlCcRhOaCupYyN5gdIK+Q6fbFdPDg6HqX6jpkItn7DFIpW9LQzXG6Df9sA7+OKnq0qlz/GaQg==}
@@ -2106,7 +2106,7 @@ snapshots:
 
   '@fontsource/fira-mono@5.1.0': {}
 
-  '@gin-quin/minimix@1.0.3': {}
+  '@gin-quin/minimix@1.0.4': {}
 
   '@jridgewell/gen-mapping@0.3.5':
     dependencies:

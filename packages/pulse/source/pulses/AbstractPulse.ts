@@ -15,12 +15,12 @@ export type PulseProperties = {
 	synchronize?: boolean;
 };
 
-export abstract class BasePulse<Value, Content = Value> {
+export abstract class AbstractPulse<Value, Content = Value> {
 	readonly id: string;
 
-	abstract value: Value;
-	abstract state: unknown;
+	value: Value;
 
+	state: unknown;
 	stateVector = new StateVector();
 	pendingUpdates: Array<Update<Content>> = [];
 
@@ -32,21 +32,20 @@ export abstract class BasePulse<Value, Content = Value> {
 	off = this.emitter.off.bind(this.emitter);
 	emit = this.emitter.emit.bind(this.emitter);
 
-	constructor({
-		id,
-		synchronize = true,
-		connectors = defaultConnectors,
-	}: PulseProperties = {}) {
+	constructor(
+		value: Value,
+		state: unknown,
+		{
+			id,
+			synchronize = true,
+			connectors = defaultConnectors,
+		}: PulseProperties = {},
+	) {
+		this.value = value;
+		this.state = state;
 		this.id = id ?? "default";
 		this.connectors = connectors;
 		if (synchronize) this.synchronize();
-	}
-
-	/**
-	 * Encode the state of the Pulse into a byte array.
-	 */
-	encode(): Uint8Array {
-		return bunker(this.state);
 	}
 
 	/**
@@ -56,8 +55,6 @@ export abstract class BasePulse<Value, Content = Value> {
 		const encodedUpdate = encodeUpdate(update);
 		this.connectors?.forEach((connector) => connector.send(encodedUpdate));
 	};
-
-	abstract assimilateUpdate(update: Update<Content>): boolean;
 
 	/**
 	 * Merge updates into the state.
