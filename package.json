@@ -1,4 +1,9 @@
 {
+	"name": "pulse",
+	"workspaces": ["packages/*"],
+	"scripts": {
+		"dev": "bun packages/pulse/source/index.html"
+	},
 	"dependencies": {
 		"@biomejs/biome": "^1.9.2"
 	}

@@ -1,5 +1,9 @@
 {
-	"files": { "ignore": ["**/node_modules/**"], "include": ["**/*.ts"] },
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"files": {
+		"ignore": ["**/node_modules/**"],
+		"include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"]
+	},
 	"linter": {
 		"rules": {
 			"style": {
@@ -9,7 +13,8 @@
 				"noForEach": "off"
 			},
 			"correctness": {
-				"noUnreachable": "warn"
+				"noUnreachable": "warn",
+				"noUnusedImports": { "fix": "safe", "level": "info" }
 			},
 			"suspicious": {
 				"noExplicitAny": "off"

@@ -1,6 +1,8 @@
 # Pulse
 
-Pulse is an hyper-optimized and simple syncing library for Typescript. It can be used in any JS environment, browser, Bun, Deno or Node, and is compatible with frontend frameworks like Svelte 5 and Solid.
+**Pulse** is an hyper-optimized and simple syncing library for Typescript. It can be used in any JS environment, browser, Bun, Deno or Node, and is compatible with frontend frameworks like Svelte 5 and Solid.
+
+Internally, it uses [json-joy](https://jsonjoy.com/) as the underlying CRDT library. **json-joy** is a very fast and low-level TypeScript implementation of the CRDT algorithm.
 
 ## Usage
 
@@ -10,53 +12,119 @@ A **connection** can be one or more browsers, a server, a local database, a dist
 
 Every pulse is assigned a unique id.
 
-### Pulse primitives
+
+### Create a Pulse
+
+Before using a pulse, you need to define its type.
+
+For example, let's create an `User` pulse with fields `name` and `email`:
 
 ```ts
-import { pulse } from "@pulsify/core"
+export type User = PulseProperties<"User"> & {
+	name: string;
+	email: string;
+}
 
-const count = createPulse<number>(0, {
-  id: createUniqueId(), // the id of the pulse
-  synchronize: true, // set to true to start synchronizing the pulse
-  authenticationToken: "my-authentication-token", // the authentication token to use to synchronize the pulse
-  connections: [ // the connections to use to synchronize the pulse
-    localDBConnection,
-    peerToPeerConnection,
-    externalDBConnection,
-  ]
-})
-
-// all the parameters can be set globally, so you can simply create a pulse this way:
-const count = createPulse(0)
-
-// you can subscribe to changes that come from any connected client
-count.subscribe((value) => {
-  console.log(value)
-})
-
-// and programmatically update the pulse value
-count.set(1)
-count.update((value) => value + 1)
+export const User = definePulse<User>().materialize()
 ```
 
+This is the simplest Pulse type:
+
+- no migrations
+- no materializer
+
+We'll see later how to add migrations and what a materializer used for.
+
+### Use a pulse
+
+Now, we can create user pulses:
+
+```ts
+import { User } from "./User.ts"
+import { createPulse } from "@pulsify/core"
+
+const me = createPulse(User, {
+	kind: "User",
+	name: "John",
+	email: "john@doe.com",
+})
+
+console.log("id:", me.id)
+console.log("name:", me.name)
+console.log("email:", me.email)
+```
+
+### Adding connectors
+
+When creating a pulse, the pulse will automatically connect with all default connectors.
+
+By default, no connectors are specified.
+
+If you want to save your object locally in IndexedDB, just register the IndexedDBConnector:
+
+```ts
+import { setDefaultPulseOptions } from "@pulsify/core"
+import { IndexedDBConnector } from "@pulsify/connector-indexeddb"
+
+setDefaultPulseOptions(
+	connectors: [
+		IndexedDBConnector,
+	],
+)
+```
+
+Now, by default, all pulses will be automatically saved to IndexedDB.
+
+When loading a pulse from its id, it will be loaded from IndexedDB as well.
+
+### Other default options
+
+```ts
+type PulseOptions = {
+	/**
+	 * The function used to auto-generate a pulse id
+	 */
+	createId: () => string;
+
+	/**
+	 * Whether to automatically connect when a pulse is created
+	 */
+	connect: boolean;
+
+	/**
+	 * The list of default connectors for new and loaded pulses
+	 */
+	connectors: Array<Connector>;
+}
+```
 
 ### Pulse objects
+
+```ts
+const pulse = createPulse(MyPulseObject, {
+	x: 12,
+	y: 132,
+	nasty: {
+		z: 213
+	},
+	values: [4, 0, 123],
+	tuple: Tuple(4, 1, 34),
+	record: Record({ name: "John", age: 32 }),
+	tree: PulseTree(),
+});
+```
 
 ### Loading a pulse
 
 When you want to load a pulse from another client (for example, your local database), you can use the `loadPulse` function:
 
 ```ts
-const count = await loadPulse(id)
+const user = await loadPulse(User, id);
 
 // optionally, you can specify the connections to use to load the pulse
-const count = await loadPulse(id, {
-  connections: [
-    localDBConnection,
-    externalDBConnection,
-    peerToPeerConnection,
-  ]
-})
+const user = await loadPulse(User, id, {
+	connectors: [localDBConnector, externalDBConnector, peerToPeerConnector],
+});
 ```
 
 The pulse is considered loaded the **first time** a client answers the request. This does not mean that the pulse has the most recent value. For example, if your pulse is connected to both a local database and a distant database:
@@ -68,15 +136,15 @@ The pulse is considered loaded the **first time** a client answers the request. 
 You can control when a pulse is considered loaded by using the `waitFor` option:
 
 ```ts
-const count = await loadPulse(id, {
-  waitFor: [
-    externalDBConnection, // wait for the pulse to be loaded from the external database
-  ], 
-})
+const count = await loadPulse(User, id, {
+	waitFor: [
+		externalDBConnection, // wait for the pulse to be synced from the external database
+	],
+});
 
 const count = await loadPulse(id, {
-  waitFor: "all", // wait for all the connections to be loaded
-})
+	waitFor: "all", // wait for all the connections to be synced
+});
 ```
 
 This is useful if you never want to show stale data to the user, but you lose some performance.
@@ -138,20 +206,18 @@ Since pulses have the `subscribe` and `set` methods, they can be used directly i
 SolidJS is an awesome alternative to React that internally uses signals to bring reactivity to the platform.
 
 ```tsx
-import { pulseSignal } from "@pulsify/solid"
+import { pulseSignal } from "@pulsify/solid";
 
 export function Counter() {
-  const [count, setCount] = pulseSignal(0)
+	const [count, setCount] = pulseSignal(0);
 
-  return (
-    <div>
-      <p>Count: {count()}</p>
+	return (
+		<div>
+			<p>Count: {count()}</p>
 
-      <button onClick={() => setCount(count() + 1)}>
-        Increment
-      </button>
-    </div>
-  )
+			<button onClick={() => setCount(count() + 1)}>Increment</button>
+		</div>
+	);
 }
 ```
 
@@ -159,21 +225,22 @@ export function Counter() {
 
 Vue is a popular frontend framework that uses reactivity to bring reactivity to the platform.
 
+To have a reactive pulse, simply wrap your pulse with the `reactive` keyword:
+
 ```vue
 <script setup lang="ts">
-  import { pulseRef } from "@pulsify/vue"
+import { createPulse } from "@pulsify/core";
 
-  const count = pulseRef(0)
+const count = reactive(createPulse({
+  id: "jk****************sd",
+  value: 0,
+}))
 </script>
 
 <template>
-  <p>
-    Count: {count.value}
-  </p>
+	<p>Count: {count.value}</p>
 
-  <button on:click={() => count.value++}>
-    Increment
-  </button>
+	<button on:click="{()" ="">count.value++}> Increment</button>
 </template>
 ```
 
@@ -182,53 +249,38 @@ Vue is a popular frontend framework that uses reactivity to bring reactivity to 
 `@preact/signals` is a library fully compatible with React that uses signals, which solves most of React's issues with reactivity.
 
 ```tsx
-import { pulseSignal } from "@pulsify/preact"
+import { pulseSignal } from "@pulsify/preact";
 
 export function Counter() {
-  const count = pulseSignal(0)
+	const count = pulseSignal(0);
 
-  return (
-    <div>
-      <p>Count: {count.value}</p>
+	return (
+		<div>
+			<p>Count: {count.value}</p>
 
-      <button onClick={() => count.value++}>
-        Increment
-      </button>
-    </div>
-  )
+			<button onClick={() => count.value++}>Increment</button>
+		</div>
+	);
 }
 ```
 
-### Pulses with React (using regular states - not recommended)
-
-React is both the most popuplar and slowest frontend framework. Think twice before using it, that's not because everyone uses it that you have to do the same, there are better alternatives.
-
-As a freelance software engineer, companies spent tens of thousands of dollars asking me to solve their React performance issues. It happened so often in my career that I found a name for this special kind of software engineering: "babysitting React". If these companies had chosen almost any other frontend framework, they would have saved a lot of time and money.
-
-If you want an awesome alternative with 100% React compatibility, go for [@preact/signals](https://preactjs.com/docs/signals).
-
-If you still want to use old and slow React, this is how to do it:
+### Pulses with React
 
 ```tsx
-import { usePulse } from "@pulsify/react"
+import { usePulse } from "@pulsify/react";
 
 export function Counter() {
-  const [count, setCount] = usePulse(0)
+	const count = usePulse({
+    id: "za******************kj",
+    value: 0,
+  });
 
-  return (
-    <div>
-      <p>Count: {count}</p>
+	return (
+		<div>
+			<p>Count: {count}</p>
 
-      <button onClick={() => setCount(count + 1)}>
-        Increment
-      </button>
-    </div>
-  )
+			<button onClick={() => count.value++}>Increment</button>
+		</div>
+	);
 }
 ```
-
-## Reusing client ID
-
-Having the ability to reuse a client ID is a super power compared to YJS. It enables **drastic** performance and memory improvements.
-
-
