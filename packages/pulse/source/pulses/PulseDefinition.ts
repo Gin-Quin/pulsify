@@ -7,10 +7,22 @@ import type {
 import type { Binding, Bindings } from "./Bindings";
 import type { PulseProperties } from "./PulseProperties";
 
+type ManagedMigrationKeys = "generation" | "id" | "kind" | "version";
+type ManagedMigrationKeyPattern = `${ManagedMigrationKeys}${string}`;
+
 export type PulseMigration = Migration<
 	PulseProperties<string>,
-	PulseProperties<string>
+	PulseProperties<string>,
+	ManagedMigrationKeys
 >;
+
+type PulseMigrationResult<
+	Before extends object,
+	After extends object,
+> = MigrationResult<Before, After, ManagedMigrationKeys> & {
+	// Keep managed fields out of completions while still rejecting manual writes.
+	[key: ManagedMigrationKeyPattern]: never;
+};
 
 export type PulseDefinition<
 	Model extends PulseProperties<string>,
@@ -19,15 +31,22 @@ export type PulseDefinition<
 > = {
 	kind: Model["kind"];
 	migrations: Migrations;
-	bindings?: PulseBindings<Data, Model>;
+	materializer?: PulseMaterializer<Data, Model>;
 };
 
-export type PulseBindings<Data extends object, Model extends object> = (input: {
-	data: Data;
-	bind: <DataKey extends keyof Data, ModelKey extends keyof Model>(
+/**
+ * Describes how the latest stored pulse data is exposed as the public model.
+ *
+ * Use `bind` for fields that should stay connected in both directions: model
+ * reads come from the data field, and model writes update that data field.
+ */
+export type PulseMaterializer<
+	Data extends object,
+	Model extends object,
+> = (input: {
+	bind: <DataKey extends keyof Data>(
 		dataKey: DataKey,
-		modelKey: ModelKey,
-	) => Binding<Data[DataKey], Model[ModelKey]>;
+	) => Binding<Data, Data[DataKey]>;
 }) => Bindings<Data, Model>;
 
 export type AnyPulseDefinition = PulseDefinition<
@@ -64,62 +83,72 @@ class PulseTypeBuilder<
 
 	migrate<To extends PulseProperties<From["kind"]>>(
 		name: string,
-		migrator: (before: From) => MigrationResult<From, To>,
-	): PulseTypeBuilder<To, readonly [...Migrations, Migration<From, To>]> {
+		migrator: (before: From) => PulseMigrationResult<From, To>,
+	): PulseTypeBuilder<
+		To,
+		readonly [...Migrations, Migration<From, To, ManagedMigrationKeys>]
+	> {
 		const migrations = [...this.migrations, { name, migrator }] as readonly [
 			...Migrations,
-			Migration<From, To>,
+			Migration<From, To, ManagedMigrationKeys>,
 		];
 
 		return new PulseTypeBuilder<
 			To,
-			readonly [...Migrations, Migration<From, To>]
+			readonly [...Migrations, Migration<From, To, ManagedMigrationKeys>]
 		>(this.kind, migrations);
 	}
 
-	bind(): PulseDefinition<From, Migrations, From>;
+	/**
+	 * Finalize this pulse definition without changing its public model.
+	 */
+	materialize(): PulseDefinition<From, Migrations, From>;
 
-	bind<Model extends PulseProperties<From["kind"]>>(
-		bindings: PulseBindings<From, Model>,
+	/**
+	 * Finalize this pulse definition by materializing the stored data as another
+	 * public model shape.
+	 */
+	materialize<Model extends PulseProperties<From["kind"]>>(
+		materializer: PulseMaterializer<From, Model>,
 	): PulseDefinition<Model, Migrations, From>;
 
-	bind<Model extends PulseProperties<From["kind"]>>(
-		bindings?: PulseBindings<From, Model>,
+	materialize<Model extends PulseProperties<From["kind"]>>(
+		materializer?: PulseMaterializer<From, Model>,
 	): PulseDefinition<Model, Migrations, From> {
 		return {
 			kind: this.kind,
 			migrations: this.migrations,
-			bindings,
+			materializer,
 		} as PulseDefinition<Model, Migrations, From>;
 	}
 }
 
 // usage example
 
-// const User = definePulse<UserV1>("User")
-// 	.migrate<UserV2>("v2", () => ({
-// 		email: "Hello",
-// 	}))
-// 	.migrate<UserV3>("v3", () => ({
-// 		emailV2: "hello@you",
-// 	}))
-// 	.bind<User>(({ data, bind }) => ({
-// 		email: bind("emailV2"),
-// 	}));
+const User = definePulse<UserV1>("User")
+	.migrate<UserV2>("v2", () => ({
+		email: "salut@toi",
+	}))
+	.migrate<UserV3>("v3", () => ({
+		emailV2: "hello@you",
+	}))
+	.materialize<User>(({ bind }) => ({
+		email: bind("emailV2"),
+	}));
 
-// type User = PulseProperties & {
-// 	name: string;
-// 	email: string;
-// };
+type User = PulseProperties<"User"> & {
+	name: string;
+	email: string;
+};
 
-// type UserV3 = UserV2 & {
-// 	emailV2: string;
-// };
+type UserV3 = UserV2 & {
+	emailV2: string;
+};
 
-// type UserV2 = UserV1 & {
-// 	email: string;
-// };
+type UserV2 = UserV1 & {
+	email: string;
+};
 
-// type UserV1 = PulseProperties & {
-// 	name: string;
-// };
+type UserV1 = PulseProperties<"User"> & {
+	name: string;
+};

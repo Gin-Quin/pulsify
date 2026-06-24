@@ -25,15 +25,49 @@ export type User = PulseProperties<"User"> & {
 	email: string;
 }
 
-export const User = definePulse<User>().materialize()
+export const User = definePulse<User>("User").materialize()
 ```
 
 This is the simplest Pulse type:
 
 - no migrations
-- no materializer
+- no custom materializer
 
-We'll see later how to add migrations and what a materializer used for.
+Calling `materialize()` finalizes the definition. Without arguments, the public
+model is the same shape as the stored data.
+
+When migrations change stored field names, pass a materializer to define the
+public model exposed by the pulse:
+
+```ts
+type UserV1 = PulseProperties<"User"> & {
+	name: string;
+	email: string;
+}
+
+type UserV2 = PulseProperties<"User"> & {
+	name: string;
+	emailV2: string;
+}
+
+type User = PulseProperties<"User"> & {
+	name: string;
+	email: string;
+}
+
+export const User = definePulse<UserV1>("User")
+	.migrate<UserV2>("v2", (before) => ({
+		emailV2: before.email,
+	}))
+	.materialize<User>(({ bind }) => ({
+		email: bind("emailV2"),
+	}))
+```
+
+The `bind` helper creates a two-way connection. Reading `user.email` reads the
+stored `emailV2` field, and assigning `user.email = value` updates `emailV2`.
+For custom derived fields, return a binding with explicit `get(data)` and
+`set(data, value)` functions.
 
 ### Use a pulse
 
@@ -44,7 +78,6 @@ import { User } from "./User.ts"
 import { createPulse } from "@pulsify/core"
 
 const me = createPulse(User, {
-	kind: "User",
 	name: "John",
 	email: "john@doe.com",
 })

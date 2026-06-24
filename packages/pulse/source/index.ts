@@ -1,16 +1,15 @@
 import {} from "json-joy/lib/json-crdt-patch";
-import { createPulse } from "./pulses/Pulse";
 import { definePulse } from "./pulses/PulseDefinition";
+import type { PulseProperties } from "./pulses/PulseProperties";
+import { createPulse } from "./pulses/createPulse";
 
 console.log("------PULSES-------");
 
-type ItemList = {
-	id: string;
-	kind: "ItemList";
+type ItemList = PulseProperties<"ItemList"> & {
 	items: Array<number>;
 };
 
-const ItemList = definePulse<ItemList>("ItemList").bind();
+const ItemList = definePulse<ItemList>("ItemList").materialize();
 const pulse = createPulse(ItemList, {
 	items: [1, 2, 3],
 });

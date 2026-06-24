@@ -1,9 +1,11 @@
 import { Model } from "json-joy/lib/json-crdt";
 import { Connection } from "pulse/connection/Connection";
 import { connectPulse } from "pulse/connection/connectPulse";
+import type { JsonValue } from "pulse/utilities/JsonValue";
 import { pulsify } from "pulse/utilities/pulsify";
 import { toNodeBuilder } from "pulse/utilities/toNodeBuilder";
-import { bind } from "./Bindings";
+import { bind as bindPulse } from "./Bindings";
+import type { Binding } from "./Bindings";
 import { type Pulse, pulses } from "./Pulse";
 import type {
 	AnyPulseDefinition,
@@ -47,10 +49,13 @@ export function createPulse<Definition extends AnyPulseDefinition>(
 		return existingPulse;
 	}
 
-	const schema = toNodeBuilder(data);
+	const schema = toNodeBuilder(data as JsonValue);
 	const model = Model.create(schema);
 
-	const pulse = pulsify(model.api.obj(), data);
+	const pulse = pulsify(
+		model.api.obj(),
+		data as DataFromDefinition<Definition> & JsonValue,
+	);
 
 	const connections: Array<Connection> = options.connectors.map(
 		(connector) => new Connection(pulse, connector),
@@ -77,9 +82,28 @@ export function createPulse<Definition extends AnyPulseDefinition>(
 		connectPulse(pulse);
 	}
 
-	if (definition.bindings) {
-		return bind(pulse, definition.bindings) as Pulse<any>;
+	if (definition.materializer) {
+		const bindings = definition.materializer({
+			bind: createDataFieldBinding,
+		});
+
+		return bindPulse(pulse, bindings) as Pulse<any>;
 	} else {
 		return pulse;
 	}
+}
+
+function createDataFieldBinding<
+	Data extends object,
+	DataKey extends keyof Data,
+>(dataKey: DataKey): Binding<Data, Data[DataKey]> {
+	// Back the materializer's `bind("field")` helper with a direct two-way field binding.
+	return {
+		get(data) {
+			return data[dataKey];
+		},
+		set(data, value) {
+			data[dataKey] = value;
+		},
+	};
 }
