@@ -2,6 +2,13 @@
  * Represents the connection status of a pulse.
  * - `idle`: No connection established yet.
  * - `connecting`: Connecting to the connector, no data yet.
- * - `synced`: Synced with the connector.
+ * - `connected`: Connected to the connector.
+ * - `synced`: fully synced with the connector.
  */
-export type ConnectionStatus = "idle" | "connecting" | "connected";
+export type ConnectionStatus =
+	| "idle"
+	| "connecting"
+	| "connected"
+	| "synced"
+	| "closing"
+	| "closed";

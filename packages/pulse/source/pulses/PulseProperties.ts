@@ -6,8 +6,9 @@ export type PulseProperties<Kind extends string> = {
 
 	/**
 	 * Current migration level applied.
+	 * Starts at version 1.
 	 */
-	version?: number;
+	version: number;
 
 	/**
 	 * Increments when a document is restored/forked and older generations must be ignored.

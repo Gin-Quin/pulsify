@@ -8,7 +8,7 @@
 	},
 	"languages": {
 		"JavaScript": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "typescript-language-server"],
 			"formatter": { "language_server": { "name": "biome" } },
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
@@ -16,7 +16,7 @@
 			}
 		},
 		"JSX": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "typescript-language-server"],
 			"formatter": { "language_server": { "name": "biome" } },
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
@@ -24,7 +24,7 @@
 			}
 		},
 		"TypeScript": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "typescript-language-server"],
 			"formatter": { "language_server": { "name": "biome" } },
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
@@ -33,7 +33,7 @@
 			"prettier": { "allowed": false }
 		},
 		"TSX": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "typescript-language-server"],
 			"formatter": { "language_server": { "name": "biome" } },
 			"code_actions_on_format": {
 				"source.fixAll.biome": true,
@@ -42,11 +42,11 @@
 			"prettier": { "allowed": false }
 		},
 		"JSON": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "json-language-server"],
 			"formatter": { "language_server": { "name": "biome" } }
 		},
 		"JSONC": {
-			"language_servers": ["biome", "!eslint", "..."],
+			"language_servers": ["biome", "json-language-server"],
 			"formatter": { "language_server": { "name": "biome" } }
 		}
 	}

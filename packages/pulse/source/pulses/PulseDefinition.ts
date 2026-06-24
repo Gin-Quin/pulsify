@@ -31,9 +31,9 @@ export type PulseBindings<Data extends object, Model extends object> = (input: {
 }) => Bindings<Data, Model>;
 
 export type AnyPulseDefinition = PulseDefinition<
-	PulseProperties<string>,
+	any,
 	readonly PulseMigration[],
-	PulseProperties<string>
+	any
 >;
 
 export type ModelFromDefinition<

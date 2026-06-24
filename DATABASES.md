@@ -97,6 +97,127 @@ If a row spans `[10, 15)` and the remote clock is `12`, the row should match.
 The application can either send the whole row and let the receiver ignore known
 operations, or decode and slice the row from offset `clock - time_start`.
 
+## JSON Joy Patch Payloads
+
+`sid` means session ID. It is an actor/session identifier, not necessarily a
+user ID. Together, `(sid, time)` identifies an operation or CRDT node.
+
+JSON Joy CRDT patches are ID-based, not path-based. A creation operation such
+as `{ "op": "new_vec" }` has no path; its object ID is derived from the patch
+clock. Other operations make that object reachable by pointing to its timestamp.
+
+The verbose JSON codec shape is:
+
+```ts
+type JsonCodecPatch = {
+  id: [sessionId: number, time: number];
+  ops: JsonCodecOperation[];
+  meta?: unknown;
+};
+```
+
+Every operation has an `op` field, but a database row may contain many
+operations, so a single `op` column is ambiguous. If useful, store distinct
+operation types as `op_types text[]`; keep the authoritative payload encoded.
+
+Prefer this payload split:
+
+```sql
+codec text not null,
+payload bytea not null,
+debug_patch jsonb
+```
+
+Use `payload bytea` as the source of truth. Use `debug_patch jsonb` only when
+SQL inspection or easier debugging is worth the extra storage and parse cost.
+
+## Patch Segments
+
+For throughput, store larger contiguous segments instead of one row per
+operation:
+
+```text
+(doc_id, sid, time_start, span) -> encoded patch segment
+```
+
+Flush a segment when it reaches an operation count, byte size, age threshold, or
+document/session boundary. Keep segments contiguous and not too large; very
+large segments reduce row count but waste bandwidth when peers only need a
+suffix.
+
+Practical defaults:
+
+- Target encoded segment size: `16 KB` to `256 KB`.
+- Hard max segment size: around `1 MB`.
+- Store `op_count` and optional distinct `op_types`.
+
+## Idempotent Inserts and Overlaps
+
+Use the primary key for exact duplicate prevention:
+
+```sql
+insert into crdt_op_rows (doc_id, sid, time_start, span, ops)
+values ($1, $2, $3, $4, $5)
+on conflict (doc_id, sid, time_start) do nothing;
+```
+
+To prevent overlapping stored ranges, add an exclusion constraint:
+
+```sql
+create extension if not exists btree_gist;
+
+alter table crdt_op_rows
+add constraint crdt_op_rows_no_overlap
+exclude using gist (
+  doc_id with =,
+  sid with =,
+  int8range(time_start, time_end, '[)') with &&
+);
+```
+
+If an incoming segment partially overlaps existing data, insert only the missing
+ranges. For example, existing `[10, 20)` and incoming `[15, 25)` should produce
+`[20, 25)`. PostgreSQL can compute the missing clock range, but the application
+must decode and slice the encoded patch payload.
+
+```sql
+with incoming as (
+  select
+    $1::uuid as doc_id,
+    $2::bigint as sid,
+    int8range($3::bigint, $4::bigint, '[)') as r
+),
+covered as (
+  select coalesce(range_agg(int8range(time_start, time_end, '[)')),
+                  '{}'::int8multirange) as ranges
+  from crdt_op_rows, incoming
+  where crdt_op_rows.doc_id = incoming.doc_id
+    and crdt_op_rows.sid = incoming.sid
+    and int8range(time_start, time_end, '[)') && incoming.r
+)
+select
+  lower(missing) as time_start,
+  upper(missing) as time_end
+from incoming, covered,
+     unnest(int8multirange(incoming.r) - covered.ranges) as missing;
+```
+
+## Safe Compaction
+
+Compaction must be conditional. Do not compact rows outside the database and
+then overwrite blindly.
+
+Recommended flow:
+
+- Select a closed historical range, not the open write tail.
+- Read the exact source rows and compute a fingerprint.
+- Compact outside the transaction if needed.
+- In a transaction, replace the rows only if the fingerprint still matches.
+- If it does not match, discard the compacted result and retry later.
+
+This prevents the race where one API compacts an old view while another API has
+already inserted newer data.
+
 ## High-Throughput PostgreSQL Notes
 
 For high throughput, treat PostgreSQL as an append log:
