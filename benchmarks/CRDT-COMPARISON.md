@@ -1,6 +1,6 @@
 # Pulsify, json-joy, Yjs et Loro : comparaison locale
 
-Ce fichier est généré par `bun run bench:crdt`. Les données brutes sont dans le JSON indiqué par `--output` (par défaut `benchmarks/results/crdt-comparison.json`). La référence complète conservée est [baselines/core-native-20261104.json](baselines/core-native-20261104.json).
+Ce fichier est généré par `bun run bench:crdt`. Les données brutes sont dans le JSON indiqué par `--output` (par défaut `benchmarks/results/crdt-comparison.json`). La référence complète conservée est [baselines/core-grouped-20261104.json](baselines/core-grouped-20261104.json).
 
 
 
@@ -11,8 +11,8 @@ Ce fichier est généré par `bun run bench:crdt`. Les données brutes sont dans
 - 5 échantillons d'échauffement puis 25 mesurés ; 95 résultats. Mode court : false. Filtre : `aucun`.
 - Ordre des participants mélangé à chaque bloc avec une graine fixe (5370206). GC forcé avant et après la préparation de chaque échantillon, hors chronométrage : les allocations temporaires de l'historique de préparation ne sont pas imputées à la mutation mesurée. Chaque échantillon utilise un état neuf.
 - Les durées sont des **médianes de moyennes par échantillon**, en µs/op. Le p95 final porte lui aussi sur ces moyennes et ne représente pas la latence p95 de chaque événement individuel.
-- Mesure UTC : 2026-11-04T04:25:06.313Z. Commit de base : `713b7db54c01dfb176deb8efb65cb0e3251b40ad`. Copie de travail modifiée : false.
-- Moteur Pulsify : native-core-v2. Schéma fourni explicitement : codec object: title string, nested count float64, items editable array of { value float64, label string }. Sa compilation et la définition sont préparées hors chronométrage ; les données et conteneurs éditables restent ceux de la suite initiale.
+- Mesure UTC : 2026-11-04T14:58:59.812Z. Commit de base : `876fb3d7453faf70315eef72d2b98ca8e49e4e04`. Copie de travail modifiée : false.
+- Moteur Pulsify : native-core-v2-grouped. Schéma fourni explicitement : codec object: title string, nested count float64, items editable array of { value float64, label string }. Sa compilation et la définition sont préparées hors chronométrage ; les données et conteneurs éditables restent ceux de la suite initiale.
 - Les schémas applicatifs compilent leurs codecs, copies et contrôles de valeurs. Pulsify exécute les contrôles des champs affectés avant leur commit ou application. Le décodage de l'enveloppe utilise codec directement, sans second parcours récursif de son schéma. Les limites de trame, références causales et règles de cohérence sont conservées.
 
 ## Temps comparés
@@ -21,24 +21,24 @@ Les mêmes champs et valeurs sont utilisés : métadonnées de document, chaîne
 
 | Scénario | Pulsify | json-joy natif | Yjs V2 | Loro WASM | Yjs V1 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `create/10` | 7.71 | 10.16 | 12.33 | 49.73 | — |
-| `create+encode/10` | 11.35 | 11.71 | 18.44 | 94.43 | 14.76 |
-| `create/1000` | 250.65 | 425.52 | 302.13 | 2946.67 | — |
-| `create+encode/1000` | 293.58 | 669.88 | 461.06 | 4552.81 | 512.00 |
-| `export-first/1000` | 57.42 | 266.67 | 182.96 | 1630.50 | 235.21 |
-| `export-repeat/1000` | 14.33 | 248.33 | 155.83 | 70.75 | 211.96 |
+| `create/10` | 9.44 | 11.09 | 13.59 | 52.96 | — |
+| `create+encode/10` | 11.99 | 12.35 | 18.83 | 99.24 | 16.04 |
+| `create/1000` | 273.90 | 475.46 | 335.52 | 3133.13 | — |
+| `create+encode/1000` | 326.15 | 727.04 | 501.25 | 4807.71 | 558.75 |
+| `export-first/1000` | 62.17 | 289.25 | 201.12 | 1729.58 | 248.58 |
+| `export-repeat/1000` | 23.62 | 288.58 | 205.08 | 95.79 | 256.42 |
 | `read-count/10` | 0.02 | 0.01 | 0.01 | 0.13 | — |
-| `mutate/history-0` | 0.27 | 0.34 | 1.22 | 1.25 | — |
-| `mutate/history-1000` | 0.25 | 0.29 | 0.91 | 1.20 | — |
-| `mutate/history-5000` | 0.23 | 0.26 | 0.85 | 1.13 | — |
-| `list-append/10` | 1.03 | 0.94 | 1.48 | 4.15 | — |
-| `edit+encode/10` | 1.29 | 2.59 | 4.64 | 7.95 | 2.19 |
-| `delta-roundtrip/10` | 3.19 | 4.26 | 7.45 | 15.03 | 3.89 |
-| `delta-roundtrip/1000` | 10.28 | 146.05 | 25.04 | 44.33 | 20.23 |
-| `initial-load+materialize/10` | 13.80 | 14.05 | 14.91 | 46.37 | 16.06 |
-| `initial-load+materialize/1000` | 364.29 | 648.17 | 546.35 | 1617.35 | 644.42 |
-| `offline-merge/100-per-peer` | 423.33 | 85.71 | 82.62 | 237.67 | 66.58 |
-| `upstream-map-conflict/16-peers` | 64.37 | 62.67 | 90.46 | 396.12 | 78.87 |
+| `mutate/history-0` | 0.20 | 0.39 | 1.19 | 1.32 | — |
+| `mutate/history-1000` | 0.16 | 0.28 | 0.92 | 1.29 | — |
+| `mutate/history-5000` | 0.14 | 0.28 | 0.94 | 1.27 | — |
+| `list-append/10` | 1.15 | 1.09 | 1.62 | 4.45 | — |
+| `edit+encode/10` | 1.48 | 2.71 | 4.91 | 8.52 | 2.28 |
+| `delta-roundtrip/10` | 3.34 | 4.55 | 8.23 | 16.80 | 4.24 |
+| `delta-roundtrip/1000` | 12.29 | 159.89 | 30.73 | 50.75 | 25.43 |
+| `initial-load+materialize/10` | 15.87 | 16.05 | 17.24 | 50.33 | 17.98 |
+| `initial-load+materialize/1000` | 395.67 | 700.27 | 578.56 | 1701.50 | 669.67 |
+| `offline-merge/100-per-peer` | 178.12 | 93.92 | 91.46 | 264.21 | 75.04 |
+| `upstream-map-conflict/16-peers` | 61.92 | 71.50 | 102.04 | 396.12 | 89.92 |
 
 ## Taille des représentations transférées
 
@@ -55,7 +55,7 @@ Octets moyens par opération mesurée. Pour `offline-merge`, la valeur est la so
 | `delta-roundtrip/1000` | 104.00 | 70.60 | 34.20 | 88.00 | 25.20 |
 | `initial-load+materialize/10` | 284.00 | 439.00 | 449.00 | 1030.00 | 593.00 |
 | `initial-load+materialize/1000` | 17027.00 | 36766.00 | 30012.00 | 49733.00 | 47879.00 |
-| `offline-merge/100-per-peer` | 17334.00 | 139.00 | 97.00 | 1624.00 | 75.00 |
+| `offline-merge/100-per-peer` | 2246.00 | 139.00 | 97.00 | 1624.00 | 75.00 |
 | `upstream-map-conflict/16-peers` | 1728.00 | 1024.00 | 512.00 | 1536.00 | 336.00 |
 
 Les représentations ne retiennent pas toutes le même historique : Pulsify transmet son journal de segments dans des messages validés avec identifiant et vecteurs ; json-joy natif utilise ses snapshots structurels et deltas ; Yjs utilise son état avec le GC activé par défaut ; Loro utilise un snapshot avec historique, puis des updates. Aucun snapshot superficiel Loro ni stockage supplémentaire pour restaurer les anciennes versions Yjs n'est ajouté.
@@ -67,17 +67,17 @@ Le pipeline « sans proxy » utilise la même instance Pulsify et le même chemi
 | Scénario | json-joy natif | Pipeline Pulsify sans proxy | Pulsify avec proxy | Écart proxy − pipeline |
 | --- | ---: | ---: | ---: | ---: |
 | `proxy-overhead/read-count` | 0.01 | 0.01 | 0.02 | 0.01 |
-| `proxy-overhead/mutate-history-0` | 0.29 | 0.23 | 0.23 | 0.01 |
-| `proxy-overhead/mutate-history-1000` | 0.28 | 0.22 | 0.24 | 0.02 |
-| `proxy-overhead/mutate-history-5000` | 0.25 | 0.23 | 0.25 | 0.01 |
+| `proxy-overhead/mutate-history-0` | 0.32 | 0.18 | 0.20 | 0.02 |
+| `proxy-overhead/mutate-history-1000` | 0.30 | 0.15 | 0.15 | 0.00 |
+| `proxy-overhead/mutate-history-5000` | 0.28 | 0.15 | 0.15 | 0.00 |
 
 Les écarts sont des différences de médianes observées, pas un profil instruction par instruction. Un petit écart ou un écart négatif peut être du bruit ou une différence d'optimisation JIT. La création et l'encodage du journal ne doivent donc pas être attribués intégralement aux proxies.
 
 L'écart public − direct inclut aussi les contrôles et conversions du setter public. Il ne mesure pas seulement les instructions des traps JavaScript.
 
-Sur la mutation scalaire sans historique préparé, l’API publique Pulsify prend 0.80 fois le temps de json-joy natif. L'écart proxy − pipeline est de 0.01 µs, soit 2.76 % du pipeline sans proxy. Le moteur Pulsify sans proxy prend 0.78 fois le temps natif : ce scénario distingue le coût du chemin public et celui de la mutation interne. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.
+Sur la mutation scalaire sans historique préparé, l’API publique Pulsify prend 0.63 fois le temps de json-joy natif. L'écart proxy − pipeline est de 0.02 µs, soit 8.80 % du pipeline sans proxy. Le moteur Pulsify sans proxy prend 0.58 fois le temps natif : ce scénario distingue le coût du chemin public et celui de la mutation interne. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.
 
-Pulsify utilise son propre moteur : registres LWW pour les champs et RGA pour les listes. Aucun moteur json-joy ou Yjs ne se trouve dans son chemin d’exécution. L’import prévalide les références et modifications puis applique chaque patch, sans cloner le document entier. Les métadonnées de racine sont vérifiées lors de leur création ou modification. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Sans matérialiseur personnalisé, le snapshot utilise une copie spécialisée du schéma lorsque la forme de la vue le permet et conserve une copie générale sinon. Un matérialiseur conserve son parcours public. La taille élevée après 100 éditions hors ligne reflète la conservation de chaque segment, tandis que les formats structurels peuvent condenser les valeurs écrasées.
+Pulsify utilise son propre moteur : registres LWW pour les champs et RGA pour les listes. Aucun moteur json-joy ou Yjs ne se trouve dans son chemin d’exécution. L’import prévalide les références et modifications puis applique chaque patch, sans cloner le document entier. Les métadonnées de racine sont vérifiées lors de leur création ou modification. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Sans matérialiseur personnalisé, le snapshot utilise une copie spécialisée du schéma lorsque la forme de la vue le permet et conserve une copie générale sinon. Un matérialiseur conserve son parcours public. Le journal conserve chaque transaction, tandis que les formats structurels peuvent condenser les valeurs écrasées. Le transport groupé, lorsqu’il est négocié, partage les en-têtes scalaires sans supprimer les opérations.
 
 ## Ce que mesure chaque scénario
 
@@ -133,98 +133,98 @@ Les scripts ont été récupérés pour consultation dans `/tmp/pulsify-benchmar
 
 | Scénario | Variante | Itérations/échantillon | Médiane µs/op | p95 des moyennes µs/op | Min µs/op | Max µs/op | Octets/op |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `create/10` | pulsify | 20 | 7.71 | 17.65 | 6.21 | 18.36 | — |
-| `create/10` | json-joy | 20 | 10.16 | 18.12 | 8.20 | 22.24 | — |
-| `create/10` | yjs-v2 | 20 | 12.33 | 17.04 | 9.98 | 21.12 | — |
-| `create/10` | loro | 20 | 49.73 | 71.25 | 43.41 | 113.21 | — |
-| `create+encode/10` | pulsify | 20 | 11.35 | 16.91 | 9.43 | 17.54 | 284.00 |
-| `create+encode/10` | json-joy | 20 | 11.71 | 17.11 | 9.21 | 20.80 | 439.00 |
-| `create+encode/10` | yjs-v2 | 20 | 18.44 | 21.90 | 14.48 | 23.36 | 449.00 |
-| `create+encode/10` | loro | 20 | 94.43 | 136.18 | 82.31 | 138.21 | 1030.00 |
-| `create+encode/10` | yjs-v1 | 20 | 14.76 | 19.12 | 11.23 | 19.45 | 593.00 |
-| `create/1000` | pulsify | 2 | 250.65 | 338.10 | 226.71 | 342.42 | — |
-| `create/1000` | json-joy | 2 | 425.52 | 467.08 | 401.15 | 472.38 | — |
-| `create/1000` | yjs-v2 | 2 | 302.13 | 350.56 | 285.65 | 362.10 | — |
-| `create/1000` | loro | 2 | 2946.67 | 3053.27 | 2836.19 | 3104.33 | — |
-| `create+encode/1000` | pulsify | 2 | 293.58 | 328.19 | 268.10 | 367.90 | 17027.00 |
-| `create+encode/1000` | json-joy | 2 | 669.88 | 724.50 | 647.87 | 727.69 | 36766.00 |
-| `create+encode/1000` | yjs-v2 | 2 | 461.06 | 508.81 | 439.19 | 550.35 | 30012.00 |
-| `create+encode/1000` | loro | 2 | 4552.81 | 4698.81 | 4460.17 | 4718.19 | 49733.00 |
-| `create+encode/1000` | yjs-v1 | 2 | 512.00 | 536.85 | 494.79 | 645.90 | 47879.00 |
-| `export-first/1000` | pulsify | 1 | 57.42 | 75.83 | 51.12 | 77.42 | 17027.00 |
-| `export-first/1000` | json-joy | 1 | 266.67 | 311.58 | 249.04 | 338.79 | 36766.00 |
-| `export-first/1000` | yjs-v2 | 1 | 182.96 | 228.33 | 160.33 | 336.92 | 30012.00 |
-| `export-first/1000` | loro | 1 | 1630.50 | 1732.79 | 1581.04 | 1764.54 | 49733.00 |
-| `export-first/1000` | yjs-v1 | 1 | 235.21 | 260.75 | 219.21 | 278.50 | 47879.00 |
-| `export-repeat/1000` | pulsify | 1 | 14.33 | 20.54 | 10.92 | 27.42 | 17027.00 |
-| `export-repeat/1000` | json-joy | 1 | 248.33 | 271.00 | 229.79 | 282.58 | 36766.00 |
-| `export-repeat/1000` | yjs-v2 | 1 | 155.83 | 174.00 | 143.79 | 178.37 | 30012.00 |
-| `export-repeat/1000` | loro | 1 | 70.75 | 91.46 | 65.29 | 102.13 | 49733.00 |
-| `export-repeat/1000` | yjs-v1 | 1 | 211.96 | 247.12 | 200.38 | 252.04 | 47879.00 |
-| `read-count/10` | pulsify | 10000 | 0.02 | 0.03 | 0.02 | 0.05 | — |
-| `read-count/10` | json-joy | 10000 | 0.01 | 0.01 | 0.00 | 0.01 | — |
-| `read-count/10` | yjs-v2 | 10000 | 0.01 | 0.01 | 0.01 | 0.01 | — |
-| `read-count/10` | loro | 10000 | 0.13 | 0.13 | 0.12 | 0.13 | — |
-| `mutate/history-0` | pulsify | 200 | 0.27 | 0.31 | 0.20 | 0.31 | — |
-| `mutate/history-0` | json-joy | 200 | 0.34 | 0.43 | 0.32 | 0.49 | — |
-| `mutate/history-0` | yjs-v2 | 200 | 1.22 | 1.41 | 0.95 | 1.50 | — |
-| `mutate/history-0` | loro | 200 | 1.25 | 1.47 | 1.15 | 1.64 | — |
-| `mutate/history-1000` | pulsify | 200 | 0.25 | 0.31 | 0.21 | 0.32 | — |
-| `mutate/history-1000` | json-joy | 200 | 0.29 | 0.35 | 0.24 | 0.36 | — |
-| `mutate/history-1000` | yjs-v2 | 200 | 0.91 | 1.00 | 0.81 | 1.00 | — |
-| `mutate/history-1000` | loro | 200 | 1.20 | 1.27 | 1.11 | 1.30 | — |
-| `mutate/history-5000` | pulsify | 200 | 0.23 | 0.28 | 0.19 | 0.29 | — |
-| `mutate/history-5000` | json-joy | 200 | 0.26 | 0.31 | 0.23 | 0.35 | — |
-| `mutate/history-5000` | yjs-v2 | 200 | 0.85 | 0.96 | 0.79 | 1.00 | — |
-| `mutate/history-5000` | loro | 200 | 1.13 | 1.25 | 1.08 | 1.33 | — |
-| `list-append/10` | pulsify | 100 | 1.03 | 1.88 | 0.85 | 1.88 | — |
-| `list-append/10` | json-joy | 100 | 0.94 | 1.42 | 0.87 | 1.60 | — |
-| `list-append/10` | yjs-v2 | 100 | 1.48 | 1.71 | 1.29 | 1.80 | — |
-| `list-append/10` | loro | 100 | 4.15 | 4.45 | 3.91 | 4.55 | — |
-| `edit+encode/10` | pulsify | 100 | 1.29 | 1.78 | 1.09 | 2.02 | 104.00 |
-| `edit+encode/10` | json-joy | 100 | 2.59 | 3.60 | 2.26 | 3.99 | 58.79 |
-| `edit+encode/10` | yjs-v2 | 100 | 4.64 | 5.28 | 4.38 | 5.37 | 33.44 |
-| `edit+encode/10` | loro | 100 | 7.95 | 11.93 | 6.86 | 12.93 | 86.57 |
-| `edit+encode/10` | yjs-v1 | 100 | 2.19 | 2.51 | 2.01 | 2.72 | 23.54 |
-| `delta-roundtrip/10` | pulsify | 50 | 3.19 | 3.86 | 2.74 | 3.88 | 104.00 |
-| `delta-roundtrip/10` | json-joy | 50 | 4.26 | 4.93 | 3.72 | 5.49 | 63.88 |
-| `delta-roundtrip/10` | yjs-v2 | 50 | 7.45 | 8.44 | 6.88 | 8.54 | 32.94 |
-| `delta-roundtrip/10` | loro | 50 | 15.03 | 16.97 | 13.91 | 22.00 | 86.00 |
-| `delta-roundtrip/10` | yjs-v1 | 50 | 3.89 | 4.76 | 3.22 | 4.84 | 22.96 |
-| `delta-roundtrip/1000` | pulsify | 5 | 10.28 | 12.02 | 9.12 | 12.71 | 104.00 |
-| `delta-roundtrip/1000` | json-joy | 5 | 146.05 | 168.24 | 134.69 | 168.96 | 70.60 |
-| `delta-roundtrip/1000` | yjs-v2 | 5 | 25.04 | 31.59 | 22.68 | 57.44 | 34.20 |
-| `delta-roundtrip/1000` | loro | 5 | 44.33 | 54.81 | 38.77 | 63.42 | 88.00 |
-| `delta-roundtrip/1000` | yjs-v1 | 5 | 20.23 | 22.83 | 17.72 | 22.98 | 25.20 |
-| `initial-load+materialize/10` | pulsify | 10 | 13.80 | 16.77 | 11.20 | 18.44 | 284.00 |
-| `initial-load+materialize/10` | json-joy | 10 | 14.05 | 16.96 | 11.24 | 17.15 | 439.00 |
-| `initial-load+materialize/10` | yjs-v2 | 10 | 14.91 | 17.62 | 14.03 | 17.94 | 449.00 |
-| `initial-load+materialize/10` | loro | 10 | 46.37 | 50.74 | 43.75 | 54.16 | 1030.00 |
-| `initial-load+materialize/10` | yjs-v1 | 10 | 16.06 | 18.77 | 14.40 | 19.28 | 593.00 |
-| `initial-load+materialize/1000` | pulsify | 2 | 364.29 | 406.73 | 341.19 | 411.44 | 17027.00 |
-| `initial-load+materialize/1000` | json-joy | 2 | 648.17 | 687.48 | 617.65 | 700.77 | 36766.00 |
-| `initial-load+materialize/1000` | yjs-v2 | 2 | 546.35 | 576.25 | 526.54 | 576.31 | 30012.00 |
-| `initial-load+materialize/1000` | loro | 2 | 1617.35 | 1732.71 | 1592.00 | 1857.10 | 49733.00 |
-| `initial-load+materialize/1000` | yjs-v1 | 2 | 644.42 | 678.23 | 619.96 | 697.44 | 47879.00 |
-| `offline-merge/100-per-peer` | pulsify | 1 | 423.33 | 452.04 | 362.96 | 487.38 | 17334.00 |
-| `offline-merge/100-per-peer` | json-joy | 1 | 85.71 | 106.92 | 61.13 | 111.38 | 139.00 |
-| `offline-merge/100-per-peer` | yjs-v2 | 1 | 82.62 | 106.46 | 60.17 | 113.00 | 97.00 |
-| `offline-merge/100-per-peer` | loro | 1 | 237.67 | 299.96 | 192.12 | 335.46 | 1624.00 |
-| `offline-merge/100-per-peer` | yjs-v1 | 1 | 66.58 | 91.88 | 48.96 | 93.62 | 75.00 |
-| `upstream-map-conflict/16-peers` | pulsify | 1 | 64.37 | 83.54 | 49.58 | 86.21 | 1728.00 |
-| `upstream-map-conflict/16-peers` | json-joy | 1 | 62.67 | 79.92 | 49.83 | 82.83 | 1024.00 |
-| `upstream-map-conflict/16-peers` | yjs-v2 | 1 | 90.46 | 116.13 | 76.88 | 159.75 | 512.00 |
-| `upstream-map-conflict/16-peers` | loro | 1 | 396.12 | 464.00 | 355.37 | 473.08 | 1536.00 |
-| `upstream-map-conflict/16-peers` | yjs-v1 | 1 | 78.87 | 96.00 | 62.25 | 98.79 | 336.00 |
+| `create/10` | pulsify | 20 | 9.44 | 16.82 | 7.63 | 16.96 | — |
+| `create/10` | json-joy | 20 | 11.09 | 17.41 | 9.02 | 19.16 | — |
+| `create/10` | yjs-v2 | 20 | 13.59 | 19.31 | 11.32 | 22.70 | — |
+| `create/10` | loro | 20 | 52.96 | 121.53 | 47.93 | 122.56 | — |
+| `create+encode/10` | pulsify | 20 | 11.99 | 17.82 | 9.98 | 18.25 | 284.00 |
+| `create+encode/10` | json-joy | 20 | 12.35 | 17.25 | 10.57 | 22.40 | 439.00 |
+| `create+encode/10` | yjs-v2 | 20 | 18.83 | 25.69 | 15.37 | 26.46 | 449.00 |
+| `create+encode/10` | loro | 20 | 99.24 | 141.79 | 84.66 | 161.45 | 1030.00 |
+| `create+encode/10` | yjs-v1 | 20 | 16.04 | 19.19 | 13.60 | 20.59 | 593.00 |
+| `create/1000` | pulsify | 2 | 273.90 | 302.40 | 262.10 | 332.81 | — |
+| `create/1000` | json-joy | 2 | 475.46 | 680.71 | 451.90 | 772.50 | — |
+| `create/1000` | yjs-v2 | 2 | 335.52 | 365.69 | 318.67 | 369.81 | — |
+| `create/1000` | loro | 2 | 3133.13 | 3336.19 | 3058.98 | 4032.71 | — |
+| `create+encode/1000` | pulsify | 2 | 326.15 | 414.21 | 297.31 | 438.31 | 17027.00 |
+| `create+encode/1000` | json-joy | 2 | 727.04 | 1065.21 | 698.10 | 2688.67 | 36766.00 |
+| `create+encode/1000` | yjs-v2 | 2 | 501.25 | 547.23 | 465.37 | 596.77 | 30012.00 |
+| `create+encode/1000` | loro | 2 | 4807.71 | 4970.12 | 4687.79 | 17087.88 | 49733.00 |
+| `create+encode/1000` | yjs-v1 | 2 | 558.75 | 621.40 | 534.71 | 623.31 | 47879.00 |
+| `export-first/1000` | pulsify | 1 | 62.17 | 80.58 | 53.54 | 85.96 | 17027.00 |
+| `export-first/1000` | json-joy | 1 | 289.25 | 327.00 | 272.50 | 370.67 | 36766.00 |
+| `export-first/1000` | yjs-v2 | 1 | 201.12 | 247.92 | 189.50 | 310.96 | 30012.00 |
+| `export-first/1000` | loro | 1 | 1729.58 | 1775.79 | 1683.92 | 1870.79 | 49733.00 |
+| `export-first/1000` | yjs-v1 | 1 | 248.58 | 276.25 | 234.71 | 283.67 | 47879.00 |
+| `export-repeat/1000` | pulsify | 1 | 23.62 | 38.08 | 16.00 | 40.25 | 17027.00 |
+| `export-repeat/1000` | json-joy | 1 | 288.58 | 326.08 | 270.00 | 360.75 | 36766.00 |
+| `export-repeat/1000` | yjs-v2 | 1 | 205.08 | 252.00 | 179.67 | 594.96 | 30012.00 |
+| `export-repeat/1000` | loro | 1 | 95.79 | 123.29 | 72.54 | 123.67 | 49733.00 |
+| `export-repeat/1000` | yjs-v1 | 1 | 256.42 | 371.33 | 235.08 | 607.33 | 47879.00 |
+| `read-count/10` | pulsify | 10000 | 0.02 | 0.03 | 0.02 | 0.07 | — |
+| `read-count/10` | json-joy | 10000 | 0.01 | 0.01 | 0.01 | 0.01 | — |
+| `read-count/10` | yjs-v2 | 10000 | 0.01 | 0.02 | 0.01 | 0.02 | — |
+| `read-count/10` | loro | 10000 | 0.13 | 0.14 | 0.13 | 0.20 | — |
+| `mutate/history-0` | pulsify | 200 | 0.20 | 0.23 | 0.19 | 0.23 | — |
+| `mutate/history-0` | json-joy | 200 | 0.39 | 0.45 | 0.36 | 0.46 | — |
+| `mutate/history-0` | yjs-v2 | 200 | 1.19 | 1.48 | 1.04 | 2.83 | — |
+| `mutate/history-0` | loro | 200 | 1.32 | 1.95 | 1.26 | 2.94 | — |
+| `mutate/history-1000` | pulsify | 200 | 0.16 | 0.21 | 0.12 | 0.21 | — |
+| `mutate/history-1000` | json-joy | 200 | 0.28 | 0.37 | 0.25 | 0.40 | — |
+| `mutate/history-1000` | yjs-v2 | 200 | 0.92 | 1.08 | 0.85 | 1.11 | — |
+| `mutate/history-1000` | loro | 200 | 1.29 | 1.32 | 1.22 | 1.32 | — |
+| `mutate/history-5000` | pulsify | 200 | 0.14 | 0.16 | 0.12 | 0.17 | — |
+| `mutate/history-5000` | json-joy | 200 | 0.28 | 0.33 | 0.25 | 0.36 | — |
+| `mutate/history-5000` | yjs-v2 | 200 | 0.94 | 1.02 | 0.87 | 1.02 | — |
+| `mutate/history-5000` | loro | 200 | 1.27 | 1.32 | 1.22 | 1.38 | — |
+| `list-append/10` | pulsify | 100 | 1.15 | 1.72 | 0.97 | 1.99 | — |
+| `list-append/10` | json-joy | 100 | 1.09 | 1.46 | 0.96 | 1.50 | — |
+| `list-append/10` | yjs-v2 | 100 | 1.62 | 1.78 | 1.42 | 1.89 | — |
+| `list-append/10` | loro | 100 | 4.45 | 4.70 | 4.29 | 7.85 | — |
+| `edit+encode/10` | pulsify | 100 | 1.48 | 2.11 | 1.21 | 2.31 | 104.00 |
+| `edit+encode/10` | json-joy | 100 | 2.71 | 3.50 | 2.35 | 3.67 | 58.79 |
+| `edit+encode/10` | yjs-v2 | 100 | 4.91 | 5.65 | 4.57 | 5.80 | 33.44 |
+| `edit+encode/10` | loro | 100 | 8.52 | 14.29 | 7.73 | 27.39 | 86.57 |
+| `edit+encode/10` | yjs-v1 | 100 | 2.28 | 2.92 | 2.16 | 2.96 | 23.54 |
+| `delta-roundtrip/10` | pulsify | 50 | 3.34 | 4.03 | 2.95 | 4.24 | 104.00 |
+| `delta-roundtrip/10` | json-joy | 50 | 4.55 | 5.54 | 4.19 | 5.57 | 63.88 |
+| `delta-roundtrip/10` | yjs-v2 | 50 | 8.23 | 9.76 | 7.63 | 9.83 | 32.94 |
+| `delta-roundtrip/10` | loro | 50 | 16.80 | 18.34 | 15.06 | 19.91 | 86.00 |
+| `delta-roundtrip/10` | yjs-v1 | 50 | 4.24 | 5.27 | 3.69 | 5.68 | 22.96 |
+| `delta-roundtrip/1000` | pulsify | 5 | 12.29 | 14.92 | 10.00 | 16.88 | 104.00 |
+| `delta-roundtrip/1000` | json-joy | 5 | 159.89 | 175.73 | 151.32 | 176.01 | 70.60 |
+| `delta-roundtrip/1000` | yjs-v2 | 5 | 30.73 | 43.23 | 24.04 | 49.14 | 34.20 |
+| `delta-roundtrip/1000` | loro | 5 | 50.75 | 62.36 | 46.16 | 65.47 | 88.00 |
+| `delta-roundtrip/1000` | yjs-v1 | 5 | 25.43 | 32.42 | 20.62 | 35.67 | 25.20 |
+| `initial-load+materialize/10` | pulsify | 10 | 15.87 | 19.02 | 13.81 | 21.01 | 284.00 |
+| `initial-load+materialize/10` | json-joy | 10 | 16.05 | 18.59 | 12.83 | 18.76 | 439.00 |
+| `initial-load+materialize/10` | yjs-v2 | 10 | 17.24 | 19.74 | 15.38 | 19.81 | 449.00 |
+| `initial-load+materialize/10` | loro | 10 | 50.33 | 54.60 | 47.42 | 57.75 | 1030.00 |
+| `initial-load+materialize/10` | yjs-v1 | 10 | 17.98 | 20.60 | 16.25 | 20.71 | 593.00 |
+| `initial-load+materialize/1000` | pulsify | 2 | 395.67 | 437.52 | 369.58 | 448.10 | 17027.00 |
+| `initial-load+materialize/1000` | json-joy | 2 | 700.27 | 785.10 | 665.77 | 786.60 | 36766.00 |
+| `initial-load+materialize/1000` | yjs-v2 | 2 | 578.56 | 642.44 | 549.04 | 656.08 | 30012.00 |
+| `initial-load+materialize/1000` | loro | 2 | 1701.50 | 1922.88 | 1652.46 | 1923.73 | 49733.00 |
+| `initial-load+materialize/1000` | yjs-v1 | 2 | 669.67 | 719.46 | 638.10 | 726.52 | 47879.00 |
+| `offline-merge/100-per-peer` | pulsify | 1 | 178.12 | 222.13 | 139.96 | 234.42 | 2246.00 |
+| `offline-merge/100-per-peer` | json-joy | 1 | 93.92 | 113.21 | 82.33 | 158.75 | 139.00 |
+| `offline-merge/100-per-peer` | yjs-v2 | 1 | 91.46 | 109.83 | 77.62 | 120.42 | 97.00 |
+| `offline-merge/100-per-peer` | loro | 1 | 264.21 | 315.71 | 230.96 | 384.25 | 1624.00 |
+| `offline-merge/100-per-peer` | yjs-v1 | 1 | 75.04 | 96.54 | 58.92 | 100.21 | 75.00 |
+| `upstream-map-conflict/16-peers` | pulsify | 1 | 61.92 | 119.67 | 44.58 | 362.29 | 1728.00 |
+| `upstream-map-conflict/16-peers` | json-joy | 1 | 71.50 | 98.67 | 60.46 | 103.25 | 1024.00 |
+| `upstream-map-conflict/16-peers` | yjs-v2 | 1 | 102.04 | 163.58 | 80.54 | 169.50 | 512.00 |
+| `upstream-map-conflict/16-peers` | loro | 1 | 396.12 | 503.00 | 363.62 | 521.08 | 1536.00 |
+| `upstream-map-conflict/16-peers` | yjs-v1 | 1 | 89.92 | 118.67 | 62.25 | 118.83 | 336.00 |
 | `proxy-overhead/read-count` | native-json-joy | 10000 | 0.01 | 0.01 | 0.01 | 0.01 | — |
 | `proxy-overhead/read-count` | pulsify-direct | 10000 | 0.01 | 0.01 | 0.01 | 0.01 | — |
 | `proxy-overhead/read-count` | pulsify-proxy | 10000 | 0.02 | 0.03 | 0.02 | 0.03 | — |
-| `proxy-overhead/mutate-history-0` | native-json-joy | 200 | 0.29 | 0.31 | 0.26 | 0.33 | — |
-| `proxy-overhead/mutate-history-0` | pulsify-direct | 200 | 0.23 | 0.28 | 0.20 | 0.30 | — |
-| `proxy-overhead/mutate-history-0` | pulsify-proxy | 200 | 0.23 | 0.31 | 0.21 | 0.31 | — |
-| `proxy-overhead/mutate-history-1000` | native-json-joy | 200 | 0.28 | 0.30 | 0.24 | 0.31 | — |
-| `proxy-overhead/mutate-history-1000` | pulsify-direct | 200 | 0.22 | 0.25 | 0.19 | 0.28 | — |
-| `proxy-overhead/mutate-history-1000` | pulsify-proxy | 200 | 0.24 | 0.31 | 0.21 | 0.33 | — |
-| `proxy-overhead/mutate-history-5000` | native-json-joy | 200 | 0.25 | 0.27 | 0.24 | 0.27 | — |
-| `proxy-overhead/mutate-history-5000` | pulsify-direct | 200 | 0.23 | 0.29 | 0.18 | 0.31 | — |
-| `proxy-overhead/mutate-history-5000` | pulsify-proxy | 200 | 0.25 | 0.32 | 0.19 | 0.33 | — |
+| `proxy-overhead/mutate-history-0` | native-json-joy | 200 | 0.32 | 0.34 | 0.30 | 0.34 | — |
+| `proxy-overhead/mutate-history-0` | pulsify-direct | 200 | 0.18 | 0.23 | 0.16 | 0.29 | — |
+| `proxy-overhead/mutate-history-0` | pulsify-proxy | 200 | 0.20 | 0.26 | 0.18 | 0.28 | — |
+| `proxy-overhead/mutate-history-1000` | native-json-joy | 200 | 0.30 | 0.33 | 0.26 | 0.34 | — |
+| `proxy-overhead/mutate-history-1000` | pulsify-direct | 200 | 0.15 | 0.16 | 0.12 | 0.17 | — |
+| `proxy-overhead/mutate-history-1000` | pulsify-proxy | 200 | 0.15 | 0.18 | 0.14 | 0.21 | — |
+| `proxy-overhead/mutate-history-5000` | native-json-joy | 200 | 0.28 | 0.33 | 0.25 | 0.37 | — |
+| `proxy-overhead/mutate-history-5000` | pulsify-direct | 200 | 0.15 | 0.17 | 0.13 | 0.17 | — |
+| `proxy-overhead/mutate-history-5000` | pulsify-proxy | 200 | 0.15 | 0.18 | 0.13 | 0.25 | — |

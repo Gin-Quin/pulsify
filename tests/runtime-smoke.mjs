@@ -1,4 +1,4 @@
-import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, PulseRelay, snapshotPulse, PulseError as CoreError } from "../packages/pulse/dist/index.js";
+import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, PulseRelay, snapshotPulse, PulseError as CoreError } from "../packages/pulse/dist/index.js";
 import { encodeMessage, decodeMessage, PulseError as ProtocolError, PulseRelay as ProtocolRelay } from "../packages/pulse/dist/protocol.js";
 function assert(condition, message) { if (!condition) throw new Error(message); }
 export async function smoke() {
@@ -22,6 +22,24 @@ export async function smoke() {
 	const message = { kind: 1, docId: "runtime/🌍", requestId: 1, vv: [[65536, Number.MAX_SAFE_INTEGER]] };
 	assert(JSON.stringify(decodeMessage(encodeMessage(message))) === JSON.stringify(message), "Protocol round-trip failed");
 	destroyPulse(a); destroyPulse(b); assert(relay.peerCount === 0, "Session leak");
+	// The public entry points must share the grouped decoder's ownership map.
+	const Grouped=definePulse("RuntimeGrouped",{_type:"object",fields:{value:"float64"}}).materialize();
+	const x=createPulse(Grouped,{id:"runtime-grouped",value:0},{scope:createPulseScope(),sessionId:65536,connectors:[connector]});
+	let y;
+	try {
+		await connectPulse(x).synced;
+		y=await loadPulse(Grouped,x.id,{scope:createPulseScope(),sessionId:65537,connectors:[connector],waitFor:"all"});
+		disconnectPulse(x);disconnectPulse(y);
+		for(let i=1;i<=100;i++)x.value=i;
+		const frames=exportPulseUpdates(x,getPulseMeta(y).log.vector,{peerVersion:2});
+		assert(frames[0][0]===2,"Grouped public export did not use v2");
+		const decoded=decodeMessage(frames[0]);
+		const model=getPulseMeta(y).model, original=model.apply;let applications=0;
+		model.apply=function(...args){applications++;return original.apply(this,args);};
+		getPulseMeta(y).applyRows(decoded.rows);
+		assert(y.value===100&&applications===1,"Entry points do not share the guarded grouped path");
+		applyPulseUpdates(y,frames);assert(getPulseMeta(y).log.size===101,"Grouped duplicate changed retained history");
+	}finally{destroyPulse(x);if(y)destroyPulse(y);}
 	return { ok: true, runtime: typeof navigator !== "undefined" ? navigator.userAgent : globalThis.process?.version ?? "unknown" };
 }
 if (typeof window === "undefined") console.log(JSON.stringify(await smoke()));

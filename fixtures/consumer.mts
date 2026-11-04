@@ -1,6 +1,6 @@
 import {
   connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse,
-  destroyPulse, loadPulse, snapshotPulse, arrayOperations, type PulseProperties,
+  destroyPulse, loadPulse, snapshotPulse, arrayOperations, exportPulseUpdates, applyPulseUpdates, SUPPORTED_PROTOCOL_VERSIONS, type PulseProperties,
 } from "@pulsify/core";
 import { decodeMessage, encodeMessage, type PulseMessage } from "@pulsify/core/protocol";
 
@@ -22,6 +22,10 @@ await connectPulse(first).synced;
 const second = await loadPulse(Doc, first.id, { scope: createPulseScope(), connectors: [connector], waitFor: "all" });
 const title: string = second.title;
 void title;
+const frames: Uint8Array[] = exportPulseUpdates(first, [], {peerVersion:SUPPORTED_PROTOCOL_VERSIONS[1]});
+applyPulseUpdates(second,frames);
+// @ts-expect-error Unsupported protocol versions are excluded from the public API.
+exportPulseUpdates(first,[],{peerVersion:3});
 destroyPulse(first); destroyPulse(second);
 
 // The typed codec API and storage entry point also compile from the tarball.

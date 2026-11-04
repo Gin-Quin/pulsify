@@ -36,7 +36,7 @@ The runtime script uses an installed `deno`, or the npm Deno launcher through Bu
 - [Binary format and connector contract](docs/PROTOCOL.md)
 - [Benchmarks, methodology and measured baseline](benchmarks/README.md)
 - [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
-- [Native core results and remaining performance limits](benchmarks/CORE-RESULTS.md)
+- [Native core results and remaining performance limits](benchmarks/GROUPED-TRANSPORT.md)
 - [Rust protocol crate](crates/pulsify-protocol/README.md)
 - [PostgreSQL, SQLite and FoundationDB storage](docs/STORAGE.md)
 - [Storage requirements and design notes](DATABASES.md)
