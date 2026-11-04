@@ -56,7 +56,7 @@ mutation. Definitions retain previous layouts for versioned migrations.
 Constant fields are initialized once and reject later replacement or nested
 edits. Local history is encoded lazily when requested for export.
 
-Envelope version 1 now carries operation payload version 2. Every transaction
+Envelope version 1 and the optional negotiated grouped envelope 2 carry operation payload version 2. Every transaction
 uses one contiguous actor sequence number; its separate Lamport timestamp
 orders concurrent register writes. The protocol keeps row identities stable
 and buffers gaps and missing dependencies. Operation format 1 from the previous

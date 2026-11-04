@@ -1,3 +1,4 @@
+import { decodeRunMessage, encodeOwnedRun } from "../protocol/scalarRuns.js";
 import { type InferType, array, object, tuple, union } from "@gin-quin/codec";
 import { wireCodec } from "../protocol/wireCodec.js";
 import { PulseError } from "../protocol/errors.js";
@@ -94,7 +95,20 @@ export function validateMessage(message: PulseMessage): void {
 		}
 	}
 }
-export function encodeMessage(message: PulseMessage): Uint8Array<ArrayBuffer> {
+export function encodeMessage(
+	message: PulseMessage,
+	options: { peerVersion?: 1 | 2 } = {},
+): Uint8Array<ArrayBuffer> {
+	if (
+		options.peerVersion === 2 &&
+		"rows" in message &&
+		(message.kind === 2 || message.kind === 3 || message.kind === 4)
+	) {
+		validateDocId(message.docId);
+		validateVector(message.vv);
+		const grouped = encodeOwnedRun(message);
+		if (grouped) return grouped;
+	}
 	validateMessage(message);
 	return codec.encode({
 		protocolVersion: PROTOCOL_VERSION,
@@ -103,6 +117,8 @@ export function encodeMessage(message: PulseMessage): Uint8Array<ArrayBuffer> {
 	});
 }
 export function decodeMessage(bytes: Uint8Array): PulseMessage {
+	if (bytes[0] === 2 && bytes[1] === OPERATIONS_VERSION)
+		return decodeRunMessage(bytes);
 	// Check versions before interpreting a body which may belong to another format.
 	if (bytes[0] !== PROTOCOL_VERSION || bytes[1] !== OPERATIONS_VERSION)
 		throw new PulseError(

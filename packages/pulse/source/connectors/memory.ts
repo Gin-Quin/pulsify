@@ -12,11 +12,15 @@ export function createMemoryConnector(
 		async open({ signal, onMessage, onClose }) {
 			if (signal.aborted) throw new PulseError("CLOSED", "Connection aborted");
 			let closed = false;
-			const peer = relay.open((bytes) => {
-				queueMicrotask(() => {
-					if (!closed) onMessage(bytes);
-				});
-			});
+			const version = relay.protocolVersion ?? 1;
+			const peer = relay.open(
+				(bytes) => {
+					queueMicrotask(() => {
+						if (!closed) onMessage(bytes);
+					});
+				},
+				{ protocolVersion: version },
+			);
 			const close = () => {
 				if (closed) return;
 				closed = true;
@@ -29,6 +33,7 @@ export function createMemoryConnector(
 			};
 			signal.addEventListener("abort", abort, { once: true });
 			return {
+				protocolVersion: version,
 				close,
 				async send(bytes) {
 					if (closed) throw new PulseError("CLOSED", "Connection closed");

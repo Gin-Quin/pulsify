@@ -1,5 +1,6 @@
+import { scalarEntryOf, scalarRunOf } from "./scalarRuns.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
-import type { CorePatch as Patch } from "../core/operations.js";
+import { ScalarPatch, type CorePatch as Patch } from "../core/operations.js";
 import {
 	MAX_VECTOR_ENTRIES,
 	validateVector,
@@ -36,6 +37,7 @@ type ByteBudget = { metadata: number; encoded: number };
 /** One shared accessor, rather than a getter closure allocated for every edit. */
 class LocalPatchRow implements PulsePatchRow {
 	private cached: Uint8Array | undefined;
+	readonly nativePatch: ScalarPatch | undefined;
 	private patch: Patch | undefined;
 	private encode: ToWire | undefined;
 	encodedBytes = 0;
@@ -51,6 +53,7 @@ class LocalPatchRow implements PulsePatchRow {
 		private readonly budget: ByteBudget,
 	) {
 		this.patch = patch;
+		this.nativePatch = patch instanceof ScalarPatch ? patch : undefined;
 		this.encode = encode;
 	}
 	get operations(): Uint8Array {
@@ -114,7 +117,12 @@ function covers(
 		if ((clocks.get(sid) ?? 0) < clock) return false;
 	return true;
 }
-function copyRow(row: PulsePatchRow, lazy = false): PulsePatchRow {
+function copyRow(
+	row: PulsePatchRow,
+	lazy = false,
+	owned = false,
+): PulsePatchRow {
+	if (owned && scalarEntryOf(row)) return row;
 	const dependencies = row.dependencies.map(
 		([sid, clock]): [number, number] => [sid, clock],
 	);
@@ -151,7 +159,7 @@ function lowerBound(rows: PulsePatchRow[], clock: number): number {
 
 /** Immutable actor sequences with causal dependencies and contiguous frontiers. */
 export class PatchLog {
-	private readonly rows = new Map<string, PulsePatchRow>();
+	private rowCount = 0;
 	private readonly byActor = new Map<number, PulsePatchRow[]>();
 	private readonly pending = new Map<string, PulsePatchRow>();
 	private frontier: PulseVersionVector = [];
@@ -161,7 +169,7 @@ export class PatchLog {
 		return this.frontier.map(([sid, time]) => [sid, time]);
 	}
 	get size(): number {
-		return this.rows.size;
+		return this.rowCount;
 	}
 	get pendingCount(): number {
 		return this.pending.size;
@@ -229,8 +237,7 @@ export class PatchLog {
 			previous = actor?.[actor.length - 1];
 		let nextClock = previous ? end(previous) : 1;
 		let bytes = this.budget.metadata;
-		const ready: PulsePatchRow[] = [],
-			keys: string[] = [];
+		const ready: PulsePatchRow[] = [];
 		for (const row of incoming) {
 			if (row.operations.length > MAX_PATCH_BYTES)
 				throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
@@ -249,8 +256,7 @@ export class PatchLog {
 			const predecessor = clockAt(row.dependencies, sid);
 			if (predecessor > row.clock)
 				throw new PulseError("INVALID_MESSAGE", "Invalid predecessor");
-			const rowKey = key(row),
-				existing = this.rows.get(rowKey);
+			const existing = this.find(row.sid, row.clock);
 			if (existing) {
 				if (!same(existing, row))
 					throw new PulseError(
@@ -269,9 +275,8 @@ export class PatchLog {
 						: clockAt(this.frontier, actorId);
 				if (have < clock) return undefined;
 			}
-			const copy = copyRow(row);
+			const copy = copyRow(row, false, true);
 			ready.push(copy);
-			keys.push(rowKey);
 			bytes +=
 				copy.operations.length +
 				copy.dependencies.length * 16 +
@@ -280,7 +285,7 @@ export class PatchLog {
 			nextClock = end(copy);
 		}
 		if (
-			this.rows.size + ready.length > MAX_LOG_ROWS ||
+			this.rowCount + ready.length > MAX_LOG_ROWS ||
 			bytes + this.budget.encoded > MAX_LOG_BYTES
 		)
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
@@ -291,7 +296,7 @@ export class PatchLog {
 		if (ready.length) {
 			const history = actor ?? [];
 			for (let i = 0; i < ready.length; i++) {
-				this.rows.set(keys[i]!, ready[i]!);
+				this.rowCount++;
 				history.push(ready[i]!);
 			}
 			if (!actor) this.byActor.set(sid, history);
@@ -323,8 +328,7 @@ export class PatchLog {
 		const predecessor = clockAt(row.dependencies, row.sid);
 		if (predecessor > row.clock)
 			throw new PulseError("INVALID_MESSAGE", "Invalid predecessor");
-		const rowKey = key(row),
-			existing = this.rows.get(rowKey);
+		const existing = this.find(row.sid, row.clock);
 		if (existing) {
 			if (!same(existing, row))
 				throw new PulseError(
@@ -348,15 +352,15 @@ export class PatchLog {
 			row.docId.length * 2 +
 			40;
 		if (
-			this.rows.size + 1 > MAX_LOG_ROWS ||
+			this.rowCount + 1 > MAX_LOG_ROWS ||
 			bytes + this.budget.encoded > MAX_LOG_BYTES
 		)
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
 		const next = advance(this.frontier, row.sid, end(row));
-		const copy = copyRow(row),
+		const copy = copyRow(row, false, true),
 			ready = [copy];
 		if (beforeCommit) beforeCommit(ready);
-		this.rows.set(rowKey, copy);
+		this.rowCount++;
 		if (actor) actor.push(copy);
 		else this.byActor.set(row.sid, [copy]);
 		this.frontier = next;
@@ -396,8 +400,10 @@ export class PatchLog {
 				row.span < 1
 			)
 				throw new PulseError("INVALID_MESSAGE", "Invalid patch segment");
-			const rowKey = key(row);
-			if (this.rows.has(rowKey) || (previous && row.clock < end(previous)))
+			if (
+				this.find(row.sid, row.clock) ||
+				(previous && row.clock < end(previous))
+			)
 				throw new PulseError("CONFLICT", "Local patch ID already exists");
 			if (row.clock !== (previous ? end(previous) : 1))
 				throw new PulseError(
@@ -410,7 +416,7 @@ export class PatchLog {
 				row.docId.length * 2 +
 				40;
 			if (
-				this.rows.size + 1 > MAX_LOG_ROWS ||
+				this.rowCount + 1 > MAX_LOG_ROWS ||
 				bytes + this.budget.encoded > MAX_LOG_BYTES
 			)
 				throw new PulseError(
@@ -426,7 +432,7 @@ export class PatchLog {
 					"LIMIT_EXCEEDED",
 					"Document history limit exceeded",
 				);
-			this.rows.set(rowKey, row);
+			this.rowCount++;
 			if (actor) actor.push(row);
 			else this.byActor.set(row.sid, [row]);
 			this.frontier = next;
@@ -473,7 +479,7 @@ export class PatchLog {
 				throw new PulseError("INVALID_MESSAGE", "Invalid patch segment");
 			if (clockAt(row.dependencies, row.sid) > row.clock)
 				throw new PulseError("INVALID_MESSAGE", "Invalid predecessor");
-			const existing = staged.get(key(row)) ?? this.rows.get(key(row));
+			const existing = staged.get(key(row)) ?? this.find(row.sid, row.clock);
 			if (existing) {
 				if (local)
 					throw new PulseError("CONFLICT", "Local patch ID already exists");
@@ -500,7 +506,7 @@ export class PatchLog {
 						throw new PulseError("CONFLICT", "Actor history fork");
 				}
 			}
-			const copy = local ? row : copyRow(row);
+			const copy = local ? row : copyRow(row, false, true);
 			staged.set(key(copy), copy);
 			let actor = stagedActors.get(copy.sid);
 			if (!actor) {
@@ -517,7 +523,7 @@ export class PatchLog {
 				40;
 		}
 		if (
-			this.rows.size + staged.size > MAX_LOG_ROWS ||
+			this.rowCount + staged.size > MAX_LOG_ROWS ||
 			bytes + this.budget.encoded > MAX_LOG_BYTES
 		)
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
@@ -567,8 +573,8 @@ export class PatchLog {
 			beforeCommit(borrowed ? fresh : fresh.map((row) => copyRow(row, local)));
 		if (bytes + this.budget.encoded + (pendingBytes?.() ?? 0) > MAX_LOG_BYTES)
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
-		for (const [id, row] of staged) {
-			this.rows.set(id, row);
+		for (const row of staged.values()) {
+			this.rowCount++;
 			let actor = this.byActor.get(row.sid);
 			if (!actor) {
 				actor = [];
@@ -585,6 +591,59 @@ export class PatchLog {
 		return borrowed ? fresh : fresh.map((row) => copyRow(row, local));
 	}
 
+	private find(sid: number, clock: number): PulsePatchRow | undefined {
+		const history = this.byActor.get(sid);
+		if (!history?.length || clock > history[history.length - 1]!.clock)
+			return undefined;
+		const at = lowerBound(history, clock);
+		return history[at]?.clock === clock ? history[at] : undefined;
+	}
+	/** Internal borrowed rows; callers must neither mutate nor expose them. */
+	borrowMissing(vv: PulseVersionVector): PulsePatchRow[] {
+		validateVector(vv);
+		const clocks = new Map(vv),
+			result: PulsePatchRow[] = [];
+		for (const [sid, history] of this.byActor) {
+			const clock = clocks.get(sid) ?? 0;
+			let i = lowerBound(history, clock);
+			if (i && end(history[i - 1]!) > clock) i--;
+			for (; i < history.length; i++) result.push(history[i]!);
+		}
+		return result;
+	}
+	/** Internal atomic contiguous run append; all rows are codec-owned. */
+	appendContiguousRun(
+		rows: PulsePatchRow[],
+		beforeCommit: () => void,
+	): boolean {
+		const run = scalarRunOf(rows);
+		if (!run || this.pending.size) return false;
+		const { external, expandedBytes } = run;
+		const first = rows[0]!;
+		if (first.docId !== this.docId)
+			throw new PulseError("INVALID_MESSAGE", "Wrong run document");
+		const actor = this.byActor.get(first.sid),
+			previous = actor?.[actor.length - 1];
+		if (first.clock !== (previous ? end(previous) : 1)) return false;
+		for (const [sid, clock] of external)
+			if (clockAt(this.frontier, sid) < clock) return false;
+		if (
+			this.rowCount + rows.length > MAX_LOG_ROWS ||
+			this.budget.metadata + this.budget.encoded + expandedBytes > MAX_LOG_BYTES
+		)
+			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
+		const next = advance(this.frontier, first.sid, first.clock + rows.length);
+		beforeCommit();
+		const history = actor ?? [];
+		// The codec bounds runs to 4096 rows. Native bulk append also avoids
+		// the slow iterator path of frozen public frame arrays.
+		Array.prototype.push.apply(history, rows);
+		if (!actor) this.byActor.set(first.sid, history);
+		this.rowCount += rows.length;
+		this.frontier = next;
+		this.budget.metadata += expandedBytes;
+		return true;
+	}
 	missing(vv: PulseVersionVector): PulsePatchRow[] {
 		validateVector(vv);
 		const clocks = new Map(vv);
@@ -597,4 +656,9 @@ export class PatchLog {
 		}
 		return result;
 	}
+}
+
+/** Only runtime-native rows carry this descriptor; public copies do not. */
+export function nativePatchOf(row: PulsePatchRow): ScalarPatch | undefined {
+	return row instanceof LocalPatchRow ? row.nativePatch : undefined;
 }

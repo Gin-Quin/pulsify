@@ -129,7 +129,15 @@ export class FoundationDBPatchStore implements PatchStore {
 	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
-		const prepared = rows.map((row) => {
+		const prepared = rows.map((input) => {
+			const row: StoredPatchRow = {
+				docId: input.docId,
+				sid: input.sid,
+				clock: input.clock,
+				span: input.span,
+				dependencies: input.dependencies.map(([sid, clock]) => [sid, clock]),
+				operations: new Uint8Array(input.operations),
+			};
 			const chunks = Math.ceil(row.operations.length / chunkBytes);
 			const metadata = metadataCodec.encode({
 				docId,

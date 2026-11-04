@@ -1,3 +1,4 @@
+import { scalarRunOf, readRunValues } from "../protocol/scalarRuns.js";
 import { Connection } from "../connection/Connection.js";
 import {
 	patchToRow,
@@ -410,6 +411,38 @@ export function createRuntime(
 		},
 		applyRows(rows) {
 			context.assertActive();
+			const run = scalarRunOf(rows);
+			const column = run && model.scalarColumn(run.target, run.field);
+			if (
+				run &&
+				column &&
+				run.schema === model.schemaId &&
+				run.layout === column.id + 2
+			) {
+				let values: ReturnType<typeof readRunValues> | undefined;
+				if (
+					log.appendContiguousRun(rows, () => {
+						values = readRunValues(run, column.kind);
+						model.validateScalarRun(run, values);
+					})
+				) {
+					model.apply(
+						new ScalarPatch(
+							run.sid,
+							run.clock + run.count - 1,
+							run.lamport + run.count - 1,
+							run.schema,
+							run.target,
+							run.field,
+							values![run.count - 1]!,
+						),
+					);
+					meta.loaded = !!model.root;
+					notify();
+					return;
+				}
+			}
+
 			if (rows.length === 1 && !log.pendingCount) {
 				const patch = decode(rows[0]!);
 				const ready = log.appendRemoteRows(rows, (available) => {

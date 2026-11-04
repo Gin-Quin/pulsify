@@ -73,3 +73,10 @@ export {
 	OPERATIONS_VERSION,
 } from "./connection/PulseMessage.js";
 export type { PulseMessage } from "./connection/PulseMessage.js";
+
+export {
+	exportPulseUpdates,
+	applyPulseUpdates,
+	SUPPORTED_PROTOCOL_VERSIONS,
+} from "./pulses/PulseExchange.js";
+export type { PulseExchangeOptions } from "./pulses/PulseExchange.js";

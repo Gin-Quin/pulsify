@@ -1,6 +1,6 @@
 # Pulsify binary protocol
 
-Envelope version **1**, operation payload version **2**. The native core has no
+Default envelope version **1**, optional grouped envelope **2**, operation payload version **2**. The native core has no
 runtime dependency on json-joy or Yjs. The TypeScript implementation uses
 `@gin-quin/codec` 2.1.0. The [Rust crate](../crates/pulsify-protocol) implements
 the envelope independently and keeps operation bytes opaque.
@@ -263,3 +263,66 @@ uses retained journal history. Generation zero remains the only supported
 generation. Applications must plan retention and compaction before reaching
 history bounds; silently dropping rows required by offline replicas is not
 supported.
+
+## Optional grouped transport (envelope 2, payload 2)
+
+Envelope 1 remains the default and its fixtures are unchanged. Envelope 2 carries
+one homogeneous, lossless run in a sync, syncBack or update message:
+
+```text
+2, 2, kind, docId:string, requestId:uint,
+[found:boolean, complete:boolean only for kind 2], vv:vector,
+sid:uint, clockStart:uint, count:uint, lamportStart:uint,
+schema:string, target:string, fieldTag:uint, field:string|uint,
+layout:uint, externalDependencies:vector,
+count × length-prefixed original value bytes
+```
+
+Strings, integers, booleans, vectors and binary lengths use the same codec
+primitives as envelope 1. Run integers use canonical varints; header strings use
+strict UTF-8. Count is 2–4096. Each original row has span 1, clock `clockStart+i`,
+Lamport `lamportStart+i`, the same target/field/layout/schema and no value markers.
+Its dependencies are the external vector plus `(sid, clockStart+i)` whenever that
+clock is greater than 1. The external vector cannot contain `sid`.
+
+Reconstruction writes the canonical payload-2 single-put header followed by the
+original value bytes and the two empty marker arrays. It preserves every row
+identity, dependency vector and payload byte. A partial frontier can select a
+suffix; forwarding preserves the raw values, without decoding/re-encoding them.
+Rust expands runs into ordinary opaque rows without an application schema.
+Storage ingress uses the same decoder and persists the original rows; its schema
+and one-call append contract are unchanged. Expansion does add header construction
+at storage/legacy boundaries, without reading any document.
+
+The current native producer groups only string/float64 object-field writes in a
+single-version typed document. Managed fields, constants, rich text, migrations,
+container changes and mixed runs use envelope 1. A new contiguous, causally ready
+run validates its shared context once and **every** value before the journal
+advances. Only the final LWW write needs application; all intermediate rows remain
+independently queryable and replayable. Duplicates, overlaps, gaps and pending
+history use the general row path, including its atomic preflight.
+
+Frame, row, vector and expanded structure/byte limits apply before allocating
+individual rows. The journal charges expanded history plus its owned frame once;
+materializing legacy row bytes later does not charge again. Decoded run rows are
+immutable and expose detached operation bytes/dependency vectors to callers.
+
+### Capability boundary
+
+`exportPulseUpdates(pulse, remoteVV, {peerVersion: 2})` and
+`applyPulseUpdates(pulse, frames)` are the public exchange path also used by
+Connection. Omit `peerVersion` for an unknown endpoint: output remains v1.
+In-process peers can consult `SUPPORTED_PROTOCOL_VERSIONS`; a custom connector
+sets `ConnectorSession.protocolVersion` only after establishing endpoint support.
+
+The current memory connector knows its PulseRelay's capability. The reference
+relay's `open(send, {protocolVersion: 2})` declares a supporting session; its default
+is 1. Each recipient receives its declared format, including old subscribers.
+
+WebSocket stays v1, with **no subprotocol offer**, by default. For a known upgraded
+server, opt in with `createWebSocketConnector(url, undefined, {protocolVersion: 2})`.
+It offers `pulsify-v2`/`pulsify-v1` and uses v2 only if the socket selected
+`pulsify-v2`. This explicit endpoint opt-in matters: some Bun servers automatically
+select the first offered subprotocol even when the application does not understand
+it. The example server and client explicitly configure both ends. A peer must
+never infer application capability solely from such an automatic selection.

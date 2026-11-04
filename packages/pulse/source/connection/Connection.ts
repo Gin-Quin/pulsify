@@ -1,6 +1,6 @@
+import { encodePulseUpdates } from "../pulses/PulseExchange.js";
 import type { Pulse } from "../pulses/Pulse.js";
 import { getPulseMeta } from "../pulses/PulseMeta.js";
-import { chunkRows } from "../protocol/chunkRows.js";
 import { asPulseError, PulseError, remoteError } from "../protocol/errors.js";
 import { deferred } from "../utilities/deferred.js";
 import type { ConnectionResponse } from "./ConnectionResponse.js";
@@ -158,15 +158,15 @@ export class Connection {
 			const meta = getPulseMeta(this.pulse);
 			this.status = "syncing";
 			const target = meta.log.vector;
-			const chunks = chunkRows(meta.log.missing(this.clockVector));
-			for (const rows of chunks) {
-				const response = await this.request({
-					kind: 3,
-					docId: meta.id,
-					requestId: this.nextRequestId++,
-					vv: target,
-					rows,
-				});
+			const requestId = this.nextRequestId++;
+			const frames = encodePulseUpdates(meta, this.clockVector, {
+				kind: 3,
+				requestId,
+				peerVersion: this.session.protocolVersion ?? 1,
+			});
+			this.nextRequestId += Math.max(0, frames.length - 1);
+			for (let i = 0; i < frames.length; i++) {
+				const response = await this.requestFrame(requestId + i, frames[i]!);
 				if (epoch !== this.epoch)
 					throw new PulseError("CLOSED", "Connection replaced");
 				if (response.kind !== 5)
@@ -214,27 +214,38 @@ export class Connection {
 		});
 	}
 	private request(message: PulseMessage): Promise<PulseMessage> {
+		return this.requestFrame(message.requestId, encodeMessage(message));
+	}
+	private requestFrame(
+		requestId: number,
+		frame: Uint8Array,
+	): Promise<PulseMessage> {
 		const result = deferred<PulseMessage>();
 		const timer = setTimeout(
 			() => result.reject(new PulseError("TIMEOUT", "Peer did not respond")),
 			getPulseMeta(this.pulse).options.timeoutMs,
 		);
-		this.pending.set(message.requestId, result);
+		this.pending.set(requestId, result);
 		try {
 			if (!this.session) throw new PulseError("CLOSED", "Transport is closed");
-			void this.session.send(encodeMessage(message)).catch(result.reject);
+			void this.session.send(frame).catch(result.reject);
 		} catch (error) {
 			result.reject(error);
 		}
 		return result.promise.finally(() => {
 			clearTimeout(timer);
-			this.pending.delete(message.requestId);
+			this.pending.delete(requestId);
 		});
 	}
 	private receive(bytes: Uint8Array): void {
 		if (this.status === "closed" || this.status === "error") return;
 		const epoch = this.epoch;
 		try {
+			if (bytes[0] === 2 && this.session?.protocolVersion !== 2)
+				throw new PulseError(
+					"UNSUPPORTED_VERSION",
+					"Grouped transport was not negotiated",
+				);
 			const message = decodeMessage(bytes);
 			const meta = getPulseMeta(this.pulse);
 			if (message.docId !== meta.id)

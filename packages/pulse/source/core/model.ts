@@ -760,6 +760,64 @@ export class CoreModel {
 			this.planned.set(patch, builds);
 		}
 	}
+	/** Narrow run eligibility: scalar object fields with an unchanged v1 schema. */
+	scalarColumn(target: string, field: CoreField): PulseLayout | undefined {
+		if (this.maxVersion !== 1) return;
+		const node = this.index.get(target);
+		if (!node || node.kind !== "object") return;
+		const key = this.fieldKey(node, field);
+		if (managedFields.has(key)) return;
+		const entry = node.layout?.fieldsByKey.get(key),
+			layout = entry?.layout;
+		if (
+			node.layout?.constant ||
+			!entry ||
+			entry.constant ||
+			entry.richText ||
+			!layout ||
+			layout.constant ||
+			layout.richText
+		)
+			return;
+		if (layout.kind !== "float64" && layout.kind !== "string") return;
+		return layout;
+	}
+	/** Same checks as homogeneous validateScalarWrites, shared context once. */
+	validateScalarRun(
+		run: {
+			sid: number;
+			clock: number;
+			schema: string;
+			target: string;
+			field: CoreField;
+			layout: number;
+			external: PulseVersionVector;
+		},
+		values: readonly CoreScalar[],
+	): void {
+		const layout = this.scalarColumn(run.target, run.field);
+		if (!layout || run.schema !== this.schemaId || run.layout !== layout.id + 2)
+			throw new PulseError(
+				"INCOMPATIBLE_DOCUMENT",
+				"Invalid scalar run layout",
+			);
+		const node = this.index.get(run.target)!;
+		const actor = node.initialStamp[1],
+			created = node.initialStamp[2];
+		const have =
+			actor === run.sid
+				? run.clock > 1
+					? run.clock
+					: 0
+				: (run.external.find(([sid]) => sid === actor)?.[1] ?? 0);
+		if (have <= created)
+			throw new PulseError(
+				"INVALID_MESSAGE",
+				"Operation reference is not causally covered",
+			);
+		for (const value of values) layout.assert(value);
+	}
+
 	validateSingle(patch: CorePatch, dependencies: PulseVersionVector): void {
 		if (this.maxVersion === 1 && this.validateScalarWrite(patch, dependencies))
 			return;

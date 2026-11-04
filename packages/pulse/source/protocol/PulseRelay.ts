@@ -7,10 +7,12 @@ import { PatchLog } from "./PatchLog.js";
 export type RelayPeer = { receive(bytes: Uint8Array): void; close(): void };
 /** In-memory reference relay. Supply authentication/durable storage at the server boundary. */
 export class PulseRelay {
+	readonly protocolVersion = 2 as const;
 	private readonly documents = new Map<string, PatchLog>();
 	private readonly peers = new Set<{
-		docId?: string;
+		docId: string | undefined;
 		send(bytes: Uint8Array): void;
+		protocolVersion: 1 | 2;
 	}>();
 	constructor(private readonly validateRow?: (row: PulsePatchRow) => void) {}
 	get peerCount(): number {
@@ -19,9 +21,18 @@ export class PulseRelay {
 	getLog(docId: string): PatchLog | undefined {
 		return this.documents.get(docId);
 	}
-	open(send: (bytes: Uint8Array) => void): RelayPeer {
-		const peer: { docId?: string; send(bytes: Uint8Array): void } = { send };
+	open(
+		send: (bytes: Uint8Array) => void,
+		options: { protocolVersion?: 1 | 2 } = {},
+	): RelayPeer {
+		const peer = {
+			docId: undefined as string | undefined,
+			send,
+			protocolVersion: options.protocolVersion ?? 1,
+		};
 		this.peers.add(peer);
+		const encode = (message: Parameters<typeof encodeMessage>[0]) =>
+			encodeMessage(message, { peerVersion: peer.protocolVersion });
 		return {
 			close: () => {
 				this.peers.delete(peer);
@@ -29,6 +40,11 @@ export class PulseRelay {
 			receive: (bytes) => {
 				if (!this.peers.has(peer))
 					throw new PulseError("CLOSED", "Relay peer is closed");
+				if (bytes[0] === 2 && peer.protocolVersion !== 2)
+					throw new PulseError(
+						"UNSUPPORTED_VERSION",
+						"Grouped transport was not negotiated",
+					);
 				const message = decodeMessage(bytes);
 				try {
 					if (peer.docId !== undefined && peer.docId !== message.docId)
@@ -36,11 +52,11 @@ export class PulseRelay {
 					if (message.kind === 1) {
 						peer.docId = message.docId;
 						const log = this.documents.get(message.docId);
-						const chunks = chunkRows(log?.missing(message.vv) ?? []);
+						const chunks = chunkRows(log?.borrowMissing(message.vv) ?? []);
 						if (!chunks.length) chunks.push([]);
 						for (let i = 0; i < chunks.length; i++)
 							send(
-								encodeMessage({
+								encode({
 									kind: 2,
 									docId: message.docId,
 									requestId: message.requestId,
@@ -69,7 +85,7 @@ export class PulseRelay {
 					log.append(message.rows);
 					this.documents.set(message.docId, log);
 					send(
-						encodeMessage({
+						encode({
 							kind: 5,
 							docId: message.docId,
 							requestId: message.requestId,
@@ -80,19 +96,22 @@ export class PulseRelay {
 					for (const other of this.peers) {
 						if (other === peer || other.docId !== message.docId) continue;
 						other.send(
-							encodeMessage({
-								kind: 4,
-								docId: message.docId,
-								requestId: 0,
-								vv: log.vector,
-								rows: message.rows,
-							}),
+							encodeMessage(
+								{
+									kind: 4,
+									docId: message.docId,
+									requestId: 0,
+									vv: log.vector,
+									rows: message.rows,
+								},
+								{ peerVersion: other.protocolVersion },
+							),
 						);
 					}
 				} catch (error) {
 					const failure = asPulseError(error);
 					send(
-						encodeMessage({
+						encode({
 							kind: 6,
 							docId: message.docId,
 							requestId: message.requestId,

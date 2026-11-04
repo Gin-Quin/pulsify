@@ -1,3 +1,12 @@
+import { object } from "@gin-quin/codec";
+import {
+	createPulse,
+	definePulse,
+	createPulseScope,
+	getPulseMeta,
+	destroyPulse,
+	exportPulseUpdates,
+} from "../source/index.js";
 import { afterAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { SQL } from "bun";
@@ -191,6 +200,64 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			});
 			expect(await store.missing(docId, [])).toEqual([first]);
 		});
+		test("grouped encoded ingress stores every exact row without an application schema", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			const definition = definePulse(
+				"StoredRun",
+				object({ value: "float64" }),
+			).materialize();
+			const pulse = createPulse(
+				definition,
+				{ id: docId, value: 0 },
+				{ scope: createPulseScope(), sessionId: 70001 },
+			);
+			try {
+				const log = getPulseMeta(pulse).log;
+				await store.append(log.missing([]));
+				const vv = log.vector;
+				for (let i = 1; i <= 100; i++) pulse.value = i;
+				const frame = exportPulseUpdates(pulse, vv, { peerVersion: 2 })[0]!;
+				expect(frame[0]).toBe(2);
+				expect((await store.appendEncoded(frame)).inserted).toBe(100);
+				expect(await store.missing(docId, [])).toEqual(log.missing([]));
+				expect(await store.missing(docId, [[70001, 51]])).toEqual(
+					log.missing([[70001, 51]]),
+				);
+				expect((await store.appendEncoded(frame)).inserted).toBe(0);
+			} finally {
+				destroyPulse(pulse);
+			}
+		});
+
+		test("grouped large string payloads cross native chunks and remain idempotent", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			const definition = definePulse(
+				"StoredLargeRun",
+				object({ value: "string" }),
+			).materialize();
+			const pulse = createPulse(
+				definition,
+				{ id: docId, value: "" },
+				{ scope: createPulseScope(), sessionId: 70001 },
+			);
+			try {
+				const log = getPulseMeta(pulse).log;
+				await store.append(log.missing([]));
+				const vv = log.vector;
+				pulse.value = "a".repeat(70000);
+				pulse.value = "é".repeat(70000);
+				const frame = exportPulseUpdates(pulse, vv, { peerVersion: 2 })[0]!;
+				expect(frame[0]).toBe(2);
+				expect((await store.appendEncoded(frame)).inserted).toBe(2);
+				expect((await store.appendEncoded(frame)).inserted).toBe(0);
+				expect(await store.missing(docId, vv)).toEqual(log.missing(vv));
+			} finally {
+				destroyPulse(pulse);
+			}
+		});
+
 		test("handles payloads larger than the FoundationDB single-value limit", async () => {
 			const store = await create(),
 				docId = crypto.randomUUID(),

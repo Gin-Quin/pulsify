@@ -11,17 +11,15 @@ import {
 	destroyPulse,
 	getPulseMeta,
 	snapshotPulse,
+	exportPulseUpdates,
+	applyPulseUpdates,
+	SUPPORTED_PROTOCOL_VERSIONS,
 	type Pulse,
 	type PulseProperties,
 } from "../packages/pulse/source/index.js";
 import { createRuntime } from "../packages/pulse/source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../packages/pulse/source/pulses/PulseOptions.js";
-import {
-	encodeMessage,
-	decodeMessage,
-} from "../packages/pulse/source/connection/PulseMessage.js";
 import type { PulseVersionVector } from "../packages/pulse/source/connection/PulseVersionVector.js";
-import { chunkRows } from "../packages/pulse/source/protocol/chunkRows.js";
 import { toNodeBuilder } from "./json-joy-builder.js";
 import type { CoreNode } from "../packages/pulse/source/core/model.js";
 
@@ -135,23 +133,11 @@ function pulseReplica(
 		(nativeNested ??= meta.model.root!.children.get("nested")!);
 	const encode = (vv: PulseVersionVector) =>
 		packet(
-			chunkRows(meta.log.missing(vv)).map((rows) =>
-				encodeMessage({
-					kind: 4,
-					docId: meta.id,
-					requestId: 0,
-					vv: meta.log.vector,
-					rows,
-				}),
-			),
+			exportPulseUpdates(pulse, vv, {
+				peerVersion: SUPPORTED_PROTOCOL_VERSIONS[1],
+			}),
 		);
-	const apply = (bytes: Packet) => {
-		for (const frame of bytes.frames) {
-			const message = decodeMessage(frame);
-			if (message.kind !== 4) throw new Error("Expected update");
-			meta.applyRows(message.rows);
-		}
-	};
+	const apply = (bytes: Packet) => applyPulseUpdates(pulse, bytes.frames);
 	return {
 		engine: "pulsify",
 		readCount() {

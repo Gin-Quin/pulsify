@@ -1,24 +1,24 @@
 # Performance benchmarks
 
-The [native core results](CORE-RESULTS.md) summarize the current engine against
+The [current native core results](GROUPED-TRANSPORT.md) summarize the current engine against
 native json-joy, Yjs 13.6.33 (V2 and V1) and Loro 1.17.1 (Node WASM). The
 [full comparison](CRDT-COMPARISON.md) contains all 95 measurements, payload
 sizes, scenario descriptions and direct/public API comparisons. Its raw native
-reference is [core-native-20261104.json](baselines/core-native-20261104.json).
+reference is [core-grouped-20261104.json](baselines/core-grouped-20261104.json).
 Competitor dependencies belong only to this private benchmark workspace.
 
 ```sh
 bun run test:crdt
 bun run bench:crdt --output benchmarks/results/crdt-new.json --markdown benchmarks/results/crdt-new.md
 bun run bench:crdt --quick --output benchmarks/results/crdt-quick.json --markdown benchmarks/results/crdt-quick.md
-bun run bench:compare benchmarks/baselines/core-native-20261104.json benchmarks/results/crdt-new.json --strict
+bun run bench:compare benchmarks/baselines/core-grouped-20261104.json benchmarks/results/crdt-new.json --strict
 ```
 
 A quick or filtered run should always set `--markdown` to preserve the complete
 committed report. The deliberate release-reference command is:
 
 ```sh
-bun run bench:crdt --output benchmarks/baselines/core-native-20261104.json --markdown benchmarks/CRDT-COMPARISON.md
+bun run bench:crdt --output benchmarks/baselines/core-grouped-20261104.json --markdown benchmarks/CRDT-COMPARISON.md
 ```
 
 ## CRDT comparison method

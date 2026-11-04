@@ -296,6 +296,109 @@ impl<'a> Reader<'a> {
         Ok(result)
     }
 }
+// Envelope v2 carries one lossless scalar run. Relays expand it without an
+// application schema; their outgoing v1 rows preserve every original identity.
+fn uint_size(mut n: u64) -> usize {
+    let mut size = 1;
+    while n >= 128 {
+        size += 1;
+        n >>= 7;
+    }
+    size
+}
+impl Reader<'_> {
+    fn run_rows(&mut self, doc_id: &str, vv_len: usize) -> Result<Vec<PatchRow>> {
+        let sid = self.uint()?;
+        let clock = self.uint()?;
+        let count = self.count(MAX_MESSAGE_ROWS)?;
+        let lamport = self.uint()?;
+        if sid < 65536
+            || clock == 0
+            || lamport == 0
+            || count < 2
+            || clock + count as u64 > MAX_SAFE_INTEGER
+            || lamport + count as u64 > MAX_SAFE_INTEGER
+        {
+            return Err(invalid("Invalid run range"));
+        }
+        let schema = self.text()?;
+        let target = self.text()?;
+        let tag = self.uint()?;
+        if tag > 1 {
+            return Err(invalid("Invalid run field"));
+        }
+        let field_text = if tag == 0 { Some(self.text()?) } else { None };
+        let field_number = if tag == 1 { self.uint()? } else { 0 };
+        let layout = self.uint()?;
+        let external = self.vector()?;
+        if external.iter().any(|(actor, _)| *actor == sid)
+            || external.len() + 1 > MAX_VECTOR_ENTRIES
+        {
+            return Err(invalid("Invalid run dependencies"));
+        }
+        if 16 + vv_len * 3 + count * (7 + 3 * (external.len() + 1)) > MAX_SCHEMA_NODES {
+            return Err(limit("Expanded run node limit"));
+        }
+        let mut prefix = Writer(Vec::new());
+        prefix.text(&schema);
+        prefix.uint(1);
+        prefix.uint(1);
+        prefix.text(&target);
+        prefix.uint(tag);
+        if let Some(field) = field_text {
+            prefix.text(&field);
+        } else {
+            prefix.uint(field_number);
+        }
+        prefix.uint(layout);
+        let mut values = Vec::with_capacity(count);
+        let mut expanded = self.bytes.len();
+        for i in 0..count {
+            let value = self.bytes(MAX_PATCH_BYTES)?;
+            let op_bytes = 1
+                + uint_size(lamport + i as u64)
+                + prefix.0.len()
+                + uint_size(value.len() as u64)
+                + value.len()
+                + 2;
+            if op_bytes > MAX_PATCH_BYTES {
+                return Err(limit("Expanded run payload limit"));
+            }
+            expanded += op_bytes
+                + (external.len() + usize::from(clock + i as u64 > 1)) * 16
+                + doc_id.encode_utf16().count() * 2
+                + 40;
+            if expanded > 64 * 1024 * 1024 {
+                return Err(limit("Expanded run byte limit"));
+            }
+            values.push(value);
+        }
+        let mut rows = Vec::with_capacity(count);
+        for (i, value) in values.into_iter().enumerate() {
+            let mut operations = Writer(vec![2]);
+            operations.uint(lamport + i as u64);
+            operations.0.extend_from_slice(&prefix.0);
+            operations.bytes(&value);
+            operations.uint(0);
+            operations.uint(0);
+            let mut dependencies = external.clone();
+            if clock + i as u64 > 1 {
+                let at = dependencies.partition_point(|(actor, _)| *actor < sid);
+                dependencies.insert(at, (sid, clock + i as u64));
+            }
+            rows.push(PatchRow {
+                doc_id: doc_id.to_owned(),
+                sid,
+                clock: clock + i as u64,
+                span: 1,
+                dependencies,
+                operations: operations.0,
+            });
+        }
+        Ok(rows)
+    }
+}
+
 pub fn encode(message: &Message) -> Result<Vec<u8>> {
     message.validate()?;
     let mut writer = Writer(vec![1, 2]);
@@ -341,7 +444,8 @@ pub fn decode(bytes: &[u8]) -> Result<Message> {
         return Err(limit("Frame exceeds 8 MiB"));
     }
     let mut reader = Reader { bytes, pos: 0 };
-    if reader.uint()? != 1 || reader.uint()? != 2 {
+    let protocol = reader.uint()?;
+    if !(protocol == 1 || protocol == 2) || reader.uint()? != 2 {
         return Err(Error::new(
             "UNSUPPORTED_VERSION",
             "Unsupported protocol or operation version",
@@ -353,24 +457,42 @@ pub fn decode(bytes: &[u8]) -> Result<Message> {
     }
     let doc_id = reader.text()?;
     let request_id = reader.uint()?;
+    if protocol == 2 && !(2..=4).contains(&kind) {
+        return Err(invalid("Invalid run message kind"));
+    }
     let body = match kind {
         1 => Body::Connect {
             vv: reader.vector()?,
         },
-        2 => Body::Sync {
-            found: reader.boolean()?,
-            complete: reader.boolean()?,
-            vv: reader.vector()?,
-            rows: reader.rows()?,
-        },
-        3 => Body::SyncBack {
-            vv: reader.vector()?,
-            rows: reader.rows()?,
-        },
-        4 => Body::Update {
-            vv: reader.vector()?,
-            rows: reader.rows()?,
-        },
+        2 => {
+            let found = reader.boolean()?;
+            let complete = reader.boolean()?;
+            let vv = reader.vector()?;
+            let rows = if protocol == 2 {
+                reader.run_rows(&doc_id, vv.len())?
+            } else {
+                reader.rows()?
+            };
+            Body::Sync {
+                found,
+                complete,
+                vv,
+                rows,
+            }
+        }
+        3 | 4 => {
+            let vv = reader.vector()?;
+            let rows = if protocol == 2 {
+                reader.run_rows(&doc_id, vv.len())?
+            } else {
+                reader.rows()?
+            };
+            if kind == 3 {
+                Body::SyncBack { vv, rows }
+            } else {
+                Body::Update { vv, rows }
+            }
+        }
         5 => Body::Ack {
             vv: reader.vector()?,
         },

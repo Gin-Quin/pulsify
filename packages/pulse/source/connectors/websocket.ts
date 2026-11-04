@@ -5,7 +5,11 @@ import { PulseError } from "../protocol/errors.js";
 /** Supply a factory for runtimes without a global WebSocket or custom authentication. */
 export function createWebSocketConnector(
 	url: string,
-	createSocket: (url: string) => WebSocket = (url) => new WebSocket(url),
+	createSocket: (url: string, protocols?: string[]) => WebSocket = (
+		url,
+		protocols,
+	) => new WebSocket(url, protocols),
+	options: { protocolVersion?: 1 | 2 } = {},
 ): Connector {
 	return {
 		kind: "remote",
@@ -15,7 +19,10 @@ export function createWebSocketConnector(
 					reject(new PulseError("CLOSED", "Connection aborted"));
 					return;
 				}
-				const socket = createSocket(url);
+				const socket =
+					options.protocolVersion === 2
+						? createSocket(url, ["pulsify-v2", "pulsify-v1"])
+						: createSocket(url);
 				socket.binaryType = "arraybuffer";
 				let opened = false;
 				let closed = false;
@@ -44,6 +51,10 @@ export function createWebSocketConnector(
 				const open = () => {
 					opened = true;
 					resolve({
+						protocolVersion:
+							options.protocolVersion === 2 && socket.protocol === "pulsify-v2"
+								? 2
+								: 1,
 						close() {
 							if (closed) return;
 							finish();

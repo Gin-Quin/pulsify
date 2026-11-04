@@ -1,3 +1,5 @@
+> Historical initial native-core campaign. For the integrated grouped transport, see [GROUPED-TRANSPORT.md](GROUPED-TRANSPORT.md).
+
 # Native Pulsify core: measured results
 
 The independent native core wins **14 of the 18 existing primary scenarios** against json-joy on this machine. The unweighted geometric mean of `json-joy median time / Pulsify median time` is **1.559×**. All 18 cases, including the slower ones, enter that aggregate with equal weight.

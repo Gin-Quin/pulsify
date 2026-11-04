@@ -119,9 +119,11 @@ export function renderComparison(report: ComparisonReport): string {
 		nativeMutation && directMutation && proxyMutation
 			? `Sur la mutation scalaire sans historique préparé, l’API publique Pulsify prend ${number(proxyMutation / nativeMutation)} fois le temps de json-joy natif. L'écart proxy − pipeline est de ${number(proxyMutation - directMutation)} µs, soit ${number(((proxyMutation - directMutation) / directMutation) * 100)} % du pipeline sans proxy. Le moteur Pulsify sans proxy prend ${number(directMutation / nativeMutation)} fois le temps natif : ce scénario distingue le coût du chemin public et celui de la mutation interne. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.`
 			: "";
-	const baseline = report.parameters.pulsifyEngine
-		? "baselines/core-native-20261104.json"
-		: "baselines/crdt-comparison.json";
+	const baseline = report.parameters.pulsifyEngine?.includes("grouped")
+		? "baselines/core-grouped-20261104.json"
+		: report.parameters.pulsifyEngine
+			? "baselines/core-native-20261104.json"
+			: "baselines/crdt-comparison.json";
 	return `# Pulsify, json-joy, Yjs et Loro : comparaison locale
 
 Ce fichier est généré par \`bun run bench:crdt\`. Les données brutes sont dans le JSON indiqué par \`--output\` (par défaut \`benchmarks/results/crdt-comparison.json\`). La référence complète conservée est [${baseline}](${baseline}).
@@ -165,7 +167,7 @@ L'écart public − direct inclut aussi les contrôles et conversions du setter 
 
 ${interpretation}
 
-Pulsify utilise son propre moteur : registres LWW pour les champs et RGA pour les listes. Aucun moteur json-joy ou Yjs ne se trouve dans son chemin d’exécution. L’import prévalide les références et modifications puis applique chaque patch, sans cloner le document entier. Les métadonnées de racine sont vérifiées lors de leur création ou modification. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Sans matérialiseur personnalisé, le snapshot utilise une copie spécialisée du schéma lorsque la forme de la vue le permet et conserve une copie générale sinon. Un matérialiseur conserve son parcours public. La taille élevée après 100 éditions hors ligne reflète la conservation de chaque segment, tandis que les formats structurels peuvent condenser les valeurs écrasées.
+Pulsify utilise son propre moteur : registres LWW pour les champs et RGA pour les listes. Aucun moteur json-joy ou Yjs ne se trouve dans son chemin d’exécution. L’import prévalide les références et modifications puis applique chaque patch, sans cloner le document entier. Les métadonnées de racine sont vérifiées lors de leur création ou modification. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Sans matérialiseur personnalisé, le snapshot utilise une copie spécialisée du schéma lorsque la forme de la vue le permet et conserve une copie générale sinon. Un matérialiseur conserve son parcours public. Le journal conserve chaque transaction, tandis que les formats structurels peuvent condenser les valeurs écrasées. Le transport groupé, lorsqu’il est négocié, partage les en-têtes scalaires sans supprimer les opérations.
 
 ## Ce que mesure chaque scénario
 

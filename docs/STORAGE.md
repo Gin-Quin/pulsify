@@ -142,3 +142,14 @@ Database constraints and transaction semantics follow the primary references:
 [PostgreSQL advisory locks](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS),
 [FoundationDB Python transactions](https://apple.github.io/foundationdb/api-python.html),
 and [FoundationDB known limits](https://apple.github.io/foundationdb/known-limitations.html).
+
+### Grouped transport ingress
+
+`appendEncoded` also accepts negotiated envelope-2 scalar runs. The common decoder
+bounds the expanded history before allocating rows, owns the frame and exposes
+byte-exact original payloads lazily. Store adapters then expand those payload
+headers into the same immutable rows as v1; no application schema or document read
+is needed, and no database schema migration is required. PostgreSQL still performs
+one append function call. Version-vector queries, exact duplicates and actor forks
+have the same behavior for either incoming representation. The real-database
+conformance suite covers grouped ingress and partial queries on all three stores.

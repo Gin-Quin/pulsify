@@ -268,3 +268,23 @@ is one database call; connect storage to your relay and commit before
 acknowledging writes. See the [storage adapter guide](../../docs/STORAGE.md).
 
 The codecs compile trusted, fixed schemas with generated JavaScript functions. Browser deployments need a Content Security Policy that permits that code generation; received frames never supply executable schemas.
+
+## Exact grouped updates
+
+For a peer known to support the current grouped transport:
+
+```ts
+import { exportPulseUpdates, applyPulseUpdates } from "@pulsify/core";
+const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 2 });
+applyPulseUpdates(otherArticle, frames);
+```
+
+This is the same exchange implementation used by connectors. Omitting
+`peerVersion` keeps envelope 1 for unknown endpoints. Compatible scalar histories
+are grouped without dropping any transaction; other histories retain the ordinary
+format. Every original operation can still be retrieved by version vector.
+
+The memory connector uses its relay's explicit capability. WebSocket keeps its
+legacy handshake by default. Enable the new path only on a known upgraded server
+with `createWebSocketConnector(url, undefined, { protocolVersion: 2 })`; it must
+select `pulsify-v2`. See [capability negotiation](../../docs/PROTOCOL.md#capability-boundary).

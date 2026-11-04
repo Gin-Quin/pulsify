@@ -81,14 +81,16 @@ export function covered(
 }
 
 export function sameRow(a: StoredPatchRow, b: StoredPatchRow): boolean {
+	const left = a.operations,
+		right = b.operations;
 	return (
 		a.docId === b.docId &&
 		a.sid === b.sid &&
 		a.clock === b.clock &&
 		a.span === b.span &&
 		JSON.stringify(a.dependencies) === JSON.stringify(b.dependencies) &&
-		a.operations.length === b.operations.length &&
-		a.operations.every((v, i) => b.operations[i] === v)
+		left.length === right.length &&
+		left.every((v, i) => right[i] === v)
 	);
 }
 
