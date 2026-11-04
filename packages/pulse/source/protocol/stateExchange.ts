@@ -119,8 +119,25 @@ export function encodeStateUpdates(
 			return [encodeStateMessage(message, delta)];
 		}
 	}
-	const available = log.borrowMissing(vv, true),
-		known = new Map(vv),
+	const available = log.borrowMissing(vv, true);
+	// The common single-edit path needs no state planning or dependency sort.
+	if (available.length < STATE_THRESHOLD && !log.borrowStates().length) {
+		const chunks = chunkRows(available);
+		if (!chunks.length) chunks.push([]);
+		return chunks.map((rows, i) =>
+			encodeMessage(
+				{
+					...message,
+					rows,
+					...(message.kind === 2
+						? { complete: i === chunks.length - 1 }
+						: { requestId: message.requestId ? message.requestId + i : 0 }),
+				},
+				{ peerVersion: 2 },
+			),
+		);
+	}
+	const known = new Map(vv),
 		applied = new Map(log.vector),
 		blocks: Block[] = [];
 	const summaries = log

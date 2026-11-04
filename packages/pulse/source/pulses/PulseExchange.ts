@@ -42,7 +42,7 @@ export type PulseExchangeOptions = {
 	kind?: 3 | 4;
 	requestId?: number;
 };
-/** Public normal export. Version 2 requires a known supporting peer. */
+/** Explicit peer capability selects exact grouped or hybrid state transport. */
 export function exportPulseUpdates(
 	pulse: Pulse<any>,
 	vv: PulseVersionVector,
