@@ -1,6 +1,7 @@
+import type { DeepReadonly } from "./DeepReadonly.js";
 export const TupleSymbol: unique symbol = Symbol("Tuple");
 
-export type Tuple<Values extends readonly unknown[]> = Values & {
+export type Tuple<Values extends readonly unknown[]> = DeepReadonly<Values> & {
 	readonly [TupleSymbol]: true;
 };
 

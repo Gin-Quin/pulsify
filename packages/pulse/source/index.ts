@@ -1,68 +1,53 @@
-import {} from "json-joy/lib/json-crdt-patch";
-import { definePulse } from "./pulses/PulseDefinition";
-import type { PulseProperties } from "./pulses/PulseProperties";
-import { createPulse } from "./pulses/createPulse";
-
-console.log("------PULSES-------");
-
-type ItemList = PulseProperties<"ItemList"> & {
-	items: Array<number>;
-};
-
-const ItemList = definePulse<ItemList>("ItemList").materialize();
-const pulse = createPulse(ItemList, {
-	items: [1, 2, 3],
-});
-
-console.log(pulse);
-
-// console.log("------PRIMITIVE-------");
-
-// const model = Model.create();
-// console.log(model.toString());
-
-// const str = s.con("Hello world");
-
-// model.api.set({ items: [{ x: 12 }, { x: 312 }] });
-// console.log(model.toString());
-
-// model.api.arr(["items"]).get(1).asObj().set({ x: 424 });
-// console.log(model.toString());
-
-// console.log({ model });
-
-// model.api.str();
-// console.log(model.toString());
-
-// model.api.val().set({ x: "za", toto: null, ahah: [11, 24] });
-// console.log(model.toString());
-
-// console.log("------SIMPLE OBJECT-------")
-// const schema = s.obj({
-// 	text: s.con("hello"),
-// });
-
-// const model = Model.create(schema);
-
-// model.onbeforepatch = (patch) => {
-// 	console.log("BEFOREPATCH", patch);
-// };
-
-// model.onpatch = (patch) => {
-// 	console.log("PATCH", patch);
-// };
-
-// model.api.obj().onChildChange((event) => {
-// 	console.log("CHILDCHANGE", event);
-// });
-
-// console.log(model, model.toString());
-
-// model.api.obj([]).set({ text: "HEYYY" });
-// model.api.obj([]).set({ text: 123 });
-
-// console.log(model, model.toString());
-
-// const patches = model.api.flush();
-
-// console.log("flushed:", patches);
+export { definePulse } from "./pulses/PulseDefinition.js";
+export type {
+	PulseDefinition,
+	PulseMaterializer,
+	ModelFromDefinition,
+	DataFromDefinition,
+} from "./pulses/PulseDefinition.js";
+export { createPulse } from "./pulses/createPulse.js";
+export type { CreatePulseInput } from "./pulses/createPulse.js";
+export { loadPulse } from "./pulses/loadPulse.js";
+export type { LoadPulseOptions } from "./pulses/loadPulse.js";
+export {
+	destroyPulse,
+	disconnectPulse,
+	subscribePulse,
+	snapshotPulse,
+} from "./pulses/Pulse.js";
+export type { Pulse, PulseSnapshot } from "./pulses/Pulse.js";
+export type { PulseProperties } from "./pulses/PulseProperties.js";
+export {
+	createPulseScope,
+	setDefaultPulseOptions,
+} from "./pulses/PulseOptions.js";
+export type { PulseScope, PulseOptions } from "./pulses/PulseOptions.js";
+export { connectPulse } from "./connection/connectPulse.js";
+export type {
+	ConnectPulseOptions,
+	ConnectPulseResolvers,
+} from "./connection/connectPulse.js";
+export { Connection } from "./connection/Connection.js";
+export type {
+	Connector,
+	ConnectorSession,
+	ConnectorKind,
+} from "./connection/Connector.js";
+export { getPulseMeta } from "./pulses/PulseMeta.js";
+export { createMemoryConnector } from "./connectors/memory.js";
+export { createWebSocketConnector } from "./connectors/websocket.js";
+export { tuple, type Tuple } from "./utilities/Tuple.js";
+export { struct, type Struct } from "./utilities/Struct.js";
+export { isPulseLoaded } from "./utilities/isPulseLoaded.js";
+export { hasPulseLatestVersion } from "./utilities/hasPulseLatestVersion.js";
+export { setOnlineMode, isOnlineMode, isOnline } from "./utilities/isOnline.js";
+export { PulseError } from "./protocol/errors.js";
+export { PulseRelay } from "./protocol/PulseRelay.js";
+export {
+	encodeMessage,
+	decodeMessage,
+	PulseMessageKind,
+	PROTOCOL_VERSION,
+	OPERATIONS_VERSION,
+} from "./connection/PulseMessage.js";
+export type { PulseMessage } from "./connection/PulseMessage.js";

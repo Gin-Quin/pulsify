@@ -1,10 +1,29 @@
 {
-	"name": "pulse",
-	"workspaces": ["packages/*"],
+	"name": "pulsify-workspace",
+	"private": true,
+	"workspaces": ["packages/*", "benchmarks"],
 	"scripts": {
-		"dev": "bun packages/pulse/source/index.html"
+		"dev": "bun examples/server.ts",
+		"typecheck": "tsc --noEmit -p tsconfig.json",
+		"test": "bun test packages/pulse/tests",
+		"check": "bun run typecheck && bun run test && bun run test:crdt",
+		"build": "bun scripts/build.ts",
+		"bench": "bun benchmarks/index.ts",
+		"bench:compare": "bun benchmarks/compare.ts",
+		"test:rust": "cargo test --manifest-path crates/pulsify-protocol/Cargo.toml",
+		"test:interop": "bun test tests/interop.test.ts",
+		"test:runtimes": "bun scripts/test-runtimes.ts",
+		"test:codec-local": "bun scripts/test-codec-local.ts",
+		"test:example": "bun scripts/test-example.ts",
+		"test:package": "bun scripts/test-package.ts",
+		"bench:crdt": "bun benchmarks/crdt-comparison.ts",
+		"test:crdt": "bun test benchmarks/crdt-adapters.test.ts"
 	},
 	"dependencies": {
 		"@biomejs/biome": "^1.9.2"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"@playwright/test": "^1.56.1"
 	}
 }

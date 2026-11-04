@@ -3,18 +3,14 @@ import type {
 	LastMigration,
 	Migration,
 	MigrationResult,
-} from "../migration/Migrations";
-import type { Binding, Bindings } from "./Bindings";
-import type { PulseProperties } from "./PulseProperties";
+} from "../migration/Migrations.js";
+import type { Binding, Bindings } from "./Bindings.js";
+import type { PulseProperties } from "./PulseProperties.js";
 
 type ManagedMigrationKeys = "generation" | "id" | "kind" | "version";
 type ManagedMigrationKeyPattern = `${ManagedMigrationKeys}${string}`;
 
-export type PulseMigration = Migration<
-	PulseProperties<string>,
-	PulseProperties<string>,
-	ManagedMigrationKeys
->;
+export type PulseMigration = Migration<any, any, ManagedMigrationKeys>;
 
 type PulseMigrationResult<
 	Before extends object,
@@ -122,33 +118,3 @@ class PulseTypeBuilder<
 		} as PulseDefinition<Model, Migrations, From>;
 	}
 }
-
-// usage example
-
-const User = definePulse<UserV1>("User")
-	.migrate<UserV2>("v2", () => ({
-		email: "salut@toi",
-	}))
-	.migrate<UserV3>("v3", () => ({
-		emailV2: "hello@you",
-	}))
-	.materialize<User>(({ bind }) => ({
-		email: bind("emailV2"),
-	}));
-
-type User = PulseProperties<"User"> & {
-	name: string;
-	email: string;
-};
-
-type UserV3 = UserV2 & {
-	emailV2: string;
-};
-
-type UserV2 = UserV1 & {
-	email: string;
-};
-
-type UserV1 = PulseProperties<"User"> & {
-	name: string;
-};

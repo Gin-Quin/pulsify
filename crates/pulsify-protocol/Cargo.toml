@@ -1,0 +1,9 @@
+[package]
+name = "pulsify-protocol"
+version = "0.1.0"
+edition = "2021"
+license-file = "../../LICENSE"
+description = "Pulsify v1 binary protocol and opaque patch relay"
+
+[dev-dependencies]
+serde_json = "1"

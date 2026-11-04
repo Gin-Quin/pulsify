@@ -1,22 +1,36 @@
-# Pulse
+# Pulsify
 
-Pulse is a performant library for building scalable, real-time applications with a focus on simplicity, ease of use and security.
+Typed collaborative documents for TypeScript, with a versioned binary protocol usable from other languages.
 
-It's inspired heavily by Yjs but with some small differences that make a large impact.
+The core uses `json-joy` for CRDT application and `@gin-quin/codec` **2.1.0** for binary messages and operation payloads. Connectors exchange bytes and portable version vectors rather than JavaScript engine objects. A dependency-free Rust crate implements the outer protocol and an opaque operation journal.
 
-## Features
+```sh
+bun install --frozen-lockfile
+bun run check                 # TypeScript, API, wire fixtures, convergence, WebSocket, lifecycle
+bun run test:rust             # Rust protocol fixtures and journal
+bun run test:interop          # TypeScript ↔ Rust, including real document synchronization
+bun run build                 # Browser-compatible ESM + declarations
+bun run test:package          # Packed tarball: strict NodeNext types and Node runtime
+bun x --no-install playwright install chromium
+bun run test:example          # Two real browser tabs, offline edits and reconnection
+bun run test:runtimes         # Built package: Bun, Node 22+, Deno 2, Chromium
+bun run test:codec-local      # Isolated build against ../codec, without changing either repository
+bun run bench                 # Reproducible performance report
+bun run bench:crdt            # Pulsify / native json-joy / Yjs / Loro, including proxy overhead
+bun run dev                   # Two-tab WebSocket example at http://127.0.0.1:3000
+```
 
-- **Real-Time**: Pulse allows for real-time bidirectional event-driven communication.
-- **Scalable**: Pulse is designed to scale horizontally with ease.
-- **Simple**: Pulse provides a simple, intuitive API for building real-time applications.
+The runtime script uses an installed `deno`, or the npm Deno launcher through Bun if unavailable. The example relay keeps data in memory and binds to localhost. Refreshing clients reloads from that relay; restarting it clears its documents.
 
-Compared to Yjs, Pulse has the following improvements:
+- [API and examples](packages/pulse/README.md)
+- [Binary format and connector contract](docs/PROTOCOL.md)
+- [Benchmarks, methodology and measured baseline](benchmarks/README.md)
+- [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
+- [Rust protocol crate](crates/pulsify-protocol/README.md)
+- [Storage architecture notes](DATABASES.md)
 
-- Objects and documents in Pulse are well-typed and compatible with TypeScript.
-- Pulse has direct connections with front-end frameworks like Svelte or Solid to easily handle reactivity.
-- Pulse uses a more efficient data structure (resuing client ids) to reduce the amount of data sent over the network.
-- Pulse comes with a built-in system for migrations.
-- Pulse allows to attach customizable metadata to documents, which can be used to handle permissions, migrations and other use cases.
-- Pulse objects consume less storage than Yjs objects.
+## Scope
 
-Pulse also comes with its own cloud database, PulseBase, that is optimized for real-time collaborative applications. With PulseBase, you can get started in minutes and scale to millions of documents.
+The v1 core supports object documents, nested objects and arrays, migrations, two-way materialization, subscriptions, reconnection, causal buffering, deduplication and binary decoding through codec with frame-size limits. Strings are atomic values; this is not a character-level text editor API. Tuple/struct constants are immutable through the public view.
+
+The supplied relays are reference implementations with bounded in-memory history. Durable databases, snapshots/compaction, generation restoration and framework-specific adapters are separate integrations. No cloud service is required or included. Applications hosting the relay provide their own authentication, authorization and durable storage.

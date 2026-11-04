@@ -1,11 +1,6 @@
-import type { Pulse } from "pulse/pulses/Pulse";
-import { getPulseMeta } from "pulse/pulses/PulseMeta";
-
-export function hasPulseLatestVersion(pulse: Pulse) {
+import type { Pulse } from "../pulses/Pulse.js";
+import { getPulseMeta } from "../pulses/PulseMeta.js";
+export function hasPulseLatestVersion(pulse: Pulse<any>): boolean {
 	const meta = getPulseMeta(pulse);
-	if (!meta) {
-		console.error(`No metadata associated to the pulse ${pulse.id}`);
-		return false;
-	}
-	return pulse.version + 1 === meta.definition.migrations.length;
+	return meta.loaded && pulse.version === meta.definition.migrations.length + 1;
 }

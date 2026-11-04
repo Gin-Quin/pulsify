@@ -1,6 +1,8 @@
-import type { IsSameType } from "../utilities/IsSameType";
+import type { IsSameType } from "../utilities/IsSameType.js";
 
 export type Binding<Data, Value> = {
+	/** Stored field consumed by a direct alias. */
+	readonly sourceKey?: keyof Data;
 	get(data: Data): Value;
 	set(data: Data, value: Value): void;
 };
@@ -28,9 +30,21 @@ export function bind<Data extends object, Model extends object>(
 	data: Data,
 	bindings: Bindings<Data, Model>,
 ): Data & Model {
+	const hidden = new Set<PropertyKey>();
+	for (const [key, binding] of Object.entries(bindings) as [
+		string,
+		Binding<Data, unknown>,
+	][]) {
+		if (
+			binding?.sourceKey !== undefined &&
+			binding.sourceKey !== key &&
+			!Object.hasOwn(bindings, binding.sourceKey)
+		)
+			hidden.add(binding.sourceKey);
+	}
 	return new Proxy(data, {
 		get(target, prop, receiver) {
-			if (prop in bindings) {
+			if (Object.hasOwn(bindings, prop)) {
 				const binding = bindings[prop as keyof typeof bindings];
 				if (binding) {
 					return binding.get(target);
@@ -39,7 +53,7 @@ export function bind<Data extends object, Model extends object>(
 			return Reflect.get(target, prop, receiver);
 		},
 		set(target, prop, value, receiver) {
-			if (prop in bindings) {
+			if (Object.hasOwn(bindings, prop)) {
 				const binding = bindings[prop as keyof typeof bindings];
 				if (binding) {
 					binding.set(target, value);
@@ -48,35 +62,44 @@ export function bind<Data extends object, Model extends object>(
 			}
 			return Reflect.set(target, prop, value, receiver);
 		},
+		deleteProperty(target, prop) {
+			if (Object.hasOwn(bindings, prop)) {
+				const binding = bindings[prop as keyof typeof bindings];
+				if (binding?.sourceKey === undefined)
+					throw new TypeError("Derived bindings cannot be deleted");
+				return Reflect.deleteProperty(target, binding.sourceKey);
+			}
+			return Reflect.deleteProperty(target, prop);
+		},
+		has(target, prop) {
+			if (Object.hasOwn(bindings, prop)) {
+				const source = bindings[prop as keyof typeof bindings]?.sourceKey;
+				return source === undefined || Reflect.has(target, source);
+			}
+			return !hidden.has(prop) && Reflect.has(target, prop);
+		},
+		ownKeys(target) {
+			return [
+				...new Set([
+					...Reflect.ownKeys(target).filter((key) => !hidden.has(key)),
+					...Reflect.ownKeys(bindings),
+				]),
+			];
+		},
+		getOwnPropertyDescriptor(target, prop) {
+			if (Object.hasOwn(bindings, prop)) {
+				const binding = bindings[prop as keyof typeof bindings];
+				if (binding)
+					return {
+						configurable: true,
+						enumerable: true,
+						writable: true,
+						value: binding.get(target),
+					};
+			}
+			return hidden.has(prop)
+				? undefined
+				: Reflect.getOwnPropertyDescriptor(target, prop);
+		},
 	}) as Data & Model;
 }
-
-// usage example
-/*
-type Data = {
-	name: string;
-	version: number;
-	versionV2: string;
-	versionV3: [number, string];
-};
-
-type View = {
-	name: string;
-	version: [number, string];
-};
-
-const materializer: Materializer<Data, View> = (data) => ({
-	get name() {
-		return data.name;
-	},
-	set name(value: string) {
-		data.name = value;
-	},
-	get version() {
-		return data.versionV3;
-	},
-	set version(value: [number, string]) {
-		data.versionV3 = value;
-	},
-});
-*/

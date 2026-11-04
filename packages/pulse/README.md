@@ -1,319 +1,119 @@
-# Pulse
+# @pulsify/core
 
-**Pulse** is an hyper-optimized and simple syncing library for Typescript. It can be used in any JS environment, browser, Bun, Deno or Node, and is compatible with frontend frameworks like Svelte 5 and Solid.
+A TypeScript API for collaborative object documents. Built ESM runs in Bun, Node 22+, Deno 2 and browsers. Build from the workspace with `bun run build`; package exports and TypeScript declarations are in `dist/`. The emitted ESM declarations support strict NodeNext consumers. Keep the shared JavaScript chunks together with the entry files when copying a build.
 
-Internally, it uses [json-joy](https://jsonjoy.com/) as the underlying CRDT library. **json-joy** is a very fast and low-level TypeScript implementation of the CRDT algorithm.
-
-## Usage
-
-A `pulse` is a wrapper around a JSON value (primitive, array or object) that can be synchronized between different **connections**.
-
-A **connection** can be one or more browsers, a server, a local database, a distant database, etc.
-
-Every pulse is assigned a unique id.
-
-
-### Create a Pulse
-
-Before using a pulse, you need to define its type.
-
-For example, let's create an `User` pulse with fields `name` and `email`:
+## Define, create and observe
 
 ```ts
-export type User = PulseProperties<"User"> & {
-	name: string;
-	email: string;
-}
+import {
+  createPulse, definePulse, subscribePulse, snapshotPulse,
+  destroyPulse, type PulseProperties,
+} from "@pulsify/core";
 
-export const User = definePulse<User>("User").materialize()
-```
-
-This is the simplest Pulse type:
-
-- no migrations
-- no custom materializer
-
-Calling `materialize()` finalizes the definition. Without arguments, the public
-model is the same shape as the stored data.
-
-When migrations change stored field names, pass a materializer to define the
-public model exposed by the pulse:
-
-```ts
-type UserV1 = PulseProperties<"User"> & {
-	name: string;
-	email: string;
-}
-
-type UserV2 = PulseProperties<"User"> & {
-	name: string;
-	emailV2: string;
-}
-
-type User = PulseProperties<"User"> & {
-	name: string;
-	email: string;
-}
-
-export const User = definePulse<UserV1>("User")
-	.migrate<UserV2>("v2", (before) => ({
-		emailV2: before.email,
-	}))
-	.materialize<User>(({ bind }) => ({
-		email: bind("emailV2"),
-	}))
-```
-
-The `bind` helper creates a two-way connection. Reading `user.email` reads the
-stored `emailV2` field, and assigning `user.email = value` updates `emailV2`.
-For custom derived fields, return a binding with explicit `get(data)` and
-`set(data, value)` functions.
-
-### Use a pulse
-
-Now, we can create user pulses:
-
-```ts
-import { User } from "./User.ts"
-import { createPulse } from "@pulsify/core"
-
-const me = createPulse(User, {
-	name: "John",
-	email: "john@doe.com",
-})
-
-console.log("id:", me.id)
-console.log("name:", me.name)
-console.log("email:", me.email)
-```
-
-### Adding connectors
-
-When creating a pulse, the pulse will automatically connect with all default connectors.
-
-By default, no connectors are specified.
-
-If you want to save your object locally in IndexedDB, just register the IndexedDBConnector:
-
-```ts
-import { setDefaultPulseOptions } from "@pulsify/core"
-import { IndexedDBConnector } from "@pulsify/connector-indexeddb"
-
-setDefaultPulseOptions(
-	connectors: [
-		IndexedDBConnector,
-	],
-)
-```
-
-Now, by default, all pulses will be automatically saved to IndexedDB.
-
-When loading a pulse from its id, it will be loaded from IndexedDB as well.
-
-### Other default options
-
-```ts
-type PulseOptions = {
-	/**
-	 * The function used to auto-generate a pulse id
-	 */
-	createId: () => string;
-
-	/**
-	 * Whether to automatically connect when a pulse is created
-	 */
-	connect: boolean;
-
-	/**
-	 * The list of default connectors for new and loaded pulses
-	 */
-	connectors: Array<Connector>;
-}
-```
-
-### Pulse objects
-
-```ts
-const pulse = createPulse(MyPulseObject, {
-	x: 12,
-	y: 132,
-	nasty: {
-		z: 213
-	},
-	values: [4, 0, 123],
-	tuple: Tuple(4, 1, 34),
-	record: Record({ name: "John", age: 32 }),
-	tree: PulseTree(),
+type Note = PulseProperties<"Note"> & {
+  title: string;
+  author: { name: string };
+  tags: string[];
+};
+const Note = definePulse<Note>("Note").materialize();
+const note = createPulse(Note, {
+  title: "Draft", author: { name: "Ada" }, tags: ["work"],
 });
+const unsubscribe = subscribePulse(note, value => console.log(value.title));
+note.title = "Ready";
+note.author.name = "Grace";
+note.tags.push("review");
+const detached = snapshotPulse(note);
+unsubscribe();
+destroyPulse(note);
 ```
 
-### Loading a pulse
+Subscriptions run immediately, then synchronously after committed changes. Local creation and edits retain native patches without portable conversion or binary encoding. Sending or exporting history encodes each patch once and caches its bytes. `{ connect: true }` starts synchronization after creation; otherwise encoding waits until an explicit connection or export. The root proxy and identity registry are always initialized. Codec handles the wire schema without a separate schema-validation pass in Pulsify. Subscriber exceptions are reported through `onError`; they do not interrupt synchronization. `snapshotPulse` returns detached enumerable public values, including materialized fields. Without a custom materializer, it copies the engine view directly rather than traversing the proxies.
 
-When you want to load a pulse from another client (for example, your local database), you can use the `loadPulse` function:
+Row-count and metadata capacity limits are checked before local commits. Binary patch and encoded-history size limits are checked when bytes are requested. An oversized local patch can therefore remain usable locally while its export fails with `LIMIT_EXCEEDED`; connection failures are reported through synchronization promises and `onError`.
+
+`id`, `kind`, `version` and `generation` are managed by Pulsify. `id` can be supplied only at creation. The v1 generation is zero. Values support finite numbers, well-formed Unicode strings, booleans, null, undefined, dense arrays and plain objects. Reserved prototype properties (`__proto__`, `constructor`, `prototype`), cyclic values and non-JSON classes are rejected.
+
+Nested views retain identity while their CRDT node exists, including across remote edits. References to replaced or removed nodes become invalid; read the replacement from its parent. Array removal methods return detached values. Array holes, extending `length` and deleting an array index are rejected; use `splice`. Reordering/replacing a collection rebuilds its elements and can invalidate previous element references.
+
+## Connect and load
 
 ```ts
-const user = await loadPulse(User, id);
+import {
+  connectPulse, createWebSocketConnector, loadPulse, disconnectPulse,
+} from "@pulsify/core";
 
-// optionally, you can specify the connections to use to load the pulse
-const user = await loadPulse(User, id, {
-	connectors: [localDBConnector, externalDBConnector, peerToPeerConnector],
+const connector = createWebSocketConnector("ws://localhost:3000/sync");
+const remoteNote = await loadPulse(Note, "document-id", {
+  connectors: [connector],
+  waitFor: "all",
+  timeoutMs: 10_000,
 });
+disconnectPulse(remoteNote);  // Keep editing locally.
+remoteNote.tags.push("offline");
+await connectPulse(remoteNote).synced;
 ```
 
-The pulse is considered loaded the **first time** a client answers the request. This does not mean that the pulse has the most recent value. For example, if your pulse is connected to both a local database and a distant database:
+Creation starts disconnected by default. Pass `{ connectors: [connector], connect: true }` to start automatically, or call `connectPulse(note)`. Its promises resolve to the same public pulse:
 
-1. The local database will load the pulse first because there is no latency
-2. The pulse is considered "loaded" but maybe the distant database has the most recent value
-3. The pulse will be automatically updated when the synchronization to the distant database is complete
+| Promise | Meaning |
+| --- | --- |
+| `ready` | Usable document data is available. Configured local connectors are tried before remote connectors. |
+| `connected` | All configured connectors have completed their initial download. |
+| `synced` | Initial synchronization is complete and all configured connectors have acknowledged the local history. |
 
-You can control when a pulse is considered loaded by using the `waitFor` option:
+`loadPulse` waits for `ready` by default. `waitFor` accepts `"connected"`, `"synced"`, `"all"` (alias of `"synced"`) or an array of configured connectors. Required connector failures reject `connected`/`synced`; an earlier `ready` may already have succeeded. Missing documents, aborts and timeouts settle with a `PulseError`. Pass `signal` to cancel initial loading. With no connectors, a created document resolves immediately and loading an unknown ID rejects with `NOT_FOUND`.
+
+These promises describe initial synchronization; future edits continue flowing through the sessions. Use `getPulseMeta(pulse)` for diagnostic status and the last connection error. Its engine/journal fields are internal state: do not mutate them directly. After an established transport closes, call `disconnectPulse` and `connectPulse` to reconnect; retries are application-controlled.
+
+## Client scopes and in-memory synchronization
+
+One scope contains one public instance per document ID and definition. Reusing an ID returns the existing materialized instance. Use separate scopes for different clients, tests, requests or tenants.
 
 ```ts
-const count = await loadPulse(User, id, {
-	waitFor: [
-		externalDBConnection, // wait for the pulse to be synced from the external database
-	],
+import {
+  createMemoryConnector, createPulseScope, PulseRelay,
+} from "@pulsify/core";
+
+const relay = new PulseRelay();
+const connector = createMemoryConnector(relay);
+const first = createPulse(Note, {
+  id: "shared", title: "Draft", author: { name: "Ada" }, tags: [],
+}, { scope: createPulseScope(), connectors: [connector] });
+await connectPulse(first).synced;
+const second = await loadPulse(Note, "shared", {
+  scope: createPulseScope(), connectors: [connector], waitFor: "all",
 });
-
-const count = await loadPulse(id, {
-	waitFor: "all", // wait for all the connections to be synced
-});
+first.author.name = "Grace"; // Automatically reaches second.
 ```
 
-This is useful if you never want to show stale data to the user, but you lose some performance.
+`createMemoryConnector()` creates a private relay when none is supplied. For a shared relay that validates inner CRDT operations too, use the default connector relay or supply an operation validator to `PulseRelay`; the generic protocol relay otherwise treats operation bytes as opaque.
 
-### Sub-pulses
+`destroyPulse` closes sessions, cancels unfinished initialization, removes subscriptions and releases the identity-map entry. Writes to destroyed instances fail. Destroying a client does not delete the relay's stored history.
 
-## Using pulses with a frontend framework
+## Migrations and materialization
 
-To bring reactivity, pulses have lightweight integrations for the most popular frontend frameworks:
+```ts
+type UserV1 = PulseProperties<"User"> & { name: string; email: string };
+type UserV2 = PulseProperties<"User"> & { name: string; emailV2: string };
+type User = UserV1;
 
-- [Svelte](https://github.com/pulsify-dev/pulsify-svelte)
-- [Solid](https://github.com/pulsify-dev/pulsify-solid)
-- [Vue](https://github.com/pulsify-dev/pulsify-vue)
-- [React](https://github.com/pulsify-dev/pulsify-react) using [@preact/signals-react](https://preactjs.com/docs/signals)
-- [React](https://github.com/pulsify-dev/pulsify-react) using regular states
+const User = definePulse<UserV1>("User")
+  .migrate<UserV2>("v2", before => ({ emailV2: before.email }))
+  .materialize<User>(({ bind }) => ({ email: bind("emailV2") }));
 
-> If you want to use React, we strongly recommend using [@preact/signals](https://preactjs.com/docs/signals) as the component rendering engine, as it is much more performant and have greater compatibility with pulses.
-
-## Pulses with Svelte
-
-For Svelte, you can use the `$pulse` rune to create a pulse:
-
-```svelte
-<script lang="ts">
-  import { $pulse } from "@pulsify/svelte"
-
-  let count = $pulse(0)
-</script>
-
-My pulse is {count}
-
-<button on:click={() => count++}>
-  Increment
-</button>
+const user = createPulse(User, { name: "Ada", emailV2: "ada@example.com" });
+user.email = "grace@example.com";
 ```
 
-### Alternative syntax (compatible with Svelte 4)
+Creation accepts the latest stored shape. Loading applies migrations in order, once per stored version, and synchronizes the resulting patch. A current document does not copy or traverse its view to check for migrations. Migration functions receive a detached copy only when they run, return partial updates, and must be deterministic and free of external side effects; unchanged stored fields remain. They cannot write managed properties. Future migration versions or another document kind are rejected.
 
-Since pulses have the `subscribe` and `set` methods, they can be used directly in both Svelte 5 or Svelte 4 components using the `$` syntax, without having to install any additional package:
+`bind("field")` creates a typed two-way alias. Consumed storage aliases are omitted from enumeration of the public view. Custom derived bindings implement `get(data)` and `set(data, value)`; they do not consume stored fields automatically. Definitions and materializers are local TypeScript functions and are never transmitted to a relay.
 
-```svelte
-<script lang="ts">
-  import { createPulse } from "@pulsify/core"
+## Options and custom transports
 
-  const count = createPulse(0)
-</script>
+`setDefaultPulseOptions` changes defaults; individual calls can override `createId`, `connect`, `connectors`, `scope`, `timeoutMs`, `onError` and an optional numeric `sessionId`. Usually leave session IDs random; explicit IDs must be safe integers >= 65536 and unique among writers of a document.
 
-<p>
-  Count: {$count}
-</p>
+A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration. See the [protocol specification](../../docs/PROTOCOL.md).
 
-<button on:click={() => $count++}>
-  Increment
-</button>
-```
-
-### Pulses with Solid
-
-SolidJS is an awesome alternative to React that internally uses signals to bring reactivity to the platform.
-
-```tsx
-import { pulseSignal } from "@pulsify/solid";
-
-export function Counter() {
-	const [count, setCount] = pulseSignal(0);
-
-	return (
-		<div>
-			<p>Count: {count()}</p>
-
-			<button onClick={() => setCount(count() + 1)}>Increment</button>
-		</div>
-	);
-}
-```
-
-### Pulses with Vue
-
-Vue is a popular frontend framework that uses reactivity to bring reactivity to the platform.
-
-To have a reactive pulse, simply wrap your pulse with the `reactive` keyword:
-
-```vue
-<script setup lang="ts">
-import { createPulse } from "@pulsify/core";
-
-const count = reactive(createPulse({
-  id: "jk****************sd",
-  value: 0,
-}))
-</script>
-
-<template>
-	<p>Count: {count.value}</p>
-
-	<button on:click="{()" ="">count.value++}> Increment</button>
-</template>
-```
-
-### Pulses with React (using @preact/signals)
-
-`@preact/signals` is a library fully compatible with React that uses signals, which solves most of React's issues with reactivity.
-
-```tsx
-import { pulseSignal } from "@pulsify/preact";
-
-export function Counter() {
-	const count = pulseSignal(0);
-
-	return (
-		<div>
-			<p>Count: {count.value}</p>
-
-			<button onClick={() => count.value++}>Increment</button>
-		</div>
-	);
-}
-```
-
-### Pulses with React
-
-```tsx
-import { usePulse } from "@pulsify/react";
-
-export function Counter() {
-	const count = usePulse({
-    id: "za******************kj",
-    value: 0,
-  });
-
-	return (
-		<div>
-			<p>Count: {count}</p>
-
-			<button onClick={() => count.value++}>Increment</button>
-		</div>
-	);
-}
-```
+The codecs compile trusted, fixed schemas with generated JavaScript functions. Browser deployments need a Content Security Policy that permits that code generation; received frames never supply executable schemas.

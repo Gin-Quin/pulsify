@@ -1,4 +1,4 @@
-import type { IsSameType } from "../utilities/IsSameType";
+import type { IsSameType } from "../utilities/IsSameType.js";
 
 declare const migrationVersions: unique symbol;
 

@@ -1,7 +1,8 @@
+import type { DeepReadonly } from "./DeepReadonly.js";
 export const StructSymbol: unique symbol = Symbol("Struct");
 
 export type Struct<Values extends Record<string, unknown>> = {
-	readonly [Key in keyof Values]: Values[Key];
+	readonly [Key in keyof Values]: DeepReadonly<Values[Key]>;
 } & {
 	readonly [StructSymbol]: true;
 };

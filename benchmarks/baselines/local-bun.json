@@ -1,0 +1,491 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-04T01:22:33.603Z",
+  "commit": "512aad7a420150ffb09a0f68e0b7f76d76352201",
+  "dirty": true,
+  "environment": {
+    "runtime": "bun-1.4.4",
+    "codec": "2.1.0",
+    "jsonJoy": "18.28.0",
+    "platform": "darwin",
+    "release": "25.3.0",
+    "arch": "arm64",
+    "cpu": "Apple M4",
+    "cores": 10,
+    "totalMemoryBytes": 34359738368
+  },
+  "parameters": {
+    "samples": 25,
+    "warmup": 5,
+    "quick": false,
+    "filter": "",
+    "creationTiming": "fixtures and cleanup outside timing",
+    "mutationTiming": "cached nested handles; equal iteration counts",
+    "initialLoadTiming": "receiver cleanup outside timing"
+  },
+  "results": [
+    {
+      "name": "protocol/compile-schema",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 54.58167000000003,
+        "p95": 136.63895499999995,
+        "min": 36.474999999999795,
+        "max": 165.67770499999995
+      },
+      "opsPerSecond": 18321.1689931803
+    },
+    {
+      "name": "codec/encode/0",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.13912500000003547,
+        "p95": 0.25337500000000546,
+        "min": 0.09908399999994799,
+        "max": 6.797041999999919
+      },
+      "opsPerSecond": 7187780.7726846,
+      "metrics": {
+        "bytes": 15
+      }
+    },
+    {
+      "name": "codec/decode/0",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.12820799999997234,
+        "p95": 1.5985409999999547,
+        "min": 0.09525000000007822,
+        "max": 2.9941250000000537
+      },
+      "opsPerSecond": 7799825.283915323,
+      "metrics": {
+        "bytes": 15
+      }
+    },
+    {
+      "name": "json/encode/0",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.5912499999999454,
+        "p95": 2.5310839999999644,
+        "min": 0.29120899999998073,
+        "max": 4.107665999999995
+      },
+      "opsPerSecond": 1691331.9238902195,
+      "metrics": {
+        "bytes": 52
+      }
+    },
+    {
+      "name": "json/decode/0",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.9646249999999554,
+        "p95": 4.082166000000029,
+        "min": 0.5587499999999181,
+        "max": 10.330417000000013
+      },
+      "opsPerSecond": 1036672.2819749085,
+      "metrics": {
+        "bytes": 52
+      }
+    },
+    {
+      "name": "codec/encode/1",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.41575000000000273,
+        "p95": 3.521541999999954,
+        "min": 0.2777499999999691,
+        "max": 3.806291999999985
+      },
+      "opsPerSecond": 2405291.6416115295,
+      "metrics": {
+        "bytes": 429
+      }
+    },
+    {
+      "name": "codec/decode/1",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 0.3993749999999636,
+        "p95": 1.2545000000000073,
+        "min": 0.3488750000000209,
+        "max": 1.692792000000054
+      },
+      "opsPerSecond": 2503912.363067521,
+      "metrics": {
+        "bytes": 429
+      }
+    },
+    {
+      "name": "json/encode/1",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 2.127124999999978,
+        "p95": 3.27154100000007,
+        "min": 1.257333000000017,
+        "max": 4.246917000000053
+      },
+      "opsPerSecond": 470118.11717694555,
+      "metrics": {
+        "bytes": 694
+      }
+    },
+    {
+      "name": "json/decode/1",
+      "iterations": 1000,
+      "sampleMeanUs": {
+        "median": 2.61099999999999,
+        "p95": 4.686084000000051,
+        "min": 1.8573340000000371,
+        "max": 4.690249999999992
+      },
+      "opsPerSecond": 382995.0210647276,
+      "metrics": {
+        "bytes": 694
+      }
+    },
+    {
+      "name": "operations/encode/1",
+      "iterations": 500,
+      "sampleMeanUs": {
+        "median": 3.788000000000011,
+        "p95": 6.617334000000028,
+        "min": 1.9227499999999509,
+        "max": 8.63975000000005
+      },
+      "opsPerSecond": 263991.5522703266,
+      "metrics": {
+        "bytes": 391
+      }
+    },
+    {
+      "name": "operations/decode/1",
+      "iterations": 500,
+      "sampleMeanUs": {
+        "median": 7.353416000000152,
+        "p95": 77.79891600000019,
+        "min": 3.2914160000000265,
+        "max": 79.29941800000006
+      },
+      "opsPerSecond": 135991.2182310887,
+      "metrics": {
+        "bytes": 391
+      }
+    },
+    {
+      "name": "operations-json/encode/1",
+      "iterations": 500,
+      "sampleMeanUs": {
+        "median": 8.152583999999933,
+        "p95": 18.966334000000188,
+        "min": 4.793083999999908,
+        "max": 23.365916000000198
+      },
+      "opsPerSecond": 122660.49635305912,
+      "metrics": {
+        "bytes": 783
+      }
+    },
+    {
+      "name": "operations-json/decode/1",
+      "iterations": 500,
+      "sampleMeanUs": {
+        "median": 19.047084000000268,
+        "p95": 223.6603339999997,
+        "min": 10.881000000000313,
+        "max": 273.9100840000001
+      },
+      "opsPerSecond": 52501.47476642545,
+      "metrics": {
+        "bytes": 783
+      }
+    },
+    {
+      "name": "codec/encode/100",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.6131250000000819,
+        "p95": 5.642710000000761,
+        "min": 0.93166999999994,
+        "max": 5.854584999999588
+      },
+      "opsPerSecond": 619914.761720232,
+      "metrics": {
+        "bytes": 9319
+      }
+    },
+    {
+      "name": "codec/decode/100",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.7331250000004275,
+        "p95": 1.5231249999999363,
+        "min": 0.6502100000000155,
+        "max": 3.1797899999992296
+      },
+      "opsPerSecond": 1364023.870416937,
+      "metrics": {
+        "bytes": 9319
+      }
+    },
+    {
+      "name": "json/encode/100",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 12.891250000000127,
+        "p95": 18.17916500000024,
+        "min": 8.025000000000091,
+        "max": 26.000419999999167
+      },
+      "opsPerSecond": 77571.99650925939,
+      "metrics": {
+        "bytes": 12544
+      }
+    },
+    {
+      "name": "json/decode/100",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 6.075829999999769,
+        "p95": 11.302085000000943,
+        "min": 3.9364599999998973,
+        "max": 14.03332999999975
+      },
+      "opsPerSecond": 164586.56677359933,
+      "metrics": {
+        "bytes": 12544
+      }
+    },
+    {
+      "name": "operations/encode/100",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 67.91708000000199,
+        "p95": 104.90832999999839,
+        "min": 37.73749999999836,
+        "max": 281.1979199999996
+      },
+      "opsPerSecond": 14723.836772723014,
+      "metrics": {
+        "bytes": 9279
+      }
+    },
+    {
+      "name": "operations/decode/100",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 133.0362500000001,
+        "p95": 167.12750000000142,
+        "min": 75.48083000000133,
+        "max": 175.91707999999926
+      },
+      "opsPerSecond": 7516.748254705009,
+      "metrics": {
+        "bytes": 9279
+      }
+    },
+    {
+      "name": "operations-json/encode/100",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 167.6462500000025,
+        "p95": 257.5870799999984,
+        "min": 117.49874999999975,
+        "max": 305.56249999999636
+      },
+      "opsPerSecond": 5964.941058926072,
+      "metrics": {
+        "bytes": 18599
+      }
+    },
+    {
+      "name": "operations-json/decode/100",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 487.6366700000017,
+        "p95": 820.6095800000003,
+        "min": 330.776249999999,
+        "max": 840.6345899999998
+      },
+      "opsPerSecond": 2050.707138164971,
+      "metrics": {
+        "bytes": 18599
+      }
+    },
+    {
+      "name": "core/create/10",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 18.418750000000728,
+        "p95": 533.2937499999844,
+        "min": 13.316699999995762,
+        "max": 652.3458499999833
+      },
+      "opsPerSecond": 54292.50084831818
+    },
+    {
+      "name": "json-joy/create/10",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 17.59794999998121,
+        "p95": 291.95205000000897,
+        "min": 8.685399999967558,
+        "max": 315.7479499999681
+      },
+      "opsPerSecond": 56824.80061604151
+    },
+    {
+      "name": "core/create/1000",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 716.6454999996859,
+        "p95": 2216.374999999971,
+        "min": 547.5000000001273,
+        "max": 3387.333000000126
+      },
+      "opsPerSecond": 1395.3900498927828
+    },
+    {
+      "name": "json-joy/create/1000",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 1113.979499999914,
+        "p95": 2824.791500000174,
+        "min": 533.9584999996987,
+        "max": 4226.4374999999745
+      },
+      "opsPerSecond": 897.6825875162668
+    },
+    {
+      "name": "core/read-nested",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.453845900000033,
+        "p95": 1.3960041000000274,
+        "min": 0.2966666000000259,
+        "max": 1.7436791000000085
+      },
+      "opsPerSecond": 2203391.0629134853
+    },
+    {
+      "name": "core/mutate/history-0",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 4.0506249999998545,
+        "p95": 9.387919999999212,
+        "min": 2.179999999998472,
+        "max": 9.552290000001449
+      },
+      "opsPerSecond": 246875.482178685
+    },
+    {
+      "name": "core/mutate/history-1000",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 2.1254149999958827,
+        "p95": 5.170625000000655,
+        "min": 1.3404150000042137,
+        "max": 16.19499999999789
+      },
+      "opsPerSecond": 470496.3501254753
+    },
+    {
+      "name": "core/mutate/history-5000",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 2.793954999997368,
+        "p95": 11.132084999999279,
+        "min": 1.3956250000001091,
+        "max": 12.657289999997374
+      },
+      "opsPerSecond": 357915.5712962242
+    },
+    {
+      "name": "json-joy/mutate",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.2545799999961673,
+        "p95": 0.421040000001085,
+        "min": 0.23937500000101863,
+        "max": 21.196454999999332
+      },
+      "opsPerSecond": 3928038.337713312
+    },
+    {
+      "name": "sync/update/one-way-0ms",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 38.43749999996362,
+        "p95": 120.35420000001977,
+        "min": 27.78330000001006,
+        "max": 127.00830000003407
+      },
+      "opsPerSecond": 26016.26016262625,
+      "metrics": {
+        "sentBytes": 860,
+        "receivedBytes": 1050,
+        "sentFrames": 10,
+        "receivedFrames": 20
+      }
+    },
+    {
+      "name": "sync/update/one-way-5ms",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 12711.79149999989,
+        "p95": 14540.312500000255,
+        "min": 12013.541499999974,
+        "max": 15066.31249999964
+      },
+      "opsPerSecond": 78.66711784881058,
+      "metrics": {
+        "sentBytes": 172,
+        "receivedBytes": 210,
+        "sentFrames": 2,
+        "receivedFrames": 4
+      }
+    },
+    {
+      "name": "sync/initial-load/10",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 39.65829999997368,
+        "p95": 50.67079999998896,
+        "min": 32.99170000000231,
+        "max": 51.42500000001746
+      },
+      "opsPerSecond": 25215.402576526572
+    },
+    {
+      "name": "sync/initial-load/1000",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 2767.187500000091,
+        "p95": 4356.707999999799,
+        "min": 1877.875000000131,
+        "max": 7709.22900000005
+      },
+      "opsPerSecond": 361.3777526820886
+    },
+    {
+      "name": "sync/reconnect/100-offline-edits",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 622.2090000001117,
+        "p95": 2454.8750000003565,
+        "min": 555.1670000004378,
+        "max": 2880.750000000262
+      },
+      "opsPerSecond": 1607.1770096540238
+    }
+  ],
+  "memory": {
+    "historyRows": 5001,
+    "historyHeapBytes": 5171170,
+    "lifecycleHeapDeltaBytes": 40534
+  },
+  "timingNote": "Machine partagée chargée : charge observée après exécution de 13,19 pour 10 cœurs logiques. Les distributions sont larges ; ces valeurs ne permettent pas de conclure à des ratios de vitesse précis ni de décider seules d’une régression."
+}

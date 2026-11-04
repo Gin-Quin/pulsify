@@ -1,0 +1,24 @@
+{
+	"extends": "./packages/pulse/tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"typeRoots": [
+			"./packages/pulse/node_modules/@types",
+			"./node_modules/@types"
+		]
+	},
+	"include": [
+		"packages/pulse/source/**/*.ts",
+		"packages/pulse/tests/**/*.ts",
+		"scripts/**/*.ts",
+		"benchmarks/**/*.ts",
+		"examples/**/*.ts",
+		"tests/**/*.ts"
+	],
+	"exclude": [
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/target/**",
+		"benchmarks/results/**"
+	]
+}

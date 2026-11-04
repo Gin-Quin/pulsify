@@ -1,42 +1,92 @@
-import type { ObjApi } from "json-joy";
-import { toNodeBuilder } from "pulse/utilities/toNodeBuilder";
+import type { ObjApi } from "json-joy/lib/json-crdt/index.js";
+import { pulsify } from "../utilities/pulsify.js";
+import { toNodeBuilder } from "../utilities/toNodeBuilder.js";
+import { PulseMetaSymbol } from "./PulseMeta.js";
+import type { ProxyContext } from "./ProxyContext.js";
 
-export type PulseObject<Values extends Record<string, unknown>> = InstanceType<
-	typeof PulseObject<Values>
->;
-
-export const PulseObject = class PulseObject<
-	Value extends Record<string, unknown>,
-> {
-	constructor(api: ObjApi, object: Value) {
-		// biome-ignore lint/correctness/noConstructorReturn: Derived constructors may return an object.
-		return new Proxy(object, {
-			get(target, prop, receiver) {
-				return Reflect.get(target, prop, receiver);
+export type PulseObject<Value extends object> = Value;
+const managed = new Set(["id", "kind", "version", "generation"]);
+export function assertProperty(key: PropertyKey): asserts key is string {
+	if (
+		typeof key !== "string" ||
+		!key.isWellFormed() ||
+		["__proto__", "constructor", "prototype"].includes(key)
+	)
+		throw new TypeError(`Unsupported property ${String(key)}`);
+}
+export function createObjectProxy(
+	getApi: () => ObjApi,
+	context: ProxyContext,
+	root = false,
+): object {
+	const attached = () => {
+		const api = getApi();
+		if (!root && !context.meta.model.index.get(api.node.id))
+			throw new TypeError("This pulse object has been replaced or removed");
+		return api;
+	};
+	const view = () =>
+		root && !context.meta.loaded
+			? {}
+			: (attached().view() as Record<string, unknown>);
+	return new Proxy(
+		{},
+		{
+			get(_target, key) {
+				if (key === PulseMetaSymbol && root) return context.meta;
+				if (key === Symbol.toStringTag) return "PulseObject";
+				const current = view();
+				if (typeof key !== "string" || !Object.hasOwn(current, key))
+					return Reflect.get(Object.prototype, key);
+				return pulsify(getApi().get(key), context);
 			},
-			set(target, prop, value, receiver) {
-				const descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
-				const isSetter = descriptor != null && "set" in descriptor;
-				const isFunction =
-					descriptor != null &&
-					"value" in descriptor &&
-					typeof descriptor.value === "function";
-
-				if (
-					(typeof prop !== "string" || prop[0] !== "#") &&
-					!isSetter &&
-					!isFunction
-				) {
-					api.set({ [prop]: toNodeBuilder(value) });
-				}
-
-				return Reflect.set(target, prop, value, receiver);
+			set(_target, key, value) {
+				attached();
+				assertProperty(key);
+				if (root && managed.has(key))
+					throw new TypeError(`${key} is managed by Pulsify`);
+				const builder = toNodeBuilder(value);
+				context.mutate((patch) =>
+					patch.insObj(getApi().node.id, [[key, patch.json(builder)]]),
+				);
+				return true;
 			},
-		}) as any;
-	}
-} as {
-	new <Value extends Record<string, unknown>>(
-		api: ObjApi,
-		object: Value,
-	): Value;
-};
+			deleteProperty(_target, key) {
+				attached();
+				assertProperty(key);
+				if (root && managed.has(key))
+					throw new TypeError(`${key} is managed by Pulsify`);
+				if (Object.hasOwn(view(), key))
+					context.mutate((patch) =>
+						patch.insObj(getApi().node.id, [[key, patch.con(undefined)]]),
+					);
+				return true;
+			},
+			has(_target, key) {
+				return (key === PulseMetaSymbol && root) || Object.hasOwn(view(), key);
+			},
+			ownKeys() {
+				return Object.keys(view());
+			},
+			getOwnPropertyDescriptor(_target, key) {
+				return Object.hasOwn(view(), key)
+					? {
+							configurable: true,
+							enumerable: true,
+							writable: !(root && managed.has(String(key))),
+							value: pulsify(getApi().get(String(key)), context),
+						}
+					: undefined;
+			},
+			defineProperty() {
+				throw new TypeError("Pulse properties must be assigned or deleted");
+			},
+			setPrototypeOf() {
+				return false;
+			},
+			preventExtensions() {
+				return false;
+			},
+		},
+	);
+}

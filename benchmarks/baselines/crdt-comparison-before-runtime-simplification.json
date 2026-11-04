@@ -1,0 +1,1296 @@
+{
+  "schemaVersion": 2,
+  "suite": "crdt-comparison",
+  "generatedAt": "2026-11-03T17:42:32.462Z",
+  "commit": "512aad7a420150ffb09a0f68e0b7f76d76352201",
+  "dirty": true,
+  "environment": {
+    "runtime": "bun-1.4.4",
+    "codec": "2.1.0",
+    "jsonJoy": "18.28.0",
+    "yjs": "13.6.33",
+    "loro": "1.17.1",
+    "loroBackend": "wasm-nodejs",
+    "platform": "darwin",
+    "release": "25.3.0",
+    "arch": "arm64",
+    "cpu": "Apple M4",
+    "cores": 10
+  },
+  "parameters": {
+    "samples": 25,
+    "warmup": 5,
+    "quick": false,
+    "filter": "",
+    "seed": 5370206,
+    "fixtureVersion": 1,
+    "defaultYjsFormat": "V2",
+    "gcBeforeSamples": true,
+    "ordering": "seeded shuffled engine blocks"
+  },
+  "descriptions": {
+    "create/10": "Create an editable 10-item graph; cleanup is outside timing.",
+    "create+encode/10": "Create an editable 10-item graph and export a transferable initial state; cleanup is outside timing.",
+    "create/1000": "Create an editable 1000-item graph; cleanup is outside timing.",
+    "create+encode/1000": "Create an editable 1000-item graph and export a transferable initial state; cleanup is outside timing.",
+    "read-count/10": "Read a cached editable nested count; initial container lookup is outside timing.",
+    "mutate/history-0": "One committed count update through each library's default local API; Pulsify also validates, encodes and journals every edit.",
+    "mutate/history-1000": "One committed count update through each library's default local API; Pulsify also validates, encodes and journals every edit.",
+    "mutate/history-5000": "One committed count update through each library's default local API; Pulsify also validates, encodes and journals every edit.",
+    "list-append/10": "Append a new editable two-field object to the list and commit once per append (adapted from B1.8; objects replace upstream's numbers).",
+    "edit+encode/10": "Capture a version, commit one count edit, encode its incremental update; verify all encoded packets on a peer outside timing.",
+    "delta-roundtrip/10": "Version-vector capture + edit + delta encoding + peer import + peer count read; synchronous CPU-only, without transport or acknowledgement.",
+    "delta-roundtrip/1000": "Version-vector capture + edit + delta encoding + peer import + peer count read; synchronous CPU-only, without transport or acknowledgement.",
+    "initial-load+materialize/10": "Construct an empty replica, import an initial state and materialize a detached JSON view. Export is prepared outside timing; cleanup is outside timing.",
+    "initial-load+materialize/1000": "Construct an empty replica, import an initial state and materialize a detached JSON view. Export is prepared outside timing; cleanup is outside timing.",
+    "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing.",
+    "upstream-map-conflict/16-peers": "Adapted B3.1: 16 peers sharing a baseline concurrently update one map key; time importing all deltas and materializing one peer. Setup/encoding and a reference merge are outside timing.",
+    "proxy-overhead/read-count": "Same cached nested field, native API versus the Pulsify pipeline bypassing proxies versus the public proxy.",
+    "proxy-overhead/mutate-history-0": "Native json-joy versus identical Pulsify commit/validation/codec/journal pipeline with and without proxy traps; encoded rows are tested identical.",
+    "proxy-overhead/mutate-history-1000": "Native json-joy versus identical Pulsify commit/validation/codec/journal pipeline with and without proxy traps; encoded rows are tested identical.",
+    "proxy-overhead/mutate-history-5000": "Native json-joy versus identical Pulsify commit/validation/codec/journal pipeline with and without proxy traps; encoded rows are tested identical."
+  },
+  "results": [
+    {
+      "name": "crdt/create/10/pulsify",
+      "scenario": "create/10",
+      "participant": "pulsify",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 23.860399999998094,
+        "p95": 34.502050000000395,
+        "min": 18.602099999998245,
+        "max": 35.224999999999795
+      },
+      "opsPerSecond": 41910.445759504444
+    },
+    {
+      "name": "crdt/create/10/json-joy",
+      "scenario": "create/10",
+      "participant": "json-joy",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 8.981249999999363,
+        "p95": 12.672949999999616,
+        "min": 7.029199999999491,
+        "max": 31.81459999999987
+      },
+      "opsPerSecond": 111343.07585247832
+    },
+    {
+      "name": "crdt/create/10/yjs-v2",
+      "scenario": "create/10",
+      "participant": "yjs-v2",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 13.054199999999128,
+        "p95": 17.891699999999844,
+        "min": 10.79170000000147,
+        "max": 23.12079999999952
+      },
+      "opsPerSecond": 76603.69842656516
+    },
+    {
+      "name": "crdt/create/10/loro",
+      "scenario": "create/10",
+      "participant": "loro",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 55.63750000000027,
+        "p95": 82.36044999999876,
+        "min": 46.84374999999932,
+        "max": 117.63544999999881
+      },
+      "opsPerSecond": 17973.48910357214
+    },
+    {
+      "name": "crdt/create+encode/10/pulsify",
+      "scenario": "create+encode/10",
+      "participant": "pulsify",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 22.83335000000193,
+        "p95": 27.704149999999572,
+        "min": 19.06045000000063,
+        "max": 32.258350000000746
+      },
+      "opsPerSecond": 43795.58847036968,
+      "metrics": {
+        "bytes": 1211
+      }
+    },
+    {
+      "name": "crdt/create+encode/10/json-joy",
+      "scenario": "create+encode/10",
+      "participant": "json-joy",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 11.389550000001236,
+        "p95": 15.495849999999223,
+        "min": 9.833350000002383,
+        "max": 19.445799999999736
+      },
+      "opsPerSecond": 87799.78137853484,
+      "metrics": {
+        "bytes": 439
+      }
+    },
+    {
+      "name": "crdt/create+encode/10/yjs-v2",
+      "scenario": "create+encode/10",
+      "participant": "yjs-v2",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 19.429150000001982,
+        "p95": 24.53955000000292,
+        "min": 16.1104000000023,
+        "max": 24.687500000004547
+      },
+      "opsPerSecond": 51469.05551709148,
+      "metrics": {
+        "bytes": 449
+      }
+    },
+    {
+      "name": "crdt/create+encode/10/loro",
+      "scenario": "create+encode/10",
+      "participant": "loro",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 101.13959999999906,
+        "p95": 144.03954999999655,
+        "min": 90.49794999999676,
+        "max": 156.5499999999986
+      },
+      "opsPerSecond": 9887.324055068531,
+      "metrics": {
+        "bytes": 1030
+      }
+    },
+    {
+      "name": "crdt/create+encode/10/yjs-v1",
+      "scenario": "create+encode/10",
+      "participant": "yjs-v1",
+      "iterations": 20,
+      "sampleMeanUs": {
+        "median": 16.018750000000637,
+        "p95": 19.654150000002346,
+        "min": 13.914549999998371,
+        "max": 26.43749999999727
+      },
+      "opsPerSecond": 62426.84354272089,
+      "metrics": {
+        "bytes": 593
+      }
+    },
+    {
+      "name": "crdt/create/1000/pulsify",
+      "scenario": "create/1000",
+      "participant": "pulsify",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 978.8540000000694,
+        "p95": 1068.5210000000325,
+        "min": 955.3960000000643,
+        "max": 1168.8954999999623
+      },
+      "opsPerSecond": 1021.6028130854337
+    },
+    {
+      "name": "crdt/create/1000/json-joy",
+      "scenario": "create/1000",
+      "participant": "json-joy",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 470.2704999999696,
+        "p95": 548.2704999999441,
+        "min": 452.9169999999567,
+        "max": 567.395999999917
+      },
+      "opsPerSecond": 2126.4357428332514
+    },
+    {
+      "name": "crdt/create/1000/yjs-v2",
+      "scenario": "create/1000",
+      "participant": "yjs-v2",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 331.04149999996935,
+        "p95": 357.3959999999943,
+        "min": 314.6249999999782,
+        "max": 409.3960000000152
+      },
+      "opsPerSecond": 3020.769299317737
+    },
+    {
+      "name": "crdt/create/1000/loro",
+      "scenario": "create/1000",
+      "participant": "loro",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 3119.957999999997,
+        "p95": 3253.6665000000085,
+        "min": 3015.041999999994,
+        "max": 3481.2085000000934
+      },
+      "opsPerSecond": 320.51713516656343
+    },
+    {
+      "name": "crdt/create+encode/1000/pulsify",
+      "scenario": "create+encode/1000",
+      "participant": "pulsify",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 1006.5210000000206,
+        "p95": 1031.9584999999734,
+        "min": 967.2085000001971,
+        "max": 1043.0625000001328
+      },
+      "opsPerSecond": 993.5212479421488,
+      "metrics": {
+        "bytes": 92129
+      }
+    },
+    {
+      "name": "crdt/create+encode/1000/json-joy",
+      "scenario": "create+encode/1000",
+      "participant": "json-joy",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 723.93749999992,
+        "p95": 742.0420000000831,
+        "min": 702.4584999999206,
+        "max": 745.4999999999927
+      },
+      "opsPerSecond": 1381.3347146682006,
+      "metrics": {
+        "bytes": 36766
+      }
+    },
+    {
+      "name": "crdt/create+encode/1000/yjs-v2",
+      "scenario": "create+encode/1000",
+      "participant": "yjs-v2",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 496.06249999999363,
+        "p95": 553.37499999996,
+        "min": 479.1249999999536,
+        "max": 577.3125000000618
+      },
+      "opsPerSecond": 2015.8750157490495,
+      "metrics": {
+        "bytes": 30012
+      }
+    },
+    {
+      "name": "crdt/create+encode/1000/loro",
+      "scenario": "create+encode/1000",
+      "participant": "loro",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 4732.457999999951,
+        "p95": 4846.396000000027,
+        "min": 4629.916499999808,
+        "max": 4874.479500000007
+      },
+      "opsPerSecond": 211.30668248931323,
+      "metrics": {
+        "bytes": 49733
+      }
+    },
+    {
+      "name": "crdt/create+encode/1000/yjs-v1",
+      "scenario": "create+encode/1000",
+      "participant": "yjs-v1",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 548.9585000000261,
+        "p95": 606.5414999998211,
+        "min": 524.9170000001868,
+        "max": 643.9374999999927
+      },
+      "opsPerSecond": 1821.6313255008392,
+      "metrics": {
+        "bytes": 47879
+      }
+    },
+    {
+      "name": "crdt/read-count/10/pulsify",
+      "scenario": "read-count/10",
+      "participant": "pulsify",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.10573750000003201,
+        "p95": 0.11212080000000242,
+        "min": 0.10258330000001478,
+        "max": 0.11493329999998422
+      },
+      "opsPerSecond": 9457382.669343395
+    },
+    {
+      "name": "crdt/read-count/10/json-joy",
+      "scenario": "read-count/10",
+      "participant": "json-joy",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.005837500000006912,
+        "p95": 0.006729200000017954,
+        "min": 0.004970800000000964,
+        "max": 0.0074333000000024185
+      },
+      "opsPerSecond": 171306209.84990424
+    },
+    {
+      "name": "crdt/read-count/10/yjs-v2",
+      "scenario": "read-count/10",
+      "participant": "yjs-v2",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.013204199999972844,
+        "p95": 0.013729200000034325,
+        "min": 0.012362499999971988,
+        "max": 0.015791600000011386
+      },
+      "opsPerSecond": 75733478.74176827
+    },
+    {
+      "name": "crdt/read-count/10/loro",
+      "scenario": "read-count/10",
+      "participant": "loro",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.12483749999996689,
+        "p95": 0.1351749999999811,
+        "min": 0.12178330000001551,
+        "max": 0.14581250000001092
+      },
+      "opsPerSecond": 8010413.537601003
+    },
+    {
+      "name": "crdt/mutate/history-0/pulsify",
+      "scenario": "mutate/history-0",
+      "participant": "pulsify",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.921669999999267,
+        "p95": 2.160834999999679,
+        "min": 1.7637500000000728,
+        "max": 2.2050000000012915
+      },
+      "opsPerSecond": 520380.71052802063
+    },
+    {
+      "name": "crdt/mutate/history-0/json-joy",
+      "scenario": "mutate/history-0",
+      "participant": "json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.37583000000040556,
+        "p95": 0.46458499999971536,
+        "min": 0.3331249999996544,
+        "max": 0.46812499999987267
+      },
+      "opsPerSecond": 2660777.479176545
+    },
+    {
+      "name": "crdt/mutate/history-0/yjs-v2",
+      "scenario": "mutate/history-0",
+      "participant": "yjs-v2",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.26520500000197,
+        "p95": 1.3345800000001873,
+        "min": 1.1602100000004612,
+        "max": 1.4231250000011642
+      },
+      "opsPerSecond": 790385.7477629657
+    },
+    {
+      "name": "crdt/mutate/history-0/loro",
+      "scenario": "mutate/history-0",
+      "participant": "loro",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.2408350000009705,
+        "p95": 1.6258349999998245,
+        "min": 1.1712499999998727,
+        "max": 1.8306250000000546
+      },
+      "opsPerSecond": 805908.9242318422
+    },
+    {
+      "name": "crdt/mutate/history-1000/pulsify",
+      "scenario": "mutate/history-1000",
+      "participant": "pulsify",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.716874999999618,
+        "p95": 2.1404200000006313,
+        "min": 1.4562500000010914,
+        "max": 2.3687500000005457
+      },
+      "opsPerSecond": 582453.5857300167
+    },
+    {
+      "name": "crdt/mutate/history-1000/json-joy",
+      "scenario": "mutate/history-1000",
+      "participant": "json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.29687500000136424,
+        "p95": 0.3783350000003338,
+        "min": 0.24792000000161352,
+        "max": 0.4041700000016135
+      },
+      "opsPerSecond": 3368421.0526161
+    },
+    {
+      "name": "crdt/mutate/history-1000/yjs-v2",
+      "scenario": "mutate/history-1000",
+      "participant": "yjs-v2",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.9979150000003756,
+        "p95": 1.3077049999992596,
+        "min": 0.8902100000000246,
+        "max": 1.324170000000322
+      },
+      "opsPerSecond": 1002089.3563075248
+    },
+    {
+      "name": "crdt/mutate/history-1000/loro",
+      "scenario": "mutate/history-1000",
+      "participant": "loro",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.269795000000613,
+        "p95": 1.5077100000007704,
+        "min": 1.175829999999678,
+        "max": 1.713124999998854
+      },
+      "opsPerSecond": 787528.6955764649
+    },
+    {
+      "name": "crdt/mutate/history-5000/pulsify",
+      "scenario": "mutate/history-5000",
+      "participant": "pulsify",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.6366699999980483,
+        "p95": 1.9897900000023583,
+        "min": 1.4768750000030195,
+        "max": 2.0679199999995035
+      },
+      "opsPerSecond": 610996.7189483478
+    },
+    {
+      "name": "crdt/mutate/history-5000/json-joy",
+      "scenario": "mutate/history-5000",
+      "participant": "json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.28854000000137603,
+        "p95": 0.3452099999958591,
+        "min": 0.24750000000040018,
+        "max": 0.379584999996041
+      },
+      "opsPerSecond": 3465723.989724929
+    },
+    {
+      "name": "crdt/mutate/history-5000/yjs-v2",
+      "scenario": "mutate/history-5000",
+      "participant": "yjs-v2",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.9589599999981147,
+        "p95": 2.381875000000946,
+        "min": 0.8810399999993024,
+        "max": 4.574579999998605
+      },
+      "opsPerSecond": 1042796.362728337
+    },
+    {
+      "name": "crdt/mutate/history-5000/loro",
+      "scenario": "mutate/history-5000",
+      "participant": "loro",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.3079199999992852,
+        "p95": 2.181665000002795,
+        "min": 1.172710000000734,
+        "max": 6.307920000003833
+      },
+      "opsPerSecond": 764572.7567439496
+    },
+    {
+      "name": "crdt/list-append/10/pulsify",
+      "scenario": "list-append/10",
+      "participant": "pulsify",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 9.496250000001965,
+        "p95": 10.662090000005264,
+        "min": 9.063329999999041,
+        "max": 13.502500000004147
+      },
+      "opsPerSecond": 105304.72554953725
+    },
+    {
+      "name": "crdt/list-append/10/json-joy",
+      "scenario": "list-append/10",
+      "participant": "json-joy",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 0.9741599999961181,
+        "p95": 1.1999999999989086,
+        "min": 0.8612499999981083,
+        "max": 1.6995799999949668
+      },
+      "opsPerSecond": 1026525.4167734097
+    },
+    {
+      "name": "crdt/list-append/10/yjs-v2",
+      "scenario": "list-append/10",
+      "participant": "yjs-v2",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 1.485419999999067,
+        "p95": 1.852500000004511,
+        "min": 1.3333400000010442,
+        "max": 2.025839999996606
+      },
+      "opsPerSecond": 673210.2704963096
+    },
+    {
+      "name": "crdt/list-append/10/loro",
+      "scenario": "list-append/10",
+      "participant": "loro",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 4.397500000004584,
+        "p95": 4.798749999999927,
+        "min": 4.004169999998339,
+        "max": 5.698329999995622
+      },
+      "opsPerSecond": 227401.93291619275
+    },
+    {
+      "name": "crdt/edit+encode/10/pulsify",
+      "scenario": "edit+encode/10",
+      "participant": "pulsify",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 2.759169999999358,
+        "p95": 3.8166700000056153,
+        "min": 2.4112500000046566,
+        "max": 5.212920000003578
+      },
+      "opsPerSecond": 362427.8315581253,
+      "metrics": {
+        "bytes": 90.69000000000004
+      }
+    },
+    {
+      "name": "crdt/edit+encode/10/json-joy",
+      "scenario": "edit+encode/10",
+      "participant": "json-joy",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 2.7345799999966403,
+        "p95": 3.6754199999995762,
+        "min": 2.336249999998472,
+        "max": 4.154590000007374
+      },
+      "opsPerSecond": 365686.86964770773,
+      "metrics": {
+        "bytes": 58.789999999999985
+      }
+    },
+    {
+      "name": "crdt/edit+encode/10/yjs-v2",
+      "scenario": "edit+encode/10",
+      "participant": "yjs-v2",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 5.372910000005504,
+        "p95": 6.245419999995647,
+        "min": 4.910829999998896,
+        "max": 7.4008299999968585
+      },
+      "opsPerSecond": 186118.88157422616,
+      "metrics": {
+        "bytes": 33.44000000000002
+      }
+    },
+    {
+      "name": "crdt/edit+encode/10/loro",
+      "scenario": "edit+encode/10",
+      "participant": "loro",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 9.49083999999857,
+        "p95": 12.712080000001151,
+        "min": 7.296660000001793,
+        "max": 21.57458000000588
+      },
+      "opsPerSecond": 105364.75169744201,
+      "metrics": {
+        "bytes": 86.56999999999996
+      }
+    },
+    {
+      "name": "crdt/edit+encode/10/yjs-v1",
+      "scenario": "edit+encode/10",
+      "participant": "yjs-v1",
+      "iterations": 100,
+      "sampleMeanUs": {
+        "median": 2.4637499999971624,
+        "p95": 3.096670000004451,
+        "min": 2.1566600000005565,
+        "max": 4.569170000004306
+      },
+      "opsPerSecond": 405885.3373926542,
+      "metrics": {
+        "bytes": 23.54
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/10/pulsify",
+      "scenario": "delta-roundtrip/10",
+      "participant": "pulsify",
+      "iterations": 50,
+      "sampleMeanUs": {
+        "median": 19.336680000014894,
+        "p95": 21.14584000000832,
+        "min": 17.960839999996097,
+        "max": 36.872499999990396
+      },
+      "opsPerSecond": 51715.18585399509,
+      "metrics": {
+        "bytes": 89.38000000000005
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/10/json-joy",
+      "scenario": "delta-roundtrip/10",
+      "participant": "json-joy",
+      "iterations": 50,
+      "sampleMeanUs": {
+        "median": 4.419180000004417,
+        "p95": 5.2116600000044855,
+        "min": 3.6733400000048277,
+        "max": 5.212499999997817
+      },
+      "opsPerSecond": 226286.32461203221,
+      "metrics": {
+        "bytes": 63.88000000000004
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/10/yjs-v2",
+      "scenario": "delta-roundtrip/10",
+      "participant": "yjs-v2",
+      "iterations": 50,
+      "sampleMeanUs": {
+        "median": 8.688320000001113,
+        "p95": 10.408320000005915,
+        "min": 7.964159999992262,
+        "max": 12.1875
+      },
+      "opsPerSecond": 115097.04983240395,
+      "metrics": {
+        "bytes": 32.94000000000002
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/10/loro",
+      "scenario": "delta-roundtrip/10",
+      "participant": "loro",
+      "iterations": 50,
+      "sampleMeanUs": {
+        "median": 15.900840000012977,
+        "p95": 29.443320000009408,
+        "min": 14.816680000003544,
+        "max": 31.45168000000922
+      },
+      "opsPerSecond": 62889.75928310605,
+      "metrics": {
+        "bytes": 86
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/10/yjs-v1",
+      "scenario": "delta-roundtrip/10",
+      "participant": "yjs-v1",
+      "iterations": 50,
+      "sampleMeanUs": {
+        "median": 4.354159999984404,
+        "p95": 5.374159999992116,
+        "min": 3.6091799999849172,
+        "max": 6.039160000000265
+      },
+      "opsPerSecond": 229665.42341199724,
+      "metrics": {
+        "bytes": 22.959999999999994
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/1000/pulsify",
+      "scenario": "delta-roundtrip/1000",
+      "participant": "pulsify",
+      "iterations": 5,
+      "sampleMeanUs": {
+        "median": 1023.4666000000288,
+        "p95": 1086.408400000073,
+        "min": 974.5750000000044,
+        "max": 1089.0500000001339
+      },
+      "opsPerSecond": 977.0714549942048,
+      "metrics": {
+        "bytes": 92
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/1000/json-joy",
+      "scenario": "delta-roundtrip/1000",
+      "participant": "json-joy",
+      "iterations": 5,
+      "sampleMeanUs": {
+        "median": 166.99160000025586,
+        "p95": 179.75819999992382,
+        "min": 150.91659999998228,
+        "max": 183.88340000001335
+      },
+      "opsPerSecond": 5988.325161256422,
+      "metrics": {
+        "bytes": 70.59999999999997
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/1000/yjs-v2",
+      "scenario": "delta-roundtrip/1000",
+      "participant": "yjs-v2",
+      "iterations": 5,
+      "sampleMeanUs": {
+        "median": 32.266600000002654,
+        "p95": 38.12499999985448,
+        "min": 26.550000000133878,
+        "max": 46.0665999999037
+      },
+      "opsPerSecond": 30991.799569831273,
+      "metrics": {
+        "bytes": 34.20000000000002
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/1000/loro",
+      "scenario": "delta-roundtrip/1000",
+      "participant": "loro",
+      "iterations": 5,
+      "sampleMeanUs": {
+        "median": 56.60839999982272,
+        "p95": 78.51659999996627,
+        "min": 44.98340000027383,
+        "max": 91.99999999982538
+      },
+      "opsPerSecond": 17665.222829176088,
+      "metrics": {
+        "bytes": 88
+      }
+    },
+    {
+      "name": "crdt/delta-roundtrip/1000/yjs-v1",
+      "scenario": "delta-roundtrip/1000",
+      "participant": "yjs-v1",
+      "iterations": 5,
+      "sampleMeanUs": {
+        "median": 25.25000000005093,
+        "p95": 38.008199999967474,
+        "min": 19.9666000000434,
+        "max": 46.50839999994787
+      },
+      "opsPerSecond": 39603.96039595972,
+      "metrics": {
+        "bytes": 25.2
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/10/pulsify",
+      "scenario": "initial-load+materialize/10",
+      "participant": "pulsify",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 57.40829999995185,
+        "p95": 68.2875000000422,
+        "min": 48.97909999999683,
+        "max": 78.20420000007289
+      },
+      "opsPerSecond": 17419.084000063383,
+      "metrics": {
+        "bytes": 1211
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/10/json-joy",
+      "scenario": "initial-load+materialize/10",
+      "participant": "json-joy",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 16.766700000152923,
+        "p95": 18.399999999928696,
+        "min": 13.812499999949068,
+        "max": 23.241699999925913
+      },
+      "opsPerSecond": 59642.02854413089,
+      "metrics": {
+        "bytes": 439
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/10/yjs-v2",
+      "scenario": "initial-load+materialize/10",
+      "participant": "yjs-v2",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 18.004100000143808,
+        "p95": 20.483299999978044,
+        "min": 14.76249999996071,
+        "max": 23.883399999976973
+      },
+      "opsPerSecond": 55542.904115840975,
+      "metrics": {
+        "bytes": 449
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/10/loro",
+      "scenario": "initial-load+materialize/10",
+      "participant": "loro",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 49.766599999929895,
+        "p95": 56.87080000006972,
+        "min": 43.8666000000012,
+        "max": 63.816700000097626
+      },
+      "opsPerSecond": 20093.79784838443,
+      "metrics": {
+        "bytes": 1030
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/10/yjs-v1",
+      "scenario": "initial-load+materialize/10",
+      "participant": "yjs-v1",
+      "iterations": 10,
+      "sampleMeanUs": {
+        "median": 17.670800000087183,
+        "p95": 20.912499999940337,
+        "min": 15.34590000010212,
+        "max": 20.93750000003638
+      },
+      "opsPerSecond": 56590.533535270966,
+      "metrics": {
+        "bytes": 593
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/1000/pulsify",
+      "scenario": "initial-load+materialize/1000",
+      "participant": "pulsify",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 3375.2710000007937,
+        "p95": 3819.9580000000424,
+        "min": 3242.1460000005027,
+        "max": 4026.228999999148
+      },
+      "opsPerSecond": 296.2725067112433,
+      "metrics": {
+        "bytes": 92129
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/1000/json-joy",
+      "scenario": "initial-load+materialize/1000",
+      "participant": "json-joy",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 663.749999999709,
+        "p95": 715.7500000002983,
+        "min": 618.3540000001813,
+        "max": 754.2084999995495
+      },
+      "opsPerSecond": 1506.5913371004722,
+      "metrics": {
+        "bytes": 36766
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/1000/yjs-v2",
+      "scenario": "initial-load+materialize/1000",
+      "participant": "yjs-v2",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 549.6250000005602,
+        "p95": 616.9374999999491,
+        "min": 504.1460000002189,
+        "max": 701.6665000001012
+      },
+      "opsPerSecond": 1819.422333407288,
+      "metrics": {
+        "bytes": 30012
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/1000/loro",
+      "scenario": "initial-load+materialize/1000",
+      "participant": "loro",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 1671.3749999998981,
+        "p95": 1819.291499999963,
+        "min": 1613.521000000219,
+        "max": 1836.6040000000794
+      },
+      "opsPerSecond": 598.3097748859836,
+      "metrics": {
+        "bytes": 49733
+      }
+    },
+    {
+      "name": "crdt/initial-load+materialize/1000/yjs-v1",
+      "scenario": "initial-load+materialize/1000",
+      "participant": "yjs-v1",
+      "iterations": 2,
+      "sampleMeanUs": {
+        "median": 661.6039999998975,
+        "p95": 750.0829999999041,
+        "min": 625.1250000004802,
+        "max": 757.1454999997513
+      },
+      "opsPerSecond": 1511.47816518666,
+      "metrics": {
+        "bytes": 47879
+      }
+    },
+    {
+      "name": "crdt/offline-merge/100-per-peer/pulsify",
+      "scenario": "offline-merge/100-per-peer",
+      "participant": "pulsify",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 645.8329999986745,
+        "p95": 704.7920000004524,
+        "min": 584.3750000003638,
+        "max": 708.4579999991547
+      },
+      "opsPerSecond": 1548.3878959453177,
+      "metrics": {
+        "bytes": 14538
+      }
+    },
+    {
+      "name": "crdt/offline-merge/100-per-peer/json-joy",
+      "scenario": "offline-merge/100-per-peer",
+      "participant": "json-joy",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 88.49999999983993,
+        "p95": 217.7080000001297,
+        "min": 62.375000001338776,
+        "max": 234.0409999997064
+      },
+      "opsPerSecond": 11299.435028269025,
+      "metrics": {
+        "bytes": 139
+      }
+    },
+    {
+      "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+      "scenario": "offline-merge/100-per-peer",
+      "participant": "yjs-v2",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 97.6250000003347,
+        "p95": 141.45800000005693,
+        "min": 62.1659999997064,
+        "max": 145.16600000024482
+      },
+      "opsPerSecond": 10243.277848876534,
+      "metrics": {
+        "bytes": 97
+      }
+    },
+    {
+      "name": "crdt/offline-merge/100-per-peer/loro",
+      "scenario": "offline-merge/100-per-peer",
+      "participant": "loro",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 273.29199999985576,
+        "p95": 348.4580000003916,
+        "min": 210.62499999970896,
+        "max": 363.2920000000013
+      },
+      "opsPerSecond": 3659.089911159228,
+      "metrics": {
+        "bytes": 1624
+      }
+    },
+    {
+      "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+      "scenario": "offline-merge/100-per-peer",
+      "participant": "yjs-v1",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 75.79100000111794,
+        "p95": 107.08399999930407,
+        "min": 57.95799999941664,
+        "max": 137.08299999962037
+      },
+      "opsPerSecond": 13194.178728150437,
+      "metrics": {
+        "bytes": 75
+      }
+    },
+    {
+      "name": "crdt/upstream-map-conflict/16-peers/pulsify",
+      "scenario": "upstream-map-conflict/16-peers",
+      "participant": "pulsify",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 356.49999999986903,
+        "p95": 390.6669999996666,
+        "min": 307.3340000009921,
+        "max": 410.8329999999114
+      },
+      "opsPerSecond": 2805.049088360077,
+      "metrics": {
+        "bytes": 1472
+      }
+    },
+    {
+      "name": "crdt/upstream-map-conflict/16-peers/json-joy",
+      "scenario": "upstream-map-conflict/16-peers",
+      "participant": "json-joy",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 52.3750000011205,
+        "p95": 62.167000000044936,
+        "min": 45.08399999940593,
+        "max": 65.6250000010914
+      },
+      "opsPerSecond": 19093.078758541407,
+      "metrics": {
+        "bytes": 1024
+      }
+    },
+    {
+      "name": "crdt/upstream-map-conflict/16-peers/yjs-v2",
+      "scenario": "upstream-map-conflict/16-peers",
+      "participant": "yjs-v2",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 87.04099999886239,
+        "p95": 104.62499999994179,
+        "min": 70.87499999943248,
+        "max": 105.20900000119582
+      },
+      "opsPerSecond": 11488.83859345676,
+      "metrics": {
+        "bytes": 512
+      }
+    },
+    {
+      "name": "crdt/upstream-map-conflict/16-peers/loro",
+      "scenario": "upstream-map-conflict/16-peers",
+      "participant": "loro",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 371.70899999910034,
+        "p95": 417.9999999996653,
+        "min": 361.54200000055425,
+        "max": 515.9579999999551
+      },
+      "opsPerSecond": 2690.2765335313925,
+      "metrics": {
+        "bytes": 1536
+      }
+    },
+    {
+      "name": "crdt/upstream-map-conflict/16-peers/yjs-v1",
+      "scenario": "upstream-map-conflict/16-peers",
+      "participant": "yjs-v1",
+      "iterations": 1,
+      "sampleMeanUs": {
+        "median": 70.16699999985576,
+        "p95": 94.33300000091549,
+        "min": 63.2499999992433,
+        "max": 95.7090000010794
+      },
+      "opsPerSecond": 14251.713768609969,
+      "metrics": {
+        "bytes": 336
+      }
+    },
+    {
+      "name": "crdt/proxy-overhead/read-count/native-json-joy",
+      "scenario": "proxy-overhead/read-count",
+      "participant": "native-json-joy",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.008216600000014295,
+        "p95": 0.00878339999999298,
+        "min": 0.008029100000021572,
+        "max": 0.00938750000004802
+      },
+      "opsPerSecond": 121704841.41837989
+    },
+    {
+      "name": "crdt/proxy-overhead/read-count/pulsify-direct",
+      "scenario": "proxy-overhead/read-count",
+      "participant": "pulsify-direct",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.009529199999997217,
+        "p95": 0.01272079999998823,
+        "min": 0.00919159999994008,
+        "max": 0.012958299999991141
+      },
+      "opsPerSecond": 104940603.61838266
+    },
+    {
+      "name": "crdt/proxy-overhead/read-count/pulsify-proxy",
+      "scenario": "proxy-overhead/read-count",
+      "participant": "pulsify-proxy",
+      "iterations": 10000,
+      "sampleMeanUs": {
+        "median": 0.10647910000006959,
+        "p95": 0.1159416999998939,
+        "min": 0.1044624999998632,
+        "max": 0.11729169999998704
+      },
+      "opsPerSecond": 9391514.39108094
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-0/native-json-joy",
+      "scenario": "proxy-overhead/mutate-history-0",
+      "participant": "native-json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.2718749999985448,
+        "p95": 0.31729499999528343,
+        "min": 0.24583500000517233,
+        "max": 0.43270499999380263
+      },
+      "opsPerSecond": 3678160.919559917
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-0/pulsify-direct",
+      "scenario": "proxy-overhead/mutate-history-0",
+      "participant": "pulsify-direct",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.3581249999970169,
+        "p95": 1.586875000002692,
+        "min": 1.1858349999965867,
+        "max": 1.8393749999995634
+      },
+      "opsPerSecond": 736309.249886569
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-0/pulsify-proxy",
+      "scenario": "proxy-overhead/mutate-history-0",
+      "participant": "pulsify-proxy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.5035400000033405,
+        "p95": 1.8360450000000128,
+        "min": 1.2312500000007276,
+        "max": 2.716665000007197
+      },
+      "opsPerSecond": 665097.0376563165
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-1000/native-json-joy",
+      "scenario": "proxy-overhead/mutate-history-1000",
+      "participant": "native-json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.25375000000167347,
+        "p95": 0.282084999998915,
+        "min": 0.23500000000240107,
+        "max": 0.28999999999541615
+      },
+      "opsPerSecond": 3940886.6994813993
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-1000/pulsify-direct",
+      "scenario": "proxy-overhead/mutate-history-1000",
+      "participant": "pulsify-direct",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.337295000002996,
+        "p95": 1.5735450000011042,
+        "min": 1.2918749999971624,
+        "max": 1.5802050000002055
+      },
+      "opsPerSecond": 747778.164128154
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-1000/pulsify-proxy",
+      "scenario": "proxy-overhead/mutate-history-1000",
+      "participant": "pulsify-proxy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.4285449999988487,
+        "p95": 1.4964599999984785,
+        "min": 1.3439550000020972,
+        "max": 1.5635399999973743
+      },
+      "opsPerSecond": 700012.9502401436
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-5000/native-json-joy",
+      "scenario": "proxy-overhead/mutate-history-5000",
+      "participant": "native-json-joy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 0.2612500000032014,
+        "p95": 0.3270799999972951,
+        "min": 0.24062499999672582,
+        "max": 0.33021000000189815
+      },
+      "opsPerSecond": 3827751.1961253425
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-5000/pulsify-direct",
+      "scenario": "proxy-overhead/mutate-history-5000",
+      "participant": "pulsify-direct",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.3631249999980355,
+        "p95": 1.4829199999985576,
+        "min": 1.3218750000032742,
+        "max": 1.6616650000014488
+      },
+      "opsPerSecond": 733608.436498077
+    },
+    {
+      "name": "crdt/proxy-overhead/mutate-history-5000/pulsify-proxy",
+      "scenario": "proxy-overhead/mutate-history-5000",
+      "participant": "pulsify-proxy",
+      "iterations": 200,
+      "sampleMeanUs": {
+        "median": 1.4766700000018318,
+        "p95": 1.5479150000010122,
+        "min": 1.4264599999933125,
+        "max": 1.571670000002996
+      },
+      "opsPerSecond": 677199.3742669381
+    }
+  ],
+  "memory": {}
+}

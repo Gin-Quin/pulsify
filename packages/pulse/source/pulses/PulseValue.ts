@@ -1,5 +1,5 @@
-import type { PulseArray } from "./PulseArray";
-import type { PulseObject } from "./PulseObject";
+import type { PulseArray } from "./PulseArray.js";
+import type { PulseObject } from "./PulseObject.js";
 
 export type PulseValue =
 	| PulseArray<any>

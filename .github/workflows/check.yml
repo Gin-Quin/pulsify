@@ -1,0 +1,48 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  correctness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - uses: dtolnay/rust-toolchain@stable
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: cargo fmt --manifest-path crates/pulsify-protocol/Cargo.toml --check
+      - run: bun run test:rust
+      - run: bun run test:interop
+      - run: bun run build
+      - run: bun run test:package
+      - run: bun x --no-install playwright install --with-deps chromium
+      - run: bun run test:runtimes
+      - run: bun run test:example
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run bench --quick --output benchmarks/results/ci.json > /tmp/pulsify-bench.json
+      - run: bun run bench:crdt --quick --output benchmarks/results/crdt-ci.json --markdown benchmarks/results/crdt-ci.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmarks/results/ci.json
+            benchmarks/results/crdt-ci.json
+            benchmarks/results/crdt-ci.md

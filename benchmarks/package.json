@@ -1,0 +1,11 @@
+{
+	"name": "@pulsify/benchmarks",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
+		"json-joy": "18.28.0",
+		"loro-crdt": "1.17.1",
+		"yjs": "13.6.33"
+	}
+}
