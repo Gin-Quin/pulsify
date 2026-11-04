@@ -1,5 +1,7 @@
 # Integrated grouped transport
 
+Historical envelope-2 measurements. The [current hybrid implementation and results](HYBRID-TRANSPORT.md) supersede this release.
+
 Production integration measured at `876fb3d7453faf70315eef72d2b98ca8e49e4e04` with a clean worktree (`dirty: false`). Five warmup samples and 25 measured samples; all 95 comparison cases are retained. The experiment is now connected through the public API, Connection, memory/WebSocket transports, the reference relay, Rust input and all three durable adapters.
 
 The current full campaign wins 15/18 primary median comparisons against json-joy; the unweighted geometric ratio is 1.743×. **Offline parity is not achieved in the production campaign**: Pulsify takes 178.125 µs versus json-joy 93.916 µs (1.90× slower), despite the earlier white-box prototype's favorable results. Do not report the prototype's timings as product timings.

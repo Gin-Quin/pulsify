@@ -153,3 +153,19 @@ is needed, and no database schema migration is required. PostgreSQL still perfor
 one append function call. Version-vector queries, exact duplicates and actor forks
 have the same behavior for either incoming representation. The real-database
 conformance suite covers grouped ingress and partial queries on all three stores.
+
+
+### State transport and exact persistence
+
+Envelope-3 state deltas are a download/peer optimization, not durable operations.
+Every `appendEncoded` adapter rejects them with `HISTORY_UNAVAILABLE` before any
+database append. Native connections upload full original rows in envelopes 1/2;
+no schema or row-format change is required in PostgreSQL, SQLite or FoundationDB.
+The shared conformance suite verifies rejection and exact 101-row persistence on
+all three actual databases.
+
+A client's state vector may cover operations whose bytes it does not retain.
+Use that vector for incremental state synchronization, and its physical history
+vector for exact backfill. `recoverPulseHistory` checks that the requested bytes
+were obtained; a final state delta never serves as proof of a complete upload.
+See [state and history semantics](PROTOCOL.md#optional-state-deltas-envelope-3).

@@ -36,7 +36,7 @@ The runtime script uses an installed `deno`, or the npm Deno launcher through Bu
 - [Binary format and connector contract](docs/PROTOCOL.md)
 - [Benchmarks, methodology and measured baseline](benchmarks/README.md)
 - [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
-- [Native core results and remaining performance limits](benchmarks/GROUPED-TRANSPORT.md)
+- [Native core results and remaining performance limits](benchmarks/HYBRID-TRANSPORT.md)
 - [Rust protocol crate](crates/pulsify-protocol/README.md)
 - [PostgreSQL, SQLite and FoundationDB storage](docs/STORAGE.md)
 - [Storage requirements and design notes](DATABASES.md)
@@ -56,7 +56,11 @@ mutation. Definitions retain previous layouts for versioned migrations.
 Constant fields are initialized once and reject later replacement or nested
 edits. Local history is encoded lazily when requested for export.
 
-Envelope version 1 and the optional negotiated grouped envelope 2 carry operation payload version 2. Every transaction
+Exact envelope versions 1/2 and the optional negotiated scalar-state envelope 3
+carry operation payload version 2. Authoritative journals retain every original
+transaction; state-only receivers expose separate state/history vectors and can
+recover omitted rows. Connection uploads and database persistence stay exact.
+Every transaction
 uses one contiguous actor sequence number; its separate Lamport timestamp
 orders concurrent register writes. The protocol keeps row identities stable
 and buffers gaps and missing dependencies. Operation format 1 from the previous
@@ -64,8 +68,8 @@ json-joy implementation is incompatible with this payload format.
 
 The supplied relays keep bounded in-memory history. Durable adapters are
 available separately through `@pulsify/core/storage`; applications connect them
-to their relay and acknowledge writes after committing storage. Snapshots,
-history compaction, restored generations and framework adapters are not
-negotiated by this protocol. The host application supplies authentication and
+to their relay and acknowledge writes after committing storage. Arbitrary
+snapshots, durable journal pruning, restored generations and framework adapters
+are not negotiated by this protocol. The host application supplies authentication and
 authorization. The benchmark reports describe measured workloads and retained
 history differences; they do not claim a universal performance ranking.
