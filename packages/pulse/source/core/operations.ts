@@ -12,6 +12,7 @@ import {
 	writeVarString,
 	writeVarUint,
 	writeVarUint8Array,
+	writeUint8Array,
 	type Decoder,
 	type Encoder,
 } from "@gin-quin/codec";
@@ -122,6 +123,54 @@ const codec = createCodec(
 	}),
 );
 const patchEncoder = createEncoder();
+// Each slot retains at most 1 KiB, owned independently of network buffers.
+// The schema and target commonly repeat throughout a delivered actor history.
+const maxCachedStringBytes = 1024;
+type CachedString = { value: string; bytes: Uint8Array };
+const writtenStrings: Array<CachedString | undefined> = [];
+const readStrings: Array<CachedString | undefined> = [];
+function writePatchString(encoder: Encoder, value: string, slot: number): void {
+	const cached = writtenStrings[slot];
+	if (cached?.value === value) {
+		writeUint8Array(encoder, cached.bytes);
+		return;
+	}
+	const start = encoder.pos;
+	writeVarString(encoder, value);
+	if (encoder.pos - start <= maxCachedStringBytes)
+		writtenStrings[slot] = {
+			value,
+			bytes: encoder.buffer.slice(start, encoder.pos),
+		};
+}
+function readPatchString(decoder: Decoder, slot: number): string {
+	const start = decoder.pos;
+	const length = readVarUint(decoder);
+	if (decoder.pos + length > decoder.arr.length)
+		throw new Error("Unexpected end of array");
+	const cached = readStrings[slot];
+	if (cached?.bytes.length === length) {
+		let same = true;
+		for (let i = 0; i < length; i++)
+			if (decoder.arr[decoder.pos + i] !== cached.bytes[i]) {
+				same = false;
+				break;
+			}
+		if (same) {
+			decoder.pos += length;
+			return cached.value;
+		}
+	}
+	const content = decoder.pos;
+	decoder.pos = start;
+	const value = readVarString(decoder);
+	if (length <= maxCachedStringBytes)
+		readStrings[slot] = {
+			value,
+			bytes: new Uint8Array(decoder.arr.subarray(content, decoder.pos)),
+		};
+	return value;
+}
 type EncodedValue = {
 	layout: number;
 	data: Uint8Array;
@@ -157,13 +206,13 @@ function encodeSingleSet(
 	encoder.pos = 0;
 	writeVarUint(encoder, 2);
 	writeVarUint(encoder, patch.lamport);
-	writeVarString(encoder, patch.schema);
+	writePatchString(encoder, patch.schema, 0);
 	writeVarUint(encoder, 1);
 	writeVarUint(encoder, 1);
-	writeVarString(encoder, op.target);
+	writePatchString(encoder, op.target, 1);
 	if (typeof op.field === "string") {
 		writeVarUint(encoder, 0);
-		writeVarString(encoder, op.field);
+		writePatchString(encoder, op.field, 2);
 	} else {
 		if (!Number.isSafeInteger(op.field) || op.field < 0)
 			throw new TypeError("Invalid field slot");
@@ -180,14 +229,14 @@ function encodeSingleSet(
 function decodePatch(decoder: Decoder): ReturnType<typeof codec.decode> {
 	const version = readVarUint(decoder),
 		lamport = readVarUint(decoder),
-		schema = readVarString(decoder);
+		schema = readPatchString(decoder, 0);
 	if (readVarUint(decoder) === 1 && readVarUint(decoder) === 1) {
-		const target = readVarString(decoder),
+		const target = readPatchString(decoder, 1),
 			fieldKind = readVarUint(decoder);
 		if (fieldKind > 1)
 			throw new PulseError("INVALID_MESSAGE", "Invalid field variant");
 		const field =
-			fieldKind === 0 ? readVarString(decoder) : readVarUint(decoder);
+			fieldKind === 0 ? readPatchString(decoder, 2) : readVarUint(decoder);
 		const value: EncodedValue = {
 			layout: readVarUint(decoder),
 			data: readVarUint8Array(decoder),
@@ -302,11 +351,19 @@ export function decodeCorePatch(
 				constants: v.constants,
 				texts: v.texts,
 			};
-			validatePrepared(result);
+			if (result.constants.length || result.texts.length)
+				validatePrepared(result);
 			return result;
 		};
-		const ops = decoded.ops.map((op) => {
-			if (op.kind === 0 || op.kind === 1 || op.kind === 4)
+		const operation = (op: (typeof decoded.ops)[number]): CoreOperation => {
+			if (op.kind === 1)
+				return {
+					kind: 1,
+					target: op.target,
+					field: op.field,
+					value: value(op.value),
+				};
+			if (op.kind === 0 || op.kind === 4)
 				return { ...op, value: value(op.value) };
 			if (op.kind === 3) return { ...op, values: op.values.map(value) };
 			if (op.kind === 5)
@@ -318,7 +375,11 @@ export function decodeCorePatch(
 					>,
 				};
 			return op as CoreOperation;
-		});
+		};
+		const ops =
+			decoded.ops.length === 1
+				? [operation(decoded.ops[0]!)]
+				: decoded.ops.map(operation);
 		return new CorePatch(
 			row.sid,
 			row.clock,

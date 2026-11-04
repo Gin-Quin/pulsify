@@ -115,24 +115,28 @@ function covers(
 	return true;
 }
 function copyRow(row: PulsePatchRow, lazy = false): PulsePatchRow {
-	const metadata = {
-		docId: row.docId,
-		sid: row.sid,
-		clock: row.clock,
-		span: row.span,
-		dependencies: row.dependencies.map(([sid, clock]): [number, number] => [
-			sid,
-			clock,
-		]),
-	};
+	const dependencies = row.dependencies.map(
+		([sid, clock]): [number, number] => [sid, clock],
+	);
 	return lazy
 		? {
-				...metadata,
+				docId: row.docId,
+				sid: row.sid,
+				clock: row.clock,
+				span: row.span,
+				dependencies,
 				get operations() {
 					return new Uint8Array(row.operations);
 				},
 			}
-		: { ...metadata, operations: new Uint8Array(row.operations) };
+		: {
+				docId: row.docId,
+				sid: row.sid,
+				clock: row.clock,
+				span: row.span,
+				dependencies,
+				operations: new Uint8Array(row.operations),
+			};
 }
 function lowerBound(rows: PulsePatchRow[], clock: number): number {
 	let lo = 0;

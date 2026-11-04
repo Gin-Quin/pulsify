@@ -1,0 +1,994 @@
+{
+  "sourceCommit": "b46e6413bf635130ee91352c5ab9bfcfe2cf3f72",
+  "beforeSource": "git archive HEAD extracted outside git; original report commit metadata is empty",
+  "pairs": [
+    {
+      "round": 1,
+      "order": [
+        "before",
+        "after"
+      ],
+      "reports": {
+        "before": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:51.830Z",
+          "commit": "",
+          "dirty": false,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 424.54100000000494,
+                "p95": 490.1249999999777,
+                "min": 355.04200000002584,
+                "max": 533.1249999999841
+              },
+              "opsPerSecond": 2355.48510037897,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 128.62499999999955,
+                "p95": 175.33299999999485,
+                "min": 88.66699999998673,
+                "max": 201.04099999997516
+              },
+              "opsPerSecond": 7774.5383867833125,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 80.45800000002146,
+                "p95": 113.4169999999699,
+                "min": 50.70799999998599,
+                "max": 115.66600000000449
+              },
+              "opsPerSecond": 12428.844863155104,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 338.4160000000236,
+                "p95": 586.5420000000086,
+                "min": 230.2079999999478,
+                "max": 661.2500000000239
+              },
+              "opsPerSecond": 2954.9430286982006,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 65.66600000002154,
+                "p95": 96.20799999993324,
+                "min": 41.70800000002828,
+                "max": 103.70900000000915
+              },
+              "opsPerSecond": 15228.581000817348,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        },
+        "after": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:52.408Z",
+          "commit": "b46e6413bf635130ee91352c5ab9bfcfe2cf3f72",
+          "dirty": true,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 360.66600000003746,
+                "p95": 418.25000000000045,
+                "min": 304.916999999989,
+                "max": 419.54200000000696
+              },
+              "opsPerSecond": 2772.6483782776754,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 126.45800000001373,
+                "p95": 191.0829999999919,
+                "min": 78.83299999997462,
+                "max": 202.45800000000713
+              },
+              "opsPerSecond": 7907.763842539748,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 85.79199999996945,
+                "p95": 118.20800000000986,
+                "min": 61.79200000002538,
+                "max": 123.4579999999994
+              },
+              "opsPerSecond": 11656.098470724031,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 332.9999999999984,
+                "p95": 753.7499999999966,
+                "min": 233.91700000001947,
+                "max": 799.8329999999783
+              },
+              "opsPerSecond": 3003.0030030030175,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 57.833000000016455,
+                "p95": 87.54199999998491,
+                "min": 43.87500000007094,
+                "max": 89.04099999998039
+              },
+              "opsPerSecond": 17291.165943314638,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        }
+      }
+    },
+    {
+      "round": 2,
+      "order": [
+        "after",
+        "before"
+      ],
+      "reports": {
+        "before": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:53.568Z",
+          "commit": "",
+          "dirty": false,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 404.8339999999939,
+                "p95": 504.415999999992,
+                "min": 371.4170000000081,
+                "max": 517.0839999999828
+              },
+              "opsPerSecond": 2470.1482582985,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 134.2920000000163,
+                "p95": 181.24999999997726,
+                "min": 92.29100000004564,
+                "max": 199.25000000000637
+              },
+              "opsPerSecond": 7446.45995293747,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 80.41600000001381,
+                "p95": 110.66700000000651,
+                "min": 52.33300000008967,
+                "max": 117.9170000000056
+              },
+              "opsPerSecond": 12435.336251490105,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 357.4999999999875,
+                "p95": 735.7079999999883,
+                "min": 220.33399999997982,
+                "max": 823.709000000008
+              },
+              "opsPerSecond": 2797.202797202895,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 63.08400000000347,
+                "p95": 83.33300000001032,
+                "min": 42.33399999998255,
+                "max": 89.45899999997664
+              },
+              "opsPerSecond": 15851.880032971038,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        },
+        "after": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:52.994Z",
+          "commit": "b46e6413bf635130ee91352c5ab9bfcfe2cf3f72",
+          "dirty": true,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 362.7079999999978,
+                "p95": 433.1250000000182,
+                "min": 327.5000000000432,
+                "max": 463.29100000002654
+              },
+              "opsPerSecond": 2757.0387198517983,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 127.83400000000711,
+                "p95": 199.50000000000045,
+                "min": 80.91699999999946,
+                "max": 200.917000000004
+              },
+              "opsPerSecond": 7822.644992724505,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 85.62499999999318,
+                "p95": 135.3330000000028,
+                "min": 57.37499999997908,
+                "max": 169.08300000000054
+              },
+              "opsPerSecond": 11678.832116789252,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 337.62500000000273,
+                "p95": 666.0830000000146,
+                "min": 238.33400000000893,
+                "max": 798.0000000000018
+              },
+              "opsPerSecond": 2961.8659755645817,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 65.79199999998764,
+                "p95": 93.4169999999881,
+                "min": 43.04199999998559,
+                "max": 120.29100000006565
+              },
+              "opsPerSecond": 15199.416342415307,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        }
+      }
+    },
+    {
+      "round": 3,
+      "order": [
+        "before",
+        "after"
+      ],
+      "reports": {
+        "before": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:54.142Z",
+          "commit": "",
+          "dirty": false,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 412.4170000000049,
+                "p95": 500.87500000000773,
+                "min": 362.50000000001137,
+                "max": 518.8339999999982
+              },
+              "opsPerSecond": 2424.7303093713113,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 127.54200000000537,
+                "p95": 178.54200000002152,
+                "min": 77.75000000003729,
+                "max": 208.70899999999892
+              },
+              "opsPerSecond": 7840.5544840127795,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 90.29100000000767,
+                "p95": 114.70900000000483,
+                "min": 52.74999999994634,
+                "max": 118.8330000000235
+              },
+              "opsPerSecond": 11075.300971302955,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 334.75000000001387,
+                "p95": 452.4160000000279,
+                "min": 253.45800000002328,
+                "max": 715.4579999999839
+              },
+              "opsPerSecond": 2987.3039581776206,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 65.58300000000372,
+                "p95": 91.74999999999045,
+                "min": 37.332999999989624,
+                "max": 103.95899999997482
+              },
+              "opsPerSecond": 15247.853864567696,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        },
+        "after": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:54.711Z",
+          "commit": "b46e6413bf635130ee91352c5ab9bfcfe2cf3f72",
+          "dirty": true,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 364.37499999999545,
+                "p95": 430.04099999998857,
+                "min": 304.83300000003055,
+                "max": 556.0409999999933
+              },
+              "opsPerSecond": 2744.425385934854,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 125.49999999998818,
+                "p95": 193.25000000000614,
+                "min": 95.12499999999591,
+                "max": 206.7079999999919
+              },
+              "opsPerSecond": 7968.1274900405915,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 80.33400000002189,
+                "p95": 120.00000000000455,
+                "min": 55.58299999995597,
+                "max": 123.58299999999645
+              },
+              "opsPerSecond": 12448.02947693041,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 323.29200000000924,
+                "p95": 770.4589999999598,
+                "min": 213.87500000003,
+                "max": 812.2079999999983
+              },
+              "opsPerSecond": 3093.1789218414665,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 62.584000000015294,
+                "p95": 78.83299999991777,
+                "min": 41.917000000012195,
+                "max": 90.29199999997672
+              },
+              "opsPerSecond": 15978.524862580782,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        }
+      }
+    },
+    {
+      "round": 4,
+      "order": [
+        "after",
+        "before"
+      ],
+      "reports": {
+        "before": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:55.861Z",
+          "commit": "",
+          "dirty": false,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 412.50000000002274,
+                "p95": 514.8750000000177,
+                "min": 359.7090000000094,
+                "max": 524.0000000000009
+              },
+              "opsPerSecond": 2424.242424242291,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 129.16699999999537,
+                "p95": 173.0839999999887,
+                "min": 96.29200000000537,
+                "max": 201.37499999998454
+              },
+              "opsPerSecond": 7741.915504734459,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 79.166999999984,
+                "p95": 111.95800000001555,
+                "min": 56.29199999998491,
+                "max": 118.41699999999378
+              },
+              "opsPerSecond": 12631.525761999344,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 331.74999999999955,
+                "p95": 575.9589999999548,
+                "min": 228.70899999998073,
+                "max": 698.0000000000075
+              },
+              "opsPerSecond": 3014.3180105501174,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 58.16600000002836,
+                "p95": 84.54099999997311,
+                "min": 43.66699999997081,
+                "max": 89.50000000004366
+              },
+              "opsPerSecond": 17192.17412233113,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        },
+        "after": {
+          "schemaVersion": 2,
+          "suite": "crdt-comparison",
+          "generatedAt": "2026-11-04T12:43:55.287Z",
+          "commit": "b46e6413bf635130ee91352c5ab9bfcfe2cf3f72",
+          "dirty": true,
+          "environment": {
+            "runtime": "bun-1.4.4",
+            "codec": "2.1.0",
+            "jsonJoy": "18.28.0",
+            "yjs": "13.6.33",
+            "loro": "1.17.1",
+            "loroBackend": "wasm-nodejs",
+            "platform": "darwin",
+            "release": "25.3.0",
+            "arch": "arm64",
+            "cpu": "Apple M4",
+            "cores": 10
+          },
+          "parameters": {
+            "samples": 25,
+            "warmup": 5,
+            "quick": false,
+            "filter": "offline-merge",
+            "seed": 5370206,
+            "fixtureVersion": 1,
+            "defaultYjsFormat": "V2",
+            "gcBeforeSamples": true,
+            "ordering": "seeded shuffled engine blocks",
+            "pulsifyEngine": "native-core-v2",
+            "pulsifySchema": "codec object: title string, nested count float64, items editable array of { value float64, label string }"
+          },
+          "descriptions": {
+            "offline-merge/100-per-peer": "Two initialized peers make 100 committed offline edits each; time vector capture, two-way delta encode/import and materialization. Edits are outside timing."
+          },
+          "results": [
+            {
+              "name": "crdt/offline-merge/100-per-peer/pulsify",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "pulsify",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 365.5420000000049,
+                "p95": 416.2499999999909,
+                "min": 304.9159999999915,
+                "max": 428.9169999999842
+              },
+              "opsPerSecond": 2735.66375409662,
+              "metrics": {
+                "bytes": 17334
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/json-joy",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "json-joy",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 133.20899999996527,
+                "p95": 196.124999999995,
+                "min": 77.79099999999062,
+                "max": 212.79099999998152
+              },
+              "opsPerSecond": 7507.000277760967,
+              "metrics": {
+                "bytes": 139
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v2",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v2",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 82.75000000003274,
+                "p95": 119.24999999999386,
+                "min": 49.291999999923064,
+                "max": 120.00000000000455
+              },
+              "opsPerSecond": 12084.592145010325,
+              "metrics": {
+                "bytes": 97
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/loro",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "loro",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 316.833000000031,
+                "p95": 747.1669999999904,
+                "min": 230.79199999995126,
+                "max": 765.7500000000255
+              },
+              "opsPerSecond": 3156.236881890151,
+              "metrics": {
+                "bytes": 1624
+              }
+            },
+            {
+              "name": "crdt/offline-merge/100-per-peer/yjs-v1",
+              "scenario": "offline-merge/100-per-peer",
+              "participant": "yjs-v1",
+              "iterations": 1,
+              "sampleMeanUs": {
+                "median": 58.54200000001697,
+                "p95": 84.99999999997954,
+                "min": 37.916999999993095,
+                "max": 89.04099999998039
+              },
+              "opsPerSecond": 17081.7532711508,
+              "metrics": {
+                "bytes": 75
+              }
+            }
+          ],
+          "memory": {}
+        }
+      }
+    }
+  ]
+}

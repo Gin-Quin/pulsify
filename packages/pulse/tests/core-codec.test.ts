@@ -98,3 +98,125 @@ test("single register writes reject invalid numeric field slots before encoding"
 			),
 		).toThrow();
 });
+
+test("repeated register headers remain byte-exact across cache hits, changes and oversized strings", () => {
+	for (const header of [
+		"same-header",
+		"same-header",
+		"next-header",
+		"e\u0301🌍",
+		"é🌍",
+		"x".repeat(2048),
+		"same-header",
+	]) {
+		const value = prepareValue(header);
+		const op = { kind: 1 as const, target: header, field: header, value };
+		const patch = new CorePatch(65536, 1, 1, header, [op]);
+		const expected = reference.encode({
+			version: 2,
+			lamport: 1,
+			schema: header,
+			ops: [
+				{
+					...op,
+					value: {
+						layout: 0,
+						data: generic.encode(header),
+						constants: [],
+						texts: [],
+					},
+				},
+			],
+		});
+		const actual = encodeCorePatch(patch);
+		expect(actual).toEqual(expected);
+		const row = {
+			docId: "cache",
+			sid: 65536,
+			clock: 1,
+			span: 1,
+			dependencies: [],
+			operations: actual,
+		};
+		for (let repeat = 0; repeat < 2; repeat++) {
+			const decoded = decodeCorePatch(row);
+			expect(decoded.schema).toBe(header);
+			expect(decoded.ops).toEqual([op]);
+		}
+	}
+});
+
+test("register header caches own Buffer bytes and compare every byte", () => {
+	const packet = (header: string) =>
+		encodeCorePatch(
+			new CorePatch(65536, 1, 1, header, [
+				{ kind: 1, target: header, field: header, value: prepareValue(1) },
+			]),
+		);
+	const original = packet("cache-A"),
+		replacement = packet("cache-B");
+	const buffer = Buffer.from(original);
+	const row = {
+		docId: "cache",
+		sid: 65536,
+		clock: 1,
+		span: 1,
+		dependencies: [],
+		operations: buffer,
+	};
+	const first = decodeCorePatch(row);
+	buffer.set(replacement);
+	const second = decodeCorePatch(row);
+	expect(first.schema).toBe("cache-A");
+	expect(second.schema).toBe("cache-B");
+	expect(second.ops[0]).toEqual({
+		kind: 1,
+		target: "cache-B",
+		field: "cache-B",
+		value: prepareValue(1),
+	});
+	buffer.fill(0);
+	expect(
+		decodeCorePatch({ ...row, operations: Buffer.from(original) }).schema,
+	).toBe("cache-A");
+});
+
+test("warm register caches still reject truncated lengths and invalid field variants", () => {
+	for (const field of ["cached-field", 0, "cached-field", 128]) {
+		const patch = new CorePatch(65536, 1, 1, "cached-schema", [
+			{ kind: 1, target: "cached-target", field, value: prepareValue(1) },
+		]);
+		const bytes = encodeCorePatch(patch);
+		const row = {
+			docId: "cache",
+			sid: 65536,
+			clock: 1,
+			span: 1,
+			dependencies: [],
+			operations: bytes,
+		};
+		expect(decodeCorePatch(row).ops).toEqual(patch.ops);
+		for (let length = 0; length < bytes.length; length++)
+			expect(() =>
+				decodeCorePatch({ ...row, operations: bytes.subarray(0, length) }),
+			).toThrow();
+		const invalidField = bytes.slice();
+		// version, Lamport, schema, operation count/kind, target, field tag.
+		invalidField[2 + 1 + patch.schema.length + 2 + 1 + "cached-target".length] =
+			2;
+		expect(() => decodeCorePatch({ ...row, operations: invalidField })).toThrow(
+			"field variant",
+		);
+		for (const prefix of [
+			[0x80],
+			[0xff, 0xff, 0x7f],
+			[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f],
+		])
+			expect(() =>
+				decodeCorePatch({
+					...row,
+					operations: new Uint8Array([2, 1, ...prefix]),
+				}),
+			).toThrow();
+	}
+});
