@@ -782,6 +782,8 @@ mod tests {
     fn malformed_values() {
         assert!(decode(&[1, 2, 99]).is_err());
         assert!(decode(&[2, 1]).is_err());
+        // State-only envelopes are never accepted as durable exact history.
+        assert!(decode(&[3, 2, 4]).is_err());
         assert!(decode(&[1, 2, 1, 128, 0]).is_err());
         assert!(validate_vector(&vec![(65536, 1), (65536, 2)]).is_err());
         assert!(validate_vector(&vec![(65536, MAX_SAFE_INTEGER + 1)]).is_err());

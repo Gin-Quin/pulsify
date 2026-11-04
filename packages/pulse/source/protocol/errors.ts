@@ -1,4 +1,5 @@
 export type PulseErrorCode =
+	| "HISTORY_UNAVAILABLE"
 	| "INVALID_MESSAGE"
 	| "UNSUPPORTED_VERSION"
 	| "NOT_FOUND"
@@ -11,6 +12,7 @@ export type PulseErrorCode =
 
 export function remoteError(code: string, message: string): PulseError {
 	switch (code) {
+		case "HISTORY_UNAVAILABLE":
 		case "INVALID_MESSAGE":
 		case "UNSUPPORTED_VERSION":
 		case "NOT_FOUND":

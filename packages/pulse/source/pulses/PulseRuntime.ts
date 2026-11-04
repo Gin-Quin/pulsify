@@ -1,3 +1,4 @@
+import { stateDeltaOf } from "../protocol/stateDeltas.js";
 import { scalarRunOf, readRunValues } from "../protocol/scalarRuns.js";
 import { Connection } from "../connection/Connection.js";
 import {
@@ -11,6 +12,7 @@ import {
 	CorePatch,
 	ScalarPatch,
 	type CoreOperation,
+	type CoreScalar,
 } from "../core/operations.js";
 import { prepareValue, type PreparedValue } from "../core/values.js";
 import { PulseError, asPulseError } from "../protocol/errors.js";
@@ -411,6 +413,53 @@ export function createRuntime(
 		},
 		applyRows(rows) {
 			context.assertActive();
+			const delta = stateDeltaOf(rows);
+			if (delta) {
+				if (
+					delta.clock + delta.count <=
+					(new Map(log.vector).get(delta.sid) ?? 1)
+				) {
+					log.acceptState(delta, () => {});
+					return;
+				}
+				let value: CoreScalar;
+				try {
+					value = model.encoding.decode(delta.layout, delta.data) as CoreScalar;
+				} catch (cause) {
+					if (cause instanceof PulseError) throw cause;
+					throw new PulseError("INVALID_MESSAGE", "Invalid state value", {
+						cause,
+					});
+				}
+				model.validateScalarRun(delta, [value]);
+				const patch = new ScalarPatch(
+					delta.sid,
+					delta.clock + delta.count - 1,
+					delta.lamport + delta.count - 1,
+					delta.schema,
+					delta.target,
+					delta.field,
+					value,
+				);
+				let pending: CorePatch[] = [];
+				const result = log.acceptState(delta, (ready) => {
+					pending = ready.map(decode);
+					if (pending.length)
+						model.validate(
+							pending,
+							new Map(ready.map((row, i) => [pending[i]!, row.dependencies])),
+						);
+				});
+				if (result.changed) {
+					model.apply(patch);
+					for (const item of pending) model.apply(item);
+					meta.loaded = !!model.root;
+					migrate();
+					notify();
+				}
+				return;
+			}
+
 			const run = scalarRunOf(rows);
 			const column = run && model.scalarColumn(run.target, run.field);
 			if (

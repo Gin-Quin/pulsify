@@ -26,3 +26,9 @@ export { PatchLog } from "./protocol/PatchLog.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
 export { PulseError } from "./protocol/errors.js";
 export { MAX_FRAME_BYTES } from "./protocol/limits.js";
+
+export {
+	encodeHistoryRequest,
+	historyRequestOf,
+	isStateMessage,
+} from "./protocol/stateDeltas.js";

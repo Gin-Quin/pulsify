@@ -288,3 +288,32 @@ The memory connector uses its relay's explicit capability. WebSocket keeps its
 legacy handshake by default. Enable the new path only on a known upgraded server
 with `createWebSocketConnector(url, undefined, { protocolVersion: 2 })`; it must
 select `pulsify-v2`. See [capability negotiation](../../docs/PROTOCOL.md#capability-boundary).
+
+## Hybrid state exchange
+
+For an explicitly supporting peer, `{peerVersion: 3}` condenses long overwritten
+scalar runs while keeping ordinary operations for small or structural changes:
+
+```ts
+import {
+  exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory,
+} from "@pulsify/core";
+const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 3 });
+applyPulseUpdates(otherArticle, frames);
+const { state, history } = getPulseVersions(otherArticle);
+// Restore omitted operations before exporting complete history to another store.
+await recoverPulseHistory(otherArticle);
+```
+
+The server still receives and retains every original operation. A state-only
+receiver exposes separate state/history vectors; an exact export through a hole
+fails explicitly. `{mode: "history"}` requests exact exports. Recovery requires
+a connected source that has the missing rows and verifies that they arrived.
+Arrays, rich text, constants and migrations retain their existing operation path.
+Current condensation targets typed string/float64 register runs of 32+ writes;
+ordinary rows reloaded by the opaque relay use the safe exact fallback.
+
+Memory connections negotiate this automatically. WebSocket stays legacy by
+default; use `createWebSocketConnector(url, undefined, {protocolVersion: 3})`
+only with an upgraded endpoint that explicitly selects `pulsify-v3`.
+See [state delta semantics](../../docs/PROTOCOL.md#optional-state-deltas-envelope-3).

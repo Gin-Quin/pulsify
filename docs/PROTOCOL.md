@@ -1,6 +1,6 @@
 # Pulsify binary protocol
 
-Default envelope version **1**, optional grouped envelope **2**, operation payload version **2**. The native core has no
+Default envelope version **1**, optional grouped envelope **2** and state envelope **3**, operation payload version **2**. The native core has no
 runtime dependency on json-joy or Yjs. The TypeScript implementation uses
 `@gin-quin/codec` 2.1.0. The [Rust crate](../crates/pulsify-protocol) implements
 the envelope independently and keeps operation bytes opaque.
@@ -57,7 +57,7 @@ storage must commit the database transaction before sending its ack.
 
 Error codes include `INVALID_MESSAGE`, `UNSUPPORTED_VERSION`, `NOT_FOUND`,
 `INCOMPATIBLE_DOCUMENT`, `CLOSED`, `TIMEOUT`, `CONNECTION_FAILED`, `CONFLICT`
-and `LIMIT_EXCEEDED`. Unknown versions and kinds are rejected. A breaking
+`LIMIT_EXCEEDED` and `HISTORY_UNAVAILABLE`. Unknown versions and kinds are rejected. A breaking
 message change increments the envelope or operation version; application data
 migrations increment the stored document version instead.
 
@@ -97,7 +97,7 @@ overlapping ranges and actor forks are conflicts. A batch is accepted
 atomically. To find missing rows, select `row.clock + row.span > peerClock`
 for each actor, using zero for actors absent from the peer vector. Send the
 original rows; this version does not negotiate slicing, resegmentation,
-snapshots or compaction.
+snapshots or compaction in exact envelopes 1/2; optional state deltas are described below.
 
 The in-memory journal exposes copies through its public row APIs. Runtime-only
 borrowed-row methods must not be exposed to callers or mutated. Relays can
@@ -326,3 +326,82 @@ It offers `pulsify-v2`/`pulsify-v1` and uses v2 only if the socket selected
 select the first offered subprotocol even when the application does not understand
 it. The example server and client explicitly configure both ends. A peer must
 never infer application capability solely from such an automatic selection.
+
+## Optional state deltas (envelope 3)
+
+Envelope 3 is an explicitly negotiated transport view; operation payload version
+remains 2. It does **not** replace the exact append-only database journal.
+`SUPPORTED_PROTOCOL_VERSIONS` is `[1, 2, 3]`. Unknown peers still receive envelope 1.
+A known upgraded WebSocket server may opt into `protocolVersion: 3` and select
+`pulsify-v3`; the client also offers v2/v1. Never infer this capability from a
+successful socket opening. The Rust relay currently supports exact envelopes
+1/2 and rejects 3; use a v1/v2 session with it.
+
+The initial implementation condenses homogeneous runs of at least 32 overwritten
+string/float64 object registers. Actor clocks, Lamport progression, schema,
+target, field, layout and external dependencies must agree throughout the run.
+Constants, rich text, arrays, container replacements and definitions with
+migration history keep exact operations. Small changes also keep exact rows.
+The local journal maintains its latest native scalar tail incrementally, so
+exporting this common case does not scan the overwritten transactions.
+
+All following fields use the scalar encodings above, in this exact order:
+
+```text
+protocolVersion:uint = 3
+operationsVersion:uint = 2
+kind:uint = 1 | 2 | 4
+docId:string
+requestId:uint
+vv:vector
+
+kind 1: historyOnly:boolean
+kind 2: found:boolean, complete:boolean, delta:stateDelta
+kind 4: delta:stateDelta
+
+stateDelta:
+  sid:uint, clock:uint, count:uint, lamport:uint
+  schema:string, target:string, field:fieldRef, layout:uint
+  external:vector
+  data:bytes  // final register value, encoded by its compiled codec layout
+```
+
+The covered actor range is `[clock, clock + count)`; `lamport` belongs to its
+first transaction. The final original row is reconstructed exactly and retained;
+intermediate overwritten values are absent at the receiver. No synthetic row
+pretends to span their history. Frames are canonical, bounded, schema-checked,
+and require the prior causal base. Missing bases fail with
+`HISTORY_UNAVAILABLE`; ordered delivery or a new synchronization is required.
+Overlapping state and later exact history must agree on the run metadata and
+known winner. Hidden historical values are not validated by receiving their
+final state; they remain available for audit in the authoritative exact journal.
+
+`getPulseVersions(pulse)` distinguishes `state` (causally covered applied state)
+from `history` (contiguous physically retained per-actor operation prefixes).
+The latter is a physical inventory and need not be causally closed across
+actors when pending rows exist. Local edits depend on **state**, preserving
+causality after condensation. Exact exports that would cross a state-only hole
+fail with `HISTORY_UNAVAILABLE`, rather than advertise absent operations.
+
+`exportPulseUpdates(pulse, vv, {peerVersion: 3})` may select state deltas.
+`{mode: "history"}` always requires exact rows. Connection uploads always use
+this exact mode (envelopes 1/2), even in a v3 session. The relay and every
+`appendEncoded` database adapter reject state-only uploads. The relay can
+condense retained grouped runs during v3 initial downloads; broadcasts remain
+exact. Plain rows recovered from storage, or a mixed initial upload containing
+creation plus edits, currently retain the exact fallback: the opaque relay does
+not guess a schema from their binary payloads.
+
+Call `recoverPulseHistory(pulse)` to request omitted rows from connected sources.
+A v3 connect with `historyOnly = true` uses the physical history vector and
+receives exact rows. Recovery succeeds only when physical history covers the
+state vector captured at its start; missing/lost sources produce an explicit
+error. Connecting to an older endpoint automatically requests the physical
+vector to backfill first. A partial client cannot seed a new authoritative
+server without first obtaining the missing exact history.
+
+`decodeMessage` preserves state ownership internally: use `applyPulseUpdates`
+(or re-encode the same message with `peerVersion: 3`), rather than copying its
+`rows` array. Its empty row array represents state coverage, not an empty exact
+journal. Storage callers should use `rowsFromFrame`/`appendEncoded`, which reject
+this distinction safely. Database schemas and queries remain unchanged.

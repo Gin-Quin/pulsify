@@ -15,7 +15,7 @@ const Note = definePulse<Note>("Note").materialize();
 const connector = createWebSocketConnector(
 	`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/sync`,
 	undefined,
-	{ protocolVersion: 2 },
+	{ protocolVersion: 3 },
 );
 const status = document.querySelector<HTMLOutputElement>("#status")!;
 const title = document.querySelector<HTMLInputElement>("#title")!;

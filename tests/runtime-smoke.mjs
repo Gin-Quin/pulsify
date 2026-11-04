@@ -1,4 +1,4 @@
-import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, PulseRelay, snapshotPulse, PulseError as CoreError } from "../packages/pulse/dist/index.js";
+import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, getPulseVersions, PulseRelay, snapshotPulse, PulseError as CoreError } from "../packages/pulse/dist/index.js";
 import { encodeMessage, decodeMessage, PulseError as ProtocolError, PulseRelay as ProtocolRelay } from "../packages/pulse/dist/protocol.js";
 function assert(condition, message) { if (!condition) throw new Error(message); }
 export async function smoke() {
@@ -39,6 +39,13 @@ export async function smoke() {
 		getPulseMeta(y).applyRows(decoded.rows);
 		assert(y.value===100&&applications===1,"Entry points do not share the guarded grouped path");
 		applyPulseUpdates(y,frames);assert(getPulseMeta(y).log.size===101,"Grouped duplicate changed retained history");
+		const base=getPulseMeta(y).log.vector;for(let i=101;i<=200;i++)x.value=i;
+		const state=exportPulseUpdates(x,base,{peerVersion:3});assert(state[0][0]===3,"State export did not negotiate v3");
+		getPulseMeta(y).applyRows(decodeMessage(state[0]).rows);assert(y.value===200,"State marker is not shared across entry points");
+		assert(JSON.stringify(getPulseVersions(y).state)!==JSON.stringify(getPulseVersions(y).history),"State claimed omitted exact history");
+		applyPulseUpdates(y,exportPulseUpdates(x,getPulseVersions(y).history,{peerVersion:2,mode:"history"}));
+		assert(JSON.stringify(getPulseVersions(y).state)===JSON.stringify(getPulseVersions(y).history),"State history backfill failed");
+
 	}finally{destroyPulse(x);if(y)destroyPulse(y);}
 	return { ok: true, runtime: typeof navigator !== "undefined" ? navigator.userAgent : globalThis.process?.version ?? "unknown" };
 }

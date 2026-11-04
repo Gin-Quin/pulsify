@@ -9,21 +9,27 @@ const client = await Bun.build({
 });
 if (!client.success)
 	throw new AggregateError(client.logs, "Cannot build example");
-const server = Bun.serve<{ peer?: RelayPeer; protocolVersion?: 1 | 2 }>({
+const server = Bun.serve<{ peer?: RelayPeer; protocolVersion?: 1 | 2 | 3 }>({
 	hostname: "127.0.0.1",
 	port: Number(process.env["PORT"] ?? 3000),
 	fetch(request, server) {
 		const path = new URL(request.url).pathname;
 		if (path === "/sync") {
-			const grouped = request.headers
-				.get("sec-websocket-protocol")
-				?.split(",")
-				.some((p) => p.trim() === "pulsify-v2");
+			const offered =
+				request.headers
+					.get("sec-websocket-protocol")
+					?.split(",")
+					.map((p) => p.trim()) ?? [];
+			const version = offered.includes("pulsify-v3")
+				? 3
+				: offered.includes("pulsify-v2")
+					? 2
+					: 1;
 			if (
 				server.upgrade(request, {
-					data: { protocolVersion: grouped ? 2 : 1 },
-					...(grouped
-						? { headers: { "Sec-WebSocket-Protocol": "pulsify-v2" } }
+					data: { protocolVersion: version },
+					...(version > 1
+						? { headers: { "Sec-WebSocket-Protocol": `pulsify-v${version}` } }
 						: {}),
 				})
 			)

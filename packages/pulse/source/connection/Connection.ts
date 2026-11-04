@@ -1,3 +1,4 @@
+import { encodeHistoryRequest } from "../protocol/stateDeltas.js";
 import { encodePulseUpdates } from "../pulses/PulseExchange.js";
 import type { Pulse } from "../pulses/Pulse.js";
 import { getPulseMeta } from "../pulses/PulseMeta.js";
@@ -127,7 +128,10 @@ export class Connection {
 				kind: 1,
 				docId: meta.id,
 				requestId: this.nextRequestId++,
-				vv: meta.log.vector,
+				vv:
+					(session.protocolVersion ?? 1) >= 3
+						? meta.log.vector
+						: meta.log.historyVector,
 			});
 			assertCurrent();
 			if (response.kind !== 2)
@@ -143,6 +147,29 @@ export class Connection {
 			clearTimeout(openTimer);
 			controller.signal.removeEventListener("abort", abort);
 		}
+	}
+
+	async fetchHistory(): Promise<void> {
+		if (
+			!this.session ||
+			!["connected", "synced", "syncing"].includes(this.status)
+		)
+			throw new PulseError("CLOSED", "No active history connection");
+		const meta = getPulseMeta(this.pulse),
+			message = {
+				kind: 1 as const,
+				docId: meta.id,
+				requestId: this.nextRequestId++,
+				vv: meta.log.historyVector,
+			};
+		const response = await this.requestFrame(
+			message.requestId,
+			this.session.protocolVersion === 3
+				? encodeHistoryRequest(message, true)
+				: encodeMessage(message),
+		);
+		if (response.kind !== 2)
+			throw new PulseError("INVALID_MESSAGE", "Expected history sync response");
 	}
 
 	syncBack(): Promise<void> {
@@ -162,7 +189,8 @@ export class Connection {
 			const frames = encodePulseUpdates(meta, this.clockVector, {
 				kind: 3,
 				requestId,
-				peerVersion: this.session.protocolVersion ?? 1,
+				peerVersion: (this.session.protocolVersion ?? 1) >= 2 ? 2 : 1,
+				mode: "history",
 			});
 			this.nextRequestId += Math.max(0, frames.length - 1);
 			for (let i = 0; i < frames.length; i++) {
@@ -214,7 +242,12 @@ export class Connection {
 		});
 	}
 	private request(message: PulseMessage): Promise<PulseMessage> {
-		return this.requestFrame(message.requestId, encodeMessage(message));
+		return this.requestFrame(
+			message.requestId,
+			message.kind === 1 && this.session?.protocolVersion === 3
+				? encodeHistoryRequest(message, false)
+				: encodeMessage(message),
+		);
 	}
 	private requestFrame(
 		requestId: number,
@@ -241,7 +274,10 @@ export class Connection {
 		if (this.status === "closed" || this.status === "error") return;
 		const epoch = this.epoch;
 		try {
-			if (bytes[0] === 2 && this.session?.protocolVersion !== 2)
+			if (
+				(bytes[0] === 2 && (this.session?.protocolVersion ?? 1) < 2) ||
+				(bytes[0] === 3 && this.session?.protocolVersion !== 3)
+			)
 				throw new PulseError(
 					"UNSUPPORTED_VERSION",
 					"Grouped transport was not negotiated",

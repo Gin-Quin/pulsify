@@ -76,6 +76,8 @@ export type { PulseMessage } from "./connection/PulseMessage.js";
 
 export {
 	exportPulseUpdates,
+	getPulseVersions,
+	recoverPulseHistory,
 	applyPulseUpdates,
 	SUPPORTED_PROTOCOL_VERSIONS,
 } from "./pulses/PulseExchange.js";

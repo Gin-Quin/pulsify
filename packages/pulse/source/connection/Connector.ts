@@ -1,7 +1,7 @@
 /** A transport carries complete binary frames and owns no CRDT classes. */
 export type ConnectorSession = {
 	/** Set only after the endpoint has explicitly advertised/negotiated support. */
-	protocolVersion?: 1 | 2;
+	protocolVersion?: 1 | 2 | 3;
 	send(bytes: Uint8Array): Promise<void>;
 	close(): void;
 };

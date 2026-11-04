@@ -1,3 +1,4 @@
+import { stateDeltaOf } from "../protocol/stateDeltas.js";
 import { wireCodec } from "../protocol/wireCodec.js";
 import {
 	PulsePatchRowSchema,
@@ -38,6 +39,11 @@ export function rowsFromFrame(bytes: Uint8Array): StoredPatchRow[] {
 	const message = decodeMessage(bytes);
 	if (!("rows" in message))
 		throw new PulseError("INVALID_MESSAGE", "Storage requires a patch frame");
+	if (stateDeltaOf(message.rows))
+		throw new PulseError(
+			"HISTORY_UNAVAILABLE",
+			"State deltas are not durable operation history",
+		);
 	return message.rows;
 }
 

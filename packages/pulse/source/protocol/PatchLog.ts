@@ -1,4 +1,15 @@
-import { scalarEntryOf, scalarRunOf } from "./scalarRuns.js";
+import {
+	clipState,
+	sameStateHeader,
+	stateLastRow,
+	type StateDelta,
+} from "./stateDeltas.js";
+import { decodeCorePatch } from "../core/operations.js";
+import {
+	scalarEntryOf,
+	scalarRunOf,
+	sameRunDependencies,
+} from "./scalarRuns.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import { ScalarPatch, type CorePatch as Patch } from "../core/operations.js";
 import {
@@ -101,7 +112,7 @@ function advance(
 		else hi = mid;
 	}
 	const next = vector.slice();
-	if (vector[lo]?.[0] === sid) next[lo] = [sid, clock];
+	if (vector[lo]?.[0] === sid) next[lo] = [sid, Math.max(clock, next[lo]![1])];
 	else {
 		if (vector.length >= MAX_VECTOR_ENTRIES)
 			throw new PulseError("INVALID_MESSAGE", "Invalid version vector");
@@ -163,6 +174,13 @@ export class PatchLog {
 	private readonly byActor = new Map<number, PulsePatchRow[]>();
 	private readonly pending = new Map<string, PulsePatchRow>();
 	private frontier: PulseVersionVector = [];
+	private readonly summaries: StateDelta[] = [];
+	private readonly statesByActor = new Map<number, StateDelta[]>();
+	private readonly nativeTails = new Map<
+		number,
+		{ first: LocalPatchRow; last: LocalPatchRow; external: PulseVersionVector }
+	>();
+	private historyCache: { count: number; vv: PulseVersionVector } | undefined;
 	private readonly budget: ByteBudget = { metadata: 0, encoded: 0 };
 	constructor(public readonly docId: string) {}
 	get vector(): PulseVersionVector {
@@ -210,6 +228,7 @@ export class PatchLog {
 		incoming: readonly PulsePatchRow[],
 		beforeCommit?: (ready: PulsePatchRow[]) => void,
 	): PulsePatchRow[] {
+		for (const row of incoming) this.assertStateHistory(row);
 		if (!this.pending.size) {
 			const ready =
 				incoming.length === 1
@@ -235,7 +254,7 @@ export class PatchLog {
 		}
 		const actor = this.byActor.get(sid),
 			previous = actor?.[actor.length - 1];
-		let nextClock = previous ? end(previous) : 1;
+		let nextClock = clockAt(this.frontier, sid) || 1;
 		let bytes = this.budget.metadata;
 		const ready: PulsePatchRow[] = [];
 		for (const row of incoming) {
@@ -266,7 +285,7 @@ export class PatchLog {
 				continue;
 			}
 			if (row.clock !== nextClock) return undefined;
-			if ((previous || ready.length) && predecessor < nextClock)
+			if (nextClock > 1 && predecessor < nextClock)
 				throw new PulseError("CONFLICT", "Actor history fork");
 			for (const [actorId, clock] of row.dependencies) {
 				const have =
@@ -338,10 +357,9 @@ export class PatchLog {
 			if (beforeCommit) beforeCommit([]);
 			return [];
 		}
-		const actor = this.byActor.get(row.sid),
-			previous = actor?.[actor.length - 1];
-		if (row.clock !== (previous ? end(previous) : 1)) return undefined;
-		if (previous && predecessor < row.clock)
+		const actor = this.byActor.get(row.sid);
+		if (row.clock !== (clockAt(this.frontier, row.sid) || 1)) return undefined;
+		if (row.clock > 1 && predecessor < row.clock)
 			throw new PulseError("CONFLICT", "Actor history fork");
 		for (const [sid, clock] of row.dependencies)
 			if (clockAt(this.frontier, sid) < clock) return undefined;
@@ -405,7 +423,7 @@ export class PatchLog {
 				(previous && row.clock < end(previous))
 			)
 				throw new PulseError("CONFLICT", "Local patch ID already exists");
-			if (row.clock !== (previous ? end(previous) : 1))
+			if (row.clock !== (clockAt(this.frontier, row.sid) || 1))
 				throw new PulseError(
 					"INVALID_MESSAGE",
 					"Local actor sequence must be contiguous",
@@ -446,6 +464,7 @@ export class PatchLog {
 				() => row.encodedBytes,
 				borrowed,
 			);
+		this.recordNativeTail(row);
 		row.committed = true;
 		this.budget.encoded += row.encodedBytes;
 		return ready;
@@ -463,6 +482,7 @@ export class PatchLog {
 		const stagedActors = new Map<number, PulsePatchRow[]>();
 		let bytes = this.budget.metadata;
 		for (const row of incoming) {
+			this.assertStateHistory(row);
 			if (!local && row.operations.length > MAX_PATCH_BYTES)
 				throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
 			validateVector(row.dependencies);
@@ -553,13 +573,13 @@ export class PatchLog {
 				const row = candidates[i];
 				if (
 					!row ||
-					row.clock !== (clocks.get(row.sid) ?? 1) ||
+					row.clock > (clocks.get(row.sid) ?? 1) ||
 					!covers(clocks, row.dependencies)
 				)
 					continue;
 				if (!clocks.has(row.sid) && clocks.size >= MAX_VECTOR_ENTRIES)
 					throw new PulseError("INVALID_MESSAGE", "Invalid version vector");
-				clocks.set(row.sid, end(row));
+				clocks.set(row.sid, Math.max(end(row), clocks.get(row.sid) ?? 0));
 				pending.delete(key(row));
 				candidates[i] = undefined!;
 				fresh.push(row);
@@ -591,6 +611,277 @@ export class PatchLog {
 		return borrowed ? fresh : fresh.map((row) => copyRow(row, local));
 	}
 
+	private recordNativeTail(row: LocalPatchRow): void {
+		const patch = row.nativePatch;
+		if (!patch) {
+			this.nativeTails.delete(row.sid);
+			return;
+		}
+		const tail = this.nativeTails.get(row.sid),
+			previous = tail?.last.nativePatch;
+		if (
+			tail &&
+			previous &&
+			row.clock === tail.last.clock + 1 &&
+			patch.lamport === previous.lamport + 1 &&
+			patch.schema === previous.schema &&
+			patch.target === previous.target &&
+			patch.field === previous.field &&
+			sameRunDependencies(
+				row,
+				{ sid: row.sid, clock: row.clock, external: tail.external },
+				0,
+			)
+		)
+			tail.last = row;
+		else
+			this.nativeTails.set(row.sid, {
+				first: row,
+				last: row,
+				external: row.dependencies.filter(([sid]) => sid !== row.sid),
+			});
+	}
+	/** O(actors) transport view of the current local homogeneous scalar tail. */
+	borrowNativeTail(
+		vv: PulseVersionVector,
+	): { first: PulsePatchRow; last: PulsePatchRow; count: number } | undefined {
+		validateVector(vv);
+		let selected: ReturnType<PatchLog["borrowNativeTail"]>;
+		for (const [sid, rows] of this.byActor) {
+			const last = rows[rows.length - 1]!;
+			const start = Math.max(1, clockAt(vv, sid));
+			if (end(last) <= start) continue;
+			if (selected) return undefined;
+			const tail = this.nativeTails.get(sid);
+			if (!tail || tail.last !== last || start < tail.first.clock)
+				return undefined;
+			const first = rows[lowerBound(rows, start)];
+			if (!first || first.clock !== start) return undefined;
+			selected = { first, last, count: last.clock - start + 1 };
+		}
+		if (
+			selected &&
+			clockAt(this.frontier, selected.last.sid) < end(selected.last)
+		)
+			return undefined;
+		return selected;
+	}
+
+	/** Exact per-actor physical prefixes; unlike vector, these never claim state-only operations. */
+	get historyVector(): PulseVersionVector {
+		if (this.historyCache?.count !== this.rowCount) {
+			const vv: PulseVersionVector = [];
+			for (const [sid, rows] of this.byActor) {
+				let clock = 1;
+				for (const row of rows) {
+					if (row.clock > clock) break;
+					clock = Math.max(clock, end(row));
+				}
+				if (clock > 1) vv.push([sid, clock]);
+			}
+			vv.sort((a, b) => a[0] - b[0]);
+			this.historyCache = { count: this.rowCount, vv };
+		}
+		return this.historyCache.vv.map(([sid, clock]) => [sid, clock]);
+	}
+	/** Internal read-only state coverage; not an operation journal. */
+	borrowStates(): readonly StateDelta[] {
+		return this.summaries;
+	}
+	private physicalCovers(sid: number, start: number, finish: number): boolean {
+		if (start >= finish) return true;
+		const rows = this.byActor.get(sid);
+		if (!rows) return false;
+		let at = lowerBound(rows, start);
+		if (at && end(rows[at - 1]!) > start) at--;
+		let clock = start;
+		for (; at < rows.length && clock < finish; at++) {
+			const row = rows[at]!;
+			if (row.clock > clock) return false;
+			clock = Math.max(clock, end(row));
+		}
+		return clock >= finish;
+	}
+	private assertHistoryAvailable(vv: PulseVersionVector): void {
+		validateVector(vv);
+		for (const delta of this.summaries) {
+			const start = Math.max(delta.clock, clockAt(vv, delta.sid));
+			const finish = delta.clock + delta.count;
+			if (start < finish && !this.physicalCovers(delta.sid, start, finish))
+				throw new PulseError(
+					"HISTORY_UNAVAILABLE",
+					"Requested operation history is state-only; fetch it from a full-history peer or store",
+				);
+		}
+	}
+	private assertRowMatches(row: PulsePatchRow, delta: StateDelta): void {
+		let layout = -1;
+		const patch = decodeCorePatch(row, {
+			encode: () => {
+				throw Error("unused");
+			},
+			decode: (id, bytes) => {
+				layout = id;
+				return bytes;
+			},
+		});
+		const op = patch.ops.length === 1 ? patch.ops[0] : undefined;
+		const expectedDeps = delta.external.map(([sid, c]): [number, number] => [
+			sid,
+			c,
+		]);
+		if (row.clock > 1) {
+			const at = expectedDeps.findIndex(([sid]) => sid > row.sid);
+			expectedDeps.splice(at < 0 ? expectedDeps.length : at, 0, [
+				row.sid,
+				row.clock,
+			]);
+		}
+		if (
+			row.docId !== this.docId ||
+			row.span !== 1 ||
+			patch.schema !== delta.schema ||
+			patch.lamport !== delta.lamport + row.clock - delta.clock ||
+			op?.kind !== 1 ||
+			op.target !== delta.target ||
+			op.field !== delta.field ||
+			layout !== delta.layout ||
+			op.value.constants.length ||
+			op.value.texts.length ||
+			JSON.stringify(row.dependencies) !== JSON.stringify(expectedDeps)
+		)
+			throw new PulseError(
+				"CONFLICT",
+				"Operation history contradicts received state coverage",
+			);
+		if (
+			row.clock === delta.clock + delta.count - 1 &&
+			!same(row, stateLastRow(delta))
+		)
+			throw new PulseError(
+				"CONFLICT",
+				"State winner conflicts with exact history",
+			);
+	}
+	private assertStateHistory(row: PulsePatchRow): void {
+		const states = this.statesByActor.get(row.sid);
+		if (!states) return;
+		let lo = 0,
+			hi = states.length;
+		while (lo < hi) {
+			const mid = (lo + hi) >>> 1,
+				d = states[mid]!;
+			if (d.clock + d.count <= row.clock) lo = mid + 1;
+			else hi = mid;
+		}
+		for (let i = lo; i < states.length && states[i]!.clock < end(row); i++)
+			this.assertRowMatches(row, states[i]!);
+	}
+
+	/** Atomically advance state coverage and release exact pending operations. */
+	acceptState(
+		delta: StateDelta,
+		beforeCommit: (ready: PulsePatchRow[]) => void,
+	): { changed: boolean; ready: PulsePatchRow[] } {
+		if (delta.docId !== this.docId)
+			throw new PulseError("INVALID_MESSAGE", "Wrong state document");
+		const finish = delta.clock + delta.count,
+			current = clockAt(this.frontier, delta.sid) || 1;
+		if (
+			delta.clock > current ||
+			!covers(new Map(this.frontier), delta.external)
+		)
+			throw new PulseError(
+				"HISTORY_UNAVAILABLE",
+				"State delta needs an earlier causal base",
+			);
+		for (const old of this.statesByActor.get(delta.sid) ?? [])
+			if (
+				old.sid === delta.sid &&
+				old.clock < finish &&
+				old.clock + old.count > delta.clock
+			) {
+				if (!sameStateHeader(old, delta))
+					throw new PulseError(
+						"CONFLICT",
+						"Overlapping state coverage conflicts",
+					);
+				if (
+					old.clock + old.count === finish &&
+					!same(stateLastRow(old), stateLastRow(delta))
+				)
+					throw new PulseError("CONFLICT", "State winner conflicts");
+			}
+		const history = this.byActor.get(delta.sid) ?? [];
+		let at = lowerBound(history, delta.clock);
+		if (at && end(history[at - 1]!) > delta.clock) at--;
+		for (; at < history.length && history[at]!.clock < finish; at++)
+			this.assertRowMatches(history[at]!, delta);
+		if (history[at] && clockAt(history[at]!.dependencies, delta.sid) < finish)
+			throw new PulseError("CONFLICT", "Actor history fork after state range");
+		if (finish <= current) {
+			beforeCommit([]);
+			return { changed: false, ready: [] };
+		}
+		const last = stateLastRow(delta),
+			existingLast = this.find(delta.sid, finish - 1);
+		const rowBytes = existingLast
+			? 0
+			: last.operations.length +
+				last.dependencies.length * 16 +
+				last.docId.length * 2 +
+				40;
+		const needsRecord = !this.physicalCovers(delta.sid, current, finish - 1),
+			stateBytes = needsRecord ? delta.bytes : 0;
+		if (
+			(needsRecord && this.summaries.length >= MAX_LOG_ROWS) ||
+			this.rowCount + (existingLast ? 0 : 1) > MAX_LOG_ROWS ||
+			this.budget.metadata + this.budget.encoded + stateBytes + rowBytes >
+				MAX_LOG_BYTES
+		)
+			throw new PulseError("LIMIT_EXCEEDED", "State coverage limit exceeded");
+		const frontier = advance(this.frontier, delta.sid, finish),
+			clocks = new Map(frontier),
+			pending = new Map(this.pending),
+			ready: PulsePatchRow[] = [];
+		let changed: boolean;
+		do {
+			changed = false;
+			for (const [id, row] of pending) {
+				if (
+					row.clock <= (clocks.get(row.sid) ?? 1) &&
+					covers(clocks, row.dependencies)
+				) {
+					if (!clocks.has(row.sid) && clocks.size >= MAX_VECTOR_ENTRIES)
+						throw new PulseError("LIMIT_EXCEEDED", "Actor limit exceeded");
+					clocks.set(row.sid, Math.max(end(row), clocks.get(row.sid) ?? 0));
+					pending.delete(id);
+					ready.push(row);
+					changed = true;
+				}
+			}
+		} while (changed);
+		beforeCommit(ready);
+		if (needsRecord) {
+			const record = clipState(delta, current);
+			this.summaries.push(record);
+			const states = this.statesByActor.get(delta.sid) ?? [];
+			states.push(record);
+			this.statesByActor.set(delta.sid, states);
+		}
+		this.budget.metadata += stateBytes + rowBytes;
+		if (!existingLast) {
+			const actor = this.byActor.get(delta.sid) ?? [];
+			actor.splice(lowerBound(actor, last.clock), 0, last);
+			if (!this.byActor.has(delta.sid)) this.byActor.set(delta.sid, actor);
+			this.rowCount++;
+		}
+		this.frontier = [...clocks].sort((a, b) => a[0] - b[0]);
+		this.pending.clear();
+		for (const [id, row] of pending) this.pending.set(id, row);
+		return { changed: true, ready };
+	}
+
 	private find(sid: number, clock: number): PulsePatchRow | undefined {
 		const history = this.byActor.get(sid);
 		if (!history?.length || clock > history[history.length - 1]!.clock)
@@ -599,7 +890,11 @@ export class PatchLog {
 		return history[at]?.clock === clock ? history[at] : undefined;
 	}
 	/** Internal borrowed rows; callers must neither mutate nor expose them. */
-	borrowMissing(vv: PulseVersionVector): PulsePatchRow[] {
+	borrowMissing(
+		vv: PulseVersionVector,
+		availableOnly = false,
+	): PulsePatchRow[] {
+		if (!availableOnly) this.assertHistoryAvailable(vv);
 		validateVector(vv);
 		const clocks = new Map(vv),
 			result: PulsePatchRow[] = [];
@@ -617,7 +912,7 @@ export class PatchLog {
 		beforeCommit: () => void,
 	): boolean {
 		const run = scalarRunOf(rows);
-		if (!run || this.pending.size) return false;
+		if (!run || this.pending.size || this.summaries.length) return false;
 		const { external, expandedBytes } = run;
 		const first = rows[0]!;
 		if (first.docId !== this.docId)
@@ -645,6 +940,7 @@ export class PatchLog {
 		return true;
 	}
 	missing(vv: PulseVersionVector): PulsePatchRow[] {
+		this.assertHistoryAvailable(vv);
 		validateVector(vv);
 		const clocks = new Map(vv);
 		const result: PulsePatchRow[] = [];

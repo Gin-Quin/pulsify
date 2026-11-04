@@ -1,3 +1,5 @@
+import { vectorCovers } from "../connection/PulseVersionVector.js";
+import { encodeStateUpdates } from "../protocol/stateExchange.js";
 import {
 	createEncoder,
 	writeFloat64,
@@ -32,9 +34,11 @@ import {
 	MAX_PATCH_BYTES,
 } from "../protocol/limits.js";
 import { PulseError } from "../protocol/errors.js";
-export const SUPPORTED_PROTOCOL_VERSIONS = [1, 2] as const;
+export const SUPPORTED_PROTOCOL_VERSIONS = [1, 2, 3] as const;
 export type PulseExchangeOptions = {
-	peerVersion?: 1 | 2;
+	peerVersion?: 1 | 2 | 3;
+	/** Exact operations for durable storage or history backfill. */
+	mode?: "auto" | "history";
 	kind?: 3 | 4;
 	requestId?: number;
 };
@@ -77,9 +81,33 @@ export function encodePulseUpdates(
 	if (
 		options.peerVersion !== undefined &&
 		options.peerVersion !== 1 &&
-		options.peerVersion !== 2
+		options.peerVersion !== 2 &&
+		options.peerVersion !== 3
 	)
 		throw new TypeError("Invalid peer protocol version");
+	if (
+		options.mode !== undefined &&
+		options.mode !== "auto" &&
+		options.mode !== "history"
+	)
+		throw new TypeError("Invalid exchange mode");
+	if (
+		options.peerVersion === 3 &&
+		options.mode !== "history" &&
+		(options.kind ?? 4) === 4
+	)
+		return encodeStateUpdates(
+			meta.log,
+			vv,
+			{
+				kind: 4,
+				docId: meta.id,
+				requestId: options.requestId ?? 0,
+				vv: meta.log.vector,
+				rows: [],
+			},
+			meta,
+		);
 	const rows = meta.log.borrowMissing(vv),
 		message = {
 			kind: options.kind ?? 4,
@@ -88,7 +116,7 @@ export function encodePulseUpdates(
 			vv: meta.log.vector,
 			rows,
 		} as Extract<PulseMessage, { kind: 3 | 4 }>;
-	if (options.peerVersion === 2) {
+	if ((options.peerVersion ?? 1) >= 2) {
 		const grouped = encodeNativeRun(meta, message) ?? encodeOwnedRun(message);
 		if (grouped) return [grouped];
 	}
@@ -180,4 +208,32 @@ function encodeNativeRun(
 	// Run decoder also checks expanded envelope/history bounds. The sender uses
 	// the same structural limits without reading or materializing a document.
 	return bytes;
+}
+
+/** State coverage and the independently retained exact operation prefixes. */
+export function getPulseVersions(pulse: Pulse<any>) {
+	const log = getPulseMeta(pulse).log;
+	return { state: log.vector, history: log.historyVector };
+}
+/** Recover omitted operations from connected full-history peers. */
+export async function recoverPulseHistory(pulse: Pulse<any>): Promise<void> {
+	const meta = getPulseMeta(pulse),
+		target = meta.log.vector;
+	if (meta.destroyed)
+		throw new PulseError("CLOSED", "Pulse has been destroyed");
+	let cause: unknown;
+	for (const connection of meta.connections) {
+		if (vectorCovers(meta.log.historyVector, target)) return;
+		try {
+			await connection.fetchHistory();
+		} catch (error) {
+			cause = error;
+		}
+	}
+	if (!vectorCovers(meta.log.historyVector, target))
+		throw new PulseError(
+			"HISTORY_UNAVAILABLE",
+			"Connected peers did not provide the requested exact history",
+			{ cause },
+		);
 }

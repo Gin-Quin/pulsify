@@ -42,6 +42,37 @@ function row(
 }
 function conformance(name: string, create: () => Promise<PatchStore>): void {
 	describe(name, () => {
+		test("state-only transport cannot be persisted as exact operation history", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID(),
+				D = definePulse(
+					"StorageState",
+					object({ count: "float64" }),
+				).materialize();
+			const pulse = createPulse(
+				D,
+				{ id: docId, count: 0 },
+				{ scope: createPulseScope(), sessionId: actor },
+			);
+			try {
+				const base = getPulseMeta(pulse).log.vector;
+				for (let i = 1; i <= 100; i++) pulse.count = i;
+				const delta = exportPulseUpdates(pulse, base, { peerVersion: 3 })[0]!;
+				await expect(store.appendEncoded(delta)).rejects.toMatchObject({
+					code: "HISTORY_UNAVAILABLE",
+				});
+				expect(await store.vector(docId)).toEqual([]);
+				for (const frame of exportPulseUpdates(pulse, [], {
+					peerVersion: 2,
+					mode: "history",
+				}))
+					await store.appendEncoded(frame);
+				expect((await store.missing(docId, [])).length).toBe(101);
+			} finally {
+				destroyPulse(pulse);
+			}
+		});
+
 		test("append is opaque, idempotent, isolated and queryable from a vector", async () => {
 			const store = await create(),
 				docId = crypto.randomUUID();

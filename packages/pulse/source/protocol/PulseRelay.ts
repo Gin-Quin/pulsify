@@ -1,3 +1,5 @@
+import { encodeStateUpdates } from "./stateExchange.js";
+import { historyRequestOf, stateDeltaOf } from "./stateDeltas.js";
 import { decodeMessage, encodeMessage } from "../connection/PulseMessage.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import { chunkRows } from "./chunkRows.js";
@@ -7,12 +9,12 @@ import { PatchLog } from "./PatchLog.js";
 export type RelayPeer = { receive(bytes: Uint8Array): void; close(): void };
 /** In-memory reference relay. Supply authentication/durable storage at the server boundary. */
 export class PulseRelay {
-	readonly protocolVersion = 2 as const;
+	readonly protocolVersion = 3 as const;
 	private readonly documents = new Map<string, PatchLog>();
 	private readonly peers = new Set<{
 		docId: string | undefined;
 		send(bytes: Uint8Array): void;
-		protocolVersion: 1 | 2;
+		protocolVersion: 1 | 2 | 3;
 	}>();
 	constructor(private readonly validateRow?: (row: PulsePatchRow) => void) {}
 	get peerCount(): number {
@@ -23,7 +25,7 @@ export class PulseRelay {
 	}
 	open(
 		send: (bytes: Uint8Array) => void,
-		options: { protocolVersion?: 1 | 2 } = {},
+		options: { protocolVersion?: 1 | 2 | 3 } = {},
 	): RelayPeer {
 		const peer = {
 			docId: undefined as string | undefined,
@@ -40,7 +42,10 @@ export class PulseRelay {
 			receive: (bytes) => {
 				if (!this.peers.has(peer))
 					throw new PulseError("CLOSED", "Relay peer is closed");
-				if (bytes[0] === 2 && peer.protocolVersion !== 2)
+				if (
+					(bytes[0] === 2 && peer.protocolVersion < 2) ||
+					(bytes[0] === 3 && peer.protocolVersion !== 3)
+				)
 					throw new PulseError(
 						"UNSUPPORTED_VERSION",
 						"Grouped transport was not negotiated",
@@ -52,6 +57,23 @@ export class PulseRelay {
 					if (message.kind === 1) {
 						peer.docId = message.docId;
 						const log = this.documents.get(message.docId);
+						if (
+							peer.protocolVersion === 3 &&
+							log &&
+							historyRequestOf(message) === false
+						) {
+							for (const frame of encodeStateUpdates(log, message.vv, {
+								kind: 2,
+								docId: message.docId,
+								requestId: message.requestId,
+								found: !!log.size,
+								complete: true,
+								vv: log.vector,
+								rows: [],
+							}))
+								send(frame);
+							return;
+						}
 						const chunks = chunkRows(log?.borrowMissing(message.vv) ?? []);
 						if (!chunks.length) chunks.push([]);
 						for (let i = 0; i < chunks.length; i++)
@@ -75,6 +97,11 @@ export class PulseRelay {
 						throw new PulseError(
 							"INVALID_MESSAGE",
 							"Expected connect, syncBack or update",
+						);
+					if (stateDeltaOf(message.rows))
+						throw new PulseError(
+							"HISTORY_UNAVAILABLE",
+							"Relay requires complete operation uploads",
 						);
 					let log = this.documents.get(message.docId);
 					if (!log) {

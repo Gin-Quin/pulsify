@@ -74,6 +74,33 @@ try {
 	a.value = 2;
 	await api.getPulseMeta(a).connections[0].syncBack();
 	if (b.value !== 2) throw new Error("Local codec synchronization failed");
+	const Typed = api
+		.definePulse("LocalCodecState", {
+			_type: "object",
+			fields: { value: "float64" },
+		})
+		.materialize();
+	const x = api.createPulse(
+		Typed,
+		{ id: "local-codec-state", value: 0 },
+		{ scope: api.createPulseScope(), connectors: [connector] },
+	);
+	await api.connectPulse(x).synced;
+	const y = await api.loadPulse(Typed, x.id, {
+		scope: api.createPulseScope(),
+		connectors: [connector],
+		waitFor: "all",
+	});
+	api.disconnectPulse(x);
+	api.disconnectPulse(y);
+	const base = api.getPulseVersions(y).state;
+	for (let i = 1; i <= 100; i++) x.value = i;
+	const frames = api.exportPulseUpdates(x, base, { peerVersion: 3 });
+	api.applyPulseUpdates(y, frames);
+	if (frames[0][0] !== 3 || y.value !== 100)
+		throw new Error("Local codec state exchange failed");
+	api.destroyPulse(x);
+	api.destroyPulse(y);
 	api.destroyPulse(a);
 	api.destroyPulse(b);
 	console.log(

@@ -72,7 +72,12 @@ for (let i = -10; i < 40; i++) {
 	};
 	for (const meta of [ma, mb])
 		for (const [target, key] of [
-			[meta.log, "appendContiguousRun"],
+			[
+				meta.log,
+				process.argv.includes("--state")
+					? "acceptState"
+					: "appendContiguousRun",
+			],
 			[meta.model, "validateScalarRun"],
 			[meta.model, "apply"],
 		] as const) {
@@ -87,9 +92,15 @@ for (let i = -10; i < 40; i++) {
 	const va = ma.log.vector,
 		vb = mb.log.vector;
 	const toA = time("export", () =>
-			exportPulseUpdates(b, va, { peerVersion: 2 }),
+			exportPulseUpdates(b, va, {
+				peerVersion: process.argv.includes("--state") ? 3 : 2,
+			}),
 		),
-		toB = time("export", () => exportPulseUpdates(a, vb, { peerVersion: 2 }));
+		toB = time("export", () =>
+			exportPulseUpdates(a, vb, {
+				peerVersion: process.argv.includes("--state") ? 3 : 2,
+			}),
+		);
 	for (const [meta, frames] of [
 		[ma, toA],
 		[mb, toB],

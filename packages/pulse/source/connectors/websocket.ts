@@ -9,7 +9,7 @@ export function createWebSocketConnector(
 		url,
 		protocols,
 	) => new WebSocket(url, protocols),
-	options: { protocolVersion?: 1 | 2 } = {},
+	options: { protocolVersion?: 1 | 2 | 3 } = {},
 ): Connector {
 	return {
 		kind: "remote",
@@ -20,9 +20,11 @@ export function createWebSocketConnector(
 					return;
 				}
 				const socket =
-					options.protocolVersion === 2
-						? createSocket(url, ["pulsify-v2", "pulsify-v1"])
-						: createSocket(url);
+					options.protocolVersion === 3
+						? createSocket(url, ["pulsify-v3", "pulsify-v2", "pulsify-v1"])
+						: options.protocolVersion === 2
+							? createSocket(url, ["pulsify-v2", "pulsify-v1"])
+							: createSocket(url);
 				socket.binaryType = "arraybuffer";
 				let opened = false;
 				let closed = false;
@@ -52,9 +54,12 @@ export function createWebSocketConnector(
 					opened = true;
 					resolve({
 						protocolVersion:
-							options.protocolVersion === 2 && socket.protocol === "pulsify-v2"
-								? 2
-								: 1,
+							options.protocolVersion === 3 && socket.protocol === "pulsify-v3"
+								? 3
+								: (options.protocolVersion ?? 1) >= 2 &&
+										socket.protocol === "pulsify-v2"
+									? 2
+									: 1,
 						close() {
 							if (closed) return;
 							finish();

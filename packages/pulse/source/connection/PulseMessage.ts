@@ -1,3 +1,10 @@
+import {
+	stateDeltaOf,
+	historyRequestOf,
+	encodeHistoryRequest,
+	decodeStateMessage,
+	encodeStateMessage,
+} from "../protocol/stateDeltas.js";
 import { decodeRunMessage, encodeOwnedRun } from "../protocol/scalarRuns.js";
 import { type InferType, array, object, tuple, union } from "@gin-quin/codec";
 import { wireCodec } from "../protocol/wireCodec.js";
@@ -97,10 +104,23 @@ export function validateMessage(message: PulseMessage): void {
 }
 export function encodeMessage(
 	message: PulseMessage,
-	options: { peerVersion?: 1 | 2 } = {},
+	options: { peerVersion?: 1 | 2 | 3 } = {},
 ): Uint8Array<ArrayBuffer> {
+	if (message.kind === 1 && options.peerVersion === 3)
+		return encodeHistoryRequest(message, historyRequestOf(message) ?? false);
+	if ("rows" in message) {
+		const delta = stateDeltaOf(message.rows);
+		if (delta) {
+			if (options.peerVersion !== 3)
+				throw new PulseError(
+					"HISTORY_UNAVAILABLE",
+					"State is not exact operation history",
+				);
+			return encodeStateMessage(message, delta);
+		}
+	}
 	if (
-		options.peerVersion === 2 &&
+		(options.peerVersion === 2 || options.peerVersion === 3) &&
 		"rows" in message &&
 		(message.kind === 2 || message.kind === 3 || message.kind === 4)
 	) {
@@ -117,6 +137,7 @@ export function encodeMessage(
 	});
 }
 export function decodeMessage(bytes: Uint8Array): PulseMessage {
+	if (bytes[0] === 3 && bytes[1] === 2) return decodeStateMessage(bytes);
 	if (bytes[0] === 2 && bytes[1] === OPERATIONS_VERSION)
 		return decodeRunMessage(bytes);
 	// Check versions before interpreting a body which may belong to another format.
