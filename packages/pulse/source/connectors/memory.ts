@@ -1,10 +1,10 @@
 import type { Connector } from "../connection/Connector.js";
-import { rowToPatch } from "../connection/PulsePatch.js";
+import { validateCoreRow } from "../core/operations.js";
 import { PulseError } from "../protocol/errors.js";
 import { PulseRelay } from "../protocol/PulseRelay.js";
 
 export function createMemoryConnector(
-	relay = new PulseRelay(rowToPatch),
+	relay = new PulseRelay(validateCoreRow),
 	kind: Connector["kind"] = "local",
 ): Connector {
 	return {

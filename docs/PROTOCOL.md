@@ -1,29 +1,44 @@
-# Pulsify binary protocol v1
+# Pulsify binary protocol
 
-Protocol version **1**, operations format version **1**. The reference TypeScript implementation uses `@gin-quin/codec` 2.1.0, pinned in the lockfile. The [Rust crate](../crates/pulsify-protocol) implements the envelope independently. [Shared byte fixtures](../fixtures/protocol.json) are the compatibility authority. Regenerate them only for intentional additions or breaking changes with `bun scripts/generate-fixtures.ts`.
+Envelope version **1**, operation payload version **2**. The native core has no
+runtime dependency on json-joy or Yjs. The TypeScript implementation uses
+`@gin-quin/codec` 2.1.0. The [Rust crate](../crates/pulsify-protocol) implements
+the envelope independently and keeps operation bytes opaque.
+[Shared byte fixtures](../fixtures/protocol.json) are the compatibility
+authority. Regenerate them only for an intentional wire change with
+`bun scripts/generate-fixtures.ts`.
 
-## Scalar encoding
+Operation format 1 from the previous json-joy implementation is not accepted.
+Changing a stored document's migration `version` does not translate an older
+wire format into the new operation format.
 
-- `uint`: canonical unsigned base-128 varint, seven payload bits per byte, high bit means continuation. All integers in the envelope and operation timestamps are in `[0, 2^53 - 1]`.
-- `string`: `uint` UTF-8 byte length followed by well-formed UTF-8. IDs are opaque strings; they need not be UUIDs.
-- `boolean`: one byte, exactly 0 or 1.
-- `bytes`: `uint` byte length followed by those bytes.
-- Arrays: `uint` element count, then the elements. Tuples have no element-count prefix.
-- Optional values: one presence byte (0 or 1), then the value if present.
-- Objects encode fields in the exact order below. There are no property names or padding on the wire.
+## Scalar encoding and framing
 
-A WebSocket message is one complete Pulsify frame. Other transports must provide framing themselves; for byte streams, a length prefix outside this format is a suitable adapter. Arbitrary concatenation is rejected as trailing data.
+- `uint`: unsigned base-128 varint; seven payload bits per byte and a high
+  continuation bit. Envelope integers must be safe JavaScript integers in
+  `[0, 2^53 - 1]`, subject to the positive-clock rules below.
+- `string`: `uint` UTF-8 byte length followed by the bytes. Document IDs are
+  opaque strings and need not be UUIDs.
+- `boolean`: one byte, 0 or 1.
+- `bytes`: `uint` byte length followed by the payload.
+- Arrays: `uint` element count followed by the elements. Tuples have no count.
+- Objects: fields in the exact schema order, without property names or padding.
 
-## Frame
+A WebSocket message contains one complete frame. Stream transports supply
+framing themselves, for example an external length prefix. Arbitrary
+concatenation is rejected as trailing data. Encoders emit the valid scalar
+representations above; malformed scalar acceptance otherwise follows codec's
+reader behavior. The independent Rust decoder additionally enforces strict
+scalar checks and its collection limits.
 
 ```text
 protocolVersion:uint = 1
-operationsVersion:uint = 1
+operationsVersion:uint = 2
 kind:uint
 ...variant fields
 ```
 
-Every variant starts with `docId:string, requestId:uint` in that order.
+Every variant starts with `docId:string, requestId:uint`, in that order.
 
 | Kind | Name | Remaining fields, in wire order |
 | --- | --- | --- |
@@ -34,80 +49,217 @@ Every variant starts with `docId:string, requestId:uint` in that order.
 | 5 | ack | vv:vector |
 | 6 | error | code:string, message:string |
 
-`requestId` identifies a request within a session. Server pushes use update with request ID zero. A connect request can receive several sync pages with the same request ID; only the final page has `complete = true`. A write receives ack only after the reference journal accepts it. Ack guarantees the reference journal's in-memory acceptance, not disk durability; a durable implementation must commit its storage before acknowledging.
+A session serves one document. `requestId` correlates a request and response;
+server pushes use update with request ID zero. A connect request can receive
+several sync pages with the same ID. Only the last has `complete = true`.
+Reference relays acknowledge accepted history in memory. A relay using durable
+storage must commit the database transaction before sending its ack.
 
-One session subscribes to one document. Error codes include `INVALID_MESSAGE`, `UNSUPPORTED_VERSION`, `NOT_FOUND`, `INCOMPATIBLE_DOCUMENT`, `CLOSED`, `TIMEOUT`, `CONNECTION_FAILED`, `CONFLICT` and `LIMIT_EXCEEDED`. Unknown versions and kinds are rejected. An incompatible wire change requires a protocol/operations version increment; a document migration increments its stored `version` instead.
+Error codes include `INVALID_MESSAGE`, `UNSUPPORTED_VERSION`, `NOT_FOUND`,
+`INCOMPATIBLE_DOCUMENT`, `CLOSED`, `TIMEOUT`, `CONNECTION_FAILED`, `CONFLICT`
+and `LIMIT_EXCEEDED`. Unknown versions and kinds are rejected. A breaking
+message change increments the envelope or operation version; application data
+migrations increment the stored document version instead.
 
-## Vectors and immutable patch rows
+## Actor sequences, vectors and immutable rows
 
-A vector is an array of `[sid:uint, clock:uint]` tuples, strictly sorted by actor ID with no duplicates. Its clocks are positive, exclusive ends of causally complete segments. An empty vector means no known history. A row encodes:
+A vector is an array of `[sid:uint, clock:uint]` tuples, strictly sorted by
+actor ID with no duplicates. Each clock is a positive, exclusive end of
+contiguous, causally complete history. The empty vector means no known rows.
+For example `[[65536, 4]]` covers actor transactions 1, 2 and 3.
 
 ```text
-docId:string
-sid:uint
-clock:uint
-span:uint
-dependencies:vector
-operations:bytes
+row:
+  docId:string
+  sid:uint
+  clock:uint
+  span:uint
+  dependencies:vector
+  operations:bytes
 ```
 
-`sid >= 65536`; `clock >= 1`; `span >= 1`; `clock + span <= 2^53 - 1`. A row covers `[clock, clock + span)`. It has an immutable identity `(docId, sid, clock)` and immutable contents. Exact retransmission is idempotent. Different bytes/metadata at the same ID, partial overlap, or a fork of one actor's chain is rejected.
+The envelope allows ranges `[clock, clock + span)` with `sid >= 65536`,
+`clock >= 1`, `span >= 1` and a safe integer end. The current operation engine
+requires **span = 1**: each actor starts at sequence 1 and increments once per
+transaction, independently of the number of operations or characters it
+contains. Observing another actor never creates a gap in this sequence.
+Lamport time is a separate integer inside the payload.
 
-Dependencies are the complete applied frontier observed immediately before generating the patch. The actor's own dependency identifies the prior segment end. Lamport timestamps may jump after observing another actor, so arithmetic adjacency alone cannot detect missing history. The first segment of a new actor may start above 1.
+Dependencies capture the complete applied frontier observed before the
+transaction. A later transaction by the same actor declares its predecessor
+end. Rows stay pending until their actor prefix is contiguous and every
+cross-actor dependency is covered. A received maximum sequence is never
+advertised as a completed frontier merely because its bytes are present.
 
-Keep received rows pending until every dependency is covered. Apply available rows in causal order, then advance the advertised vector. Do not advertise the maximum timestamp merely seen. Use `row.end > peerClock` to choose rows for retransmission. Send the original whole rows, preserving boundaries, IDs, dependencies and encoded bytes; v1 does not allow resegmentation of an existing actor's history.
+Identity is `(docId, sid, clock)`. Contents and boundaries are immutable.
+Exact retransmission is idempotent; changed contents at an existing identity,
+overlapping ranges and actor forks are conflicts. A batch is accepted
+atomically. To find missing rows, select `row.clock + row.span > peerClock`
+for each actor, using zero for actors absent from the peer vector. Send the
+original rows; this version does not negotiate slicing, resegmentation,
+snapshots or compaction.
 
-Relays may buffer rows without interpreting operations. A CRDT client validates span metadata and root metadata changes before applying available rows once. Ordinary edits do not clone or traverse the document. Compatibility checks inspect only root identity, kind, migration version and generation. Clients also reject operation references not covered by the declared dependencies or earlier operations in the same patch. Clients forward newly learned history to their other connectors. Reference relays broadcast new rows and acknowledge uploads; duplicate uploads produce no new broadcast.
+The in-memory journal exposes copies through its public row APIs. Runtime-only
+borrowed-row methods must not be exposed to callers or mutated. Relays can
+validate and store the envelope without decoding document values. A client
+prevalidates available operations, references, schema compatibility, constants
+and metadata before committing its journal and applying the changes.
 
-The root and its metadata have exclusive node ownership. A metadata update creates a fresh constant, or retains that same field's current constant; it cannot reuse a node from another field. Other fields cannot reference the root or its metadata nodes. This avoids json-joy garbage collection of shared nodes removing document identity. These checks inspect changed links and the four metadata references, without traversing document contents.
+[Database adapters](STORAGE.md) use these range and dependency columns directly.
+`appendEncoded` decodes the frame envelope once and stores the operation bytes
+without reading or materializing the document. PostgreSQL performs append and
+causal promotion in one database call. SQLite and FoundationDB provide the same
+logical interface. Database acceptance of an opaque row does not replace
+application authorization or client-side operation validation.
 
-## Operation payload format v1
+## Operation payload version 2
 
-The payload is an array of tagged operations. Each operation starts with its mnemonic as a `string`; only the corresponding fields follow. JSON Joy's verbose operations are normalized to the fixed schemas below, then encoded with codec. Runtime schemas and engine class instances are never transmitted.
+The payload uses a fixed codec schema, not executable schemas from peers.
+Its schema is defined in [operations.ts](../packages/pulse/source/core/operations.ts).
 
-`timestamp` is an untagged union: `uint` variant index 0 followed by `[sid:uint, time:uint]`, or index 1 followed by a single `uint` time for reserved server session ID 1. `[0, 0]` denotes the origin. `timespan` is `[sid:uint, time:uint, span:uint]`.
+```text
+version:uint = 2
+lamport:uint
+schema:string
+ops:operation[]
+```
 
-| Mnemonic | Fields in order |
-| --- | --- |
-| new_con | value:optional(portableValue), timestamp:optional(boolean) |
-| new_val, new_obj, new_vec, new_str, new_bin, new_arr | none |
-| ins_val | obj:timestamp, value:timestamp |
-| ins_obj | obj:timestamp, value:array([key:string, value:timestamp]) |
-| ins_vec | obj:timestamp, value:array([index:uint, value:timestamp]) |
-| ins_str | obj:timestamp, after:timestamp, value:string |
-| ins_bin | obj:timestamp, after:timestamp, value:string (base64) |
-| ins_arr | obj:timestamp, after:timestamp, values:timestamp[] |
-| upd_arr | obj:timestamp, ref:timestamp, value:timestamp |
-| del | obj:timestamp, what:timespan[] |
-| nop | len:optional(uint), default 1 |
+`lamport` is positive and advances beyond the highest applied Lamport time
+when a local transaction is generated. `schema` is empty for the legacy typed
+TypeScript API without a runtime schema. Otherwise it is the definition's
+32-character compatibility fingerprint. The fingerprint includes the resolved
+codec layout graph and constant/rich-text annotations. It detects incompatible
+layouts; it is not an authentication mechanism.
 
-The `new_con.timestamp` flag means its value is a timestamp. Its value still uses the portable constant encoding; the decoder validates the resulting integer or two-integer array. The canonical TypeScript encoder represents undefined constants with a present portable undefined value. A missing value also decodes as undefined.
+Each operation starts with its numeric `kind:uint`, followed by these fields:
 
-A portable value starts with `kind:uint`:
-
-| Kind | Value | Remaining fields |
+| Kind | Meaning | Fields in order |
 | --- | --- | --- |
-| 0 | null | none |
-| 1 | undefined | none |
-| 2 | boolean | value:boolean |
-| 3 | finite number | value:IEEE 754 float64, little-endian |
-| 4 | string | value:string |
-| 5 | array | items:portableValue[] |
-| 6 | object | entries:array([key:string, value:portableValue]) |
-| 7 | binary | value:bytes |
+| 0 | Initialize or replace document root | value:encodedValue |
+| 1 | Assign object register | target:string, field:fieldRef, value:encodedValue |
+| 2 | Delete object register | target:string, field:fieldRef |
+| 3 | Sequence insertion/deletion | target:string, after:string, deletes:string[], values:encodedValue[] |
+| 4 | Replace an array entry's value | target:string, entry:string, value:encodedValue |
+| 5 | Set or remove text attributes | target:string, entries:string[], attributes:codec-unknown |
 
-Object entries have unique keys. This vocabulary avoids executable schema discovery and preserves undefined and binary constants. The current public document API uses a narrower JSON-like subset. Operation span follows JSON Joy semantics; string insert spans count UTF-16 code units, not UTF-8 bytes. A no-op span is positive. Empty inserts that produce inconsistent spans are rejected.
+`fieldRef` is an untagged codec union: variant index 0 followed by a string
+key, or variant index 1 followed by a numeric field slot. Slots are zero-based
+within an object layout, in codec field declaration order. A single-version
+schema can use these slots; migration-capable definitions use string keys so
+that earlier layouts retain their field identities.
 
-The Rust reference relays inner payloads unchanged; it does not materialize documents or execute migrations. Implementing a Rust CRDT engine requires the same JSON CRDT operation semantics in addition to this envelope contract.
+Node and sequence-entry IDs are strings of the form `sid:clock:ordinal`.
+Ordinal allocation follows deterministic traversal and operation order within
+the creating transaction. Typed object traversal follows schema field order,
+not the input object's property order. References must resolve to a known node
+or entry and be covered by dependencies, or refer to a value created earlier
+in the same transaction. The empty `after` string denotes the sequence head.
 
-## Bounds and lifecycle
+```text
+encodedValue:
+  layout:uint
+  data:bytes
+  constants:string[][]
+  texts:string[][]
+```
 
-- Maximum frame: 8 MiB; operation payload per row: 1 MiB.
-- Maximum rows per message: 4096; vector entries: 1024.
-- Public JSON/constant input nesting: 32 levels.
-- Reference document history: 100,000 rows. Received bytes, cached local bytes and row metadata are additionally limited to 64 MiB. Native patches are retained without encoding until an export requests their bytes; their binary size is checked then. These are journal bounds, not a process RSS bound.
-- Sync responses and uploads are chunked near 2 MiB and within the Rust relay's 300,000-node structural budget, reserving room for the maximum envelope vector and framing. Both reference relays use this batching policy.
+| Layout | Encoding of data |
+| --- | --- |
+| 0 | codec's `unknown` schema for supported generic document values |
+| 1 | Root application schema extended with id:string, kind:string, version:uint, generation:uint |
+| 2 and above | The selected definition's compiled layout at index `layout - 2`, using that layout's original codec schema |
 
-TypeScript delegates schema encoding and decoding directly to codec, without an additional schema traversal or byte preflight. Local commits retain their native patch; portable conversion and encoding occur only when wire rows are requested, then the bytes are cached and the native patch reference is released. Frame and encoded-patch limits apply at that boundary, so an oversized native patch can be committed locally but cannot be exported. Pulsify checks frame size, complete consumption (trailing bytes), protocol versions and CRDT consistency. The scalar definitions above describe valid wire data; acceptance of malformed scalar encodings follows codec's behavior. The independent Rust decoder retains strict scalar checks and a 100,000-item collection limit. Wire rows own copies of their bytes so callers cannot mutate journal contents through input/output rows. Transport cancellation rejects pending initialization and removes listeners. Reconnection uses fresh session state and retained journal history.
+The application schema is configured locally. It is not shipped with each
+patch. `data` must be consumed completely by the selected codec. The same
+application value can be encoded with that original codec schema outside
+Pulsify. Root metadata and operation framing are additional protocol layers.
 
-Snapshots and compaction are not negotiated in v1. Before a history bound is reached, applications need an explicit retention/next-protocol strategy rather than silently dropping history still needed by offline clients. Generation zero is the only supported document generation.
+`constants` and `texts` are paths relative to this value, represented as string
+segments; `[]` marks the whole value. They preserve explicit struct/tuple and
+rich-text initialization markers. Declared schema annotations are also applied
+by the compiled layout. Marker paths must resolve to present values, text
+markers require strings, and constants cannot simultaneously be collaborative
+text. Public generic values are finite numbers, bigint, well-formed Unicode strings,
+booleans, null, undefined, dense arrays, plain objects and copied binary leaves.
+
+## Collaborative semantics and schemas
+
+Object fields are inline LWW registers. Their deterministic order is
+`[lamport, sid, clock]`. Deletion retains its register stamp, so older writes
+cannot resurrect it; a causally later assignment can reinsert it. Scalars do
+not need separate collaborative node allocations.
+
+Arrays and rich text use an RGA with stable entry IDs, insertion anchors and
+permanent deletion tombstones. Concurrent insertions use the deterministic
+stamp order at their shared anchor. Descendants of a deleted anchor retain
+their place in the sequence. Kind 4 changes an existing array entry's LWW
+value without creating an additional entry; concurrent replacements therefore
+preserve cardinality. Updating a deleted entry does not resurrect it.
+
+Plain string fields are atomic LWW values. Explicit rich-text fields create
+one entry per Unicode code point, including an emoji as one position. Text
+insertion/deletion uses kind 3; replacing a text entry through kind 4 is
+rejected. Kind 5 applies independent LWW attributes to character IDs. `null`
+or `undefined` removes an attribute. Plain snapshots and JSON output contain
+the text string; `toDelta()` exposes runs and formatting. An insertion with
+attributes emits an insertion transaction followed by its dependent formatting
+transaction.
+
+Root `id`, `kind` and generation zero are managed metadata. Version changes are
+reserved for compatible registered migrations. Roots must be objects with the
+expected identity and kind. Replacing a parent or entry value does not reattach
+edits addressed to its old child; cached public views of detached children
+become invalid.
+
+Definitions compile field codecs, numeric slots, value checks and detached
+copies once. Rejected local values do not advance the clock or journal. Remote
+preflight validates affected values and graph references without cloning the
+whole document for ordinary edits. Schema field order, float32 normalization,
+constant annotations and rich-text annotations must agree on all replicas.
+
+A definition's schema registry retains the layout for each stored migration
+version. Patches identify the layout they use, so a latest client can decode
+old rows before running its deterministic migration chain. Migrations receive
+detached input and emit collaborative changes. Existing constants cannot be
+changed by a migration; converting a mutable field to a constant captures its
+value in history, rather than merely relabeling its old editable node.
+Keeping a field while removing its constant annotation is rejected before a
+migration commits. A field omitted by a new schema may remain as immutable
+legacy data; its old value is not made mutable by omitting it from the schema.
+Materializers and migrator functions remain local code and are never sent to
+the relay.
+
+## Bounds, encoding and lifecycle
+
+| Bound | Value |
+| --- | --- |
+| Frame bytes | 8 MiB |
+| Operation payload per row | 1 MiB |
+| Rows per message | 4096 |
+| Vector entries | 1024 |
+| Public input nesting | 32 levels |
+| In-memory journal rows | 100,000 |
+| In-memory received/cached bytes plus estimated row metadata | 64 MiB |
+
+Local commits retain detached native operation values. Encoding occurs only
+when an export requests a row's bytes; later exports reuse the cache and the
+native patch reference is released. Row count and metadata capacity are
+checked before local commit. Encoded patch and cached-history limits are
+checked at export. An oversized patch can remain usable locally while its
+export fails with `LIMIT_EXCEEDED`. These bounds are not a process RSS limit.
+
+Frames have size and complete-consumption checks. Generated schema checks
+validate application values and operation consistency; envelope decoding uses
+codec directly without a separate recursive envelope-validation traversal.
+The common scalar-write codec has a specialized path that preserves exactly
+the same bytes as its declared schema. Uncommon operations use the compiled
+schema codec.
+
+Outgoing rows are chunked near 2 MiB, within the per-message row limit and the
+Rust relay's 300,000-node structural budget. The chunker reserves room for the
+largest vector and frame metadata. Transport cancellation rejects unfinished
+initialization and removes listeners. Reconnection starts fresh sessions and
+uses retained journal history. Generation zero remains the only supported
+generation. Applications must plan retention and compaction before reaching
+history bounds; silently dropping rows required by offline replicas is not
+supported.

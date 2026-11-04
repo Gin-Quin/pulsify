@@ -24,7 +24,7 @@ import {
 	PulseMessageSchema,
 	type PulseMessage,
 } from "../packages/pulse/source/connection/PulseMessage";
-import { toNodeBuilder } from "../packages/pulse/source/utilities/toNodeBuilder";
+import { toNodeBuilder } from "./json-joy-builder";
 import {
 	decodeOperations,
 	encodeOperations,

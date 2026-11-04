@@ -1,4 +1,5 @@
 import * as Y from "yjs";
+import { array, object } from "@gin-quin/codec";
 import { LoroDoc, LoroList, LoroMap, type VersionVector } from "loro-crdt";
 import { Model, s } from "json-joy/lib/json-crdt/index.js";
 import { Delta } from "json-joy/lib/json-crdt/delta/Delta.js";
@@ -21,7 +22,8 @@ import {
 } from "../packages/pulse/source/connection/PulseMessage.js";
 import type { PulseVersionVector } from "../packages/pulse/source/connection/PulseVersionVector.js";
 import { chunkRows } from "../packages/pulse/source/protocol/chunkRows.js";
-import { toNodeBuilder } from "../packages/pulse/source/utilities/toNodeBuilder.js";
+import { toNodeBuilder } from "./json-joy-builder.js";
+import type { CoreNode } from "../packages/pulse/source/core/model.js";
 
 export type Engine = "pulsify" | "json-joy" | "yjs" | "loro";
 export type Item = { value: number; label: string };
@@ -30,7 +32,17 @@ export type Data = PulseProperties<"Comparison"> & {
 	nested: { count: number };
 	items: Item[];
 };
-const Definition = definePulse<Data>("Comparison").materialize();
+// Compile once outside sample timing, as the legacy Definition was. The data
+// shape and editable containers are unchanged; only Pulsify's schema knowledge
+// is now supplied explicitly, as required by its native engine API.
+const Definition = definePulse(
+	"Comparison",
+	object({
+		title: "string",
+		nested: object({ count: "float64" }),
+		items: array(object({ value: "float64", label: "string" })),
+	}),
+).materialize();
 export const fixture = (size: number): Data => ({
 	id: "comparison",
 	kind: "Comparison",
@@ -117,9 +129,10 @@ function pulseReplica(
 	const meta = getPulseMeta(pulse);
 	// These caches are resolved outside timed loops by the benchmark runner.
 	let nested: Pulse<Data>["nested"] | undefined;
-	let nativeNested: ReturnType<typeof meta.model.api.obj> | undefined;
+	let nativeNested: CoreNode | undefined;
 	const liveNested = () => (nested ??= pulse.nested);
-	const rawNested = () => (nativeNested ??= meta.model.api.obj(["nested"]));
+	const rawNested = () =>
+		(nativeNested ??= meta.model.root!.children.get("nested")!);
 	const encode = (vv: PulseVersionVector) =>
 		packet(
 			chunkRows(meta.log.missing(vv)).map((rows) =>
@@ -142,15 +155,10 @@ function pulseReplica(
 	return {
 		engine: "pulsify",
 		readCount() {
-			return direct
-				? Number((rawNested().view() as Record<string, unknown>)["count"])
-				: liveNested().count;
+			return direct ? Number(rawNested().data.count) : liveNested().count;
 		},
 		setCount(value) {
-			if (direct)
-				meta.mutate((builder) =>
-					builder.insObj(rawNested().node.id, [["count", builder.con(value)]]),
-				);
+			if (direct) meta.model.set(rawNested(), "count", value);
 			else liveNested().count = value;
 		},
 		setTitle(value) {

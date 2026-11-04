@@ -1,5 +1,5 @@
-import type { Model } from "json-joy/lib/json-crdt/index.js";
-import type { PatchBuilder } from "json-joy/lib/json-crdt-patch/PatchBuilder.js";
+import type { CoreModel } from "../core/model.js";
+import type { CoreOperation } from "../core/operations.js";
 import type { Connection } from "../connection/Connection.js";
 import type { ConnectPulseResolvers } from "../connection/connectPulse.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
@@ -13,7 +13,7 @@ export const PulseMetaSymbol: unique symbol = Symbol("PulseMeta");
 export type PulseMeta = {
 	readonly id: string;
 	readonly definition: AnyPulseDefinition;
-	readonly model: Model;
+	readonly model: CoreModel;
 	readonly log: PatchLog;
 	readonly options: PulseOptions;
 	pulse: Pulse<any>;
@@ -26,7 +26,7 @@ export type PulseMeta = {
 	cancelConnection: ((error: Error) => void) | undefined;
 	listeners: Set<() => void>;
 	rowListeners: Set<() => void>;
-	mutate<T>(callback: (builder: PatchBuilder) => T): T;
+	mutate(ops: CoreOperation[]): void;
 	applyRows(rows: PulsePatchRow[]): void;
 	report(error: Error): void;
 };

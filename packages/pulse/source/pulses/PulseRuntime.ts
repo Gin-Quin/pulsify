@@ -1,33 +1,24 @@
-import {
-	Model,
-	ConNode,
-	ObjNode,
-	NewConOp,
-	NewObjOp,
-	InsObjOp,
-	InsValOp,
-	InsArrOp,
-	InsVecOp,
-	UpdArrOp,
-	compare,
-	type Patch,
-	type ITimestampStruct,
-} from "json-joy/lib/json-crdt/index.js";
-import { PatchBuilder } from "json-joy/lib/json-crdt-patch/PatchBuilder.js";
 import { Connection } from "../connection/Connection.js";
 import {
 	patchToRow,
 	rowToPatch,
 	type PulsePatchRow,
 } from "../connection/PulsePatch.js";
+import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
+import { CoreModel, managedFields } from "../core/model.js";
+import {
+	CorePatch,
+	ScalarPatch,
+	type CoreOperation,
+} from "../core/operations.js";
+import { prepareValue, type PreparedValue } from "../core/values.js";
 import { PulseError, asPulseError } from "../protocol/errors.js";
 import { PatchLog } from "../protocol/PatchLog.js";
-import { toNodeBuilder } from "../utilities/toNodeBuilder.js";
 import { bind as bindPulse, type Binding } from "./Bindings.js";
 import type { Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
 import type { PulseMeta } from "./PulseMeta.js";
-import { assertProperty, createObjectProxy } from "./PulseObject.js";
+import { createObjectProxy } from "./PulseObject.js";
 import type { PulseOptions } from "./PulseOptions.js";
 import type { ProxyContext } from "./ProxyContext.js";
 
@@ -37,21 +28,44 @@ export function createRuntime(
 	options: PulseOptions,
 	data?: Record<string, unknown>,
 ): Pulse<any> {
-	if (!id.length || id.length > 1024 || !id.isWellFormed())
+	if (
+		typeof id !== "string" ||
+		!id.length ||
+		id.length > 1024 ||
+		!id.isWellFormed() ||
+		id.includes("\0")
+	)
 		throw new TypeError("Invalid pulse ID");
+	const kind = definition.kind;
+	if (typeof kind !== "string" || !kind.isWellFormed())
+		throw new TypeError("Invalid pulse kind");
 	if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)
 		throw new TypeError("timeoutMs must be positive");
-	if (
-		options.sessionId !== undefined &&
-		(!Number.isSafeInteger(options.sessionId) || options.sessionId < 65536)
-	)
+	const sid = options.sessionId ?? randomActor();
+	if (!Number.isSafeInteger(sid) || sid < 65536)
 		throw new TypeError("sessionId must be a safe integer >= 65536");
-	const model = Model.create(undefined, options.sessionId);
+	const model = new CoreModel(
+		sid,
+		id,
+		kind,
+		definition.migrations.length + 1,
+		definition.compiledSchema,
+		definition.schemas,
+	);
 	const log = new PatchLog(id);
 	const notify = () => {
 		if (meta.loaded && meta.connections.length && meta.status === "synced")
 			meta.status = "ready";
-		for (const listener of [...meta.listeners, ...meta.rowListeners]) {
+		const listeners = [...meta.listeners],
+			rowListeners = [...meta.rowListeners];
+		for (const listener of listeners) {
+			try {
+				listener();
+			} catch (error) {
+				meta.report(asPulseError(error));
+			}
+		}
+		for (const listener of rowListeners) {
 			try {
 				listener();
 			} catch (error) {
@@ -63,213 +77,311 @@ export function createRuntime(
 		get meta() {
 			return meta;
 		},
-		cache: new WeakMap(),
 		assertActive() {
 			if (meta.destroyed)
 				throw new PulseError("CLOSED", "Pulse has been destroyed");
 		},
-		mutate(callback) {
-			context.assertActive();
-			// Keep the native patch; the journal encodes it only at the wire boundary.
-			const builder = new PatchBuilder(model.clock.clone());
-			const result = callback(builder);
-			const patch = builder.flush();
-			if (!patch.ops.length) return result;
-			const patchId = patch.getId()!;
-			const native = (row: PulsePatchRow) =>
-				row.sid === patchId.sid && row.clock === patchId.time
-					? patch
-					: rowToPatch(row);
-			const ready = log.appendPatch(patch, patchToRow, (available) => {
-				if (available.length > 1) validateRootChanges(available.map(native));
-			});
-			for (const row of ready) model.applyPatch(native(row));
-			meta.loaded = true;
-			if (ready.length > 1) migrate();
-			notify();
-			return result;
-		},
 	};
-	const validateMetadata = (value: unknown) => {
-		if (value === undefined) return;
-		const doc = value as Record<string, unknown>;
-		if (
-			!doc ||
-			typeof doc !== "object" ||
-			Array.isArray(doc) ||
-			doc["id"] !== id ||
-			doc["kind"] !== definition.kind ||
-			!Number.isSafeInteger(doc["version"]) ||
-			(doc["version"] as number) < 1 ||
-			(doc["version"] as number) > definition.migrations.length + 1
-		)
-			throw new PulseError(
-				"INCOMPATIBLE_DOCUMENT",
-				"Document identity, kind or migration version is incompatible",
-			);
-		if (doc["generation"] !== undefined && doc["generation"] !== 0)
-			throw new PulseError(
-				"INCOMPATIBLE_DOCUMENT",
-				"Restored document generations are not supported by protocol v1",
-			);
-	};
-	// Only the root's four metadata fields need a compatibility check.
-	const validateRootChanges = (patches: Patch[]) => {
-		const ops = patches.flatMap((patch) => patch.ops);
-		let rootId = model.root.val;
-		for (const op of ops)
-			if (
-				op instanceof InsValOp &&
-				op.obj.sid === 0 &&
-				op.obj.time === 0 &&
-				compare(op.val, rootId) > 0
-			)
-				rootId = op.val;
-		const writes = ops.filter(
-			(op): op is InsObjOp =>
-				op instanceof InsObjOp && compare(op.obj, rootId) === 0,
+	const decode = (row: PulsePatchRow) =>
+		rowToPatch(row, (schema) => model.decodeEncoding(schema));
+	const serialize = (
+		docId: string,
+		patch: CorePatch,
+		dependencies: PulseVersionVector,
+	) => patchToRow(docId, patch, dependencies, model.encoding);
+	model.commit = (ops, hint) => {
+		context.assertActive();
+		if (!ops.length) return;
+		const time = model.lamport + 1;
+		if (!Number.isSafeInteger(time))
+			throw new PulseError("LIMIT_EXCEEDED", "Lamport clock exhausted");
+		const patch = new CorePatch(
+			sid,
+			model.nextClock,
+			time,
+			model.schemaId,
+			ops,
 		);
-		const fields = ["id", "kind", "version", "generation"];
-		const changed =
-			rootId !== model.root.val ||
-			writes.some((op) => op.data.some(([field]) => fields.includes(field)));
-		const stored = model.index.get(rootId);
-		if (
-			changed &&
-			!(stored instanceof ObjNode) &&
-			!ops.some((op) => op instanceof NewObjOp && compare(op.id, rootId) === 0)
-		)
-			throw new PulseError(
-				"INCOMPATIBLE_DOCUMENT",
-				"Document root must be an object",
-			);
-		// json-joy owns nodes through one parent: sharing root metadata could let
-		// garbage collection of an ordinary field delete the document identity.
-		const owners = new Map<
-			string,
-			{ parent: ITimestampStruct; field?: string }
-		>();
-		const nodeKey = (ref: ITimestampStruct) => `${ref.sid}:${ref.time}`;
-		const own = (
-			ref: ITimestampStruct,
-			parent: ITimestampStruct,
-			field?: string,
-		) => {
-			if (ref.sid === 0) return;
-			const previous = owners.get(nodeKey(ref));
-			if (
-				previous &&
-				(compare(previous.parent, parent) !== 0 || previous.field !== field)
-			)
-				throw new PulseError(
-					"INCOMPATIBLE_DOCUMENT",
-					"Document metadata cannot share CRDT nodes",
-				);
-			owners.set(nodeKey(ref), {
-				parent,
-				...(field === undefined ? {} : { field }),
-			});
-		};
-		own(model.root.val, model.root.id);
-		own(rootId, model.root.id);
-		const current = model.root.child();
-		if (current instanceof ObjNode)
-			for (const field of fields) {
-				const ref = current.keys.get(field);
-				if (ref) own(ref, current.id, field);
-			}
-		const metadata: Record<string, unknown> = {};
-		if (changed)
-			for (const field of fields) {
-				let ref =
-					stored instanceof ObjNode ? stored.keys.get(field) : undefined;
-				for (const op of writes)
-					for (const [name, value] of op.data)
-						if (
-							name === field &&
-							value.time > rootId.time &&
-							(!ref || compare(value, ref) > 0)
-						)
-							ref = value;
-				const node =
-					ref &&
-					(ops.find(
-						(op) => op instanceof NewConOp && compare(op.id, ref!) === 0,
-					) ??
-						model.index.get(ref));
-				metadata[field] =
-					node instanceof NewConOp || node instanceof ConNode
-						? node.val
-						: undefined;
-				const previous =
-					stored instanceof ObjNode ? stored.keys.get(field) : undefined;
-				if (
-					ref &&
-					!(node instanceof NewConOp) &&
-					(!previous || compare(ref, previous) !== 0)
-				)
-					throw new PulseError(
-						"INCOMPATIBLE_DOCUMENT",
-						"Document metadata cannot share existing CRDT nodes",
+		if (!log.pendingCount) {
+			log.appendLocalPatch(patch, serialize);
+			model.apply(patch, hint);
+		} else {
+			let patches: CorePatch[] = [patch];
+			const ready = log.appendLocalPatch(patch, serialize, (rows) => {
+				if (rows.length > 1) {
+					patches = rows.map((row) =>
+						row.sid === sid && row.clock === patch.clock ? patch : decode(row),
 					);
-				if (ref) own(ref, rootId, field);
-			}
-		const link = (
-			parent: ITimestampStruct,
-			ref: ITimestampStruct,
-			field?: string,
-		) => {
-			const owner = owners.get(nodeKey(ref));
-			if (
-				owner &&
-				(compare(owner.parent, parent) !== 0 || owner.field !== field)
-			)
-				throw new PulseError(
-					"INCOMPATIBLE_DOCUMENT",
-					"Document metadata cannot share CRDT nodes",
-				);
-		};
-		for (const op of ops) {
-			if (op instanceof InsObjOp || op instanceof InsVecOp)
-				for (const [field, ref] of op.data) link(op.obj, ref, String(field));
-			else if (op instanceof InsValOp || op instanceof UpdArrOp)
-				link(op.obj, op.val);
-			else if (op instanceof InsArrOp)
-				for (const ref of op.data) link(op.obj, ref);
+					model.validate(
+						patches,
+						new Map(rows.map((row, i) => [patches[i]!, row.dependencies])),
+					);
+				}
+			});
+			for (const item of patches)
+				model.apply(item, item === patch ? hint : undefined);
+			if (ready.length > 1) migrate();
 		}
-		if (changed) validateMetadata(metadata);
+		meta.loaded = !!model.root;
+		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
-	const migrate = () => {
-		if (!meta.loaded || !definition.migrations.length) return;
-		const initialVersion = model.api.obj().get("version").view() as number;
-		if (initialVersion > definition.migrations.length) return;
-		let before = model.view() as Record<string, unknown>;
-		const changes: Record<string, unknown> = {};
-		for (
-			let version = initialVersion;
-			version <= definition.migrations.length;
-			version++
-		) {
-			const migration = definition.migrations[version - 1]!;
-			const update = migration.migrator(structuredClone(before) as any);
-			if (!update || typeof update !== "object" || Array.isArray(update))
-				throw new TypeError("Migration must return an object");
-			for (const key of ["id", "kind", "version", "generation"])
-				if (Object.hasOwn(update, key))
-					throw new TypeError(`${key} is managed by Pulsify`);
-			before = { ...before, ...update, version: version + 1 };
-			Object.assign(changes, update, { version: version + 1 });
+	model.commitScalar = (node, key, field, value) => {
+		context.assertActive();
+		if (log.pendingCount) {
+			model.commit([
+				{
+					kind: 1,
+					target: node.id,
+					field,
+					value: { value, constants: [], texts: [] },
+				},
+			]);
+			return;
 		}
-		const values = Object.entries(changes).map(([key, value]) => {
-			assertProperty(key);
-			return [key, toNodeBuilder(value)] as const;
-		});
-		context.mutate((builder) =>
-			builder.insObj(
-				model.api.obj().node.id,
-				values.map(([key, value]) => [key, builder.json(value)]),
-			),
+		const time = model.lamport + 1;
+		if (!Number.isSafeInteger(time))
+			throw new PulseError("LIMIT_EXCEEDED", "Lamport clock exhausted");
+		const clock = model.nextClock;
+		const patch = new ScalarPatch(
+			sid,
+			clock,
+			time,
+			model.schemaId,
+			node.id,
+			field,
+			value,
 		);
+		log.appendLocalPatch(patch, serialize);
+		model.lamport = time;
+		model.nextClock = clock + 1;
+		node.stamps.set(key, [time, sid, clock]);
+		node.removeChild(key);
+		node.data[key] = value;
+		meta.loaded = !!model.root;
+		if (meta.listeners.size || meta.rowListeners.size) notify();
+	};
+	let migrating = false;
+	const migrate = () => {
+		if (migrating || !meta.loaded || !definition.migrations.length) return;
+		const initialVersion = model.view().version as number;
+		if (initialVersion > definition.migrations.length) return;
+		migrating = true;
+		try {
+			const initial = structuredClone(model.view()) as Record<string, unknown>;
+			let before = initial;
+			const changes = new Map<string, PreparedValue>();
+			for (
+				let version = initialVersion;
+				version <= definition.migrations.length;
+				version++
+			) {
+				const update = definition.migrations[version - 1]!.migrator(
+					structuredClone(before),
+				);
+				if (!update || typeof update !== "object" || Array.isArray(update))
+					throw new TypeError("Migration must return an object");
+				for (const key of ["id", "kind", "version", "generation"])
+					if (Object.hasOwn(update, key))
+						throw new TypeError(`${key} is managed by Pulsify`);
+				const prepared = prepareValue(update);
+				if (
+					!prepared.value ||
+					typeof prepared.value !== "object" ||
+					Array.isArray(prepared.value)
+				)
+					throw new TypeError("Migration must return an object");
+				const data = prepared.value as Record<string, unknown>;
+				for (const [key, value] of Object.entries(data))
+					changes.set(key, {
+						value,
+						constants: prepared.constants
+							.filter((path) => path[0] === key)
+							.map((path) => path.slice(1)),
+						texts: prepared.texts
+							.filter((path) => path[0] === key)
+							.map((path) => path.slice(1)),
+					});
+				// Subsequent migrators see detached stored data, without view methods
+				// or initialization markers from an earlier step.
+				before = { ...before, ...data, version: version + 1 };
+				changes.set("version", prepareValue(version + 1));
+			}
+			const latest = definition.compiledSchema;
+			const source = definition.schemas?.[initialVersion - 1];
+			const normalized = model.prepareRoot(prepareValue(before), latest)
+				.value as Record<string, unknown>;
+			const sameConstant = (left: unknown, right: unknown): boolean => {
+				if (left === right) return true;
+				if (
+					left === null ||
+					right === null ||
+					typeof left !== "object" ||
+					typeof right !== "object"
+				)
+					return false;
+				if (left instanceof Uint8Array || right instanceof Uint8Array)
+					return (
+						left instanceof Uint8Array &&
+						right instanceof Uint8Array &&
+						left.length === right.length &&
+						left.every((byte, index) => byte === right[index])
+					);
+				if (Array.isArray(left) !== Array.isArray(right)) return false;
+				const keys = Object.keys(left);
+				return (
+					keys.length === Object.keys(right).length &&
+					keys.every(
+						(key) =>
+							Object.hasOwn(right, key) &&
+							sameConstant(
+								(left as Record<string, unknown>)[key],
+								(right as Record<string, unknown>)[key],
+							),
+					)
+				);
+			};
+			if (source?.root.constant) {
+				const application = (data: Record<string, unknown>) =>
+					Object.fromEntries(
+						Object.entries(data).filter(
+							([key]) => !["id", "kind", "version", "generation"].includes(key),
+						),
+					);
+				if (!sameConstant(application(initial), application(normalized)))
+					throw new TypeError("Migration cannot change a constant document");
+				if (latest && !latest.root.constant)
+					throw new TypeError(
+						"Migration cannot remove a root constant annotation",
+					);
+			}
+			for (const [key, prepared] of changes) {
+				if (key === "version") continue;
+				const previous = source?.fieldAt([key], initial);
+				const field = latest?.fieldAt([key], normalized);
+				const previousLayout =
+					previous?.layout ?? source?.layoutAt([key], initial);
+				const fieldLayout =
+					field?.layout ?? latest?.layoutAt([key], normalized);
+				if (previous?.constant || previousLayout?.constant) {
+					if (!sameConstant(initial[key], prepared.value))
+						throw new TypeError(
+							`Migration cannot change constant field ${key}`,
+						);
+					// An unchanged immutable register needs no replacement operation.
+					changes.delete(key);
+					continue;
+				}
+				if (latest && !fieldLayout)
+					throw new TypeError(`Unknown migration schema property ${key}`);
+				changes.set(key, model.normalize(prepared, fieldLayout));
+			}
+			const annotations = (
+				schema: typeof latest,
+				data: Record<string, unknown>,
+				key: string,
+			) => {
+				const constants: string[][] = [],
+					texts: string[][] = [];
+				const visit = (value: unknown, path: string[], relative: string[]) => {
+					const layout = schema?.layoutAt(path, data);
+					if (!layout) return;
+					if (layout.constant) {
+						constants.push(relative);
+						return;
+					}
+					if (layout.richText) {
+						if (typeof value === "string") texts.push(relative);
+						return;
+					}
+					if (
+						!value ||
+						typeof value !== "object" ||
+						value instanceof Uint8Array
+					)
+						return;
+					for (const child of Object.keys(value))
+						visit(
+							(value as Record<string, unknown>)[child],
+							[...path, child],
+							[...relative, child],
+						);
+				};
+				visit(data[key], [key], []);
+				return { constants, texts };
+			};
+			const signature = (paths: { constants: string[][]; texts: string[][] }) =>
+				JSON.stringify([
+					paths.constants.map((path) => JSON.stringify(path)).sort(),
+					paths.texts.map((path) => JSON.stringify(path)).sort(),
+				]);
+			const mergePaths = (
+				left: string[][],
+				right: string[][],
+				removed: string[][],
+			) => {
+				const drop = new Set(removed.map((path) => JSON.stringify(path)));
+				const result = new Map<string, string[]>();
+				for (const path of left)
+					if (!drop.has(JSON.stringify(path)))
+						result.set(JSON.stringify(path), path);
+				for (const path of right) result.set(JSON.stringify(path), path);
+				return [...result.values()];
+			};
+			if (latest)
+				for (const key of Object.keys(normalized)) {
+					if (managedFields.has(key)) continue;
+					const field = latest.fieldAt([key], normalized);
+					const layout = field?.layout ?? latest.layoutAt([key], normalized);
+					if (!layout) continue;
+					const original = annotations(source, initial, key);
+					for (const path of original.constants) {
+						const replacement = latest.layoutAt([key, ...path], normalized);
+						if (replacement && !replacement.constant)
+							throw new TypeError(
+								`Migration cannot make constant field ${[key, ...path].join(".")} mutable`,
+							);
+					}
+					// A retired field is retained by existing storage; its absence from
+					// the latest schema alone must not synthesize a mutable replacement.
+					const previous = {
+						constants: original.constants.filter((path) =>
+							latest.layoutAt([key, ...path], normalized),
+						),
+						texts: original.texts.filter((path) =>
+							latest.layoutAt([key, ...path], normalized),
+						),
+					};
+					const next = annotations(latest, normalized, key);
+					if (signature(previous) === signature(next)) continue;
+					const prepared = model.normalize(
+						changes.get(key) ?? prepareValue(normalized[key]),
+						layout,
+					);
+					// Replace the enclosing root field with an explicit snapshot capture.
+					// This detaches old child IDs, so late v1 edits cannot change a newly
+					// constant descendant. Paths are relative to the captured field and
+					// include concrete array indices/map keys rather than schema wildcards.
+					changes.set(key, {
+						value: prepared.value,
+						constants: mergePaths(
+							prepared.constants,
+							next.constants,
+							previous.constants,
+						),
+						texts: mergePaths(prepared.texts, next.texts, previous.texts),
+					});
+				}
+			const root = model.root!;
+			const ops: CoreOperation[] = [...changes].map(([key, value]) => ({
+				kind: 1,
+				target: root.id,
+				field: model.field(root, key),
+				value,
+			}));
+			model.commit(ops);
+		} finally {
+			migrating = false;
+		}
 	};
 	const meta: PulseMeta = {
 		id,
@@ -287,40 +399,53 @@ export function createRuntime(
 		cancelConnection: undefined,
 		listeners: new Set(),
 		rowListeners: new Set(),
-		mutate: context.mutate,
+		mutate: (ops) => model.commit(ops),
 		report(error) {
 			meta.lastError = error;
 			try {
 				options.onError(error);
 			} catch {
-				/* Error hooks cannot interrupt protocol bookkeeping. */
+				/* Bookkeeping cannot be interrupted by an error hook. */
 			}
 		},
-		applyRows(rows: PulsePatchRow[]) {
+		applyRows(rows) {
 			context.assertActive();
+			if (rows.length === 1 && !log.pendingCount) {
+				const patch = decode(rows[0]!);
+				const ready = log.appendRemoteRows(rows, (available) => {
+					if (available.length)
+						model.validateSingle(patch, available[0]!.dependencies);
+				});
+				if (ready.length) {
+					model.apply(patch);
+					meta.loaded = !!model.root;
+					migrate();
+					notify();
+				}
+				return;
+			}
 			const decoded = new Map(
-				rows.map((row) => [`${row.sid}:${row.clock}`, rowToPatch(row)]),
+				rows.map((row) => [`${row.sid}:${row.clock}`, decode(row)]),
 			);
-			let patches: Patch[] = [];
-			const ready = log.append(rows, (available) => {
+			let patches: CorePatch[] = [];
+			const ready = log.appendRemoteRows(rows, (available) => {
 				patches = available.map(
-					(row) => decoded.get(`${row.sid}:${row.clock}`) ?? rowToPatch(row),
+					(row) => decoded.get(`${row.sid}:${row.clock}`) ?? decode(row),
 				);
-				validateRootChanges(patches);
+				model.validate(
+					patches,
+					new Map(available.map((row, i) => [patches[i]!, row.dependencies])),
+				);
 			});
-			for (const patch of patches) model.applyPatch(patch);
+			for (const patch of patches) model.apply(patch);
 			if (ready.length) {
-				meta.loaded = model.root.child() !== undefined;
+				meta.loaded = !!model.root;
 				migrate();
 				notify();
 			}
 		},
 	};
-	let pulse = createObjectProxy(
-		() => model.api.obj(),
-		context,
-		true,
-	) as Pulse<any>;
+	let pulse = createObjectProxy(() => model.root, context, true) as Pulse<any>;
 	if (definition.materializer) {
 		const bindings = definition.materializer({
 			bind: (key: PropertyKey): Binding<any, any> => ({
@@ -341,10 +466,14 @@ export function createRuntime(
 		(connector) => new Connection(pulse, connector),
 	);
 	if (data) {
-		validateMetadata(data);
-		const schema = toNodeBuilder(data);
-		context.mutate((builder) => builder.root(builder.json(schema)));
+		model.validateRoot(data, model.schemaId);
+		const prepared = model.prepareRootInput(data);
+		model.commit([{ kind: 0, value: prepared }]);
 	}
 	options.scope.pulses.set(id, pulse);
 	return pulse;
+}
+function randomActor(): number {
+	const bytes = crypto.getRandomValues(new Uint32Array(2));
+	return 65536 + bytes[0]! * 1048576 + (bytes[1]! & 0xfffff);
 }

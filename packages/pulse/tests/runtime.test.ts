@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { ClockVector } from "json-joy/lib/json-crdt-patch/clock/index.js";
-import { PatchBuilder } from "json-joy/lib/json-crdt-patch/PatchBuilder.js";
+import { CorePatch, type CoreOperation } from "../source/core/operations.js";
+import { prepareValue } from "../source/core/values.js";
 import {
 	patchToRow,
 	type PulsePatchRow,
@@ -16,11 +16,27 @@ import {
 	snapshotPulse,
 	type Pulse,
 } from "../source/index.js";
-import { toNodeBuilder } from "../source/utilities/toNodeBuilder.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
 import { PatchLog } from "../source/protocol/PatchLog.js";
 import { Document, data, options } from "./helpers.js";
+
+function remoteRow(
+	meta: ReturnType<typeof getPulseMeta>,
+	ops: CoreOperation[],
+): PulsePatchRow {
+	return patchToRow(
+		meta.id,
+		new CorePatch(
+			meta.model.sid,
+			meta.model.nextClock,
+			meta.model.lamport + 1,
+			meta.model.schemaId,
+			ops,
+		),
+		meta.log.vector,
+	);
+}
 
 test("incompatible metadata writes leave both the model and journal unchanged", () => {
 	const pulse = createPulse(Document, data(), {
@@ -40,11 +56,14 @@ test("incompatible metadata writes leave both the model and journal unchanged", 
 			["generation", 1],
 			["id", undefined],
 		] as const) {
-			const builder = new PatchBuilder(meta.model.clock.clone());
-			builder.insObj(meta.model.api.obj().node.id, [
-				[field, builder.con(value)],
+			const row = remoteRow(meta, [
+				{
+					kind: 1,
+					target: meta.model.root!.id,
+					field,
+					value: prepareValue(value),
+				},
 			]);
-			const row = patchToRow(meta.id, builder.flush(), vector);
 			expect(() => meta.applyRows([row])).toThrow();
 			expect(snapshotPulse(pulse)).toEqual(before);
 			expect(meta.log.vector).toEqual(vector);
@@ -65,9 +84,7 @@ test("an incompatible root replacement cannot overwrite a loaded document", () =
 	const vector = meta.log.vector;
 	try {
 		for (const root of [7, { ...before, id: "another-document" }]) {
-			const builder = new PatchBuilder(meta.model.clock.clone());
-			builder.root(builder.json(toNodeBuilder(root)));
-			const row = patchToRow(meta.id, builder.flush(), vector);
+			const row = remoteRow(meta, [{ kind: 0, value: prepareValue(root) }]);
 			expect(() => meta.applyRows([row])).toThrow();
 			expect(snapshotPulse(pulse)).toEqual(before);
 			expect(meta.log.vector).toEqual(vector);
@@ -77,7 +94,7 @@ test("an incompatible root replacement cannot overwrite a loaded document", () =
 	}
 });
 
-test("root metadata references ignored by json-joy cannot pass compatibility checks", () => {
+test("metadata cannot be changed after a root replacement in the same transaction", () => {
 	const pulse = createPulse(Document, data(), {
 		...options(),
 		sessionId: 65536,
@@ -86,16 +103,11 @@ test("root metadata references ignored by json-joy cannot pass compatibility che
 	try {
 		const before = snapshotPulse(pulse);
 		const vector = meta.log.vector;
-		const builder = new PatchBuilder(meta.model.clock.clone());
-		const root = builder.obj();
-		builder.insObj(
-			root,
-			[...meta.model.api.obj().node.keys].filter(([field]) =>
-				["id", "kind", "version", "generation"].includes(field),
-			),
-		);
-		builder.root(root);
-		const row = patchToRow(meta.id, builder.flush(), vector);
+		const newRoot = `${meta.model.sid}:${meta.model.nextClock}:0`;
+		const row = remoteRow(meta, [
+			{ kind: 0, value: prepareValue(before) },
+			{ kind: 1, target: newRoot, field: "kind", value: prepareValue("Other") },
+		]);
 		expect(() => meta.applyRows([row])).toThrow();
 		expect(snapshotPulse(pulse)).toEqual(before);
 		expect(meta.log.vector).toEqual(vector);
@@ -121,18 +133,17 @@ test("a batch with a valid edit followed by incompatible metadata is rejected at
 		const before = snapshotPulse(target);
 		const vector = targetMeta.log.vector;
 		source.nested.count = 17;
-		const builder = new PatchBuilder(sourceMeta.model.clock.clone());
-		builder.insObj(sourceMeta.model.api.obj().node.id, [
-			["kind", builder.con("Other")],
+		const invalid = remoteRow(sourceMeta, [
+			{
+				kind: 1,
+				target: sourceMeta.model.root!.id,
+				field: "kind",
+				value: prepareValue("Other"),
+			},
 		]);
-		const invalid = patchToRow(
-			source.id,
-			builder.flush(),
-			sourceMeta.log.vector,
-		);
 		expect(() =>
 			targetMeta.applyRows([...sourceMeta.log.missing(vector), invalid]),
-		).toThrow("incompatible");
+		).toThrow();
 		expect(snapshotPulse(target)).toEqual(before);
 		expect(targetMeta.log.vector).toEqual(vector);
 	} finally {
@@ -141,48 +152,47 @@ test("a batch with a valid edit followed by incompatible metadata is rejected at
 	}
 });
 
-for (const alias of ["root", "field", "existing"] as const)
-	test(`metadata cannot share nodes with another ${alias}`, () => {
+for (const field of ["id", "kind", "generation"] as const)
+	test(`metadata ${field} cannot be rebound even to an identical inline value`, () => {
 		const pulse = createPulse(Document, data(), {
 			...options(),
 			sessionId: 65536,
 		});
 		const meta = getPulseMeta(pulse);
 		try {
-			if (alias === "existing") pulse.optional = pulse.id;
 			const before = snapshotPulse(pulse);
 			const vector = meta.log.vector;
-			const builder = new PatchBuilder(meta.model.clock.clone());
-			const root = meta.model.api.obj().node.id;
-			if (alias === "field") {
-				const ref = builder.con(pulse.id);
-				builder.insObj(root, [
-					["id", ref],
-					["alias", ref],
-				]);
-			} else if (alias === "existing") {
-				builder.insObj(root, [
-					["id", meta.model.api.obj().node.keys.get("optional")!],
-				]);
-			} else {
-				const next = builder.obj();
-				const fields: [string, ReturnType<typeof builder.con>][] = [
-					["id", builder.con(pulse.id)],
-					["kind", builder.con("Document")],
-					["version", builder.con(1)],
-				];
-				builder.insObj(root, fields);
-				builder.insObj(next, fields);
-				builder.root(next);
-			}
-			const row = patchToRow(meta.id, builder.flush(), vector);
-			expect(() => meta.applyRows([row])).toThrow("cannot share");
+			const row = remoteRow(meta, [
+				{
+					kind: 1,
+					target: meta.model.root!.id,
+					field,
+					value: prepareValue(pulse[field]),
+				},
+			]);
+			expect(() => meta.applyRows([row])).toThrow();
 			expect(snapshotPulse(pulse)).toEqual(before);
 			expect(meta.log.vector).toEqual(vector);
 		} finally {
 			destroyPulse(pulse);
 		}
 	});
+
+test("an input object shared by fields is copied into independently editable containers", () => {
+	const shared = { count: 7 };
+	const pulse = createPulse(
+		Document,
+		{ ...data(), nested: shared, alias: shared } as any,
+		options(),
+	);
+	try {
+		pulse.nested.count = 9;
+		expect((pulse as any).alias.count).toBe(7);
+		expect(shared.count).toBe(7);
+	} finally {
+		destroyPulse(pulse);
+	}
+});
 
 test("plain snapshots are detached and preserve undefined, arrays and constants", () => {
 	const pulse = createPulse(Document, data(), options());
@@ -200,11 +210,12 @@ test("plain snapshots are detached and preserve undefined, arrays and constants"
 });
 
 test("native journal output owns its metadata and cached encoded bytes", () => {
-	const create = new PatchBuilder(new ClockVector(65537, 1));
-	create.root(create.con("value"));
+	const create = new CorePatch(65537, 1, 1, "", [
+		{ kind: 0, value: prepareValue("value") },
+	]);
 	const log = new PatchLog("owned-native");
 	let encodes = 0;
-	const row = log.appendPatch(create.flush(), (docId, patch, dependencies) => {
+	const row = log.appendPatch(create, (docId, patch, dependencies) => {
 		encodes++;
 		return patchToRow(docId, patch, dependencies);
 	})[0]!;
@@ -224,9 +235,9 @@ test("native journal output owns its metadata and cached encoded bytes", () => {
 
 test("rejected native entries never consume the committed encoded-byte quota", () => {
 	const patch = (size: number) => {
-		const builder = new PatchBuilder(new ClockVector(65537, 1));
-		builder.root(builder.con("x".repeat(size)));
-		return builder.flush();
+		return new CorePatch(65537, 1, 1, "", [
+			{ kind: 0, value: prepareValue("x".repeat(size)) },
+		]);
 	};
 	const large = patch(900_000);
 	for (const readAfterRejection of [false, true]) {
@@ -320,11 +331,15 @@ test("a native local commit releases causally dependent incoming rows", () => {
 	const remote = getPulseMeta(peer);
 	try {
 		remote.applyRows(meta.log.missing([]));
-		const next = new PatchBuilder(meta.model.clock.clone());
-		next.insObj(meta.model.api.obj(["nested"]).node.id, [
-			["count", next.con(1)],
+		const next = remoteRow(meta, [
+			{
+				kind: 1,
+				target: meta.model.root!.children.get("nested")!.id,
+				field: "count",
+				value: prepareValue(1),
+			},
 		]);
-		remote.applyRows([patchToRow(meta.id, next.flush(), meta.log.vector)]);
+		remote.applyRows([next]);
 		peer.title = "causally-after-local-edit";
 		meta.applyRows(
 			remote.log.missing(remote.log.vector.filter(([sid]) => sid !== 65537)),

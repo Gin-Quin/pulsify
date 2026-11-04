@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { array, tuple } from "@gin-quin/codec";
 import {
 	connectPulse,
+	arrayOperations,
 	createMemoryConnector,
 	createPulse,
 	createPulseScope,
@@ -99,7 +100,7 @@ test("wire-size limits are checked at export, without encoding local creation or
 			{ scope, sessionId: 65536 },
 		);
 		try {
-			if (initial !== values) pulse.items.replaceAll(values);
+			if (initial !== values) arrayOperations(pulse.items).replaceAll(values);
 			const before = snapshotPulse(pulse);
 			const log = getPulseMeta(pulse).log;
 			const vector = log.vector;

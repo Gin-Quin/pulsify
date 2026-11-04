@@ -1,4 +1,5 @@
 import { connectPulse } from "../connection/connectPulse.js";
+import type { RichText } from "../core/richText.js";
 import { PulseError } from "../protocol/errors.js";
 import { getPulseMeta } from "./PulseMeta.js";
 import type { Pulse } from "./Pulse.js";
@@ -11,11 +12,27 @@ import { defaultPulseOptions, type PulseOptions } from "./PulseOptions.js";
 import type { PulseProperties } from "./PulseProperties.js";
 import { createRuntime } from "./PulseRuntime.js";
 
-export type CreatePulseInput<Properties extends PulseProperties<string>> = Omit<
-	Properties,
-	"id" | "kind" | "version" | "generation"
-> &
-	Partial<Pick<Properties, "id">>;
+type InitialValue<Value> = unknown extends Value
+	? Value
+	: Value extends RichText
+		? string | RichText
+		: Value extends Uint8Array
+			? Uint8Array
+			: Value extends (...args: never[]) => unknown
+				? Value
+				: Value extends object
+					? { [Key in keyof Value]: InitialValue<Value[Key]> }
+					: Value;
+
+export type CreatePulseInput<Properties extends PulseProperties<string>> =
+	Properties extends unknown
+		? {
+				[Key in keyof Omit<
+					Properties,
+					"id" | "kind" | "version" | "generation"
+				>]: InitialValue<Properties[Key]>;
+			} & Partial<Pick<Properties, "id">>
+		: never;
 export function createPulse<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	input: CreatePulseInput<DataFromDefinition<Definition>>,

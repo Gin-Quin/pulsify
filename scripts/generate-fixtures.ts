@@ -10,7 +10,8 @@ import {
 	type PulseMessage,
 } from "../packages/pulse/source/connection/PulseMessage";
 import { encodeOperations } from "../packages/pulse/source/connection/PulsePatch";
-import type { PulsePatch } from "../packages/pulse/source/connection/PulsePatch";
+import type { CoreOperation } from "../packages/pulse/source/core/operations";
+import type { PreparedValue } from "../packages/pulse/source/core/values";
 // Intentionally run by a maintainer only when changing or extending the wire contract.
 const Fixture = definePulse<PulseProperties<"Fixture"> & { value: number }>(
 	"Fixture",
@@ -86,31 +87,44 @@ const messages: [string, PulseMessage][] = [
 		},
 	],
 ];
-const operations: PulsePatch["operations"] = [
-	{ op: "new_con" },
+const prepared = (value: unknown): PreparedValue => ({
+	value,
+	constants: [],
+	texts: [],
+});
+const operations: CoreOperation[] = [
+	{ kind: 0, value: prepared(undefined) },
 	{
-		op: "new_con",
-		value: {
+		kind: 0,
+		value: prepared({
 			unicode: "é🌍",
 			array: [null, undefined, true, -12.5, new Uint8Array([0, 255])],
-		},
+		}),
 	},
-	{ op: "new_con", value: [65536, 1], timestamp: true },
-	...(
-		["new_val", "new_obj", "new_vec", "new_str", "new_bin", "new_arr"] as const
-	).map((op) => ({ op })),
-	{ op: "ins_val", obj: [0, 0], value: [65536, 2] },
-	{ op: "ins_obj", obj: [65536, 2], value: [["x", [65536, 3]]] },
-	{ op: "ins_vec", obj: 1, value: [[0, 2]] },
-	{ op: "ins_str", obj: 1, after: 1, value: "é🌍" },
-	{ op: "ins_bin", obj: 1, after: 1, value: "AP8=" },
-	{ op: "ins_arr", obj: 1, after: 1, values: [2, [65536, 3]] },
-	{ op: "upd_arr", obj: 1, ref: 2, value: 3 },
-	{ op: "del", obj: 1, what: [[65536, 3, 2]] },
-	{ op: "nop" },
-	{ op: "nop", len: 12 },
+	{ kind: 1, target: "65536:1:0", field: "x", value: prepared([65536, 1]) },
+	{ kind: 1, target: "65536:1:0", field: 0, value: prepared("typed slot") },
+	{ kind: 2, target: "65536:1:0", field: "optional" },
+	{
+		kind: 3,
+		target: "65536:1:1",
+		after: "65536:1:2",
+		deletes: ["65536:1:3"],
+		values: [prepared("é🌍")],
+	},
+	{
+		kind: 4,
+		target: "65536:1:1",
+		entry: "65536:1:2",
+		value: prepared({ x: 2 }),
+	},
+	{
+		kind: 5,
+		target: "65536:1:4",
+		entries: ["65536:1:5"],
+		attributes: { bold: true, color: "red" },
+	},
 ];
 await Bun.write(
 	"fixtures/protocol.json",
-	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 1, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }] }, null, 2)}\n`,
+	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 2, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }] }, null, 2)}\n`,
 );

@@ -6,6 +6,7 @@ const result = await Bun.build({
 	entrypoints: [
 		`${root}packages/pulse/source/index.ts`,
 		`${root}packages/pulse/source/protocol.ts`,
+		`${root}packages/pulse/source/storage.ts`,
 	],
 	outdir,
 	target: "browser",

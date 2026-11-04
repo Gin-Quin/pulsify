@@ -1,40 +1,57 @@
-import type { NodeApi } from "json-joy/lib/json-crdt/model/api/nodes.js";
-import { createArrayProxy, type PulseArray } from "../pulses/PulseArray.js";
+import { constantView } from "../core/values.js";
+import type { CoreNode } from "../core/model.js";
+import { createTextProxy, type RichText } from "../core/richText.js";
+import {
+	createArrayProxy,
+	type PulseArray,
+	type PulseTuple,
+} from "../pulses/PulseArray.js";
 import { createObjectProxy } from "../pulses/PulseObject.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
 import type { Struct } from "./Struct.js";
 import type { Tuple } from "./Tuple.js";
+import type { IsSameType } from "./IsSameType.js";
 
-export type Pulsify<Value> = Value extends Tuple<readonly unknown[]>
-	? Value
-	: Value extends Struct<Record<string, unknown>>
-		? Value
-		: Value extends Array<infer Item>
-			? PulseArray<Pulsify<Item>>
-			: Value extends object
-				? { [Key in keyof Value]: Pulsify<Value[Key]> }
-				: Value;
+type PulseBytes<Value extends Uint8Array> = IsSameType<
+	Value,
+	Readonly<Value>
+> extends true
+	? Readonly<Uint8Array>
+	: Uint8Array;
+
+export type Pulsify<Value> = Value extends RichText
+	? RichText
+	: Value extends Uint8Array
+		? PulseBytes<Value>
+		: Value extends Tuple<readonly unknown[]>
+			? Value
+			: Value extends Struct<Record<string, unknown>>
+				? Value
+				: Value extends Array<infer Item>
+					? number extends Value["length"]
+						? PulseArray<Pulsify<Item>>
+						: PulseTuple<Value>
+					: Value extends object
+						? { [Key in keyof Value]: Pulsify<Value[Key]> }
+						: Value;
 
 export function pulsify(
-	api: Pick<NodeApi<any>, "node" | "view" | "asArr" | "asObj">,
+	value: unknown,
+	node: CoreNode | undefined,
 	context: ProxyContext,
 ): any {
-	const value = api.view();
-	if (value === null || typeof value !== "object") return value;
-	const cached = context.cache.get(api.node);
-	if (cached) return cached;
-	let proxy: unknown;
-	if (api.asArr(true)) proxy = createArrayProxy(api.asArr(), context);
-	else if (api.asObj(true))
-		proxy = createObjectProxy(() => api.asObj(), context);
-	else proxy = freezeConstant(structuredClone(value));
-	context.cache.set(api.node, proxy);
-	return proxy;
-}
-function freezeConstant(value: unknown): unknown {
-	if (value && typeof value === "object" && !(value instanceof Uint8Array)) {
-		for (const item of Object.values(value)) freezeConstant(item);
-		Object.freeze(value);
-	}
-	return value;
+	if (!node)
+		return value instanceof Uint8Array
+			? new Uint8Array(value)
+			: constantView(value);
+	if (node.proxy) return node.proxy;
+	if (node.kind === "text")
+		node.proxy = createTextProxy(
+			node,
+			context.meta.model,
+			context.assertActive,
+		);
+	else if (node.kind === "array") node.proxy = createArrayProxy(node, context);
+	else node.proxy = createObjectProxy(() => node, context);
+	return node.proxy;
 }

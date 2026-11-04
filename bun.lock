@@ -26,7 +26,6 @@
       "version": "1.0.0",
       "dependencies": {
         "@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
-        "json-joy": "18.28.0",
       },
       "devDependencies": {
         "@biomejs/biome": "^1.9.2",

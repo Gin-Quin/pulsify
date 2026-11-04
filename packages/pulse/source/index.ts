@@ -4,7 +4,23 @@ export type {
 	PulseMaterializer,
 	ModelFromDefinition,
 	DataFromDefinition,
+	SchemaPulseProperties,
 } from "./pulses/PulseDefinition.js";
+export { compilePulseSchema, schemaFingerprint } from "./core/schema.js";
+export type {
+	CompiledPulseSchema,
+	PulseLayout,
+	PulseField,
+	PulseSchemaOptions,
+	PulseSchemaPath,
+	PulseSchemaValue,
+} from "./core/schema.js";
+export { richText } from "./core/richText.js";
+export type {
+	RichText,
+	RichTextAttributes,
+	RichTextDelta,
+} from "./core/richText.js";
 export { createPulse } from "./pulses/createPulse.js";
 export type { CreatePulseInput } from "./pulses/createPulse.js";
 export { loadPulse } from "./pulses/loadPulse.js";
@@ -16,6 +32,12 @@ export {
 	snapshotPulse,
 } from "./pulses/Pulse.js";
 export type { Pulse, PulseSnapshot } from "./pulses/Pulse.js";
+export { arrayOperations } from "./pulses/PulseArray.js";
+export type {
+	PulseArray,
+	PulseTuple,
+	PulseArrayOperations,
+} from "./pulses/PulseArray.js";
 export type { PulseProperties } from "./pulses/PulseProperties.js";
 export {
 	createPulseScope,

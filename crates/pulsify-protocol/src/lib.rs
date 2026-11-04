@@ -106,6 +106,7 @@ pub struct Message {
 impl Message {
     fn validate(&self) -> Result<()> {
         if self.doc_id.is_empty()
+            || self.doc_id.contains('\0')
             || self.doc_id.encode_utf16().count() > 1024
             || self.request_id > MAX_SAFE_INTEGER
         {
@@ -297,7 +298,7 @@ impl<'a> Reader<'a> {
 }
 pub fn encode(message: &Message) -> Result<Vec<u8>> {
     message.validate()?;
-    let mut writer = Writer(vec![1, 1]);
+    let mut writer = Writer(vec![1, 2]);
     writer.uint(match message.body {
         Body::Connect { .. } => 1,
         Body::Sync { .. } => 2,
@@ -340,7 +341,7 @@ pub fn decode(bytes: &[u8]) -> Result<Message> {
         return Err(limit("Frame exceeds 8 MiB"));
     }
     let mut reader = Reader { bytes, pos: 0 };
-    if reader.uint()? != 1 || reader.uint()? != 1 {
+    if reader.uint()? != 1 || reader.uint()? != 2 {
         return Err(Error::new(
             "UNSUPPORTED_VERSION",
             "Unsupported protocol or operation version",
@@ -464,7 +465,11 @@ impl PatchLog {
             let ready: Vec<_> = next
                 .pending
                 .iter()
-                .filter(|key| covers(&next.frontier, &next.rows[key].dependencies))
+                .filter(|key| {
+                    let row = &next.rows[key];
+                    covers(&next.frontier, &row.dependencies)
+                        && row.clock == next.frontier.get(&row.sid).copied().unwrap_or(1)
+                })
                 .copied()
                 .collect();
             if ready.is_empty() {
@@ -608,7 +613,7 @@ mod tests {
             },
         };
         assert!(encode(&message).is_err());
-        let mut unchecked = Writer(vec![1, 1, 4]);
+        let mut unchecked = Writer(vec![1, 2, 4]);
         unchecked.text("dense");
         unchecked.uint(1);
         unchecked.vector(&vv);
@@ -653,14 +658,14 @@ mod tests {
     }
     #[test]
     fn malformed_values() {
-        assert!(decode(&[1, 1, 99]).is_err());
+        assert!(decode(&[1, 2, 99]).is_err());
         assert!(decode(&[2, 1]).is_err());
-        assert!(decode(&[1, 1, 1, 128, 0]).is_err());
+        assert!(decode(&[1, 2, 1, 128, 0]).is_err());
         assert!(validate_vector(&vec![(65536, 1), (65536, 2)]).is_err());
         assert!(validate_vector(&vec![(65536, MAX_SAFE_INTEGER + 1)]).is_err());
         let mut seed = 42_u32;
         for n in 0..1000 {
-            let mut bytes = vec![1, 1];
+            let mut bytes = vec![1, 2];
             for _ in 0..n % 64 {
                 seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
                 bytes.push(seed as u8);
@@ -673,21 +678,21 @@ mod tests {
         let first = PatchRow {
             doc_id: "test".into(),
             sid: 65536,
-            clock: 10,
+            clock: 1,
             span: 2,
             dependencies: vec![],
             operations: vec![1],
         };
         let second = PatchRow {
-            clock: 20,
-            dependencies: vec![(65536, 12)],
+            clock: 3,
+            dependencies: vec![(65536, 3)],
             ..first.clone()
         };
         let mut log = PatchLog::new("test");
         log.append(&[second.clone()]).unwrap();
         assert_eq!(log.vector(), vec![]);
         log.append(&[first.clone()]).unwrap();
-        assert_eq!(log.vector(), vec![(65536, 22)]);
+        assert_eq!(log.vector(), vec![(65536, 5)]);
         assert_eq!(log.pending_count(), 0);
         log.append(&[first.clone(), second]).unwrap();
         assert!(log
@@ -696,7 +701,28 @@ mod tests {
                 ..first.clone()
             }])
             .is_err());
-        assert!(log.append(&[PatchRow { clock: 11, ..first }]).is_err());
+        assert!(log.append(&[PatchRow { clock: 2, ..first }]).is_err());
         assert!(log.missing(&log.vector()).is_empty());
+    }
+    #[test]
+    fn actor_frontier_does_not_skip_an_undeclared_gap() {
+        let mut log = PatchLog::new("gap");
+        log.append(&[PatchRow {
+            doc_id: "gap".into(),
+            sid: 65536,
+            clock: 10,
+            span: 1,
+            dependencies: vec![],
+            operations: vec![1],
+        }])
+        .unwrap();
+        assert!(log.vector().is_empty());
+        assert_eq!(log.pending_count(), 1);
+        assert!(encode(&Message {
+            doc_id: "bad\0id".into(),
+            request_id: 1,
+            body: Body::Connect { vv: vec![] }
+        })
+        .is_err());
     }
 }

@@ -1,3 +1,10 @@
+import type { InferType, Schema } from "@gin-quin/codec";
+import {
+	compilePulseSchema,
+	type CompiledPulseSchema,
+	type PulseSchemaOptions,
+	type PulseSchemaValue,
+} from "../core/schema.js";
 import type {
 	AnyMigration,
 	LastMigration,
@@ -28,6 +35,11 @@ export type PulseDefinition<
 	kind: Model["kind"];
 	migrations: Migrations;
 	materializer?: PulseMaterializer<Data, Model>;
+	/** The original codec schema, shared by document and patch codecs. */
+	schema?: Schema;
+	compiledSchema?: CompiledPulseSchema<Schema>;
+	/** A codec layout for each stored version, indexed by version - 1. */
+	schemas?: readonly (CompiledPulseSchema | undefined)[];
 };
 
 /**
@@ -59,10 +71,56 @@ export type DataFromDefinition<
 	Definition extends PulseDefinition<any, any, any>,
 > = Definition extends PulseDefinition<any, any, infer Data> ? Data : never;
 
+type ApplicationProperties<Value, Kind extends string> = Value extends unknown
+	? string extends keyof Value
+		? Omit<Value, keyof PulseProperties<string>>
+		: "kind" extends keyof Value
+			? Kind extends Value["kind"]
+				? Omit<Value, keyof PulseProperties<string>>
+				: never
+			: Omit<Value, keyof PulseProperties<string>>
+	: never;
+type SchemaForKind<
+	S extends Schema,
+	Kind extends string,
+> = InferType<S> extends object
+	? [ApplicationProperties<InferType<S>, Kind>] extends [never]
+		? never
+		: unknown
+	: never;
+export type SchemaPulseProperties<
+	Kind extends string,
+	S extends Schema,
+	O extends PulseSchemaOptions = {},
+> = PulseProperties<Kind> & ApplicationProperties<PulseSchemaValue<S, O>, Kind>;
+
+export function definePulse<const Kind extends string>(
+	kind: Kind,
+): PulseTypeBuilder<PulseProperties<Kind>, []>;
 export function definePulse<From extends PulseProperties<string>>(
 	kind: From["kind"],
-): PulseTypeBuilder<From, []> {
-	return new PulseTypeBuilder<From, []>(kind, []);
+): PulseTypeBuilder<From, []>;
+/** Infer the public data fields directly from the same schema used by codec. */
+export function definePulse<
+	const Kind extends string,
+	S extends Schema,
+	const O extends PulseSchemaOptions = {},
+>(
+	kind: Kind,
+	schema: S & SchemaForKind<S, Kind>,
+	options?: O,
+): PulseTypeBuilder<SchemaPulseProperties<Kind, S, O>, []>;
+export function definePulse(
+	kind: string,
+	schema?: Schema,
+	options?: PulseSchemaOptions,
+): unknown {
+	return new PulseTypeBuilder<PulseProperties<string>, []>(
+		kind,
+		[],
+		schema,
+		options,
+	);
 }
 
 class PulseTypeBuilder<
@@ -70,11 +128,51 @@ class PulseTypeBuilder<
 	Migrations extends readonly AnyMigration[],
 > {
 	private migrations: Migrations;
+	private readonly valueSchema: Schema | undefined;
+	private readonly schemaOptions: PulseSchemaOptions | undefined;
+	private readonly schemaHistory: readonly (CompiledPulseSchema | undefined)[];
+	private currentCompiled: CompiledPulseSchema | undefined;
 	public readonly kind: From["kind"];
 
-	constructor(kind: From["kind"], migrations: Migrations) {
+	constructor(
+		kind: From["kind"],
+		migrations: Migrations,
+		schema?: Schema,
+		options?: PulseSchemaOptions,
+		history: readonly (CompiledPulseSchema | undefined)[] = [],
+		compiled?: CompiledPulseSchema,
+	) {
 		this.migrations = migrations;
 		this.kind = kind;
+		this.valueSchema = schema;
+		this.schemaOptions = options;
+		this.schemaHistory = history;
+		this.currentCompiled = compiled;
+	}
+
+	private compileCurrent(): CompiledPulseSchema | undefined {
+		if (this.valueSchema === undefined) return undefined;
+		return (this.currentCompiled ??= compilePulseSchema(
+			this.valueSchema,
+			this.schemaOptions,
+		));
+	}
+
+	/** Select the schema for the latest stored data and infer its fields. */
+	schema<S extends Schema, const O extends PulseSchemaOptions = {}>(
+		schema: S & SchemaForKind<S, From["kind"]>,
+		options?: O,
+	): PulseTypeBuilder<SchemaPulseProperties<From["kind"], S, O>, Migrations> {
+		return new PulseTypeBuilder<
+			SchemaPulseProperties<From["kind"], S, O>,
+			Migrations
+		>(
+			this.kind as SchemaPulseProperties<From["kind"], S, O>["kind"],
+			this.migrations,
+			schema,
+			options,
+			this.schemaHistory,
+		);
 	}
 
 	migrate<To extends PulseProperties<From["kind"]>>(
@@ -89,10 +187,18 @@ class PulseTypeBuilder<
 			Migration<From, To, ManagedMigrationKeys>,
 		];
 
+		const compiled = this.compileCurrent();
 		return new PulseTypeBuilder<
 			To,
 			readonly [...Migrations, Migration<From, To, ManagedMigrationKeys>]
-		>(this.kind, migrations);
+		>(
+			this.kind,
+			migrations,
+			this.valueSchema,
+			this.schemaOptions,
+			[...this.schemaHistory, compiled],
+			compiled,
+		);
 	}
 
 	/**
@@ -111,10 +217,19 @@ class PulseTypeBuilder<
 	materialize<Model extends PulseProperties<From["kind"]>>(
 		materializer?: PulseMaterializer<From, Model>,
 	): PulseDefinition<Model, Migrations, From> {
+		const compiled = this.compileCurrent();
+		const schemas = Object.freeze([...this.schemaHistory, compiled]);
 		return {
 			kind: this.kind,
 			migrations: this.migrations,
 			materializer,
+			...(this.valueSchema === undefined
+				? {}
+				: {
+						schema: this.valueSchema,
+						compiledSchema: compiled,
+					}),
+			...(schemas.some((schema) => schema !== undefined) ? { schemas } : {}),
 		} as PulseDefinition<Model, Migrations, From>;
 	}
 }

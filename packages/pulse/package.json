@@ -6,13 +6,23 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
-		".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
 		"./protocol": {
 			"types": "./dist/protocol.d.ts",
 			"default": "./dist/protocol.js"
+		},
+		"./storage": {
+			"types": "./dist/storage.d.ts",
+			"default": "./dist/storage.js"
 		}
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"test": "bun test"
 	},
@@ -20,8 +30,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
-		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
-		"json-joy": "18.28.0"
+		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.2",

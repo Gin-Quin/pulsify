@@ -1,7 +1,10 @@
 {
 	"name": "pulsify-workspace",
 	"private": true,
-	"workspaces": ["packages/*", "benchmarks"],
+	"workspaces": [
+		"packages/*",
+		"benchmarks"
+	],
 	"scripts": {
 		"dev": "bun examples/server.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
@@ -17,7 +20,9 @@
 		"test:example": "bun scripts/test-example.ts",
 		"test:package": "bun scripts/test-package.ts",
 		"bench:crdt": "bun benchmarks/crdt-comparison.ts",
-		"test:crdt": "bun test benchmarks/crdt-adapters.test.ts"
+		"test:crdt": "bun test benchmarks/crdt-adapters.test.ts",
+		"test:storage": "bun scripts/test-storage.ts",
+		"bench:storage:postgres": "bun scripts/bench-storage-postgres.ts"
 	},
 	"dependencies": {
 		"@biomejs/biome": "^1.9.2"

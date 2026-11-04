@@ -1,13 +1,45 @@
-import type { ArrApi } from "json-joy/lib/json-crdt/index.js";
+import type { CoreNode } from "../core/model.js";
 import { pulsify } from "../utilities/pulsify.js";
-import { toNodeBuilder } from "../utilities/toNodeBuilder.js";
 import type { ProxyContext } from "./ProxyContext.js";
+import type { Pulsify } from "../utilities/pulsify.js";
+import type { PulseSnapshot } from "./Pulse.js";
 
-export type PulseArray<Item> = Array<Item> & {
-	insert(start: number, items: Item[]): Item[];
-	delete(start: number, count?: number): Item[];
-	replaceAll(items: Item[]): void;
+/** A codec tuple preserves its positional types and native tuple assignability. */
+export type PulseTuple<Values extends readonly unknown[]> = {
+	[Key in keyof Values]: Pulsify<Values[Key]>;
 };
+
+export type PulseArray<Item> = Array<Item>;
+
+export type PulseArrayOperations<Values extends unknown[]> = {
+	replaceAll(items: Values): void;
+} & (number extends Values["length"]
+	? {
+			insert(start: number, items: Values): PulseSnapshot<Values>;
+			delete(start: number, count?: number): PulseSnapshot<Values>;
+		}
+	: {});
+
+/** Extra helpers live outside the value type so plain arrays remain assignable. */
+export function arrayOperations<Values extends unknown[]>(
+	array: Values,
+): PulseArrayOperations<Values> {
+	const insert: unknown = Reflect.get(array, "insert");
+	const remove: unknown = Reflect.get(array, "delete");
+	const replaceAll: unknown = Reflect.get(array, "replaceAll");
+	if (
+		!Array.isArray(array) ||
+		typeof insert !== "function" ||
+		typeof remove !== "function" ||
+		typeof replaceAll !== "function"
+	)
+		throw new TypeError("arrayOperations requires a collaborative pulse array");
+	return {
+		insert,
+		delete: remove,
+		replaceAll,
+	} as unknown as PulseArrayOperations<Values>;
+}
 function integer(value: number): number {
 	return Math.trunc(Number(value)) || 0;
 }
@@ -23,15 +55,19 @@ function arrayIndex(key: PropertyKey): number | undefined {
 		: undefined;
 }
 export function createArrayProxy(
-	api: ArrApi,
+	node: CoreNode,
 	context: ProxyContext,
 ): PulseArray<unknown> {
 	const length = () => {
-		if (!context.meta.model.index.get(api.node.id))
+		context.assertActive();
+		if (!context.meta.model.isAttached(node))
 			throw new TypeError("This pulse array has been replaced or removed");
-		return api.length();
+		return node.visible.length;
 	};
-	const item = (i: number) => pulsify(api.get(i), context);
+	const item = (i: number) => {
+		const entry = node.visible[i];
+		return entry ? pulsify(entry.value, entry.child, context) : undefined;
+	};
 	let proxy: PulseArray<unknown>;
 	const snapshot = () => Array.from({ length: length() }, (_, i) => item(i));
 	const splice = (start: number, args: [number?, ...unknown[]]) => {
@@ -40,30 +76,7 @@ export function createArrayProxy(
 		const count = args.length
 			? Math.min(Math.max(integer(args[0] ?? 0), 0), size - from)
 			: size - from;
-		const values = args.slice(1).map((value) => toNodeBuilder(value));
-		const removed = Array.from({ length: count }, (_, i) =>
-			structuredClone(api.get(from + i).view()),
-		);
-		if (count || values.length)
-			context.mutate((builder) => {
-				if (count === 1 && values.length === 1)
-					builder.updArr(
-						api.node.id,
-						api.node.getId(from)!,
-						builder.json(values[0]),
-					);
-				else {
-					if (count)
-						builder.del(api.node.id, api.node.findInterval(from, count)!);
-					if (values.length)
-						builder.insArr(
-							api.node.id,
-							from === 0 ? api.node.id : api.node.find(from - 1)!,
-							values.map((value) => builder.json(value)),
-						);
-				}
-			});
-		return removed;
+		return context.meta.model.splice(node, from, count, args.slice(1));
 	};
 	const replaceAll = (items: unknown[]) => {
 		splice(0, [length(), ...items]);
@@ -74,14 +87,16 @@ export function createArrayProxy(
 				? splice(args[0]!, args.slice(1) as [number?, ...unknown[]])
 				: [],
 		push: (...items: unknown[]) => {
-			splice(length(), [0, ...items]);
-			return length();
+			const size = length();
+			context.meta.model.splice(node, size, 0, items);
+			return node.visible.length;
 		},
 		pop: () => (length() ? splice(length() - 1, [1])[0] : undefined),
 		shift: () => (length() ? splice(0, [1])[0] : undefined),
 		unshift: (...items: unknown[]) => {
-			splice(0, [0, ...items]);
-			return length();
+			length();
+			context.meta.model.splice(node, 0, 0, items);
+			return node.visible.length;
 		},
 		reverse: () => {
 			replaceAll(snapshot().reverse());

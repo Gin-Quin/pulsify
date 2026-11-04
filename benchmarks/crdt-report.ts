@@ -27,6 +27,8 @@ export type ComparisonReport = {
 		defaultYjsFormat: string;
 		gcBeforeSamples: boolean;
 		ordering: string;
+		pulsifyEngine?: string;
+		pulsifySchema?: string;
 	};
 	descriptions: Record<string, string>;
 	results: {
@@ -115,11 +117,14 @@ export function renderComparison(report: ComparisonReport): string {
 	const proxyMutation = time(layerMutation, "pulsify-proxy");
 	const interpretation =
 		nativeMutation && directMutation && proxyMutation
-			? `Sur la mutation scalaire sans historique préparé, la surcouche complète coûte ${number(proxyMutation / nativeMutation)} fois le temps de json-joy natif. L'écart proxy − pipeline est de ${number(proxyMutation - directMutation)} µs, soit ${number(((proxyMutation - directMutation) / directMutation) * 100)} % du pipeline sans proxy. Le pipeline sans proxy coûte déjà ${number(directMutation / nativeMutation)} fois le temps natif : les traps du proxy expliquent une petite partie du surcoût de cette écriture. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.`
+			? `Sur la mutation scalaire sans historique préparé, l’API publique Pulsify prend ${number(proxyMutation / nativeMutation)} fois le temps de json-joy natif. L'écart proxy − pipeline est de ${number(proxyMutation - directMutation)} µs, soit ${number(((proxyMutation - directMutation) / directMutation) * 100)} % du pipeline sans proxy. Le moteur Pulsify sans proxy prend ${number(directMutation / nativeMutation)} fois le temps natif : ce scénario distingue le coût du chemin public et celui de la mutation interne. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.`
 			: "";
+	const baseline = report.parameters.pulsifyEngine
+		? "baselines/core-native-20261104.json"
+		: "baselines/crdt-comparison.json";
 	return `# Pulsify, json-joy, Yjs et Loro : comparaison locale
 
-Ce fichier est généré par \`bun run bench:crdt\`. Les données brutes sont dans le JSON indiqué par \`--output\` (par défaut \`benchmarks/results/crdt-comparison.json\`). La référence complète conservée est [baselines/crdt-comparison.json](baselines/crdt-comparison.json).
+Ce fichier est généré par \`bun run bench:crdt\`. Les données brutes sont dans le JSON indiqué par \`--output\` (par défaut \`benchmarks/results/crdt-comparison.json\`). La référence complète conservée est [${baseline}](${baseline}).
 
 ${report.timingNote ? `**Conditions de mesure :** ${report.timingNote}` : ""}
 
@@ -131,7 +136,8 @@ ${report.timingNote ? `**Conditions de mesure :** ${report.timingNote}` : ""}
 - Ordre des participants mélangé à chaque bloc avec une graine fixe (${report.parameters.seed}). GC forcé avant et après la préparation de chaque échantillon, hors chronométrage : les allocations temporaires de l'historique de préparation ne sont pas imputées à la mutation mesurée. Chaque échantillon utilise un état neuf.
 - Les durées sont des **médianes de moyennes par échantillon**, en µs/op. Le p95 final porte lui aussi sur ces moyennes et ne représente pas la latence p95 de chaque événement individuel.
 - Mesure UTC : ${report.generatedAt}. Commit de base : \`${report.commit}\`. Copie de travail modifiée : ${report.dirty}.
-- Codec encode et décode directement le schéma : aucun parcours supplémentaire de validation de schéma ni prélecture des octets dans Pulsify. Les limites de trame et les règles de cohérence du protocole sont conservées.
+${report.parameters.pulsifyEngine ? `- Moteur Pulsify : ${report.parameters.pulsifyEngine}. Schéma fourni explicitement : ${report.parameters.pulsifySchema}. Sa compilation et la définition sont préparées hors chronométrage ; les données et conteneurs éditables restent ceux de la suite initiale.` : ""}
+- Les schémas applicatifs compilent leurs codecs, copies et contrôles de valeurs. Pulsify exécute les contrôles des champs affectés avant leur commit ou application. Le décodage de l'enveloppe utilise codec directement, sans second parcours récursif de son schéma. Les limites de trame, références causales et règles de cohérence sont conservées.
 
 ## Temps comparés
 
@@ -149,7 +155,7 @@ Les représentations ne retiennent pas toutes le même historique : Pulsify tran
 
 ## Isolation du coût des proxies
 
-Le pipeline « sans proxy » utilise la même instance Pulsify et le même chemin de commit et de journal natif que le proxy public, mais appelle directement le builder pour le champ scalaire. Aucun encodage n'est effectué dans ces écritures locales. Un test exporte ensuite les deux historiques et vérifie **exactement les mêmes octets**. La différence avec json-joy natif comprend les autres services de Pulsify et son chemin de mutation, pas seulement les proxies.
+Le pipeline « sans proxy » utilise la même instance Pulsify et le même chemin de commit et de journal que le proxy public, mais appelle directement \`CoreModel.set\` pour le champ scalaire. Aucun encodage n'est effectué dans ces écritures locales. Un test exporte ensuite les deux historiques et vérifie **exactement les mêmes octets**. La différence avec json-joy natif comprend les autres services de Pulsify et son chemin de mutation, pas seulement les proxies.
 
 ${overhead.join("\n")}
 
@@ -159,7 +165,7 @@ L'écart public − direct inclut aussi les contrôles et conversions du setter 
 
 ${interpretation}
 
-L'import applique chaque patch une seule fois, sans cloner le modèle ni parcourir la vue complète. La compatibilité est vérifiée sur les quatre métadonnées de racine, seulement lorsqu'elles changent. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Un snapshot sans matérialiseur personnalisé copie directement la vue du moteur ; un matérialiseur conserve son parcours public. La taille élevée après 100 éditions hors ligne reflète la conservation de chaque segment, tandis que les formats structurels peuvent condenser les valeurs écrasées.
+Pulsify utilise son propre moteur : registres LWW pour les champs et RGA pour les listes. Aucun moteur json-joy ou Yjs ne se trouve dans son chemin d’exécution. L’import prévalide les références et modifications puis applique chaque patch, sans cloner le document entier. Les métadonnées de racine sont vérifiées lors de leur création ou modification. Les migrations ne lisent et ne copient la vue que si une migration est réellement nécessaire ([PulseRuntime.ts](../packages/pulse/source/pulses/PulseRuntime.ts)). Sans matérialiseur personnalisé, le snapshot utilise une copie spécialisée du schéma lorsque la forme de la vue le permet et conserve une copie générale sinon. Un matérialiseur conserve son parcours public. La taille élevée après 100 éditions hors ligne reflète la conservation de chaque segment, tandis que les formats structurels peuvent condenser les valeurs écrasées.
 
 ## Ce que mesure chaque scénario
 
@@ -176,7 +182,7 @@ ${Object.entries(report.descriptions)
 - \`initial-load+materialize\` inclut la création du récepteur et une vue JSON détachée. L'export initial, la validation des résultats et la destruction des répliques sont hors chronométrage.
 - Loro est la version WASM publiée pour Node, chargée une fois avant les mesures. Le coût de démarrage du processus, de chargement du module et de compilation WASM n'est pas inclus. Ce n'est pas un benchmark Rust natif.
 - La mémoire JS seule n'est pas comparée à la mémoire WASM : un classement fondé uniquement sur \`heapUsed\` serait trompeur. Les anciens chiffres mémoire de Pulsify restent dans [README.md](README.md).
-- Le texte caractère par caractère, les déplacements natifs de \`MovableList\`, les arbres et le voyage dans le temps ne sont pas comparés : Pulsify ne propose pas ces mêmes API.
+- Cette suite ne compare pas le texte caractère par caractère, les déplacements natifs de \`MovableList\`, les arbres ou le voyage dans le temps comme tâches équivalentes.
 - Le conflit multi-pairs est réduit à 16 participants. La limite actuelle de vecteur de Pulsify est de 1 024 acteurs ; le test amont avec \`N = 6000\` et \`20 × floor(√N)\` dépasserait cette limite. Les scores de ce scénario ne prétendent pas reproduire cette échelle amont.
 
 ## Sources GitHub consultées et adaptations

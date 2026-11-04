@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createPulse,
+	arrayOperations,
 	createPulseScope,
 	definePulse,
 	destroyPulse,
@@ -14,6 +15,24 @@ import {
 import { Document, data, options } from "./helpers";
 
 describe("local document API", () => {
+	test("array helpers accept plain values and return detached removed values", () => {
+		const pulse = createPulse(Document, data(), options());
+		try {
+			const operations = arrayOperations(pulse.items);
+			expect(operations.insert(1, [{ value: 7 }])).toEqual([]);
+			const removed = operations.delete(1, 1);
+			expect(removed).toEqual([{ value: 7 }]);
+			removed[0]!.value = 99;
+			expect(pulse.items.map((item) => item.value)).toEqual([1, 2]);
+			operations.replaceAll([{ value: 3 }]);
+			expect(pulse.items.map((item) => item.value)).toEqual([3]);
+			expect(() => arrayOperations([1, 2])).toThrow(
+				"collaborative pulse array",
+			);
+		} finally {
+			destroyPulse(pulse);
+		}
+	});
 	test("local mutations keep every view and model consistent", () => {
 		const pulse = createPulse(Document, data(), options());
 		const nested = pulse.nested;
@@ -76,7 +95,7 @@ describe("local document API", () => {
 		check();
 		expect(pulse.items.map((n) => n + 1)).toEqual(expected.map((n) => n + 1));
 		expect(Object.keys(pulse.items)).toEqual(["0", "1"]);
-		pulse.items.replaceAll([1, 2, 3]);
+		arrayOperations(pulse.items).replaceAll([1, 2, 3]);
 		expect([...pulse.items]).toEqual([1, 2, 3]);
 		expect(pulse.items.splice(1)).toEqual([2, 3]);
 		expect((pulse.items.splice as any)()).toEqual([]);

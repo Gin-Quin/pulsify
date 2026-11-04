@@ -1,5 +1,3 @@
-import type { Delta } from "json-joy/lib/json-crdt/delta/Delta.js";
-
-export function isEmptyDelta(delta: Delta) {
-	return delta.batch.patches.length === 0;
+export function isEmptyDelta(delta: { ops: readonly unknown[] }): boolean {
+	return delta.ops.length === 0;
 }

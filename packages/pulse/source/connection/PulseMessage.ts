@@ -3,9 +3,10 @@ import { wireCodec } from "../protocol/wireCodec.js";
 import { PulseError } from "../protocol/errors.js";
 import { MAX_MESSAGE_ROWS, MAX_PATCH_BYTES } from "../protocol/limits.js";
 import { validateVector } from "./PulseVersionVector.js";
+import { validateDocId } from "../protocol/validateDocId.js";
 
 export const PROTOCOL_VERSION = 1;
-export const OPERATIONS_VERSION = 1;
+export const OPERATIONS_VERSION = 2;
 export { MAX_MESSAGE_ROWS } from "../protocol/limits.js";
 export const PulseMessageKind = {
 	connect: 1,
@@ -67,8 +68,7 @@ const codec = wireCodec(
 );
 
 export function validateMessage(message: PulseMessage): void {
-	if (!message.docId.length || message.docId.length > 1024)
-		throw new PulseError("INVALID_MESSAGE", "Invalid document ID");
+	validateDocId(message.docId);
 	if ("vv" in message) validateVector(message.vv);
 	if ("rows" in message) {
 		if (message.rows.length > MAX_MESSAGE_ROWS)

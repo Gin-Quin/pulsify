@@ -26,7 +26,10 @@ try {
 			name: "pulsify-consumer",
 			private: true,
 			type: "module",
-			dependencies: { "@pulsify/core": `file:${archive}` },
+			dependencies: {
+				"@pulsify/core": `file:${archive}`,
+				"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
+			},
 		}),
 	);
 	await Bun.write(join(directory, ".npmrc"), Bun.file(`${root}.npmrc`));

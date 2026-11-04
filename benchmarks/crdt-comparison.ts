@@ -561,6 +561,9 @@ const report = {
 		defaultYjsFormat: "V2",
 		gcBeforeSamples: true,
 		ordering: "seeded shuffled engine blocks",
+		pulsifyEngine: "native-core-v2",
+		pulsifySchema:
+			"codec object: title string, nested count float64, items editable array of { value float64, label string }",
 	},
 	descriptions,
 	results,
