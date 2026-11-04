@@ -1,0 +1,146 @@
+{
+  "measuredRevision": "713b7db54c01dfb176deb8efb65cb0e3251b40ad",
+  "sourceTreeMatchesRevision": true,
+  "benchmarkScriptChange": "Adds raw warmup and measured sample arrays only; timed workload unchanged.",
+  "recordedAtUtc": "2026-11-04T04:26:45Z",
+  "host": {
+    "platform": "macOS",
+    "architecture": "arm64"
+  },
+  "databaseContainer": {
+    "image": "postgres:16-alpine",
+    "imageId": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7",
+    "disposable": true,
+    "removedAfterMeasurement": true
+  },
+  "databaseSettings": {
+    "server_version": "16.15",
+    "fsync": "on",
+    "synchronous_commit": "on",
+    "full_page_writes": "on",
+    "jit": "on",
+    "appendFunctionJit": "off"
+  },
+  "protocol": {
+    "command": "PULSIFY_POSTGRES_URL=<disposable PostgreSQL URL> bun scripts/bench-storage-postgres.ts",
+    "batchSizes": [
+      1,
+      100,
+      1000
+    ],
+    "payloadBytesPerRow": 128,
+    "actor": 70001,
+    "sequenceStart": 1,
+    "span": 1,
+    "runsPerSize": 8,
+    "warmupRunsPerSize": 2,
+    "measuredRunsPerSize": 6,
+    "statistic": "Upper middle measured observation: sorted index 3 of 6.",
+    "deltaRows": "One for batch 1; ten for batches 100 and 1000.",
+    "freshDocumentPerRun": true,
+    "schemaInitializationAndCleanupOutsideTimers": true,
+    "durabilitySettingsChanged": false,
+    "otherBenchmarkCampaignsDuringMeasurement": false,
+    "finalRunComparisonRatios": false
+  },
+  "runtime": "1.4.4",
+  "database": "16.15",
+  "results": [
+    {
+      "rows": 1,
+      "payloadBytesPerRow": 128,
+      "appendUpperMedianMs": 2.024083999999988,
+      "deltaTenUpperMedianMs": 0.22487499999999727,
+      "appendWarmupSamplesMs": [
+        4.804582999999994,
+        2.1701249999999987
+      ],
+      "deltaWarmupSamplesMs": [
+        0.5622079999999983,
+        0.24020900000000012
+      ],
+      "appendSamplesMs": [
+        2.0204999999999984,
+        2.2299999999999898,
+        2.024083999999988,
+        2.075958,
+        1.7949999999999875,
+        1.710250000000002
+      ],
+      "deltaSamplesMs": [
+        0.2655409999999989,
+        0.2758749999999992,
+        0.2143339999999938,
+        0.22487499999999727,
+        0.20725000000000193,
+        0.17125000000000057
+      ],
+      "measuredRuns": 6,
+      "warmupRuns": 2
+    },
+    {
+      "rows": 100,
+      "payloadBytesPerRow": 128,
+      "appendUpperMedianMs": 6.87224999999998,
+      "deltaTenUpperMedianMs": 0.32387500000001523,
+      "appendWarmupSamplesMs": [
+        11.008666999999988,
+        7.209000000000003
+      ],
+      "deltaWarmupSamplesMs": [
+        0.5117910000000023,
+        0.38324999999998965
+      ],
+      "appendSamplesMs": [
+        6.863374999999991,
+        6.7958340000000135,
+        6.87224999999998,
+        6.903500000000008,
+        7.188541999999984,
+        6.17554100000001
+      ],
+      "deltaSamplesMs": [
+        0.31954099999998675,
+        0.31100000000000705,
+        0.274249999999995,
+        0.4287080000000003,
+        0.32387500000001523,
+        0.35529099999999403
+      ],
+      "measuredRuns": 6,
+      "warmupRuns": 2
+    },
+    {
+      "rows": 1000,
+      "payloadBytesPerRow": 128,
+      "appendUpperMedianMs": 24.245916000000022,
+      "deltaTenUpperMedianMs": 0.6394170000000372,
+      "appendWarmupSamplesMs": [
+        31.210791999999998,
+        24.683042
+      ],
+      "deltaWarmupSamplesMs": [
+        0.6353750000000105,
+        0.5989170000000001
+      ],
+      "appendSamplesMs": [
+        21.98208299999999,
+        67.63458399999996,
+        24.245916000000022,
+        22.04162500000001,
+        20.70949999999999,
+        24.273916000000042
+      ],
+      "deltaSamplesMs": [
+        0.6394170000000372,
+        0.7216670000000249,
+        0.62824999999998,
+        0.5400839999999789,
+        0.5041249999999877,
+        0.651457999999991
+      ],
+      "measuredRuns": 6,
+      "warmupRuns": 2
+    }
+  ]
+}

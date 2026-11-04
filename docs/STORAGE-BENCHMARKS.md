@@ -6,9 +6,50 @@ Docker container on macOS/ARM64. Logged tables, ordinary durable commits and
 and six measured runs per size; the statistic is the upper middle observed
 sample of the six (called `UpperMedianMs` in the JSON output). These are local
 database measurements, not a comparison with other CRDT engines.
-They were captured during optimization, before the final contiguous-frontier,
-actor-capacity and namespace validation hardening, and are historical tuning
-measurements rather than a claim about the final revision's exact latency.
+The historical optimization numbers were captured before the final
+contiguous-frontier, actor-capacity and namespace validation hardening. They
+are tuning measurements rather than a claim about the final revision's exact
+latency; the final revision was measured separately below.
+
+## Final correctness-hardened revision
+
+The production source at commit `713b7db54c01dfb176deb8efb65cb0e3251b40ad`
+was measured separately on 2026-11-04 after the contiguous-frontier,
+actor-capacity and namespace fixes. The source tree matched that revision.
+Only the benchmark script changed, to retain its raw sample arrays; its timed
+workload was unchanged. This is one absolute measurement campaign, with no
+concurrent benchmark campaign and no final-run comparison ratio against the
+historical runs below.
+
+| Rows per append | Append upper-middle sample (ms) | Delta upper-middle sample (ms) | Rows returned by delta |
+| ---: | ---: | ---: | ---: |
+| 1 | 2.024084 | 0.224875 | 1 |
+| 100 | 6.872250 | 0.323875 | 10 |
+| 1000 | 24.245916 | 0.639417 | 10 |
+
+The [complete JSON record](storage-postgres-final-20261104.json) includes all
+warmup and measured timings, image ID, server settings and measured revision.
+For example, the six 1000-row append samples were 21.982083, 67.634584,
+24.245916, 22.041625, 20.709500 and 24.273916 ms. The 67.634584 ms observation
+is retained; this campaign was not repeated to remove it.
+
+The exact workload uses a fresh document for each execution, actor 70001,
+contiguous clocks starting at 1, span 1 and 128-byte opaque payloads. Each size
+runs eight times: two warmups followed by six measured executions. The reported
+statistic is the fourth observation after sorting those six samples, rather
+than their arithmetic median. The append timer includes envelope validation,
+metadata preparation, one database call and its durable transaction; schema
+installation and cleanup are outside the timers. The delta query uses remote
+clock `max(1, batchSize - 9)`, producing one or ten rows as shown above.
+
+PostgreSQL 16.15 ran in a new disposable `postgres:16-alpine` container over
+localhost TCP on macOS/ARM64, with Bun 1.4.4. The captured server settings were
+`fsync=on`, `synchronous_commit=on` and `full_page_writes=on`; server JIT was on
+and the append function retained its local `jit=off` declaration. No durability
+setting was changed. The container was removed after measurement. No SQLite or
+FoundationDB optimization measurements were run.
+
+## Historical optimization measurements
 
 | Rows per append | Initial append (ms) | Optimized append (ms) | Optimized delta of at most ten rows (ms) |
 | ---: | ---: | ---: | ---: |

@@ -52,6 +52,10 @@ try {
 			payloadBytesPerRow: 128,
 			appendUpperMedianMs: upperMedian(appendTimes),
 			deltaTenUpperMedianMs: upperMedian(queryTimes),
+			appendWarmupSamplesMs: appendTimes.slice(0, 2),
+			deltaWarmupSamplesMs: queryTimes.slice(0, 2),
+			appendSamplesMs: appendTimes.slice(2),
+			deltaSamplesMs: queryTimes.slice(2),
 			measuredRuns: 6,
 			warmupRuns: 2,
 		});

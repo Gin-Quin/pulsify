@@ -202,7 +202,7 @@ insertion/deletion uses kind 3; replacing a text entry through kind 4 is
 rejected. Kind 5 applies independent LWW attributes to character IDs. `null`
 or `undefined` removes an attribute. Plain snapshots and JSON output contain
 the text string; `toDelta()` exposes runs and formatting. An insertion with
-attributes emits an insertion transaction followed by its dependent formatting
+attributes emits insertion and formatting operations in the same atomic
 transaction.
 
 Root `id`, `kind` and generation zero are managed metadata. Version changes are

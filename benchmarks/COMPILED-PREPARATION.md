@@ -35,6 +35,13 @@ Notification dispatch now snapshots both listener sets before invoking callbacks
 A subscription can replace itself during a callback without adding repeated
 callbacks to the current dispatch.
 
+Detached document snapshots have a separate generated copy path. Each object
+checks its stored key sequence before using the schema-shaped copy. A divergent
+subtree uses a general detached copy, preserving deleted optional properties,
+retired migration fields and property order. Snapshot copies do not normalize
+stored values again. Binary copies always allocate a base `Uint8Array`, including
+when the input is a Node `Buffer` whose `slice()` would share memory.
+
 ## Warm A/B diagnostics
 
 The following measurements were taken on 2026-11-04 in one Bun process using
