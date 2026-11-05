@@ -1,0 +1,7523 @@
+{
+  "formatVersion": 1,
+  "environment": {
+    "startedAt": "2026-11-04T17:16:26.516Z",
+    "bun": "1.4.4",
+    "platform": "linux",
+    "architecture": "arm64",
+    "kernel": "7.2.12-orbstack-00394-gbecdd6130068",
+    "cpu": "unknown",
+    "logicalCpus": 10,
+    "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+    "dirty": "true",
+    "infrastructure": {
+      "project": "pulsify-db-bench-453-1793812567575",
+      "images": [
+        {
+          "reference": "foundationdb/foundationdb:7.3.77",
+          "id": "sha256:150e983beebafb12b98b184d2d970ee80bab1321d147426ed63f5207e13b64ec"
+        },
+        {
+          "reference": "postgres:16-alpine",
+          "id": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7"
+        }
+      ],
+      "runnerImage": "sha256:098ee572e3483228e219b114bd167fc44116ec9857f895d71caedef2cc84dbbc",
+      "docker": {
+        "version": "29.8.2",
+        "architecture": "aarch64",
+        "cpus": 10,
+        "memoryBytes": 16818991104,
+        "kernel": "7.2.12-orbstack-00394-gbecdd6130068"
+      }
+    },
+    "completedAt": "2026-11-04T17:17:51.259Z"
+  },
+  "parameters": {
+    "samples": 12,
+    "warmup": 3,
+    "profiles": [
+      {
+        "name": "small",
+        "paragraphs": 8,
+        "textBytes": 256,
+        "patches": 20
+      },
+      {
+        "name": "medium",
+        "paragraphs": 64,
+        "textBytes": 512,
+        "patches": 100
+      },
+      {
+        "name": "large",
+        "paragraphs": 256,
+        "textBytes": 1024,
+        "patches": 1000
+      }
+    ],
+    "databases": [
+      "postgres",
+      "foundationdb",
+      "sqlite"
+    ],
+    "concurrency": 1,
+    "compression": "lossless zlib deflate level 6",
+    "seed": 20261104
+  },
+  "backends": {
+    "postgres": {
+      "version": "16.15",
+      "settings": [
+        {
+          "name": "fsync",
+          "setting": "on"
+        },
+        {
+          "name": "full_page_writes",
+          "setting": "on"
+        },
+        {
+          "name": "synchronous_commit",
+          "setting": "on"
+        }
+      ],
+      "transport": "Bun SQL / TCP"
+    },
+    "foundationdb": {
+      "version": "7.3.77",
+      "storageEngine": "ssd",
+      "redundancy": "single",
+      "transport": "official Python 7.3.77 binding / persistent local JSON-base64 pipe, per KV primitive",
+      "chunkSize": 65536
+    },
+    "sqlite": {
+      "version": "3.53.4",
+      "journalMode": {
+        "journal_mode": "wal"
+      },
+      "synchronous": {
+        "synchronous": 2
+      },
+      "transport": "bun:sqlite / file inside Docker"
+    }
+  },
+  "measurements": [
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "write_full",
+      "warmupMs": [
+        3.6652759999999986,
+        2.7146139999999974,
+        1.54095199999999
+      ],
+      "samplesMs": [
+        1.8299510000000083,
+        1.4603269999999924,
+        1.6110769999999945,
+        2.51553100000001,
+        1.929409000000021,
+        2.717946999999981,
+        1.593909999999994,
+        1.7884510000000091,
+        2.0547829999999863,
+        2.193781999999999,
+        2.2164490000000114,
+        2.5249060000000156
+      ],
+      "medianMs": 1.9920960000000036,
+      "p95Ms": 2.717946999999981,
+      "details": {
+        "rows": 1,
+        "operationBytes": 2314
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "write_patch",
+      "warmupMs": [
+        1.2607870000000005,
+        2.3221570000000042,
+        1.616451000000012
+      ],
+      "samplesMs": [
+        1.5871190000000013,
+        1.997866000000002,
+        1.8282430000000005,
+        1.2684950000000015,
+        1.7399509999999907,
+        1.9395330000000115,
+        1.9400329999999997,
+        2.131323999999978,
+        1.8282839999999965,
+        2.1525330000000054,
+        2.0862829999999803,
+        1.9553669999999954
+      ],
+      "medianMs": 1.9397830000000056,
+      "p95Ms": 2.1525330000000054,
+      "details": {
+        "rows": 1,
+        "operationBytes": 93
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "read_full",
+      "warmupMs": [
+        0.3962900000000005,
+        0.3084570000000042,
+        0.17020800000000236
+      ],
+      "samplesMs": [
+        0.19529100000001165,
+        0.15754100000000903,
+        0.13554100000000346,
+        0.1582909999999913,
+        0.15433300000000827,
+        0.1370409999999822,
+        0.12708299999999895,
+        0.13137499999999136,
+        0.12870800000001736,
+        0.1440409999999872,
+        0.1145829999999819,
+        0.11845700000000647
+      ],
+      "medianMs": 0.13629099999999283,
+      "p95Ms": 0.19529100000001165,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "load_full",
+      "warmupMs": [
+        0.8497459999999961,
+        0.7005390000000062,
+        0.30816500000000246
+      ],
+      "samplesMs": [
+        0.27787399999999707,
+        0.2790820000000025,
+        0.3680400000000077,
+        0.26812400000000025,
+        0.23937399999999798,
+        0.24574899999998934,
+        0.2369989999999973,
+        0.20924999999999727,
+        0.19520800000000804,
+        0.20220700000001557,
+        0.17062400000000366,
+        0.22612399999999866
+      ],
+      "medianMs": 0.23818649999999764,
+      "p95Ms": 0.3680400000000077,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "read_delta",
+      "warmupMs": [
+        0.576788999999998,
+        0.34862400000000093,
+        0.12391600000000835
+      ],
+      "samplesMs": [
+        0.16512400000000582,
+        0.11637400000000753,
+        0.11870799999999804,
+        0.1008329999999944,
+        0.11058300000001964,
+        0.10900000000000887,
+        0.0862499999999784,
+        0.08754200000001333,
+        0.08595800000000509,
+        0.0800000000000125,
+        0.06929199999999014,
+        0.10654100000002131
+      ],
+      "medianMs": 0.10368700000000786,
+      "p95Ms": 0.16512400000000582,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        0.44604000000000354,
+        0.2001240000000024,
+        0.2094160000000045
+      ],
+      "samplesMs": [
+        0.15441599999999767,
+        0.12941700000000367,
+        0.1294160000000062,
+        0.11462399999999207,
+        0.1128739999999766,
+        0.12691599999999426,
+        0.09949900000000866,
+        0.10179099999999153,
+        0.10325000000000273,
+        1.4113690000000076,
+        0.10866699999999696,
+        0.10791699999998627
+      ],
+      "medianMs": 0.11374899999998433,
+      "p95Ms": 1.4113690000000076,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "compact",
+      "warmupMs": [
+        5.93685,
+        5.748142999999999,
+        3.3872360000000015
+      ],
+      "samplesMs": [
+        4.618855999999994,
+        4.5948139999999995,
+        4.402023,
+        3.8079429999999945,
+        4.487397999999985,
+        3.6326939999999865,
+        4.186690999999996,
+        4.562855999999982,
+        4.780772000000013,
+        5.044396000000006,
+        5.449352000000005,
+        3.797692999999981
+      ],
+      "medianMs": 4.5251269999999835,
+      "p95Ms": 5.449352000000005,
+      "details": {
+        "removedSegments": 16,
+        "beforePayloadBytes": 7449,
+        "afterPayloadBytes": 3727,
+        "savedPayloadPercent": 49.966438448113834
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3727,
+          "savedPayloadPercent": 49.966438448113834
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3727,
+          "savedPayloadPercent": 49.966438448113834
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        0.28870700000000227,
+        0.21353999999999473,
+        0.18395799999998985
+      ],
+      "samplesMs": [
+        0.21725000000000705,
+        0.14899900000000343,
+        0.19662400000001412,
+        0.1733329999999853,
+        0.165206999999981,
+        0.28333299999999895,
+        0.13666699999998855,
+        0.12220800000000054,
+        0.14929099999997675,
+        0.14475000000001614,
+        0.13474999999999682,
+        0.10891599999999357
+      ],
+      "medianMs": 0.1491449999999901,
+      "p95Ms": 0.28333299999999895,
+      "details": {
+        "rows": 21,
+        "segments": 5,
+        "payloadBytes": 3727
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3727
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3727
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "small",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        0.2287899999999965,
+        0.2129149999999953,
+        0.13679100000000233
+      ],
+      "samplesMs": [
+        0.10520799999999042,
+        0.12629099999999482,
+        0.18812399999998775,
+        0.8234960000000058,
+        0.10520800000000463,
+        0.11116600000002563,
+        0.09574900000001207,
+        0.09595699999999852,
+        0.09883300000001327,
+        0.08745799999999804,
+        0.08404099999998493,
+        0.0835830000000044
+      ],
+      "medianMs": 0.10202050000000185,
+      "p95Ms": 0.8234960000000058,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "write_full",
+      "warmupMs": [
+        2.178156999999999,
+        1.9544089999999983,
+        2.177031999999997
+      ],
+      "samplesMs": [
+        2.2907820000000356,
+        1.8113260000000082,
+        2.45223900000002,
+        1.846825000000024,
+        2.2897820000000024,
+        2.4647809999999595,
+        2.1523239999999646,
+        2.4239900000000034,
+        1.6589099999999917,
+        7.82621800000004,
+        5.881267999999977,
+        7.033470999999963
+      ],
+      "medianMs": 2.3573860000000195,
+      "p95Ms": 7.82621800000004,
+      "details": {
+        "rows": 1,
+        "operationBytes": 33873
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "write_patch",
+      "warmupMs": [
+        1.8702000000000112,
+        1.6413269999999898,
+        1.7160339999999792
+      ],
+      "samplesMs": [
+        1.203078000000005,
+        1.4969939999999724,
+        1.966782999999964,
+        1.4919100000000185,
+        1.7136179999999968,
+        1.910367000000008,
+        1.0532039999999938,
+        1.8054089999999974,
+        1.8294510000000628,
+        5.448685999999952,
+        5.24660300000005,
+        2.4016980000000103
+      ],
+      "medianMs": 1.81743000000003,
+      "p95Ms": 5.448685999999952,
+      "details": {
+        "rows": 1,
+        "operationBytes": 61
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "read_full",
+      "warmupMs": [
+        0.43570700000003626,
+        0.40224799999998595,
+        0.3980399999999804
+      ],
+      "samplesMs": [
+        0.40270699999996395,
+        0.3574570000000108,
+        0.3917069999999967,
+        0.5206230000000005,
+        0.4224150000000009,
+        0.4020399999999995,
+        0.39249799999998913,
+        0.3961649999999963,
+        0.3609569999999849,
+        0.5538309999999456,
+        0.5761639999999488,
+        0.5552059999999983
+      ],
+      "medianMs": 0.40237349999998173,
+      "p95Ms": 0.5761639999999488,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "load_full",
+      "warmupMs": [
+        0.709746999999993,
+        0.694622000000038,
+        0.7724550000000363
+      ],
+      "samplesMs": [
+        0.7536640000000148,
+        1.3857439999999883,
+        0.7154970000000276,
+        0.9143720000000144,
+        0.6556640000000016,
+        0.7781219999999962,
+        0.8162050000000249,
+        0.6622890000000439,
+        0.7769140000000334,
+        2.070783000000006,
+        0.8927039999999806,
+        1.4309520000000475
+      ],
+      "medianMs": 0.7971635000000106,
+      "p95Ms": 2.070783000000006,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "read_delta",
+      "warmupMs": [
+        0.14137499999998226,
+        0.12508299999996098,
+        0.14470799999998007
+      ],
+      "samplesMs": [
+        0.14558199999999033,
+        0.17749900000001162,
+        0.1445410000000038,
+        0.17824899999999388,
+        0.11816599999997379,
+        0.1691659999999615,
+        0.14024999999998045,
+        0.12349899999998115,
+        0.12791600000002745,
+        0.5380809999999201,
+        0.17583300000001145,
+        0.13808300000005147
+      ],
+      "medianMs": 0.14506149999999707,
+      "p95Ms": 0.5380809999999201,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        0.20674900000000207,
+        0.20995800000002873,
+        0.16437400000000935
+      ],
+      "samplesMs": [
+        0.24345799999997553,
+        0.14875000000000682,
+        0.1932080000000269,
+        0.33041500000001633,
+        0.15274900000002845,
+        0.20820800000001327,
+        0.1977080000000342,
+        0.1779989999999998,
+        0.17137400000001435,
+        0.22304099999996652,
+        0.18895799999995688,
+        0.15708299999994324
+      ],
+      "medianMs": 0.1910829999999919,
+      "p95Ms": 0.33041500000001633,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "compact",
+      "warmupMs": [
+        8.042132999999978,
+        7.636094000000014,
+        7.839008999999976
+      ],
+      "samplesMs": [
+        8.059507999999994,
+        7.702259999999967,
+        8.004841999999996,
+        8.356632999999988,
+        7.771008999999992,
+        8.560381000000007,
+        7.203845999999999,
+        6.612431000000015,
+        6.8050550000000385,
+        18.788089000000014,
+        19.348127999999974,
+        8.818004999999971
+      ],
+      "medianMs": 8.032174999999995,
+      "p95Ms": 19.348127999999974,
+      "details": {
+        "removedSegments": 96,
+        "beforePayloadBytes": 68493,
+        "afterPayloadBytes": 38280,
+        "savedPayloadPercent": 44.111077044369495
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        0.23699900000002572,
+        0.24999900000000252,
+        0.2140410000000088
+      ],
+      "samplesMs": [
+        0.29974899999996296,
+        0.25354099999998425,
+        0.32699800000000323,
+        0.3300820000000044,
+        0.31199900000001435,
+        0.24758199999996577,
+        0.22612399999997024,
+        0.23779100000001563,
+        0.24916499999994812,
+        0.3505400000000236,
+        0.4561230000000478,
+        0.23691600000006474
+      ],
+      "medianMs": 0.2766449999999736,
+      "p95Ms": 0.4561230000000478,
+      "details": {
+        "rows": 101,
+        "segments": 5,
+        "payloadBytes": 38280
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "medium",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        0.16837400000002845,
+        0.17404099999998834,
+        0.15720700000002807
+      ],
+      "samplesMs": [
+        0.18758300000001782,
+        0.17845699999998033,
+        0.40958100000000286,
+        0.22249900000002754,
+        0.19366600000000744,
+        0.2044159999999806,
+        0.15712500000000773,
+        0.1437909999999647,
+        0.27662400000008347,
+        0.22595699999999397,
+        0.2422910000000229,
+        0.15916599999991377
+      ],
+      "medianMs": 0.19904099999999403,
+      "p95Ms": 0.40958100000000286,
+      "details": {
+        "rows": 10,
+        "segments": 4,
+        "payloadBytes": 4318
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "write_full",
+      "warmupMs": [
+        4.820145999999909,
+        4.3919400000000905,
+        5.394185999999991
+      ],
+      "samplesMs": [
+        5.0672709999998915,
+        71.54845399999999,
+        4.261940000000095,
+        4.928061999999954,
+        3.9928580000000693,
+        6.130391000000145,
+        4.6777720000000045,
+        4.809439000000111,
+        4.675230000000283,
+        3.989857999999913,
+        4.3442730000001575,
+        4.364357000000382
+      ],
+      "medianMs": 4.676501000000144,
+      "p95Ms": 71.54845399999999,
+      "details": {
+        "rows": 1,
+        "operationBytes": 266286
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "write_patch",
+      "warmupMs": [
+        2.4380730000000312,
+        2.254907000000003,
+        1.6645350000001145
+      ],
+      "samplesMs": [
+        2.7247800000000097,
+        6.422098000000005,
+        2.07511599999998,
+        1.7737419999998565,
+        2.2466159999999036,
+        1.8473249999997279,
+        2.364824000000226,
+        1.8584930000001805,
+        3.7839010000002418,
+        2.6513639999998304,
+        1.6988259999998263,
+        2.0101999999997133
+      ],
+      "medianMs": 2.1608659999999418,
+      "p95Ms": 6.422098000000005,
+      "details": {
+        "rows": 1,
+        "operationBytes": 62
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "read_full",
+      "warmupMs": [
+        4.000983000000019,
+        3.3196949999999106,
+        3.2091949999999088
+      ],
+      "samplesMs": [
+        3.3573200000000725,
+        4.527356000000054,
+        2.8322800000000825,
+        2.94819600000028,
+        2.9985289999999623,
+        3.6321929999999156,
+        2.9322790000001078,
+        3.1026120000001356,
+        3.0951950000003308,
+        3.372069999999894,
+        2.8806130000002668,
+        2.926405000000159
+      ],
+      "medianMs": 3.0468620000001465,
+      "p95Ms": 4.527356000000054,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "load_full",
+      "warmupMs": [
+        12.312616000000048,
+        9.090670000000046,
+        10.083708000000115
+      ],
+      "samplesMs": [
+        9.6195009999999,
+        9.759583999999904,
+        9.60600199999999,
+        6.769764000000123,
+        6.395348000000013,
+        8.750046999999995,
+        10.739956000000348,
+        10.060042000000067,
+        6.957222000000002,
+        7.154052999999749,
+        11.281203999999889,
+        7.756842000000688
+      ],
+      "medianMs": 9.178024499999992,
+      "p95Ms": 11.281203999999889,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "read_delta",
+      "warmupMs": [
+        1.1081199999999853,
+        3.7907760000000508,
+        1.2060780000001614
+      ],
+      "samplesMs": [
+        0.9606619999999566,
+        1.064286999999922,
+        0.7841220000000249,
+        0.5870390000000043,
+        0.8074969999997847,
+        0.9904950000000099,
+        0.6789549999998599,
+        0.7840799999999035,
+        0.6594140000001971,
+        0.6462480000000141,
+        0.7024139999998624,
+        0.9041630000001533
+      ],
+      "medianMs": 0.7841009999999642,
+      "p95Ms": 1.064286999999922,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        1.6004110000000082,
+        1.3618280000000595,
+        1.4732850000000326
+      ],
+      "samplesMs": [
+        1.1408279999998285,
+        1.1596199999999044,
+        0.9286630000001423,
+        0.9023290000000088,
+        1.0282459999998537,
+        1.4213690000001407,
+        0.814871999999923,
+        0.863079999999627,
+        1.2049950000000536,
+        0.8444960000001629,
+        0.8409550000001218,
+        1.1475369999998293
+      ],
+      "medianMs": 0.978454499999998,
+      "p95Ms": 1.4213690000001407,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "compact",
+      "warmupMs": [
+        139.32079799999997,
+        129.51813100000004,
+        128.9542580000002
+      ],
+      "samplesMs": [
+        133.853654,
+        128.10638599999993,
+        128.8127999999997,
+        124.26723600000014,
+        130.44275199999993,
+        123.38861399999996,
+        130.12521199999992,
+        124.21431900000016,
+        127.265265,
+        124.06511100000034,
+        124.58123399999977,
+        128.82517500000085
+      ],
+      "medianMs": 127.68582549999996,
+      "p95Ms": 133.853654,
+      "details": {
+        "removedSegments": 996,
+        "beforePayloadBytes": 787977,
+        "afterPayloadBytes": 307606,
+        "savedPayloadPercent": 60.96256616627135
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307605,
+          "savedPayloadPercent": 60.9626930735288
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307609,
+          "savedPayloadPercent": 60.962185444499006
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307604,
+          "savedPayloadPercent": 60.96281998078624
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307603,
+          "savedPayloadPercent": 60.96294688804369
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307604,
+          "savedPayloadPercent": 60.96281998078624
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        1.691410000000019,
+        1.387952999999925,
+        1.4522440000000643
+      ],
+      "samplesMs": [
+        1.4493689999999333,
+        1.4099519999999757,
+        1.2354529999997794,
+        1.502034999999978,
+        1.2235780000000887,
+        1.2607029999999213,
+        1.2904950000001918,
+        1.2663699999998244,
+        1.2802859999997054,
+        1.153994999999668,
+        2.133990999999696,
+        1.2870359999997163
+      ],
+      "medianMs": 1.2836609999997108,
+      "p95Ms": 2.133990999999696,
+      "details": {
+        "rows": 1001,
+        "segments": 5,
+        "payloadBytes": 307606
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307605
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307609
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307604
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307603
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307604
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        }
+      ]
+    },
+    {
+      "backend": "postgres",
+      "profile": "large",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        1.8546999999999798,
+        1.0077049999999872,
+        1.2054950000001554
+      ],
+      "samplesMs": [
+        2.2554489999999987,
+        3.9303999999999633,
+        0.9931209999999737,
+        1.7286589999998796,
+        1.0541619999999057,
+        1.05724599999985,
+        0.9739119999999275,
+        0.9072880000003352,
+        0.8460800000002564,
+        0.8777880000002369,
+        1.2739109999993161,
+        1.0891209999999774
+      ],
+      "medianMs": 1.0557039999998779,
+      "p95Ms": 3.9303999999999633,
+      "details": {
+        "rows": 100,
+        "segments": 4,
+        "payloadBytes": 41231
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41230
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41234
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41229
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41228
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41229
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "write_full",
+      "warmupMs": [
+        8.463340000000244,
+        11.839950999999928,
+        7.293969999999717
+      ],
+      "samplesMs": [
+        11.304202999999688,
+        8.225341000000299,
+        11.312077999999929,
+        8.385174000000006,
+        10.232665999999881,
+        6.731722000000445,
+        9.27858599999945,
+        12.38632300000063,
+        6.807055000000219,
+        7.149552999999287,
+        6.2232240000003,
+        16.9206379999996
+      ],
+      "medianMs": 8.831879999999728,
+      "p95Ms": 16.9206379999996,
+      "details": {
+        "rows": 1,
+        "operationBytes": 2314
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "write_patch",
+      "warmupMs": [
+        9.468293999999332,
+        6.902512999999999,
+        8.377047999999377
+      ],
+      "samplesMs": [
+        7.040012000000388,
+        4.478440000000774,
+        12.085283000000345,
+        11.707493999999315,
+        16.16768300000058,
+        12.877572000000328,
+        7.761384000000362,
+        7.374718999999459,
+        8.058132999999543,
+        10.54716499999995,
+        9.40371099999993,
+        10.103874999999789
+      ],
+      "medianMs": 9.75379299999986,
+      "p95Ms": 16.16768300000058,
+      "details": {
+        "rows": 1,
+        "operationBytes": 93
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "read_full",
+      "warmupMs": [
+        50.52170800000022,
+        18.90892199999962,
+        18.421714999999494
+      ],
+      "samplesMs": [
+        14.565314999999828,
+        40.33079100000032,
+        11.734910000000127,
+        9.826501000000462,
+        17.91896799999995,
+        24.451191000000108,
+        10.47112399999969,
+        12.252700000000004,
+        17.108804999999847,
+        8.433089999999538,
+        10.626663999999437,
+        11.012745999999424
+      ],
+      "medianMs": 11.993805000000066,
+      "p95Ms": 40.33079100000032,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "load_full",
+      "warmupMs": [
+        33.44590299999982,
+        19.54921000000013,
+        11.84478399999989
+      ],
+      "samplesMs": [
+        11.304245000000265,
+        14.204690999999912,
+        6.881470999999692,
+        6.4589310000001205,
+        29.33241999999973,
+        19.32833599999958,
+        10.398081999999704,
+        18.63013200000023,
+        8.281090999999833,
+        8.786254999999983,
+        8.709254999999757,
+        9.804627000000437
+      ],
+      "medianMs": 10.10135450000007,
+      "p95Ms": 29.33241999999973,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "read_delta",
+      "warmupMs": [
+        8.570047000000159,
+        8.444672999999966,
+        8.803963999999723
+      ],
+      "samplesMs": [
+        10.21545800000058,
+        3.6243189999995593,
+        5.002937000000202,
+        4.5825650000006135,
+        6.388431999999739,
+        4.303565999999591,
+        2.6172389999992447,
+        5.216978000000381,
+        4.011733000000277,
+        1.8706170000004931,
+        5.2875199999998586,
+        1.9328249999998661
+      ],
+      "medianMs": 4.4430655000001025,
+      "p95Ms": 10.21545800000058,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        9.55446099999972,
+        3.111362000000554,
+        4.072607999999491
+      ],
+      "samplesMs": [
+        8.132507999999689,
+        11.022745999999643,
+        2.0668240000004516,
+        2.580906000000141,
+        3.998066999999537,
+        5.655475999999908,
+        5.831976000000395,
+        8.651339000000007,
+        2.3586990000003425,
+        8.544590000000426,
+        4.817896999999903,
+        2.619072999999844
+      ],
+      "medianMs": 5.236686499999905,
+      "p95Ms": 11.022745999999643,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "compact",
+      "warmupMs": [
+        115.81664600000022,
+        53.952485000000706,
+        61.77645299999949
+      ],
+      "samplesMs": [
+        45.72735199999988,
+        67.27226299999984,
+        41.51149499999974,
+        38.048758999999336,
+        55.35306199999923,
+        44.71127299999989,
+        37.231596000000536,
+        38.0398009999999,
+        27.78317700000025,
+        43.28590500000064,
+        47.66063599999961,
+        45.137729999999465
+      ],
+      "medianMs": 43.998589000000266,
+      "p95Ms": 67.27226299999984,
+      "details": {
+        "removedSegments": 16,
+        "beforePayloadBytes": 7449,
+        "afterPayloadBytes": 3729,
+        "savedPayloadPercent": 49.939589206604914
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        8.589839000000211,
+        7.204845000000205,
+        5.917934000000059
+      ],
+      "samplesMs": [
+        9.741293000000042,
+        8.825754999999845,
+        5.838726000000861,
+        5.715600999999879,
+        10.10504200000014,
+        6.411514999999781,
+        6.4623899999996866,
+        5.384352000000035,
+        13.321944999999687,
+        10.94387099999949,
+        3.1985279999998966,
+        5.646602000000712
+      ],
+      "medianMs": 6.436952499999734,
+      "p95Ms": 13.321944999999687,
+      "details": {
+        "rows": 21,
+        "segments": 5,
+        "payloadBytes": 3729
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "small",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        3.297694999999294,
+        10.286331999999675,
+        5.980099999999766
+      ],
+      "samplesMs": [
+        12.03307500000028,
+        5.8801009999997405,
+        4.861479999999574,
+        1.6944509999993898,
+        4.376647999999477,
+        6.332806999999775,
+        4.952104999999392,
+        1.6224520000005214,
+        4.360399000000143,
+        2.2855329999993046,
+        6.757596999999805,
+        1.829200999999557
+      ],
+      "medianMs": 4.6190639999995255,
+      "p95Ms": 12.03307500000028,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "write_full",
+      "warmupMs": [
+        10.235999000000447,
+        8.42017399999986,
+        14.641689000000042
+      ],
+      "samplesMs": [
+        11.430077999999412,
+        15.46635199999946,
+        9.024504999999408,
+        12.62540700000136,
+        11.820159000000785,
+        11.313202999999703,
+        15.247520000000804,
+        12.547198000000208,
+        9.368085999998584,
+        10.62187300000005,
+        10.01220900000044,
+        7.741551000000982
+      ],
+      "medianMs": 11.371640499999558,
+      "p95Ms": 15.46635199999946,
+      "details": {
+        "rows": 1,
+        "operationBytes": 33873
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "write_patch",
+      "warmupMs": [
+        6.679556000000048,
+        10.839081000000078,
+        10.239832000000206
+      ],
+      "samplesMs": [
+        10.980246999999508,
+        6.785471999999572,
+        11.68261899999925,
+        11.827534000000014,
+        12.258324000000357,
+        9.95062499999949,
+        11.514909999999873,
+        5.862058999999135,
+        13.911276000000726,
+        12.047908000000461,
+        13.44336100000146,
+        8.580714999998236
+      ],
+      "medianMs": 11.598764499999561,
+      "p95Ms": 13.911276000000726,
+      "details": {
+        "rows": 1,
+        "operationBytes": 61
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "read_full",
+      "warmupMs": [
+        56.96813899999961,
+        68.0710939999999,
+        83.40473800000018
+      ],
+      "samplesMs": [
+        54.410775000000285,
+        52.51882400000068,
+        157.1045579999991,
+        79.455879000001,
+        102.98099100000036,
+        58.90513099999953,
+        79.58392099999946,
+        139.1624240000001,
+        69.89079400000082,
+        84.61014999999861,
+        74.11435999999958,
+        64.60723299999881
+      ],
+      "medianMs": 76.78511950000029,
+      "p95Ms": 157.1045579999991,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "load_full",
+      "warmupMs": [
+        46.13710100000026,
+        40.002417999999125,
+        44.58414900000025
+      ],
+      "samplesMs": [
+        70.20554300000003,
+        49.26437900000019,
+        73.95802700000058,
+        57.612553000000844,
+        52.898322999999436,
+        60.33441700000003,
+        52.43682499999886,
+        72.9756980000002,
+        73.2891129999989,
+        63.79594399999951,
+        46.683931000001394,
+        47.37897000000157
+      ],
+      "medianMs": 58.97348500000044,
+      "p95Ms": 73.95802700000058,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "read_delta",
+      "warmupMs": [
+        10.791621999999734,
+        16.197724000000562,
+        13.164778999999726
+      ],
+      "samplesMs": [
+        5.449185999999827,
+        14.14694099999906,
+        7.970467000001008,
+        14.472439999999551,
+        6.067683999999645,
+        10.769204999998692,
+        6.066141000001153,
+        12.482739999999467,
+        16.08730899999864,
+        4.630521999999473,
+        10.89437100000032,
+        3.3525269999990996
+      ],
+      "medianMs": 9.36983599999985,
+      "p95Ms": 16.08730899999864,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        5.21593699999994,
+        7.861926000000494,
+        6.6620139999995445
+      ],
+      "samplesMs": [
+        9.992876000000251,
+        8.603381000000809,
+        9.752418000000034,
+        4.600688999998965,
+        12.947695999999269,
+        10.644372999999177,
+        14.028733999999531,
+        5.903517000000647,
+        3.6345259999998234,
+        13.78727600000093,
+        8.970879000000423,
+        5.976641999999629
+      ],
+      "medianMs": 9.361648500000229,
+      "p95Ms": 14.028733999999531,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "compact",
+      "warmupMs": [
+        171.9559960000006,
+        198.67530299999999,
+        236.87493599999925
+      ],
+      "samplesMs": [
+        210.79183600000033,
+        170.9669589999994,
+        271.6305430000011,
+        257.40122600000177,
+        187.6770149999993,
+        221.48316700000032,
+        253.12732700000015,
+        194.08719700000074,
+        204.8537350000006,
+        194.37411200000133,
+        224.40502900000138,
+        187.1634329999997
+      ],
+      "medianMs": 207.82278550000046,
+      "p95Ms": 271.6305430000011,
+      "details": {
+        "removedSegments": 96,
+        "beforePayloadBytes": 68493,
+        "afterPayloadBytes": 38280,
+        "savedPayloadPercent": 44.111077044369495
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38277,
+          "savedPayloadPercent": 44.11545705400551
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38277,
+          "savedPayloadPercent": 44.11545705400551
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        6.667555999999422,
+        15.60197700000026,
+        8.44159000000036
+      ],
+      "samplesMs": [
+        5.694560000001729,
+        9.664001999999527,
+        7.205887000000075,
+        8.89396300000044,
+        18.726963999999498,
+        13.169570000000022,
+        8.73979700000018,
+        5.948850000000675,
+        10.011376000000382,
+        6.236598999999842,
+        12.993404999999257,
+        7.42734400000154
+      ],
+      "medianMs": 8.81688000000031,
+      "p95Ms": 18.726963999999498,
+      "details": {
+        "rows": 101,
+        "segments": 5,
+        "payloadBytes": 38280
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38277
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38277
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "medium",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        3.3663610000003246,
+        10.918870999999854,
+        5.423977000000377
+      ],
+      "samplesMs": [
+        6.332598999999391,
+        5.5416020000011486,
+        7.411052999999811,
+        13.42773599999964,
+        6.875637999999526,
+        5.7643929999994725,
+        5.692101000000548,
+        4.957021000000168,
+        3.7576090000002296,
+        4.449357000001328,
+        8.76921399999992,
+        7.399261999998998
+      ],
+      "medianMs": 6.048495999999432,
+      "p95Ms": 13.42773599999964,
+      "details": {
+        "rows": 10,
+        "segments": 4,
+        "payloadBytes": 4318
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4315
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4315
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "write_full",
+      "warmupMs": [
+        9.396252999998978,
+        11.723368000002665,
+        5.472476999999344
+      ],
+      "samplesMs": [
+        11.902742000002036,
+        9.734377000000677,
+        8.086757999997644,
+        7.433011000000988,
+        6.976095999998506,
+        17.93709300000046,
+        9.229420999996364,
+        9.160620000002382,
+        11.487286000003223,
+        7.01228799999808,
+        8.273869999989984,
+        9.453744999991613
+      ],
+      "medianMs": 9.195020499999373,
+      "p95Ms": 17.93709300000046,
+      "details": {
+        "rows": 1,
+        "operationBytes": 266286
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "write_patch",
+      "warmupMs": [
+        8.482382000000143,
+        14.49977299999955,
+        13.908149999999296
+      ],
+      "samplesMs": [
+        13.027195999999094,
+        9.175921000001836,
+        11.858783999996376,
+        6.3063899999979185,
+        10.752704999998969,
+        16.19143299999996,
+        7.7598849999994854,
+        20.693905000000086,
+        8.390954000002239,
+        9.655203000002075,
+        8.693079000004218,
+        9.676535999999032
+      ],
+      "medianMs": 9.665869500000554,
+      "p95Ms": 20.693905000000086,
+      "details": {
+        "rows": 1,
+        "operationBytes": 62
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "read_full",
+      "warmupMs": [
+        657.6717360000002,
+        610.4347230000021,
+        611.5159270000004
+      ],
+      "samplesMs": [
+        531.1637600000031,
+        566.2980309999984,
+        614.5666649999985,
+        639.4085199999972,
+        580.1542240000053,
+        539.8194319999966,
+        909.4483420000033,
+        791.127198999995,
+        630.4261609999958,
+        588.4243500000011,
+        496.42356599999766,
+        636.0873240000074
+      ],
+      "medianMs": 601.4955074999998,
+      "p95Ms": 909.4483420000033,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "load_full",
+      "warmupMs": [
+        679.3413130000008,
+        579.3819350000012,
+        658.394648999998
+      ],
+      "samplesMs": [
+        560.8010119999999,
+        717.7742370000051,
+        976.9812470000033,
+        535.2591590000011,
+        609.0421449999994,
+        442.9177490000002,
+        937.7117040000012,
+        795.2372810000015,
+        644.4610699999903,
+        717.0573219999933,
+        710.7258250000014,
+        751.703428000008
+      ],
+      "medianMs": 713.8915734999973,
+      "p95Ms": 976.9812470000033,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "read_delta",
+      "warmupMs": [
+        113.15157399999953,
+        111.39837199999965,
+        85.13873100000274
+      ],
+      "samplesMs": [
+        137.2900980000013,
+        53.14907200000016,
+        58.706840000006196,
+        122.47695099999692,
+        61.62757799999963,
+        119.07692400000087,
+        181.35969399999885,
+        111.99552299999777,
+        78.236791000003,
+        84.32924700000149,
+        90.83395099999325,
+        46.13751700001012
+      ],
+      "medianMs": 87.58159899999737,
+      "p95Ms": 181.35969399999885,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        74.03777600000103,
+        130.79858400000012,
+        69.04475599999932
+      ],
+      "samplesMs": [
+        57.65484500000093,
+        53.265321000006224,
+        71.35857899999974,
+        75.07398000000103,
+        60.641498999997566,
+        83.21953000000212,
+        127.07855600000039,
+        103.13702699999703,
+        62.879799000002095,
+        151.22825099999318,
+        77.47391600000265,
+        63.87154900000314
+      ],
+      "medianMs": 73.21627950000038,
+      "p95Ms": 151.22825099999318,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "compact",
+      "warmupMs": [
+        2123.179669000001,
+        1787.6314749999983,
+        1811.0059199999996
+      ],
+      "samplesMs": [
+        2573.39818,
+        1611.2691210000048,
+        2070.905802000001,
+        2231.6771369999988,
+        1856.9845209999985,
+        2124.6349120000013,
+        2398.168292000002,
+        1843.377840000001,
+        2176.360327999995,
+        1986.3854299999948,
+        2102.152826999998,
+        1665.6604360000056
+      ],
+      "medianMs": 2086.5293144999996,
+      "p95Ms": 2573.39818,
+      "details": {
+        "removedSegments": 996,
+        "beforePayloadBytes": 787977,
+        "afterPayloadBytes": 307603,
+        "savedPayloadPercent": 60.96294688804369
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307605,
+          "savedPayloadPercent": 60.9626930735288
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307602,
+          "savedPayloadPercent": 60.96307379530113
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307605,
+          "savedPayloadPercent": 60.9626930735288
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307605,
+          "savedPayloadPercent": 60.9626930735288
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307603,
+          "savedPayloadPercent": 60.96294688804369
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307603,
+          "savedPayloadPercent": 60.96294688804369
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307603,
+          "savedPayloadPercent": 60.96294688804369
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        25.55601899999965,
+        42.504823999999644,
+        41.23257999999987
+      ],
+      "samplesMs": [
+        42.38274199999796,
+        23.34386199999426,
+        39.79908499999874,
+        23.93485900000087,
+        29.41187799999898,
+        23.624485000000277,
+        41.55693600000086,
+        35.723730999998224,
+        11.561744000006001,
+        36.15364699999918,
+        21.68940499999735,
+        31.144067000001087
+      ],
+      "medianMs": 30.277972500000033,
+      "p95Ms": 42.38274199999796,
+      "details": {
+        "rows": 1001,
+        "segments": 5,
+        "payloadBytes": 307603
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307605
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307602
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307605
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307605
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307603
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307603
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307603
+        }
+      ]
+    },
+    {
+      "backend": "foundationdb",
+      "profile": "large",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        29.2628369999984,
+        20.215832999998383,
+        20.657540000000154
+      ],
+      "samplesMs": [
+        15.933559000004607,
+        14.730231000001368,
+        28.863005999999586,
+        22.282490999998117,
+        17.88013399999909,
+        9.268462,
+        23.9646120000034,
+        14.151409000005515,
+        11.931284999998752,
+        20.082780999990064,
+        17.095075000004726,
+        22.691112999993493
+      ],
+      "medianMs": 17.487604500001908,
+      "p95Ms": 28.863005999999586,
+      "details": {
+        "rows": 100,
+        "segments": 4,
+        "payloadBytes": 41228
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41230
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41227
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41230
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41230
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41228
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41228
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41228
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "write_full",
+      "warmupMs": [
+        1.1442080000124406,
+        0.8001249999942956,
+        0.870374999998603
+      ],
+      "samplesMs": [
+        0.9279160000005504,
+        1.2011659999989206,
+        1.2289569999993546,
+        1.2786659999983385,
+        1.280706999998074,
+        1.0554579999879934,
+        1.1983749999926658,
+        1.9641649999975925,
+        1.4124569999985397,
+        1.2657909999979893,
+        1.3705410000111442,
+        1.5809160000062548
+      ],
+      "medianMs": 1.272228499998164,
+      "p95Ms": 1.9641649999975925,
+      "details": {
+        "rows": 1,
+        "operationBytes": 2314
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        },
+        {
+          "rows": 1,
+          "operationBytes": 2314
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "write_patch",
+      "warmupMs": [
+        1.247457999998005,
+        1.4839159999974072,
+        1.6743739999947138
+      ],
+      "samplesMs": [
+        1.2701660000020638,
+        1.4734999999927823,
+        0.721125000010943,
+        1.2273329999879934,
+        0.9406660000095144,
+        1.5705400000006193,
+        1.434332999997423,
+        1.6668329999956768,
+        1.5683739999949466,
+        1.8824580000073183,
+        1.035583000004408,
+        1.596082000003662
+      ],
+      "medianMs": 1.4539164999951026,
+      "p95Ms": 1.8824580000073183,
+      "details": {
+        "rows": 1,
+        "operationBytes": 93
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        },
+        {
+          "rows": 1,
+          "operationBytes": 93
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "read_full",
+      "warmupMs": [
+        0.06991600000765175,
+        0.06504200000199489,
+        0.10995800000091549
+      ],
+      "samplesMs": [
+        0.07895900000585243,
+        0.10299899999517947,
+        0.057459000003291294,
+        0.04575000000477303,
+        0.04316700001072604,
+        0.052000000010593794,
+        0.04612499999348074,
+        0.07224999999743886,
+        0.04912500000500586,
+        0.05833400000119582,
+        0.06241600000066683,
+        0.055000000007566996
+      ],
+      "medianMs": 0.056229500005429145,
+      "p95Ms": 0.10299899999517947,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "load_full",
+      "warmupMs": [
+        0.15237500000512227,
+        0.7335830000083661,
+        0.15541700000176206
+      ],
+      "samplesMs": [
+        0.14645800000289455,
+        0.11091699999815319,
+        0.11191700000199489,
+        0.10320800000044983,
+        0.08837499999208376,
+        0.09054200000537094,
+        0.08295900000666734,
+        0.09670900000492111,
+        0.10879099999147002,
+        0.0836669999989681,
+        0.09845900000073016,
+        0.09908300000824966
+      ],
+      "medianMs": 0.0987710000044899,
+      "p95Ms": 0.14645800000289455,
+      "details": {
+        "rows": 21,
+        "segments": 21,
+        "payloadBytes": 7449
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        },
+        {
+          "rows": 21,
+          "segments": 21,
+          "payloadBytes": 7449
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "read_delta",
+      "warmupMs": [
+        0.11375000000407454,
+        0.039624000011826865,
+        0.032625000007101335
+      ],
+      "samplesMs": [
+        0.03545799999847077,
+        0.02354199999535922,
+        0.0191670000058366,
+        0.016417000006185845,
+        0.017249999989871867,
+        0.033750000002328306,
+        0.01658300000417512,
+        0.02333300000464078,
+        0.017667000007349998,
+        0.016667000003508292,
+        0.02541600000404287,
+        0.01999999998952262
+      ],
+      "medianMs": 0.01958349999767961,
+      "p95Ms": 0.03545799999847077,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        0.04766699999163393,
+        0.03866599999309983,
+        0.029083000001264736
+      ],
+      "samplesMs": [
+        0.03445800000918098,
+        0.03666700000758283,
+        0.029125000000931323,
+        0.028791000004275702,
+        0.020207999987178482,
+        0.019041999999899417,
+        0.017666999992798083,
+        0.03129100000660401,
+        0.02095799999369774,
+        0.021124999999301508,
+        0.02220800000941381,
+        0.02345900000364054
+      ],
+      "medianMs": 0.022833500006527174,
+      "p95Ms": 0.03666700000758283,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "compact",
+      "warmupMs": [
+        2.3309989999979734,
+        5.675081000008504,
+        2.2967899999930523
+      ],
+      "samplesMs": [
+        1.9845409999979893,
+        1.9566239999985555,
+        3.302373999991687,
+        3.0162899999995716,
+        2.6269570000004023,
+        2.9786649999878136,
+        2.8020810000016354,
+        2.791207000002032,
+        2.8794990000023972,
+        3.44829000000027,
+        2.77070600001025,
+        2.528332000001683
+      ],
+      "medianMs": 2.7966440000018338,
+      "p95Ms": 3.44829000000027,
+      "details": {
+        "removedSegments": 16,
+        "beforePayloadBytes": 7449,
+        "afterPayloadBytes": 3730,
+        "savedPayloadPercent": 49.92616458585045
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3727,
+          "savedPayloadPercent": 49.966438448113834
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3726,
+          "savedPayloadPercent": 49.979863068868305
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3727,
+          "savedPayloadPercent": 49.966438448113834
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3730,
+          "savedPayloadPercent": 49.92616458585045
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3728,
+          "savedPayloadPercent": 49.95301382735937
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3729,
+          "savedPayloadPercent": 49.939589206604914
+        },
+        {
+          "removedSegments": 16,
+          "beforePayloadBytes": 7449,
+          "afterPayloadBytes": 3730,
+          "savedPayloadPercent": 49.92616458585045
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        0.07395799999358132,
+        0.10249999999359716,
+        0.07649999999557622
+      ],
+      "samplesMs": [
+        0.06575000000884756,
+        0.06004099998972379,
+        0.06475000000500586,
+        0.10175000000162981,
+        0.06337499999790452,
+        0.0731660000019474,
+        0.0498749999969732,
+        0.07379199999559205,
+        0.07841699999698903,
+        0.08362499999930151,
+        0.06916600000113249,
+        0.10462500000721775
+      ],
+      "medianMs": 0.07116600000153994,
+      "p95Ms": 0.10462500000721775,
+      "details": {
+        "rows": 21,
+        "segments": 5,
+        "payloadBytes": 3730
+      },
+      "detailsSamples": [
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3727
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3726
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3727
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3730
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3728
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3729
+        },
+        {
+          "rows": 21,
+          "segments": 5,
+          "payloadBytes": 3730
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "small",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        0.03191700000024866,
+        0.031208000000333413,
+        0.021457999988342635
+      ],
+      "samplesMs": [
+        0.03462500000023283,
+        0.026041999997687526,
+        0.040166999999200925,
+        0.02637500000128057,
+        0.017040999999153428,
+        0.01975000000675209,
+        0.017832999990787357,
+        0.024623999997857027,
+        0.021500000002561137,
+        0.02166699999361299,
+        0.02083299998776056,
+        0.02879199999733828
+      ],
+      "medianMs": 0.02314549999573501,
+      "p95Ms": 0.040166999999200925,
+      "details": {
+        "rows": 2,
+        "segments": 2,
+        "payloadBytes": 352
+      },
+      "detailsSamples": [
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        },
+        {
+          "rows": 2,
+          "segments": 2,
+          "payloadBytes": 352
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "write_full",
+      "warmupMs": [
+        1.7483740000025136,
+        1.5204999999987194,
+        2.13287400000263
+      ],
+      "samplesMs": [
+        2.151706999997259,
+        1.6020399999979418,
+        1.7946240000019316,
+        1.9961659999971744,
+        3.6555399999924703,
+        1.1849999999976717,
+        1.881124000006821,
+        1.3066660000040429,
+        1.4609999999956926,
+        1.6409159999893745,
+        1.2751659999921685,
+        1.9215410000033444
+      ],
+      "medianMs": 1.717769999995653,
+      "p95Ms": 3.6555399999924703,
+      "details": {
+        "rows": 1,
+        "operationBytes": 33873
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        },
+        {
+          "rows": 1,
+          "operationBytes": 33873
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "write_patch",
+      "warmupMs": [
+        1.2672079999902053,
+        1.3226660000073025,
+        1.6037490000016987
+      ],
+      "samplesMs": [
+        1.513623999999254,
+        1.4520829999964917,
+        1.0227909999957774,
+        1.8864159999939147,
+        1.0280820000043605,
+        1.3263330000045244,
+        0.9875410000095144,
+        1.837748999998439,
+        1.2852489999932004,
+        1.3684569999895757,
+        0.90625,
+        0.8056249999935972
+      ],
+      "medianMs": 1.3057909999988624,
+      "p95Ms": 1.8864159999939147,
+      "details": {
+        "rows": 1,
+        "operationBytes": 61
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        },
+        {
+          "rows": 1,
+          "operationBytes": 61
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "read_full",
+      "warmupMs": [
+        0.2338749999908032,
+        0.23516700000618584,
+        0.26020900000003166
+      ],
+      "samplesMs": [
+        0.2952919999952428,
+        0.2544999999954598,
+        0.23158300000068266,
+        0.2257499999977881,
+        0.2226669999945443,
+        0.22091699999873526,
+        0.20249999999941792,
+        0.2242919999989681,
+        0.21795900000142865,
+        0.3463750000082655,
+        0.17887500001234002,
+        0.17020799999590963
+      ],
+      "medianMs": 0.2234794999967562,
+      "p95Ms": 0.3463750000082655,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "load_full",
+      "warmupMs": [
+        0.5184169999993173,
+        0.4188329999888083,
+        0.5513739999878453
+      ],
+      "samplesMs": [
+        0.5383330000040587,
+        0.5816659999982221,
+        0.6274580000026617,
+        0.5258330000069691,
+        0.5019999999931315,
+        0.5477910000045085,
+        0.49758399999700487,
+        0.4562080000032438,
+        0.4532500000059372,
+        0.7030830000003334,
+        0.4365409999882104,
+        1.030706999998074
+      ],
+      "medianMs": 0.5320830000055139,
+      "p95Ms": 1.030706999998074,
+      "details": {
+        "rows": 101,
+        "segments": 101,
+        "payloadBytes": 68493
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        },
+        {
+          "rows": 101,
+          "segments": 101,
+          "payloadBytes": 68493
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "read_delta",
+      "warmupMs": [
+        0.097208999999566,
+        0.047749999997904524,
+        0.06758300001092721
+      ],
+      "samplesMs": [
+        0.06650000000081491,
+        0.0655830000032438,
+        0.07200000000011642,
+        0.05954099999507889,
+        0.062416999993729405,
+        0.0625,
+        0.057541000001947396,
+        0.0584169999929145,
+        0.052624999996623956,
+        0.09808299998985603,
+        0.0388329999987036,
+        0.054292000000714324
+      ],
+      "medianMs": 0.06097899999440415,
+      "p95Ms": 0.09808299998985603,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        0.09491699999489356,
+        0.0660409999982221,
+        0.08866699998907279
+      ],
+      "samplesMs": [
+        0.12162399999215268,
+        0.09104100000695325,
+        0.06579199999396224,
+        0.08029200001328718,
+        0.07749999999941792,
+        0.0892500000045402,
+        0.07837400000425987,
+        0.08054199999605771,
+        0.06516699999338016,
+        0.09195799998997245,
+        0.11787500001082662,
+        0.08320800001092721
+      ],
+      "medianMs": 0.08187500000349246,
+      "p95Ms": 0.12162399999215268,
+      "details": {
+        "rows": 10,
+        "segments": 10,
+        "payloadBytes": 3286
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        },
+        {
+          "rows": 10,
+          "segments": 10,
+          "payloadBytes": 3286
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "compact",
+      "warmupMs": [
+        4.301414000001387,
+        3.957872999992105,
+        4.828622999993968
+      ],
+      "samplesMs": [
+        3.6157900000107475,
+        3.9445400000113295,
+        4.558038999995915,
+        7.748412000000826,
+        3.502164999998058,
+        3.5236650000006193,
+        4.254872999998042,
+        4.133289000004879,
+        3.975456000000122,
+        5.113830999995116,
+        3.1827900000062073,
+        4.054914000007557
+      ],
+      "medianMs": 4.015185000003839,
+      "p95Ms": 7.748412000000826,
+      "details": {
+        "removedSegments": 96,
+        "beforePayloadBytes": 68493,
+        "afterPayloadBytes": 38280,
+        "savedPayloadPercent": 44.111077044369495
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38281,
+          "savedPayloadPercent": 44.10961704115749
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38281,
+          "savedPayloadPercent": 44.10961704115749
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38279,
+          "savedPayloadPercent": 44.112537047581505
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38278,
+          "savedPayloadPercent": 44.11399705079351
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        },
+        {
+          "removedSegments": 96,
+          "beforePayloadBytes": 68493,
+          "afterPayloadBytes": 38280,
+          "savedPayloadPercent": 44.111077044369495
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        0.1390419999952428,
+        0.14137499999196734,
+        0.1321250000037253
+      ],
+      "samplesMs": [
+        0.13620799999625888,
+        0.1381249999976717,
+        0.13495900000270922,
+        0.17562499998894054,
+        0.15241700000478886,
+        0.16862499999115244,
+        0.1251239999983227,
+        0.125,
+        0.13666699999885168,
+        0.1919999999954598,
+        0.15441600000485778,
+        0.1028340000048047
+      ],
+      "medianMs": 0.1373959999982617,
+      "p95Ms": 0.1919999999954598,
+      "details": {
+        "rows": 101,
+        "segments": 5,
+        "payloadBytes": 38280
+      },
+      "detailsSamples": [
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38281
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38281
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38279
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38278
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        },
+        {
+          "rows": 101,
+          "segments": 5,
+          "payloadBytes": 38280
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "medium",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        0.084208000000217,
+        0.10774999999557622,
+        0.14441599999554455
+      ],
+      "samplesMs": [
+        0.09024999999382999,
+        0.1401250000053551,
+        0.11529199998767581,
+        0.14558300000499003,
+        0.09708300000056624,
+        0.11899999999150168,
+        0.10300000000279397,
+        0.09599899999739137,
+        2.0503329999919515,
+        0.10470799999893643,
+        0.1198749999894062,
+        0.08162500000617001
+      ],
+      "medianMs": 0.10999999999330612,
+      "p95Ms": 2.0503329999919515,
+      "details": {
+        "rows": 10,
+        "segments": 4,
+        "payloadBytes": 4318
+      },
+      "detailsSamples": [
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4319
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4319
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4317
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4316
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        },
+        {
+          "rows": 10,
+          "segments": 4,
+          "payloadBytes": 4318
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "write_full",
+      "warmupMs": [
+        2.582414999997127,
+        2.722957000005408,
+        2.715956999993068
+      ],
+      "samplesMs": [
+        2.1111650000093505,
+        2.34958199999528,
+        2.719372999999905,
+        2.4601649999967776,
+        4.280622999998741,
+        2.9436229999992065,
+        2.2399569999979576,
+        2.2688320000015665,
+        2.754123000006075,
+        2.8138319999998203,
+        2.9317900000023656,
+        2.3313320000015665
+      ],
+      "medianMs": 2.5897689999983413,
+      "p95Ms": 4.280622999998741,
+      "details": {
+        "rows": 1,
+        "operationBytes": 266286
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        },
+        {
+          "rows": 1,
+          "operationBytes": 266286
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "write_patch",
+      "warmupMs": [
+        2.5229570000083186,
+        0.9662489999900572,
+        3.8614570000063395
+      ],
+      "samplesMs": [
+        1.1354580000042915,
+        3.6887900000001537,
+        1.0374580000061542,
+        3.860330999988946,
+        1.6347079999977723,
+        3.152040000000852,
+        1.464458000002196,
+        2.7812899999989895,
+        1.5083319999976084,
+        2.9627069999987725,
+        1.619250000003376,
+        4.2738310000131605
+      ],
+      "medianMs": 2.207998999998381,
+      "p95Ms": 4.2738310000131605,
+      "details": {
+        "rows": 1,
+        "operationBytes": 62
+      },
+      "detailsSamples": [
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        },
+        {
+          "rows": 1,
+          "operationBytes": 62
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "read_full",
+      "warmupMs": [
+        2.4973319999990053,
+        4.405872999996063,
+        3.710331000009319
+      ],
+      "samplesMs": [
+        3.7821229999972275,
+        3.572873000011896,
+        1.9518740000057733,
+        2.4061650000076042,
+        2.3197480000089854,
+        2.3539159999927506,
+        1.9309990000037942,
+        2.1766239999997197,
+        3.0425820000091335,
+        2.23962299998675,
+        2.052748000001884,
+        3.457539999988512
+      ],
+      "medianMs": 2.336832000000868,
+      "p95Ms": 3.7821229999972275,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "load_full",
+      "warmupMs": [
+        6.910829999993439,
+        6.740496000013081,
+        7.812537999998312
+      ],
+      "samplesMs": [
+        6.3490380000002915,
+        7.46403800000553,
+        5.365496999991592,
+        5.449371999988216,
+        7.714538000000175,
+        6.536120999997365,
+        6.520204999993439,
+        6.19733000000997,
+        8.867411999992328,
+        6.0027050000062445,
+        7.3806210000038845,
+        6.133955000012065
+      ],
+      "medianMs": 6.434621499996865,
+      "p95Ms": 8.867411999992328,
+      "details": {
+        "rows": 1001,
+        "segments": 1001,
+        "payloadBytes": 787977
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        },
+        {
+          "rows": 1001,
+          "segments": 1001,
+          "payloadBytes": 787977
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "read_delta",
+      "warmupMs": [
+        0.648998999997275,
+        0.918041999990237,
+        0.6319579999981215
+      ],
+      "samplesMs": [
+        0.7350830000068527,
+        0.7411240000074031,
+        0.6258749999979045,
+        0.5392909999936819,
+        0.740166000003228,
+        0.524875000002794,
+        0.7041250000038417,
+        0.5562910000007832,
+        0.8072499999980209,
+        0.5721669999911683,
+        0.8649160000059055,
+        0.701416000010795
+      ],
+      "medianMs": 0.7027705000073183,
+      "p95Ms": 0.8649160000059055,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "sync_delta",
+      "warmupMs": [
+        0.8763329999928828,
+        1.1590829999913694,
+        0.9622490000037942
+      ],
+      "samplesMs": [
+        1.4292900000000373,
+        1.0520420000102604,
+        0.8999990000011167,
+        0.7292920000036247,
+        1.06104200000118,
+        0.7718330000061542,
+        1.2054580000112765,
+        0.7948330000072019,
+        0.9930829999939306,
+        0.9841660000092816,
+        1.2915409999986878,
+        1.10220800001116
+      ],
+      "medianMs": 1.0225625000020955,
+      "p95Ms": 1.4292900000000373,
+      "details": {
+        "rows": 100,
+        "segments": 100,
+        "payloadBytes": 51941
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        },
+        {
+          "rows": 100,
+          "segments": 100,
+          "payloadBytes": 51941
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "compact",
+      "warmupMs": [
+        21.806987999996636,
+        19.155365000013262,
+        18.192740999991656
+      ],
+      "samplesMs": [
+        17.921948000002885,
+        30.305108000000473,
+        15.966033000004245,
+        19.14599000000453,
+        16.688615999999456,
+        21.601571999999578,
+        16.789408000011463,
+        23.824070999995456,
+        17.463115000005928,
+        18.239407000000938,
+        20.295989000005648,
+        28.78323499999533
+      ],
+      "medianMs": 18.692698500002734,
+      "p95Ms": 30.305108000000473,
+      "details": {
+        "removedSegments": 996,
+        "beforePayloadBytes": 787977,
+        "afterPayloadBytes": 307606,
+        "savedPayloadPercent": 60.96256616627135
+      },
+      "detailsSamples": [
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307607,
+          "savedPayloadPercent": 60.9624392590139
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307604,
+          "savedPayloadPercent": 60.96281998078624
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307608,
+          "savedPayloadPercent": 60.96231235175647
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307609,
+          "savedPayloadPercent": 60.962185444499006
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307605,
+          "savedPayloadPercent": 60.9626930735288
+        },
+        {
+          "removedSegments": 996,
+          "beforePayloadBytes": 787977,
+          "afterPayloadBytes": 307606,
+          "savedPayloadPercent": 60.96256616627135
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "read_full_compacted",
+      "warmupMs": [
+        0.8803330000082497,
+        1.0660829999978887,
+        0.9918329999927664
+      ],
+      "samplesMs": [
+        0.9617910000088159,
+        0.8607069999998203,
+        0.8241669999988517,
+        0.7961240000004182,
+        1.3527909999975236,
+        0.7974580000009155,
+        0.827833000003011,
+        1.1434570000128588,
+        0.8089580000087153,
+        0.8823329999868292,
+        0.9203739999938989,
+        1.1672079999989364
+      ],
+      "medianMs": 0.8715199999933247,
+      "p95Ms": 1.3527909999975236,
+      "details": {
+        "rows": 1001,
+        "segments": 5,
+        "payloadBytes": 307606
+      },
+      "detailsSamples": [
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307607
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307604
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307608
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307609
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307605
+        },
+        {
+          "rows": 1001,
+          "segments": 5,
+          "payloadBytes": 307606
+        }
+      ]
+    },
+    {
+      "backend": "sqlite",
+      "profile": "large",
+      "scenario": "read_delta_compacted",
+      "warmupMs": [
+        1.6946660000103293,
+        1.6601660000014817,
+        0.7346240000042599
+      ],
+      "samplesMs": [
+        0.7532079999946291,
+        0.7853739999991376,
+        3.2564989999955287,
+        1.2858740000083344,
+        0.8475829999952111,
+        0.7674160000024131,
+        0.7919989999936661,
+        0.9397080000053393,
+        1.4310819999955129,
+        0.8400410000031115,
+        0.7418739999993704,
+        1.2496240000036778
+      ],
+      "medianMs": 0.8438119999991613,
+      "p95Ms": 3.2564989999955287,
+      "details": {
+        "rows": 100,
+        "segments": 4,
+        "payloadBytes": 41231
+      },
+      "detailsSamples": [
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41232
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41229
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41233
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41234
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41230
+        },
+        {
+          "rows": 100,
+          "segments": 4,
+          "payloadBytes": 41231
+        }
+      ]
+    }
+  ]
+}

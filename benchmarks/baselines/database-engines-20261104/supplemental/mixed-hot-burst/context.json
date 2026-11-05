@@ -1,0 +1,507 @@
+{
+  "startedAt": "2026-11-04T21:13:51.132Z",
+  "completedAt": "2026-11-04T21:14:02.537Z",
+  "sourceSha256": "65cef0e135247c9dbd2e740239b249eb11b522d0fd0f123088af8908361e28a8",
+  "orchestrationSha256": "708be13e02540156f424cc5f3bf713804269bfc9e2c76f56b08228a0236b5a48",
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "memorySnapshots": {
+    "bare-metal/pgrust-columnar/before": {
+      "at": "2026-11-04T21:13:52.528Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 17356 \nPages purgeable: 17537 \nPages purged: 129746 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 695948 \nPages inactive: 692393 \nPages speculative: 4484 \nPages throttled: 0 \nPages wired down: 182514 \n\nCompressor Stats:\nPages used by compressor: 463685 \nPages decompressed: 734654 \nPages compressed: 1899228 \n\nFile I/O:\nPageins: 1783884 \nPageouts: 68748 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  53001036    19%  453127 530010360    0%   /"
+    },
+    "docker/pgrust-columnar/before": {
+      "at": "2026-11-04T21:13:56.064Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 78326 \nPages purgeable: 16746 \nPages purged: 129844 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 664301 \nPages inactive: 660800 \nPages speculative: 4181 \nPages throttled: 0 \nPages wired down: 185489 \n\nCompressor Stats:\nPages used by compressor: 463578 \nPages decompressed: 734854 \nPages compressed: 1899228 \n\nFile I/O:\nPageins: 1787303 \nPageouts: 68750 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  53000256    19%  453127 530002560    0%   /"
+    },
+    "completed": {
+      "at": "2026-11-04T21:14:02.537Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 8096 \nPages purgeable: 21364 \nPages purged: 129852 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 700133 \nPages inactive: 698394 \nPages speculative: 1431 \nPages throttled: 0 \nPages wired down: 185856 \n\nCompressor Stats:\nPages used by compressor: 462584 \nPages decompressed: 738014 \nPages compressed: 1899228 \n\nFile I/O:\nPageins: 1800362 \nPageouts: 68756 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52998668    19%  453127 529986680    0%   /"
+    }
+  },
+  "fixtureSha256": "2eac65ad652a6539884ac16a4f413d56119ecda971b09b4b932dff87d63e6fbb",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "large",
+  "selectedDatabases": [
+    "pgrust-columnar"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    128
+  ],
+  "command": [
+    "--environment",
+    "both",
+    "--profile",
+    "large",
+    "--databases",
+    "pgrust-columnar",
+    "--concurrency",
+    "128",
+    "--requests",
+    "1000",
+    "--scenarios",
+    "mixed",
+    "--topologies",
+    "hot",
+    "--modes",
+    "burst",
+    "--results-dir",
+    "/home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/supplemental/mixed-hot-burst"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "dockerContainerMemoryLimitBytes": 4294967296,
+    "dockerContainerSwapLimitBytes": 0,
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {
+    "docker": {
+      "runnerImage": "sha256:889d175df2bb9efbfb6992815fd4f8544f1c8ab43c8cbe3ed87c0463303ccbbc",
+      "docker": {
+        "ID": "529db05a-4162-4a91-9817-c257bfa975c3",
+        "Containers": 11,
+        "ContainersRunning": 9,
+        "ContainersPaused": 0,
+        "ContainersStopped": 2,
+        "Images": 29,
+        "Driver": "overlay2",
+        "DriverStatus": [
+          [
+            "Backing Filesystem",
+            "btrfs"
+          ],
+          [
+            "Supports d_type",
+            "true"
+          ],
+          [
+            "Using metacopy",
+            "false"
+          ],
+          [
+            "Native Overlay Diff",
+            "true"
+          ],
+          [
+            "userxattr",
+            "false"
+          ]
+        ],
+        "Plugins": {
+          "Volume": [
+            "local"
+          ],
+          "Network": [
+            "bridge",
+            "host",
+            "ipvlan",
+            "macvlan",
+            "null",
+            "overlay"
+          ],
+          "Authorization": null,
+          "Log": [
+            "awslogs",
+            "fluentd",
+            "gcplogs",
+            "gelf",
+            "journald",
+            "json-file",
+            "local",
+            "splunk",
+            "syslog"
+          ]
+        },
+        "MemoryLimit": true,
+        "SwapLimit": true,
+        "CpuCfsPeriod": true,
+        "CpuCfsQuota": true,
+        "CPUShares": true,
+        "CPUSet": true,
+        "PidsLimit": true,
+        "IPv4Forwarding": true,
+        "Debug": false,
+        "NFd": 114,
+        "OomKillDisable": false,
+        "NGoroutines": 130,
+        "SystemTime": "2026-11-04T22:13:56.059702252+01:00",
+        "LoggingDriver": "json-file",
+        "CgroupDriver": "cgroupfs",
+        "CgroupVersion": "2",
+        "NEventsListener": 1,
+        "KernelVersion": "7.2.12-orbstack-00394-gbecdd6130068",
+        "OperatingSystem": "OrbStack",
+        "OSVersion": "",
+        "OSType": "linux",
+        "Architecture": "aarch64",
+        "IndexServerAddress": "https://index.docker.io/v1/",
+        "RegistryConfig": {
+          "InsecureRegistryCIDRs": [
+            "127.0.0.0/8",
+            "::1/128"
+          ],
+          "IndexConfigs": {
+            "docker.io": {
+              "Name": "docker.io",
+              "Mirrors": [],
+              "Secure": true,
+              "Official": true
+            }
+          },
+          "Mirrors": []
+        },
+        "NCPU": 10,
+        "MemTotal": 16818991104,
+        "GenericResources": null,
+        "DockerRootDir": "/var/lib/docker",
+        "HttpProxy": "http://proxy.orb.internal:8305",
+        "HttpsProxy": "http://proxy.orb.internal:8305",
+        "NoProxy": "localhost,127.0.0.1,127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,0.250.250.0/24,*.orb.internal,*.local,gateway.docker.internal,host.internal,host.docker.internal,host.lima.internal,docker.for.mac.localhost,docker.for.mac.host.internal",
+        "Name": "orbstack",
+        "Labels": [],
+        "ExperimentalBuild": true,
+        "ServerVersion": "29.8.2",
+        "Runtimes": {
+          "io.containerd.runc.v2": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          },
+          "runc": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          }
+        },
+        "DefaultRuntime": "runc",
+        "Swarm": {
+          "NodeID": "",
+          "NodeAddr": "",
+          "LocalNodeState": "inactive",
+          "ControlAvailable": false,
+          "Error": "",
+          "RemoteManagers": null
+        },
+        "LiveRestoreEnabled": false,
+        "Isolation": "",
+        "InitBinary": "docker-init",
+        "ContainerdCommit": {
+          "ID": "ee2735368117d2eb259779949d5e75cdafec9761"
+        },
+        "RuncCommit": {
+          "ID": "29dd3dc2b13b4123162e5fe132504bb4b15569f1"
+        },
+        "InitCommit": {
+          "ID": "de40ad0"
+        },
+        "SecurityOptions": [
+          "name=seccomp,profile=builtin",
+          "name=cgroupns"
+        ],
+        "ProductLicense": "Community Engine",
+        "DefaultAddressPools": [
+          {
+            "Base": "192.168.97.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.107.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.117.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.147.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.148.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.155.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.156.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.158.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.163.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.164.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.165.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.166.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.167.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.171.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.172.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.181.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.183.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.186.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.207.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.214.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.215.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.216.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.223.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.227.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.228.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.229.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.237.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.239.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.242.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.247.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "fd07:b51a:cc66:d000::/56",
+            "Size": 64
+          }
+        ],
+        "FirewallBackend": {
+          "Driver": "iptables",
+          "Info": [
+            [
+              "EnableUserlandProxy",
+              "true"
+            ],
+            [
+              "UserlandProxyPath",
+              "/opt/orbstack-guest/pstub"
+            ]
+          ]
+        },
+        "CDISpecDirs": [
+          "/etc/cdi",
+          "/var/run/cdi"
+        ],
+        "Containerd": {
+          "Address": "/var/run/docker/containerd/containerd.sock",
+          "Namespaces": {
+            "Containers": "moby",
+            "Plugins": "plugins.moby"
+          }
+        },
+        "Warnings": [
+          "WARNING: DOCKER_INSECURE_NO_IPTABLES_RAW is set"
+        ],
+        "ClientInfo": {
+          "Debug": false,
+          "Version": "29.8.2",
+          "DefaultAPIVersion": "1.56",
+          "GitCommit": "7fc2dff",
+          "GoVersion": "go1.26.8",
+          "Os": "darwin",
+          "Arch": "arm64",
+          "BuildTime": "Sun Oct 11 12:42:20 2026",
+          "Context": "orbstack",
+          "Plugins": [
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v0.37.2",
+              "ShortDescription": "Docker Buildx",
+              "Name": "buildx",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-buildx"
+            },
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v5.5.0",
+              "ShortDescription": "Docker Compose",
+              "Name": "compose",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-compose"
+            }
+          ],
+          "Warnings": null
+        }
+      },
+      "engines": {
+        "pgrust-columnar": {
+          "image": "malisper/pgrust:v0.4-beta",
+          "imageId": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+            "RepoTags": [
+              "malisper/pgrust:v0.4-beta"
+            ],
+            "RepoDigests": [
+              "malisper/pgrust@sha256:62e3ab08273d85716b17cf594265077774ea017bf7ed1a541634be243bced6a0"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-10-22T15:19:15.804630026Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/lib/postgresql/18/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=18",
+                "LD_LIBRARY_PATH=/opt/runlibs",
+                "PGRUST_PGSHAREDIR=/usr/local/bin/share",
+                "RUST_MIN_STACK=33554432",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "StopSignal": "SIGINT",
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 249957555,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/39c3c8a1f454ca7e5b9bde35426c167f896b9fec144d6e0db673fcda77417194/diff:/var/lib/docker/overlay2/5f6022ae9a553605c9ea6b6a4928062358980f1d452168c4e52d95d15379ce14/diff:/var/lib/docker/overlay2/8d30399fcd588e3c755ba1bb721ed2d35db9abef7af0d8d6e821fc6adc4e0e1a/diff:/var/lib/docker/overlay2/d1937d9bc674dd90b713943e38927c09d148ba66388cd651c71a384b45aa8ed1/diff:/var/lib/docker/overlay2/cce455029cf894ee9749b88f59c69c790ff171ef4a35bb5e5d9f86c911fb3e3a/diff:/var/lib/docker/overlay2/599b5aba9db79869b196ebfd0e984ddfbc59c18c587c393f12f2e59eba000074/diff:/var/lib/docker/overlay2/a24428152946474aa79268a6a7fd071c855aa709bf98560bf6064c5a0232dffc/diff:/var/lib/docker/overlay2/e639fe0810d7f21a76f8a53898afcdd755706e8159252d25c9f008090a74580d/diff:/var/lib/docker/overlay2/d0830f3c896d767db8e06887ef0f0eddc949d3b72486f9cac0026e75055d2f5a/diff:/var/lib/docker/overlay2/6e9d4e6b8bf0ec3aa969fff1fcc9df0a7f51157846f756b3316c1475d4452484/diff:/var/lib/docker/overlay2/a7ff805963bc8974885ad9d2569b278e820c000b3f14814f503d8a8f0b342602/diff:/var/lib/docker/overlay2/2917dc8d0658727c2b6d51da06c86a6324180ef32b875b6b1755f9c63fd48ddc/diff:/var/lib/docker/overlay2/8572666d5a1925a25e840d7eb6f9041804762684b026cdef0b87b5c1210a9a84/diff:/var/lib/docker/overlay2/8e9c18a96cb5d6f4be7e63693a3a938c7048b71c280877365e2318ed397bd7d6/diff:/var/lib/docker/overlay2/6989b3caa02d629444bb4dd510cf6ae189bdfd74d4425c59d5084f696227b2ae/diff:/var/lib/docker/overlay2/002bda35458ef3f565aa53eba3213b647c01c867c32f40d8fc6271d6282e7887/diff",
+                "MergedDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/merged",
+                "UpperDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/diff",
+                "WorkDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:3b7c7ecdb9b2a2a7651551c07dc748fee9e27902c8b88c25cb3af3fbbc0a4b87",
+                "sha256:13f6dfafbb75e7daaee4452f8904e01281ecde8b11a5147ab9246b53f85914fa",
+                "sha256:37dc789fc8c11a4bfc707bc4cf9845f72bc54ab4b5fdd5e768729c1541596e3d",
+                "sha256:aad018cf1a106e513211e1fc49e216df154c929e858334683e902018d623df60",
+                "sha256:a4ac0134695c5af7899109b28f71cdab4a2a197e762390660e7d43a026dc55e5",
+                "sha256:eb16c1f515abfd2ef970651738b72c67fd22d09cc79d0abc2f59d0c557191365",
+                "sha256:3af4f3c2c20fab1b6cb05e69cc1edbf21afa3bc4aa54ac0d2c58415cf26f62c3",
+                "sha256:c12fae203219435a81470d14093595ab0584125f5f52cf1f286f98bc77c3f856",
+                "sha256:fcb06227e547f854d131f90a4555ab38500857336154ffff336bd0363a17c05f",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:cde534a73c78d7caf30475eff1f18058834095be41e35e2da9351177d8846f20",
+                "sha256:23a44c4095ca23901362d6b672cc295d6fdffe4456f1c6d031090dc49926358e",
+                "sha256:467641b3345e10e2e588381810ddb2f44a9901c63d88733c070f03c43c09d49e",
+                "sha256:6054979185cd36d10f21be70d7375bde399eb75f3be66aeb2c13ff7c52f0bf4d",
+                "sha256:8a34cf9c9ffe105a54c743f9a5ed43247b90a6a2246924ddaae296606b9bcc82",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        }
+      }
+    }
+  },
+  "requestErrors": {
+    "bare-metal/pgrust-columnar": 0,
+    "docker/pgrust-columnar": 0
+  },
+  "backendFailures": {},
+  "unsupported": {}
+}

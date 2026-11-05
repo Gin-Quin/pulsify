@@ -1,0 +1,188 @@
+pgrust-columnar-1  | The files belonging to this database system will be owned by user "postgres".
+pgrust-columnar-1  | This user must also own the server process.
+pgrust-columnar-1  |
+pgrust-columnar-1  | The database cluster will be initialized with locale "C.UTF-8".
+pgrust-columnar-1  | The default database encoding has accordingly been set to "UTF8".
+pgrust-columnar-1  | The default text search configuration will be set to "english".
+pgrust-columnar-1  |
+pgrust-columnar-1  | Data page checksums are enabled.
+pgrust-columnar-1  |
+pgrust-columnar-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+pgrust-columnar-1  | creating subdirectories ... ok
+pgrust-columnar-1  | selecting dynamic shared memory implementation ... posix
+pgrust-columnar-1  | selecting default "max_connections" ... 100
+pgrust-columnar-1  | selecting default "shared_buffers" ... 128MB
+pgrust-columnar-1  | selecting default time zone ... Etc/UTC
+pgrust-columnar-1  | creating configuration files ... ok
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:44.759 UTC [33] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | running bootstrap script ... ok
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:44.799 UTC [34] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:44.801 UTC [34] LOG:  gravity: grant pool armed at 5320 MiB, 0 statements in flight (memory limit 16039 MiB, mapped 17129948 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 16 MiB + tables 8 MiB, mode Estimate, small lane 128 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:44.801 UTC [34] STATEMENT:  REVOKE ALL ON pg_authid FROM public;
+pgrust-columnar-1  |
+pgrust-columnar-1  | performing post-bootstrap initialization ... ok
+pgrust-columnar-1  | syncing data to disk ... ok
+pgrust-columnar-1  |
+pgrust-columnar-1  |
+pgrust-columnar-1  | Success. You can now start the database server using:
+pgrust-columnar-1  |
+pgrust-columnar-1  |     /usr/local/bin/postgres -D /var/lib/postgresql/data
+pgrust-columnar-1  |
+pgrust-columnar-1  | initdb: warning: enabling "trust" authentication for local connections
+pgrust-columnar-1  | You can change this by editing pg_hba.conf or using the option -A, or
+pgrust-columnar-1  | --auth-local and --auth-host, the next time you run initdb.
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:46.267 UTC [53] LOG:  cost profile: measured in 36 ms, kept in /var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv; host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.625, gather 0.5, check 0.5, miss 0.875, update 0.5, sort 0.5; anchors ns: read 0.057, gather 0.308, check 0.100, miss 89.771, update 0.481, sort 6.864
+pgrust-columnar-1  | 2026-11-04 21:13:46.270 UTC [53] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-columnar-1  | 2026-11-04 21:13:46.270 UTC [53] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-columnar-1  | 2026-11-04 21:13:46.270 UTC [53] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:46.270 UTC [53] LOG:  listening on IPv6 address "::", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:46.273 UTC [53] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-columnar-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-columnar-1  | 2026-11-04 21:13:46.278 UTC [53] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-columnar-1  | 2026-11-04 21:13:46.278 UTC [1004] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-columnar-1  | 2026-11-04 21:13:46.278 UTC [1002] LOG:  database system was shut down at 2026-11-04 21:13:44 UTC
+pgrust-columnar-1  | 2026-11-04 21:13:46.283 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:46.284 UTC [1030] LOG:  gravity: code cache warmed in 328 us
+pgrust-columnar-1  | 2026-11-04 21:13:46.290 UTC [1030] LOG:  gravity: process image warmed (68 MB), 1 databases to warm (no columnar relation), 6421 us
+pgrust-columnar-1  | 2026-11-04 21:13:46.298 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 4349 us
+pgrust-columnar-1  | 2026-11-04 21:13:46.300 UTC [53] LOG:  database system is ready to accept connections
+pgrust-columnar-1  | 2026-11-04 21:13:46.738 UTC [1036] LOG:  gravity: grant pool armed at 1024 MiB, 0 statements in flight (memory limit 4096 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 64 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:46.738 UTC [1036] STATEMENT:  SELECT 1 FROM pg_database WHERE datname = 'pulsify_benchmark' ;
+pgrust-columnar-1  | CREATE DATABASE
+pgrust-columnar-1  |
+pgrust-columnar-1  |
+pgrust-columnar-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+pgrust-columnar-1  |
+pgrust-columnar-1  | 2026-11-04 21:13:46.766 UTC [53] LOG:  received fast shutdown request
+pgrust-columnar-1  | 2026-11-04 21:13:46.768 UTC [53] LOG:  aborting any active transactions
+pgrust-columnar-1  | 2026-11-04 21:13:46.768 UTC [53] LOG:  background worker "logical replication launcher" (PID 1031) exited with exit code 1
+pgrust-columnar-1  | 2026-11-04 21:13:46.790 UTC [1029] FATAL:  terminating connection due to administrator command
+pgrust-columnar-1  | 2026-11-04 21:13:46.790 UTC [53] LOG:  background worker "pgrcolumnar front launcher" (PID 1029) exited with exit code 1
+pgrust-columnar-1  | 2026-11-04 21:13:46.790 UTC [1000] LOG:  shutting down
+pgrust-columnar-1  | 2026-11-04 21:13:46.791 UTC [1000] LOG:  checkpoint starting: shutdown immediate
+pgrust-columnar-1  | 2026-11-04 21:13:46.988 UTC [1000] LOG:  checkpoint complete: wrote 941 buffers (5.7%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.033 s, sync=0.159 s, total=0.199 s; sync files=303, longest=0.020 s, average=0.001 s; distance=4336 kB, estimate=4336 kB; lsn=0/1B9AAD0, redo lsn=0/1B9AAD0
+pgrust-columnar-1  | 2026-11-04 21:13:46.990 UTC [53] LOG:  database system is shut down
+pgrust-columnar-1  |
+pgrust-columnar-1  | PostgreSQL init process complete; ready for start up.
+pgrust-columnar-1  |
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:46.996 UTC [113] LOG:  cost profile: cached (/var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv); host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.625, gather 0.5, check 0.5, miss 0.875, update 0.5, sort 0.5; anchors ns: read 0.057, gather 0.308, check 0.100, miss 89.771, update 0.481, sort 6.864
+pgrust-columnar-1  | 2026-11-04 21:13:46.998 UTC [113] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-columnar-1  | 2026-11-04 21:13:46.998 UTC [113] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-columnar-1  | 2026-11-04 21:13:46.998 UTC [113] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:46.998 UTC [113] LOG:  listening on IPv6 address "::", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:46.999 UTC [113] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-columnar-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-columnar-1  | 2026-11-04 21:13:47.002 UTC [113] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-columnar-1  | 2026-11-04 21:13:47.002 UTC [1005] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-columnar-1  | 2026-11-04 21:13:47.003 UTC [1002] LOG:  database system was shut down at 2026-11-04 21:13:46 UTC
+pgrust-columnar-1  | 2026-11-04 21:13:47.004 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:47.005 UTC [1030] LOG:  gravity: code cache warmed in 216 us
+pgrust-columnar-1  | 2026-11-04 21:13:47.009 UTC [1030] LOG:  gravity: process image warmed (68 MB), 2 databases to warm (no columnar relation), 4132 us
+pgrust-columnar-1  | 2026-11-04 21:13:47.015 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 3740 us
+pgrust-columnar-1  | 2026-11-04 21:13:47.020 UTC [1033] LOG:  gravity: catalog pages warmed for database 16384: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 3803 us
+pgrust-columnar-1  | 2026-11-04 21:13:47.022 UTC [113] LOG:  database system is ready to accept connections
+pgrust-columnar-1  | 2026-11-04 21:13:47.656 UTC [1036] LOG:  gravity: grant pool armed at 1024 MiB, 0 statements in flight (memory limit 4096 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 64 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:47.656 UTC [1036] STATEMENT:  SET statement_timeout='30s'; SET lock_timeout='30s';
+pgrust-columnar-1  | 2026-11-04 21:13:47.799 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-columnar-1  | 2026-11-04 21:13:47.855 UTC [1000] LOG:  checkpoint complete: wrote 71 buffers (0.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.048 s, total=0.056 s; sync files=56, longest=0.005 s, average=0.001 s; distance=392 kB, estimate=392 kB; lsn=0/1BFCCF0, redo lsn=0/1BFCC98
+pgrust-columnar-1  | 2026-11-04 21:13:48.021 UTC [113] LOG:  memory watchdog: armed: limit=4096 MB (source=cgroup v2 memory.max) tiers=80%/90%/95% interval=1000 ms
+pgrust-columnar-1  | 2026-11-04 21:13:48.225 UTC [1092] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 900 of 1024 MiB, in flight 37/0, waits 13, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.225 UTC [1092] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.227 UTC [1109] LOG:  gravity: grant 32 MiB of 32 MiB asked after 5 ms (pool held 900 of 1024 MiB, in flight 41/0, waits 18, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.227 UTC [1109] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.228 UTC [1076] LOG:  gravity: grant 32 MiB of 32 MiB asked after 8 ms (pool held 936 of 1024 MiB, in flight 44/0, waits 21, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.228 UTC [1076] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.230 UTC [1095] LOG:  gravity: grant 32 MiB of 32 MiB asked after 7 ms (pool held 936 of 1024 MiB, in flight 46/0, waits 24, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.230 UTC [1095] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.234 UTC [1137] LOG:  gravity: grant 32 MiB of 32 MiB asked after 11 ms (pool held 936 of 1024 MiB, in flight 52/0, waits 31, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.234 UTC [1137] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1096] LOG:  gravity: grant 32 MiB of 32 MiB asked after 11 ms (pool held 900 of 1024 MiB, in flight 51/0, waits 32, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1096] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1152] LOG:  gravity: grant 32 MiB of 32 MiB asked after 13 ms (pool held 936 of 1024 MiB, in flight 51/0, waits 32, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1152] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1160] LOG:  gravity: grant 32 MiB of 32 MiB asked after 4 ms (pool held 936 of 1024 MiB, in flight 50/0, waits 32, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.235 UTC [1160] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.236 UTC [1055] LOG:  gravity: grant 32 MiB of 32 MiB asked after 4 ms (pool held 936 of 1024 MiB, in flight 49/0, waits 32, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.236 UTC [1055] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.238 UTC [1146] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 900 of 1024 MiB, in flight 52/0, waits 37, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.238 UTC [1146] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.239 UTC [1086] LOG:  gravity: grant 32 MiB of 32 MiB asked after 15 ms (pool held 936 of 1024 MiB, in flight 53/0, waits 38, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.239 UTC [1086] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.240 UTC [1101] LOG:  gravity: grant 32 MiB of 32 MiB asked after 16 ms (pool held 936 of 1024 MiB, in flight 54/0, waits 40, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.240 UTC [1101] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.242 UTC [1056] LOG:  gravity: grant 32 MiB of 32 MiB asked after 8 ms (pool held 900 of 1024 MiB, in flight 52/0, waits 40, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.242 UTC [1056] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.243 UTC [1070] LOG:  gravity: grant 32 MiB of 32 MiB asked after 19 ms (pool held 936 of 1024 MiB, in flight 52/0, waits 40, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.243 UTC [1070] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.243 UTC [1126] LOG:  gravity: grant 32 MiB of 32 MiB asked after 14 ms (pool held 936 of 1024 MiB, in flight 52/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.243 UTC [1126] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.244 UTC [1161] LOG:  gravity: grant 32 MiB of 32 MiB asked after 6 ms (pool held 936 of 1024 MiB, in flight 51/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.244 UTC [1161] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.245 UTC [1060] LOG:  gravity: grant 32 MiB of 32 MiB asked after 21 ms (pool held 936 of 1024 MiB, in flight 50/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.245 UTC [1060] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.247 UTC [1057] LOG:  gravity: grant 32 MiB of 32 MiB asked after 22 ms (pool held 936 of 1024 MiB, in flight 49/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.247 UTC [1057] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.249 UTC [1094] LOG:  gravity: grant 32 MiB of 32 MiB asked after 19 ms (pool held 900 of 1024 MiB, in flight 47/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.249 UTC [1094] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.249 UTC [1143] LOG:  gravity: grant 32 MiB of 32 MiB asked after 23 ms (pool held 900 of 1024 MiB, in flight 46/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.249 UTC [1143] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1163] LOG:  gravity: grant 32 MiB of 32 MiB asked after 25 ms (pool held 828 of 1024 MiB, in flight 43/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1163] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1122] LOG:  gravity: grant 32 MiB of 32 MiB asked after 22 ms (pool held 828 of 1024 MiB, in flight 42/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1122] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1114] LOG:  gravity: grant 32 MiB of 32 MiB asked after 24 ms (pool held 828 of 1024 MiB, in flight 41/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.250 UTC [1114] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1052] LOG:  gravity: grant 32 MiB of 32 MiB asked after 23 ms (pool held 864 of 1024 MiB, in flight 41/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1052] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1166] LOG:  gravity: grant 32 MiB of 32 MiB asked after 22 ms (pool held 900 of 1024 MiB, in flight 41/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1166] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1053] LOG:  gravity: grant 32 MiB of 32 MiB asked after 25 ms (pool held 936 of 1024 MiB, in flight 41/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.251 UTC [1053] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.253 UTC [1127] LOG:  gravity: grant 32 MiB of 32 MiB asked after 9 ms (pool held 900 of 1024 MiB, in flight 39/0, waits 41, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.253 UTC [1127] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1140] LOG:  gravity: grant 32 MiB of 32 MiB asked after 14 ms (pool held 900 of 1024 MiB, in flight 40/0, waits 43, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1140] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1150] LOG:  gravity: grant 32 MiB of 32 MiB asked after 21 ms (pool held 900 of 1024 MiB, in flight 39/0, waits 43, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1150] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1132] LOG:  gravity: grant 32 MiB of 32 MiB asked after 21 ms (pool held 900 of 1024 MiB, in flight 38/0, waits 43, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.254 UTC [1132] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.255 UTC [1118] LOG:  gravity: grant 32 MiB of 32 MiB asked after 29 ms (pool held 936 of 1024 MiB, in flight 38/0, waits 43, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.255 UTC [1118] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.257 UTC [1130] LOG:  gravity: grant 32 MiB of 32 MiB asked after 17 ms (pool held 900 of 1024 MiB, in flight 38/0, waits 45, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.257 UTC [1130] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.257 UTC [1110] LOG:  gravity: grant 32 MiB of 32 MiB asked after 31 ms (pool held 936 of 1024 MiB, in flight 38/0, waits 45, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.257 UTC [1110] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.258 UTC [1120] LOG:  gravity: grant 32 MiB of 32 MiB asked after 30 ms (pool held 936 of 1024 MiB, in flight 37/0, waits 45, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.258 UTC [1120] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1171] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 936 of 1024 MiB, in flight 37/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1171] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1106] LOG:  gravity: grant 32 MiB of 32 MiB asked after 5 ms (pool held 936 of 1024 MiB, in flight 36/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1106] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1141] LOG:  gravity: grant 32 MiB of 32 MiB asked after 18 ms (pool held 936 of 1024 MiB, in flight 35/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1141] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1121] LOG:  gravity: grant 32 MiB of 32 MiB asked after 27 ms (pool held 936 of 1024 MiB, in flight 34/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.259 UTC [1121] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.260 UTC [1172] LOG:  gravity: grant 32 MiB of 32 MiB asked after 24 ms (pool held 900 of 1024 MiB, in flight 32/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.260 UTC [1172] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.260 UTC [1061] LOG:  gravity: grant 32 MiB of 32 MiB asked after 22 ms (pool held 936 of 1024 MiB, in flight 32/0, waits 46, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.260 UTC [1061] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.261 UTC [1103] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 792 of 1024 MiB, in flight 28/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.261 UTC [1103] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.261 UTC [1062] LOG:  gravity: grant 32 MiB of 32 MiB asked after 5 ms (pool held 828 of 1024 MiB, in flight 28/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.261 UTC [1062] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.262 UTC [1154] LOG:  gravity: grant 32 MiB of 32 MiB asked after 24 ms (pool held 864 of 1024 MiB, in flight 28/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.262 UTC [1154] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.262 UTC [1146] LOG:  gravity: grant 32 MiB of 32 MiB asked after 8 ms (pool held 864 of 1024 MiB, in flight 27/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.262 UTC [1146] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.265 UTC [1106] LOG:  gravity: grant 32 MiB of 32 MiB asked after 5 ms (pool held 756 of 1024 MiB, in flight 23/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.265 UTC [1106] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.265 UTC [1097] LOG:  gravity: grant 32 MiB of 32 MiB asked after 35 ms (pool held 792 of 1024 MiB, in flight 23/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.265 UTC [1097] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:48.268 UTC [1175] LOG:  gravity: grant 32 MiB of 32 MiB asked after 32 ms (pool held 756 of 1024 MiB, in flight 21/0, waits 47, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:48.268 UTC [1175] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:50.311 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-columnar-1  | 2026-11-04 21:13:50.350 UTC [1000] LOG:  checkpoint complete: wrote 968 buffers (5.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.008 s, sync=0.025 s, total=0.040 s; sync files=20, longest=0.005 s, average=0.002 s; distance=6137 kB, estimate=6137 kB; lsn=0/21FB118, redo lsn=0/21FB0C0

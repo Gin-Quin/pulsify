@@ -1,0 +1,22 @@
+{
+  "freshAttemptGroups": 15,
+  "failedFreshAttemptGroups": 2,
+  "main": {
+    "cells": 934,
+    "requests": 934000,
+    "errors": 584,
+    "replays": 1558,
+    "exactHistories": 255074
+  },
+  "freshProbes": {
+    "cells": 23,
+    "requests": 23000,
+    "errors": 0,
+    "replays": 36,
+    "exactHistories": 886
+  },
+  "completedMatrices": 18,
+  "reportedMatrices": 20,
+  "plannedMatrices": 20,
+  "plannedMainRequests": 960000
+}

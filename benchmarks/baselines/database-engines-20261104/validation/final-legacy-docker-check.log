@@ -1,0 +1,104 @@
+$ bun benchmarks/database/docker.ts --test-only
+ Image pulsify-db-bench-5717-1793827316953-benchmark Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 592B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 702B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/oven/bun:1.4.4
+#3 DONE 1.0s
+
+#4 [1/8] FROM docker.io/oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 469.42kB done
+#5 DONE 0.0s
+
+#6 [2/8] WORKDIR /workspace
+#6 DONE 0.1s
+
+#7 [3/8] COPY package.json bun.lock ./
+#7 DONE 0.0s
+
+#8 [4/8] COPY packages/pulse/package.json packages/pulse/package.json
+#8 DONE 0.0s
+
+#9 [5/8] COPY benchmarks/package.json benchmarks/package.json
+#9 DONE 0.1s
+
+#10 [6/8] RUN bun install --frozen-lockfile
+#10 0.523 bun install v1.4.4 (38afee6c8)
+#10 1.591
+#10 1.591 + @playwright/test@1.64.1
+#10 1.591 + typescript@5.9.3
+#10 1.591 + @biomejs/biome@1.9.4
+#10 1.591
+#10 1.591 74 packages installed [1181.00ms]
+#10 DONE 2.0s
+
+#11 [7/8] COPY packages/pulse/source packages/pulse/source
+#11 DONE 0.0s
+
+#12 [8/8] COPY benchmarks/database benchmarks/database
+#12 DONE 0.0s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 0.5s done
+#13 writing image sha256:f75a55982fe6b3b835ef6f249927e50ca42c04add0f10f05492fcc7d854df1bb
+#13 writing image sha256:f75a55982fe6b3b835ef6f249927e50ca42c04add0f10f05492fcc7d854df1bb done
+#13 naming to docker.io/library/pulsify-db-bench-5717-1793827316953-benchmark done
+#13 DONE 0.6s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image pulsify-db-bench-5717-1793827316953-benchmark Built
+ Network pulsify-db-bench-5717-1793827316953_default Creating
+ Network pulsify-db-bench-5717-1793827316953_default Creating
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Creating
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Creating
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Created
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Created
+ Network pulsify-db-bench-5717-1793827316953_default Created
+ Network pulsify-db-bench-5717-1793827316953_default Created
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Creating
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Created
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Starting
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Started
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Waiting
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Healthy
+ Container pulsify-db-bench-5717-1793827316953-benchmark-run-7f22e24c4e78 Creating
+ Container pulsify-db-bench-5717-1793827316953-benchmark-run-7f22e24c4e78 Created
+bun test v1.4.4 (38afee6c8)
+
+benchmarks/database/store.test.ts:
+(pass) sqlite database benchmark contract > real multi-actor history, partial vectors, lossless compaction and fresh/incremental replay [63.64ms]
+(pass) sqlite database benchmark contract > a vector inside a span includes that segment; omitted actors still return their history [23.09ms]
+(pass) sqlite database benchmark contract > identical appends are idempotent; conflicts and gaps roll back atomically [20.73ms]
+(pass) sqlite database benchmark contract > a concurrent append survives compaction; a stale competing plan is rejected [26.50ms]
+(pass) sqlite database benchmark contract > large binary values round-trip losslessly [49.27ms]
+(pass) postgres database benchmark contract > real multi-actor history, partial vectors, lossless compaction and fresh/incremental replay [33.64ms]
+(pass) postgres database benchmark contract > a vector inside a span includes that segment; omitted actors still return their history [11.32ms]
+(pass) postgres database benchmark contract > identical appends are idempotent; conflicts and gaps roll back atomically [9.38ms]
+(pass) postgres database benchmark contract > a concurrent append survives compaction; a stale competing plan is rejected [18.57ms]
+(pass) postgres database benchmark contract > large binary values round-trip losslessly [7.55ms]
+(pass) segment encoding rejects non-contiguous history and detects corruption [1.24ms]
+(pass) report uses arithmetic median and nearest-rank p95 [0.05ms]
+
+ 12 pass
+ 0 fail
+ 53 expect() calls
+Ran 12 tests across 1 file. [389.00ms]
+Database suite completed. Reports directory: /home/benchmark/code/pulsify/benchmarks/results
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Stopping
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Stopped
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Removing
+ Container pulsify-db-bench-5717-1793827316953-postgres-1 Removed
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Removing
+ Network pulsify-db-bench-5717-1793827316953_default Removing
+ Volume pulsify-db-bench-5717-1793827316953_postgres-data Removed
+ Network pulsify-db-bench-5717-1793827316953_default Removed

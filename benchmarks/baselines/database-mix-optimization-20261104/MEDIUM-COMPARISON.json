@@ -1,0 +1,1595 @@
+{
+  "baseline": [
+    "/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/baseline-medium"
+  ],
+  "candidate": [
+    "/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/optimized-medium"
+  ],
+  "passed": false,
+  "rows": [
+    {
+      "key": "bare-metal/postgres/1/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1458.20874002927,
+          "service": {
+            "p50_ms": 0.6481669999999999,
+            "p95_ms": 0.825917,
+            "p99_ms": 2.4203330000000003,
+            "max_ms": 15.505041
+          },
+          "queue": {
+            "p50_ms": 395.467667,
+            "p95_ms": 658.900125,
+            "p99_ms": 679.937083,
+            "max_ms": 685.107458
+          },
+          "latency": {
+            "p50_ms": 396.12475,
+            "p95_ms": 659.56275,
+            "p99_ms": 680.585833,
+            "max_ms": 685.772833
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 96.24177684193182
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3890.0824828971163,
+          "service": {
+            "p50_ms": 0.224708,
+            "p95_ms": 0.38987499999999997,
+            "p99_ms": 0.455125,
+            "max_ms": 1.46325
+          },
+          "queue": {
+            "p50_ms": 130.95425,
+            "p95_ms": 244.672167,
+            "p99_ms": 254.30433299999999,
+            "max_ms": 256.835375
+          },
+          "latency": {
+            "p50_ms": 131.1695,
+            "p95_ms": 244.895042,
+            "p99_ms": 254.519458,
+            "max_ms": 257.063958
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 256.7454438712097
+        }
+      ],
+      "gainPercent": 166.77130482834937
+    },
+    {
+      "key": "bare-metal/postgres/1/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1469.8203622298793,
+          "service": {
+            "p50_ms": 0.649375,
+            "p95_ms": 0.834959,
+            "p99_ms": 2.412708,
+            "max_ms": 16.018207999999998
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.649375,
+            "p95_ms": 0.834959,
+            "p99_ms": 2.412708,
+            "max_ms": 16.018207999999998
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 97.00814390717203
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3890.4759739804654,
+          "service": {
+            "p50_ms": 0.225083,
+            "p95_ms": 0.38808400000000004,
+            "p99_ms": 0.474125,
+            "max_ms": 1.524958
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.225083,
+            "p95_ms": 0.38808400000000004,
+            "p99_ms": 0.474125,
+            "max_ms": 1.524958
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 256.77141428271074
+        }
+      ],
+      "gainPercent": 164.69057538964728
+    },
+    {
+      "key": "bare-metal/postgres/1/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1453.749064376188,
+          "service": {
+            "p50_ms": 0.668583,
+            "p95_ms": 0.88625,
+            "p99_ms": 2.098042,
+            "max_ms": 14.663917
+          },
+          "queue": {
+            "p50_ms": 325.260834,
+            "p95_ms": 649.883417,
+            "p99_ms": 679.9602500000001,
+            "max_ms": 687.185292
+          },
+          "latency": {
+            "p50_ms": 325.92420899999996,
+            "p95_ms": 650.539125,
+            "p99_ms": 680.6270000000001,
+            "max_ms": 687.876584
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 98.85493637758078
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2919.995416424795,
+          "service": {
+            "p50_ms": 0.254208,
+            "p95_ms": 0.6653749999999999,
+            "p99_ms": 0.7157910000000001,
+            "max_ms": 1.4032499999999999
+          },
+          "queue": {
+            "p50_ms": 150.279625,
+            "p95_ms": 319.279541,
+            "p99_ms": 337.346666,
+            "max_ms": 342.230916
+          },
+          "latency": {
+            "p50_ms": 150.50762500000002,
+            "p95_ms": 319.51324999999997,
+            "p99_ms": 337.56525000000005,
+            "max_ms": 342.46625
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 198.55968831688608
+        }
+      ],
+      "gainPercent": 100.85965920657576
+    },
+    {
+      "key": "bare-metal/postgres/1/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1467.0762403167942,
+          "service": {
+            "p50_ms": 0.6641670000000001,
+            "p95_ms": 0.859833,
+            "p99_ms": 2.109625,
+            "max_ms": 14.444083
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.6641670000000001,
+            "p95_ms": 0.859833,
+            "p99_ms": 2.109625,
+            "max_ms": 14.444083
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 99.761184341542
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2928.5699845772424,
+          "service": {
+            "p50_ms": 0.257958,
+            "p95_ms": 0.669,
+            "p99_ms": 0.739958,
+            "max_ms": 1.428666
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.257958,
+            "p95_ms": 0.669,
+            "p99_ms": 0.739958,
+            "max_ms": 1.428666
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 199.1427589512525
+        }
+      ],
+      "gainPercent": 99.61948153047994
+    },
+    {
+      "key": "bare-metal/postgres/16/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5086.593972321035,
+          "service": {
+            "p50_ms": 1.9009999999999998,
+            "p95_ms": 7.869917000000001,
+            "p99_ms": 27.692625,
+            "max_ms": 31.406375
+          },
+          "queue": {
+            "p50_ms": 110.371625,
+            "p95_ms": 184.756958,
+            "p99_ms": 190.429791,
+            "max_ms": 192.269958
+          },
+          "latency": {
+            "p50_ms": 112.324208,
+            "p95_ms": 186.71404099999998,
+            "p99_ms": 193.293666,
+            "max_ms": 196.595166
+          },
+          "retries": 18,
+          "useful_compactions": 50,
+          "noop_compactions": 50,
+          "removed_segments": 882,
+          "useful_compactions_per_sec": 254.32969861605173
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 7377.049972453727,
+          "service": {
+            "p50_ms": 1.492625,
+            "p95_ms": 5.713208,
+            "p99_ms": 9.059209000000001,
+            "max_ms": 12.139958
+          },
+          "queue": {
+            "p50_ms": 93.473,
+            "p95_ms": 130.73679099999998,
+            "p99_ms": 132.983416,
+            "max_ms": 133.410416
+          },
+          "latency": {
+            "p50_ms": 94.65162500000001,
+            "p95_ms": 131.67504100000002,
+            "p99_ms": 134.048791,
+            "max_ms": 135.5555
+          },
+          "retries": 18,
+          "useful_compactions": 54,
+          "noop_compactions": 46,
+          "removed_segments": 874,
+          "useful_compactions_per_sec": 398.36069851250124
+        }
+      ],
+      "gainPercent": 45.02926737609345
+    },
+    {
+      "key": "bare-metal/postgres/16/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5116.459128673048,
+          "service": {
+            "p50_ms": 1.916333,
+            "p95_ms": 7.436166999999999,
+            "p99_ms": 27.835874999999998,
+            "max_ms": 31.226792
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 1.916333,
+            "p95_ms": 7.436166999999999,
+            "p99_ms": 27.835874999999998,
+            "max_ms": 31.226792
+          },
+          "retries": 29,
+          "useful_compactions": 56,
+          "noop_compactions": 44,
+          "removed_segments": 876,
+          "useful_compactions_per_sec": 286.5217112056907
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 15742.226457091036,
+          "service": {
+            "p50_ms": 0.815875,
+            "p95_ms": 2.143042,
+            "p99_ms": 3.205667,
+            "max_ms": 5.065667
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.815875,
+            "p95_ms": 2.143042,
+            "p99_ms": 3.205667,
+            "max_ms": 5.065667
+          },
+          "retries": 20,
+          "useful_compactions": 51,
+          "noop_compactions": 49,
+          "removed_segments": 873,
+          "useful_compactions_per_sec": 802.8535493116428
+        }
+      ],
+      "gainPercent": 207.6781434424118
+    },
+    {
+      "key": "bare-metal/postgres/16/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1772.6754914257974,
+          "service": {
+            "p50_ms": 4.873417,
+            "p95_ms": 42.714792,
+            "p99_ms": 106.84525000000001,
+            "max_ms": 141.646084
+          },
+          "queue": {
+            "p50_ms": 260.272,
+            "p95_ms": 522.760417,
+            "p99_ms": 544.296667,
+            "max_ms": 549.6751250000001
+          },
+          "latency": {
+            "p50_ms": 269.857875,
+            "p95_ms": 532.286875,
+            "p99_ms": 553.802333,
+            "max_ms": 564.1187500000001
+          },
+          "retries": 676,
+          "useful_compactions": 73,
+          "noop_compactions": 27,
+          "removed_segments": 312,
+          "useful_compactions_per_sec": 129.40531087408323
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3882.3028188201138,
+          "service": {
+            "p50_ms": 2.388375,
+            "p95_ms": 18.582333,
+            "p99_ms": 43.921124999999996,
+            "max_ms": 72.72675000000001
+          },
+          "queue": {
+            "p50_ms": 109.65204100000001,
+            "p95_ms": 236.256041,
+            "p99_ms": 249.228541,
+            "max_ms": 251.77616600000002
+          },
+          "latency": {
+            "p50_ms": 114.676833,
+            "p95_ms": 241.277875,
+            "p99_ms": 253.62487499999997,
+            "max_ms": 257.578958
+          },
+          "retries": 607,
+          "useful_compactions": 70,
+          "noop_compactions": 30,
+          "removed_segments": 314,
+          "useful_compactions_per_sec": 271.76119731740795
+        }
+      ],
+      "gainPercent": 119.00809469067019
+    },
+    {
+      "key": "bare-metal/postgres/16/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1864.5419589530409,
+          "service": {
+            "p50_ms": 5.650084,
+            "p95_ms": 43.2825,
+            "p99_ms": 78.305791,
+            "max_ms": 113.181875
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 5.650084,
+            "p95_ms": 43.2825,
+            "p99_ms": 78.305791,
+            "max_ms": 113.181875
+          },
+          "retries": 484,
+          "useful_compactions": 58,
+          "noop_compactions": 42,
+          "removed_segments": 308,
+          "useful_compactions_per_sec": 108.14343361927638
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3431.1349765610594,
+          "service": {
+            "p50_ms": 2.3036659999999998,
+            "p95_ms": 17.279167,
+            "p99_ms": 61.556334,
+            "max_ms": 95.28558299999999
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 2.3036659999999998,
+            "p95_ms": 17.279167,
+            "p99_ms": 61.556334,
+            "max_ms": 95.28558299999999
+          },
+          "retries": 757,
+          "useful_compactions": 81,
+          "noop_compactions": 19,
+          "removed_segments": 315,
+          "useful_compactions_per_sec": 277.9219331014458
+        }
+      ],
+      "gainPercent": 84.02026085203661
+    },
+    {
+      "key": "bare-metal/postgres/64/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5401.779876746184,
+          "service": {
+            "p50_ms": 4.429416000000001,
+            "p95_ms": 46.641792,
+            "p99_ms": 57.053708,
+            "max_ms": 60.3785
+          },
+          "queue": {
+            "p50_ms": 96.599667,
+            "p95_ms": 158.640667,
+            "p99_ms": 163.487917,
+            "max_ms": 164.954167
+          },
+          "latency": {
+            "p50_ms": 104.051417,
+            "p95_ms": 167.955125,
+            "p99_ms": 179.75429199999996,
+            "max_ms": 185.124084
+          },
+          "retries": 29,
+          "useful_compactions": 17,
+          "noop_compactions": 83,
+          "removed_segments": 778,
+          "useful_compactions_per_sec": 91.83025790468513
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 11788.039265958796,
+          "service": {
+            "p50_ms": 2.241459,
+            "p95_ms": 14.849833,
+            "p99_ms": 18.852,
+            "max_ms": 24.280917
+          },
+          "queue": {
+            "p50_ms": 41.423041,
+            "p95_ms": 70.762291,
+            "p99_ms": 73.43208299999999,
+            "max_ms": 73.97791600000001
+          },
+          "latency": {
+            "p50_ms": 45.616583,
+            "p95_ms": 76.251291,
+            "p99_ms": 82.323625,
+            "max_ms": 84.831625
+          },
+          "retries": 31,
+          "useful_compactions": 16,
+          "noop_compactions": 84,
+          "removed_segments": 779,
+          "useful_compactions_per_sec": 188.60862825534073
+        }
+      ],
+      "gainPercent": 118.2250949673914
+    },
+    {
+      "key": "bare-metal/postgres/64/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5348.120301238438,
+          "service": {
+            "p50_ms": 3.7605,
+            "p95_ms": 47.546583000000005,
+            "p99_ms": 57.470167000000004,
+            "max_ms": 69.05579200000001
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 3.7605,
+            "p95_ms": 47.546583000000005,
+            "p99_ms": 57.470167000000004,
+            "max_ms": 69.05579200000001
+          },
+          "retries": 34,
+          "useful_compactions": 21,
+          "noop_compactions": 79,
+          "removed_segments": 784,
+          "useful_compactions_per_sec": 112.31052632600719
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 12686.38423409241,
+          "service": {
+            "p50_ms": 2.0844169999999997,
+            "p95_ms": 13.636833,
+            "p99_ms": 16.896666,
+            "max_ms": 24.729708
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 2.0844169999999997,
+            "p95_ms": 13.636833,
+            "p99_ms": 16.896666,
+            "max_ms": 24.729708
+          },
+          "retries": 33,
+          "useful_compactions": 22,
+          "noop_compactions": 78,
+          "removed_segments": 788,
+          "useful_compactions_per_sec": 279.100453150033
+        }
+      ],
+      "gainPercent": 137.21202066368417
+    },
+    {
+      "key": "bare-metal/postgres/64/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1693.6307988982824,
+          "service": {
+            "p50_ms": 29.360792,
+            "p95_ms": 99.53983299999999,
+            "p99_ms": 405.90587500000004,
+            "max_ms": 451.694125
+          },
+          "queue": {
+            "p50_ms": 145.571958,
+            "p95_ms": 441.431541,
+            "p99_ms": 490.359791,
+            "max_ms": 500.17241599999994
+          },
+          "latency": {
+            "p50_ms": 171.236583,
+            "p95_ms": 520.059666,
+            "p99_ms": 587.15125,
+            "max_ms": 590.447291
+          },
+          "retries": 455,
+          "useful_compactions": 13,
+          "noop_compactions": 87,
+          "removed_segments": 276,
+          "useful_compactions_per_sec": 22.017200385677672
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3376.1494695915567,
+          "service": {
+            "p50_ms": 16.512167,
+            "p95_ms": 43.820499999999996,
+            "p99_ms": 204.65025,
+            "max_ms": 227.799208
+          },
+          "queue": {
+            "p50_ms": 71.475417,
+            "p95_ms": 228.572959,
+            "p99_ms": 248.665459,
+            "max_ms": 255.16025
+          },
+          "latency": {
+            "p50_ms": 84.372875,
+            "p95_ms": 264.603209,
+            "p99_ms": 293.79875,
+            "max_ms": 296.195167
+          },
+          "retries": 455,
+          "useful_compactions": 13,
+          "noop_compactions": 87,
+          "removed_segments": 277,
+          "useful_compactions_per_sec": 43.88994310469024
+        }
+      ],
+      "gainPercent": 99.34388721483829
+    },
+    {
+      "key": "bare-metal/postgres/64/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1829.7087069157096,
+          "service": {
+            "p50_ms": 28.232208,
+            "p95_ms": 90.341459,
+            "p99_ms": 365.961458,
+            "max_ms": 408.957709
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 28.232208,
+            "p95_ms": 90.341459,
+            "p99_ms": 365.961458,
+            "max_ms": 408.957709
+          },
+          "retries": 455,
+          "useful_compactions": 13,
+          "noop_compactions": 87,
+          "removed_segments": 273,
+          "useful_compactions_per_sec": 23.786213189904224
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3180.1322332692,
+          "service": {
+            "p50_ms": 17.13175,
+            "p95_ms": 50.734500000000004,
+            "p99_ms": 217.293916,
+            "max_ms": 240.339041
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 17.13175,
+            "p95_ms": 50.734500000000004,
+            "p99_ms": 217.293916,
+            "max_ms": 240.339041
+          },
+          "retries": 455,
+          "useful_compactions": 13,
+          "noop_compactions": 87,
+          "removed_segments": 276,
+          "useful_compactions_per_sec": 41.3417190324996
+        }
+      ],
+      "gainPercent": 73.80538340607575
+    },
+    {
+      "key": "bare-metal/sqlite/1/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 9196.2620542189,
+          "service": {
+            "p50_ms": 0.08370899999999999,
+            "p95_ms": 0.182792,
+            "p99_ms": 1.018375,
+            "max_ms": 1.378417
+          },
+          "queue": {
+            "p50_ms": 57.270833,
+            "p95_ms": 103.357583,
+            "p99_ms": 107.50524999999999,
+            "max_ms": 108.679333
+          },
+          "latency": {
+            "p50_ms": 57.327458,
+            "p95_ms": 103.40975,
+            "p99_ms": 107.577666,
+            "max_ms": 108.739791
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 606.9532955784474
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 11420.533461340763,
+          "service": {
+            "p50_ms": 0.06958400000000001,
+            "p95_ms": 0.164625,
+            "p99_ms": 0.674709,
+            "max_ms": 1.012209
+          },
+          "queue": {
+            "p50_ms": 45.695291999999995,
+            "p95_ms": 83.048834,
+            "p99_ms": 86.51529199999999,
+            "max_ms": 87.522375
+          },
+          "latency": {
+            "p50_ms": 45.736416999999996,
+            "p95_ms": 83.089084,
+            "p99_ms": 86.57699999999998,
+            "max_ms": 87.561542
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 753.7552084484904
+        }
+      ],
+      "gainPercent": 24.18669013571064
+    },
+    {
+      "key": "bare-metal/sqlite/1/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 9202.912721876473,
+          "service": {
+            "p50_ms": 0.085208,
+            "p95_ms": 0.181208,
+            "p99_ms": 0.913709,
+            "max_ms": 1.476959
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.085208,
+            "p95_ms": 0.181208,
+            "p99_ms": 0.913709,
+            "max_ms": 1.476959
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 607.3922396438472
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 11197.382840187716,
+          "service": {
+            "p50_ms": 0.072709,
+            "p95_ms": 0.167209,
+            "p99_ms": 0.689834,
+            "max_ms": 1.0518750000000001
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.072709,
+            "p95_ms": 0.167209,
+            "p99_ms": 0.689834,
+            "max_ms": 1.0518750000000001
+          },
+          "retries": 0,
+          "useful_compactions": 66,
+          "noop_compactions": 34,
+          "removed_segments": 1068,
+          "useful_compactions_per_sec": 739.0272674523893
+        }
+      ],
+      "gainPercent": 21.67216161433476
+    },
+    {
+      "key": "bare-metal/sqlite/1/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5421.916606856149,
+          "service": {
+            "p50_ms": 0.10875,
+            "p95_ms": 0.553834,
+            "p99_ms": 0.6107079999999999,
+            "max_ms": 1.319333
+          },
+          "queue": {
+            "p50_ms": 71.677167,
+            "p95_ms": 168.758125,
+            "p99_ms": 180.903208,
+            "max_ms": 184.369667
+          },
+          "latency": {
+            "p50_ms": 71.731167,
+            "p95_ms": 168.81204200000002,
+            "p99_ms": 180.953542,
+            "max_ms": 184.436542
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 368.69032926621816
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5896.981200872103,
+          "service": {
+            "p50_ms": 0.093959,
+            "p95_ms": 0.532666,
+            "p99_ms": 0.5742079999999999,
+            "max_ms": 1.036959
+          },
+          "queue": {
+            "p50_ms": 65.990959,
+            "p95_ms": 155.1055,
+            "p99_ms": 166.405125,
+            "max_ms": 169.54033399999997
+          },
+          "latency": {
+            "p50_ms": 66.021834,
+            "p95_ms": 155.144959,
+            "p99_ms": 166.440584,
+            "max_ms": 169.57824999999997
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 400.99472165930297
+        }
+      ],
+      "gainPercent": 8.761931037729775
+    },
+    {
+      "key": "bare-metal/sqlite/1/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5509.335809184771,
+          "service": {
+            "p50_ms": 0.106334,
+            "p95_ms": 0.541959,
+            "p99_ms": 0.5908340000000001,
+            "max_ms": 1.0560420000000001
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.106334,
+            "p95_ms": 0.541959,
+            "p99_ms": 0.5908340000000001,
+            "max_ms": 1.0560420000000001
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 374.6348350245645
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 5960.684824986962,
+          "service": {
+            "p50_ms": 0.090625,
+            "p95_ms": 0.529667,
+            "p99_ms": 0.583958,
+            "max_ms": 0.9889589999999999
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.090625,
+            "p95_ms": 0.529667,
+            "p99_ms": 0.583958,
+            "max_ms": 0.9889589999999999
+          },
+          "retries": 0,
+          "useful_compactions": 68,
+          "noop_compactions": 32,
+          "removed_segments": 458,
+          "useful_compactions_per_sec": 405.32656809911344
+        }
+      ],
+      "gainPercent": 8.192439732022393
+    },
+    {
+      "key": "bare-metal/sqlite/16/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 7634.151139992904,
+          "service": {
+            "p50_ms": 0.111375,
+            "p95_ms": 3.831292,
+            "p99_ms": 40.460083,
+            "max_ms": 119.435333
+          },
+          "queue": {
+            "p50_ms": 50.972083,
+            "p95_ms": 91.51366700000001,
+            "p99_ms": 95.037917,
+            "max_ms": 96.089625
+          },
+          "latency": {
+            "p50_ms": 52.232958,
+            "p95_ms": 93.256292,
+            "p99_ms": 103.78591700000001,
+            "max_ms": 130.990042
+          },
+          "retries": 17,
+          "useful_compactions": 62,
+          "noop_compactions": 38,
+          "removed_segments": 975,
+          "useful_compactions_per_sec": 473.31737067956004
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 13918.554354362665,
+          "service": {
+            "p50_ms": 0.13504200000000002,
+            "p95_ms": 6.0101249999999995,
+            "p99_ms": 13.331209,
+            "max_ms": 24.306791
+          },
+          "queue": {
+            "p50_ms": 37.891459000000005,
+            "p95_ms": 65.979375,
+            "p99_ms": 67.77695899999999,
+            "max_ms": 68.216292
+          },
+          "latency": {
+            "p50_ms": 38.91166700000001,
+            "p95_ms": 66.894375,
+            "p99_ms": 68.77266699999998,
+            "max_ms": 71.8465
+          },
+          "retries": 27,
+          "useful_compactions": 44,
+          "noop_compactions": 56,
+          "removed_segments": 898,
+          "useful_compactions_per_sec": 612.4163915919572
+        }
+      ],
+      "gainPercent": 82.31960697565653
+    },
+    {
+      "key": "bare-metal/sqlite/16/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 4954.405007072314,
+          "service": {
+            "p50_ms": 0.110084,
+            "p95_ms": 2.1331670000000003,
+            "p99_ms": 61.060042,
+            "max_ms": 198.25699999999998
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.110084,
+            "p95_ms": 2.1331670000000003,
+            "p99_ms": 61.060042,
+            "max_ms": 198.25699999999998
+          },
+          "retries": 11,
+          "useful_compactions": 62,
+          "noop_compactions": 38,
+          "removed_segments": 992,
+          "useful_compactions_per_sec": 307.1731104384835
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 12848.852942423942,
+          "service": {
+            "p50_ms": 0.1445,
+            "p95_ms": 6.595875,
+            "p99_ms": 15.377208,
+            "max_ms": 75.864334
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.1445,
+            "p95_ms": 6.595875,
+            "p99_ms": 15.377208,
+            "max_ms": 75.864334
+          },
+          "retries": 21,
+          "useful_compactions": 48,
+          "noop_compactions": 52,
+          "removed_segments": 890,
+          "useful_compactions_per_sec": 616.7449412363493
+        }
+      ],
+      "gainPercent": 159.3419981628967
+    },
+    {
+      "key": "bare-metal/sqlite/16/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 6555.521471214252,
+          "service": {
+            "p50_ms": 0.16295900000000002,
+            "p95_ms": 3.869792,
+            "p99_ms": 61.677667,
+            "max_ms": 151.013125
+          },
+          "queue": {
+            "p50_ms": 57.5085,
+            "p95_ms": 114.761791,
+            "p99_ms": 119.717625,
+            "max_ms": 121.04245800000001
+          },
+          "latency": {
+            "p50_ms": 59.705541,
+            "p95_ms": 116.847,
+            "p99_ms": 121.804041,
+            "max_ms": 152.542875
+          },
+          "retries": 27,
+          "useful_compactions": 58,
+          "noop_compactions": 42,
+          "removed_segments": 423,
+          "useful_compactions_per_sec": 380.2202453304266
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 9707.551940523615,
+          "service": {
+            "p50_ms": 0.411709,
+            "p95_ms": 8.130666,
+            "p99_ms": 17.527708999999998,
+            "max_ms": 28.917416000000003
+          },
+          "queue": {
+            "p50_ms": 43.390166,
+            "p95_ms": 91.695708,
+            "p99_ms": 98.279333,
+            "max_ms": 99.741708
+          },
+          "latency": {
+            "p50_ms": 44.746041,
+            "p95_ms": 94.743916,
+            "p99_ms": 100.461,
+            "max_ms": 103.012583
+          },
+          "retries": 99,
+          "useful_compactions": 61,
+          "noop_compactions": 39,
+          "removed_segments": 381,
+          "useful_compactions_per_sec": 592.1606683719405
+        }
+      ],
+      "gainPercent": 48.082070711691614
+    },
+    {
+      "key": "bare-metal/sqlite/16/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 4870.397718284906,
+          "service": {
+            "p50_ms": 0.176084,
+            "p95_ms": 3.8370420000000003,
+            "p99_ms": 61.291916,
+            "max_ms": 203.530083
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.176084,
+            "p95_ms": 3.8370420000000003,
+            "p99_ms": 61.291916,
+            "max_ms": 203.530083
+          },
+          "retries": 25,
+          "useful_compactions": 72,
+          "noop_compactions": 28,
+          "removed_segments": 415,
+          "useful_compactions_per_sec": 350.6686357165132
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 9489.129016570392,
+          "service": {
+            "p50_ms": 0.357083,
+            "p95_ms": 7.811583000000001,
+            "p99_ms": 19.205125,
+            "max_ms": 44.36125
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.357083,
+            "p95_ms": 7.811583000000001,
+            "p99_ms": 19.205125,
+            "max_ms": 44.36125
+          },
+          "retries": 95,
+          "useful_compactions": 57,
+          "noop_compactions": 43,
+          "removed_segments": 396,
+          "useful_compactions_per_sec": 540.8803539445123
+        }
+      ],
+      "gainPercent": 94.8327336994556
+    },
+    {
+      "key": "bare-metal/sqlite/64/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3842.7520203681843,
+          "service": {
+            "p50_ms": 0.125125,
+            "p95_ms": 64.678917,
+            "p99_ms": 197.018417,
+            "max_ms": 260.02587500000004
+          },
+          "queue": {
+            "p50_ms": 49.004708,
+            "p95_ms": 85.609833,
+            "p99_ms": 89.157042,
+            "max_ms": 90.024167
+          },
+          "latency": {
+            "p50_ms": 53.99075,
+            "p95_ms": 99.584875,
+            "p99_ms": 198.77162500000003,
+            "max_ms": 260.22983300000004
+          },
+          "retries": 25,
+          "useful_compactions": 52,
+          "noop_compactions": 48,
+          "removed_segments": 909,
+          "useful_compactions_per_sec": 199.82310505914558
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 11963.427848919566,
+          "service": {
+            "p50_ms": 0.18625,
+            "p95_ms": 25.125083,
+            "p99_ms": 43.076375,
+            "max_ms": 79.01404099999999
+          },
+          "queue": {
+            "p50_ms": 40.332208,
+            "p95_ms": 71.043875,
+            "p99_ms": 73.401042,
+            "max_ms": 74.10775
+          },
+          "latency": {
+            "p50_ms": 45.579750000000004,
+            "p95_ms": 75.426,
+            "p99_ms": 81.229625,
+            "max_ms": 83.588042
+          },
+          "retries": 28,
+          "useful_compactions": 28,
+          "noop_compactions": 72,
+          "removed_segments": 794,
+          "useful_compactions_per_sec": 334.9759797697478
+        }
+      ],
+      "gainPercent": 211.3244827016789
+    },
+    {
+      "key": "bare-metal/sqlite/64/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 3864.3522252252064,
+          "service": {
+            "p50_ms": 0.12604200000000002,
+            "p95_ms": 65.13337499999999,
+            "p99_ms": 149.012666,
+            "max_ms": 258.578666
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.12604200000000002,
+            "p95_ms": 65.13337499999999,
+            "p99_ms": 149.012666,
+            "max_ms": 258.578666
+          },
+          "retries": 21,
+          "useful_compactions": 49,
+          "noop_compactions": 51,
+          "removed_segments": 896,
+          "useful_compactions_per_sec": 189.35325903603513
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 12074.70008376944,
+          "service": {
+            "p50_ms": 0.184625,
+            "p95_ms": 25.461291,
+            "p99_ms": 42.168499999999995,
+            "max_ms": 66.11025
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.184625,
+            "p95_ms": 25.461291,
+            "p99_ms": 42.168499999999995,
+            "max_ms": 66.11025
+          },
+          "retries": 37,
+          "useful_compactions": 24,
+          "noop_compactions": 76,
+          "removed_segments": 801,
+          "useful_compactions_per_sec": 289.7928020104665
+        }
+      ],
+      "gainPercent": 212.46375537275856
+    },
+    {
+      "key": "bare-metal/sqlite/64/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2772.528265059247,
+          "service": {
+            "p50_ms": 0.280542,
+            "p95_ms": 63.045832999999995,
+            "p99_ms": 197.885541,
+            "max_ms": 360.471792
+          },
+          "queue": {
+            "p50_ms": 49.469708000000004,
+            "p95_ms": 103.472875,
+            "p99_ms": 108.58295799999999,
+            "max_ms": 109.946083
+          },
+          "latency": {
+            "p50_ms": 57.330666,
+            "p95_ms": 117.49112500000001,
+            "p99_ms": 202.545291,
+            "max_ms": 360.681583
+          },
+          "retries": 46,
+          "useful_compactions": 59,
+          "noop_compactions": 41,
+          "removed_segments": 372,
+          "useful_compactions_per_sec": 163.5791676384956
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 7231.2854332986235,
+          "service": {
+            "p50_ms": 1.2342080000000002,
+            "p95_ms": 39.423916000000006,
+            "p99_ms": 83.90100000000001,
+            "max_ms": 133.337542
+          },
+          "queue": {
+            "p50_ms": 52.556083,
+            "p95_ms": 118.993791,
+            "p99_ms": 125.615916,
+            "max_ms": 127.07112500000001
+          },
+          "latency": {
+            "p50_ms": 60.090375,
+            "p95_ms": 129.934791,
+            "p99_ms": 135.485833,
+            "max_ms": 138.28775
+          },
+          "retries": 236,
+          "useful_compactions": 47,
+          "noop_compactions": 53,
+          "removed_segments": 322,
+          "useful_compactions_per_sec": 339.8704153650353
+        }
+      ],
+      "gainPercent": 160.81917809209764
+    },
+    {
+      "key": "bare-metal/sqlite/64/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2748.068108119992,
+          "service": {
+            "p50_ms": 0.262166,
+            "p95_ms": 90.917666,
+            "p99_ms": 195.77487499999998,
+            "max_ms": 358.216708
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 0.262166,
+            "p95_ms": 90.917666,
+            "p99_ms": 195.77487499999998,
+            "max_ms": 358.216708
+          },
+          "retries": 39,
+          "useful_compactions": 55,
+          "noop_compactions": 45,
+          "removed_segments": 376,
+          "useful_compactions_per_sec": 151.14374594659955
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 7620.366043978108,
+          "service": {
+            "p50_ms": 1.285958,
+            "p95_ms": 39.064,
+            "p99_ms": 82.18320899999999,
+            "max_ms": 123.870834
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 1.285958,
+            "p95_ms": 39.064,
+            "p99_ms": 82.18320899999999,
+            "max_ms": 123.870834
+          },
+          "retries": 212,
+          "useful_compactions": 49,
+          "noop_compactions": 51,
+          "removed_segments": 312,
+          "useful_compactions_per_sec": 373.3979361549273
+        }
+      ],
+      "gainPercent": 177.29902404752815
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+x-pg: &pg
+  environment:
+    POSTGRES_PASSWORD: pulsify-benchmark
+    POSTGRES_DB: pulsify_benchmark
+    LANG: C.UTF-8
+  shm_size: 512mb
+  healthcheck:
+    test: ["CMD-SHELL", "psql -h 127.0.0.1 -U postgres -d postgres -Atc 'SELECT 1' >/dev/null"]
+    interval: 1s
+    timeout: 5s
+    retries: 120
+  # Private disposable volumes are destroyed after each backend.
+services:
+  postgres:
+    <<: *pg
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "listen_addresses=*", "-c", "max_connections=180", "-c", "shared_buffers=128MB", "-c", "max_wal_size=128MB", "-c", "min_wal_size=32MB", "-c", "checkpoint_timeout=60s"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+  alloydb:
+    <<: *pg
+    image: google/alloydbomni:17.10.0
+    command: ["postgres", "-c", "listen_addresses=*", "-c", "max_connections=180", "-c", "shared_buffers=128MB", "-c", "max_wal_size=128MB", "-c", "min_wal_size=32MB", "-c", "checkpoint_timeout=60s"]
+    volumes: ["alloy-data:/var/lib/postgresql/data"]
+  orioledb:
+    <<: *pg
+    image: orioledb/orioledb:latest-pg17
+    command: ["postgres", "-c", "listen_addresses=*", "-c", "shared_preload_libraries=orioledb", "-c", "max_connections=180", "-c", "shared_buffers=128MB", "-c", "max_wal_size=128MB", "-c", "min_wal_size=32MB", "-c", "checkpoint_timeout=60s"]
+    environment:
+      POSTGRES_PASSWORD: pulsify-benchmark
+      POSTGRES_DB: pulsify_benchmark
+      POSTGRES_INITDB_ARGS: --locale=C
+    volumes: ["oriole-data:/var/lib/postgresql/data"]
+  pgrust-row: &pgrust
+    <<: *pg
+    image: malisper/pgrust:v0.4-beta
+    command: ["postgres", "-c", "listen_addresses=*", "-c", "max_connections=180", "-c", "shared_buffers=128MB", "-c", "max_wal_size=128MB", "-c", "min_wal_size=32MB", "-c", "checkpoint_timeout=60s"]
+    volumes: ["pgrust-row-data:/var/lib/postgresql/data"]
+  pgrust-columnar:
+    <<: *pgrust
+    volumes: ["pgrust-columnar-data:/var/lib/postgresql/data"]
+  native:
+    image: ${PULSIFY_NATIVE_IMAGE:-pulsify-native-benchmark}
+    build:
+      context: ../..
+      dockerfile: benchmarks/database/native.Dockerfile
+    profiles: ["tools"]
+    environment:
+      BENCH_COMMIT: ${BENCH_COMMIT:-unknown}
+    volumes:
+      - ${BENCH_RESULTS_DIR}:/results
+      - ${BENCH_FIXTURE}:/fixture.json:ro
+volumes:
+  postgres-data:
+  alloy-data:
+  oriole-data:
+  pgrust-row-data:
+  pgrust-columnar-data:

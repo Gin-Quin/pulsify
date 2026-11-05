@@ -1,0 +1,2 @@
+$ bun scripts/test-package.ts
+{"package":"packed tarball","declarations":"NodeNext strict passed","runtime":"Node passed","sharedClasses":"passed"}

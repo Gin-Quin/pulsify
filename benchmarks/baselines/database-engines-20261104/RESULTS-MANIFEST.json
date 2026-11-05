@@ -1,0 +1,1349 @@
+{
+  "artifacts": [
+    {
+      "path": "FOUNDATIONDB-CLEANUP.md",
+      "bytes": 2071,
+      "sha256": "fc8366cb6ae33094606efa4015a20dd4cfc95533eb3a0b2e5805c0309ee8c2d4"
+    },
+    {
+      "path": "INTERVENTIONS.md",
+      "bytes": 1385,
+      "sha256": "f57fb7e58890c75594583ba9c444bbdfdae9b7cadbf3b6d3e3cf1ce0b184bda4"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1898,
+      "sha256": "fc6394cd709c21ad3be54ff89063d2191f387dafd9e988d30a00a7097e2daf9d"
+    },
+    {
+      "path": "SUMMARY.json",
+      "bytes": 429,
+      "sha256": "adf88fd3d62e51d65b145dd1661d86da83adc72f4a697daa81876b1e34c41f57"
+    },
+    {
+      "path": "SUMMARY.md",
+      "bytes": 11743,
+      "sha256": "89e4b785c9fafd3c76a8a0eb81ac77fad0932f3b34714fab3cf491329f01ec1c"
+    },
+    {
+      "path": "VALIDATION.json",
+      "bytes": 1057,
+      "sha256": "b7aa093f6eeef3d4934a68fcbd73789bcf1035dd1d10601fe8673f56316c8723"
+    },
+    {
+      "path": "columnar-memory-incident.json",
+      "bytes": 1060,
+      "sha256": "1ed5a4be33967dca28fd5a1b29df71ff86e916d6cefcff49f839510265592498"
+    },
+    {
+      "path": "failures/columnar-index-missing/EXCLUDED.md",
+      "bytes": 439,
+      "sha256": "de7c1be753800fe4578fe80391e3d1d49b442b99cfee06ca8d05325a8796632f"
+    },
+    {
+      "path": "failures/columnar-index-missing/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 1433700,
+      "sha256": "115ed4f2d772cabaa65c109a47fe4aa675d7d01fdac8a41fa830008746ee1a25"
+    },
+    {
+      "path": "failures/columnar-index-missing/bare-metal-pgrust-row.json.gz",
+      "bytes": 1702285,
+      "sha256": "56f5f9acc8fd2797f16779ddad696e4a64322b60aea4619c32e84d60aa3ba667"
+    },
+    {
+      "path": "failures/columnar-index-missing/bare-metal-postgres.json.gz",
+      "bytes": 1687301,
+      "sha256": "21c581340ddedb99410cf166bf25f412459893ecfd11026bbd250f428279ce5e"
+    },
+    {
+      "path": "failures/columnar-index-missing/bare-metal-sqlite.json.gz",
+      "bytes": 1565933,
+      "sha256": "352f8516d4140c8d9dcf579d80c5dfaefc544d37356c7b21c217c4e4a162223e"
+    },
+    {
+      "path": "failures/columnar-index-missing/campaign.log",
+      "bytes": 31368,
+      "sha256": "0b2d3ac0d681f64ddf68bdf01621759bdcf31ed0180cee8429445f4c19f160ba"
+    },
+    {
+      "path": "failures/columnar-index-missing/context.json",
+      "bytes": 8130,
+      "sha256": "256882a2ccc2775ecb22ac53dcdcdaf74174b4ca88ec02f15957e4d04f46f2a7"
+    },
+    {
+      "path": "failures/columnar-index-missing/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/columnar-index-missing/pgrust-columnar-server.log.stderr",
+      "bytes": 26897,
+      "sha256": "487ca5da67a852dbc9e032417bebef01d747deda65506fc4f509c34aa4234c49"
+    },
+    {
+      "path": "failures/columnar-index-missing/pgrust-row-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/columnar-index-missing/pgrust-row-server.log.stderr",
+      "bytes": 35016,
+      "sha256": "4f6f8595427d8844332aeaf2b0ae161de7be72dc623e36be469012a54c73f45e"
+    },
+    {
+      "path": "failures/columnar-index-missing/postgres-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/columnar-index-missing/postgres-server.log.stderr",
+      "bytes": 29248,
+      "sha256": "ed2b0e72e59b508a0d0acce43c58dc3526f85a2b86fdb1b82d26ee2ffee93b46"
+    },
+    {
+      "path": "failures/memory-pressure/EXCLUDED.md",
+      "bytes": 372,
+      "sha256": "e5146058a3da075dd277ca1be496a0af65a22f7c1563f103849a0eee04fc6150"
+    },
+    {
+      "path": "failures/memory-pressure/REPORT.md",
+      "bytes": 111780,
+      "sha256": "f5ba3c7dd310e339f4076e0eee58ff6e15d51485378f22769c0ffdfb8936a578"
+    },
+    {
+      "path": "failures/memory-pressure/alloydb-docker.log",
+      "bytes": 280453,
+      "sha256": "bc3705f2a9cfdd1d675726d2c788999fcf6f808904748b2a45ceaf70edf85944"
+    },
+    {
+      "path": "failures/memory-pressure/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 1785457,
+      "sha256": "6c1f10124fb917f8df2f58d098f4b3ff8dab09546fb9ac138f037c31cea3cd5d"
+    },
+    {
+      "path": "failures/memory-pressure/bare-metal-pgrust-row.json.gz",
+      "bytes": 1726482,
+      "sha256": "47010bdcc629b03d0e7c41d70b01996755e48518fc5ce6e2d72992633b717907"
+    },
+    {
+      "path": "failures/memory-pressure/bare-metal-postgres.json.gz",
+      "bytes": 1708269,
+      "sha256": "7e0563a63c3672b83a53fa4dcd07274d543b8795b4e19c56d4f14b5e62f11d46"
+    },
+    {
+      "path": "failures/memory-pressure/bare-metal-sqlite.json.gz",
+      "bytes": 1576594,
+      "sha256": "9229bd829e1d8efaaac6dba82c5e4d74952cdaffddf6212acb0876577685bb26"
+    },
+    {
+      "path": "failures/memory-pressure/campaign.log",
+      "bytes": 98799,
+      "sha256": "8881549f6dfb1492cd864c2b2b1b21ae7804a6137d5bab29deb77cb341d8c6b3"
+    },
+    {
+      "path": "failures/memory-pressure/context.json",
+      "bytes": 47408,
+      "sha256": "2c9f14b1095450bd634e7c03b083c71ad74cab20da5c9f2c72e6cf682d5ae966"
+    },
+    {
+      "path": "failures/memory-pressure/docker-alloydb.json.gz",
+      "bytes": 1895461,
+      "sha256": "902a3a9ba96b308b572df8746f97b83f18bf2679f46eaa86a523f32235101234"
+    },
+    {
+      "path": "failures/memory-pressure/docker-orioledb.json.gz",
+      "bytes": 1886817,
+      "sha256": "f58583aa354735d16d473a86369e781a9dac43e1bc6e30d170a9415911349111"
+    },
+    {
+      "path": "failures/memory-pressure/docker-pgrust-columnar.json.gz",
+      "bytes": 326357,
+      "sha256": "b8851f9213b939d3cb8f5a6588cd4a4d48403b17bf34e97395783ef252af2887"
+    },
+    {
+      "path": "failures/memory-pressure/docker-pgrust-row.json.gz",
+      "bytes": 1887901,
+      "sha256": "c1e9e3af2265a046168fdafc0fd085546fd6a40effce09ebfed0213c137ace94"
+    },
+    {
+      "path": "failures/memory-pressure/docker-postgres.json.gz",
+      "bytes": 1937977,
+      "sha256": "8503602a71853b74bd3c49a776fa28dfafb1155919e659a276097c921ef7c6e7"
+    },
+    {
+      "path": "failures/memory-pressure/docker-sqlite.json.gz",
+      "bytes": 1771796,
+      "sha256": "5b29ca3ba6366a8189bf86d947b4a9d21b36f3a77027ee69e87ecdb56c9c4015"
+    },
+    {
+      "path": "failures/memory-pressure/orioledb-docker.log",
+      "bytes": 46788,
+      "sha256": "1950faaef6eecad86b6eaedcaf428602b7dfd77830e6106eddf33210d9a43c15"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-columnar-docker.log",
+      "bytes": 14846,
+      "sha256": "98c247e9bbb15cc7d4f2ddd40ef6efd203eadc7ac9ad3bdce547953c6e969660"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-columnar-server.log.stderr",
+      "bytes": 36189,
+      "sha256": "95859aa8ad8bf83bb6e89f9f7a9af41231fb29ecbe9968607bff6804fab2a388"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-row-docker.log",
+      "bytes": 44029,
+      "sha256": "91f4b2095725002d51deac36fb5619f755e1be8037df621311a40663dcc51f54"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-row-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/memory-pressure/pgrust-row-server.log.stderr",
+      "bytes": 34429,
+      "sha256": "167c24e82abfa537a6be599c028d1d6b659721dcc5a4c4f62dc67d3c5bf7ed29"
+    },
+    {
+      "path": "failures/memory-pressure/postgres-docker.log",
+      "bytes": 33747,
+      "sha256": "d9b6d68acac5a05dcbf1962259d80d55900c8836f01e716d27e67a761e49433e"
+    },
+    {
+      "path": "failures/memory-pressure/postgres-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/memory-pressure/postgres-server.log.stderr",
+      "bytes": 29253,
+      "sha256": "636ac1c5614cc9bfa8fc689401367060908af774bc02057f142dfb849cce1eb8"
+    },
+    {
+      "path": "failures/overlapping-build-excluded/EXCLUDED.md",
+      "bytes": 172,
+      "sha256": "e17c9b65d53532dd4dee6383afa40f398fd916b92e8a1b604205d66202d8b923"
+    },
+    {
+      "path": "failures/overlapping-build-excluded/bare-metal-postgres.json.gz",
+      "bytes": 445814,
+      "sha256": "73c21a120859cca74cb1b912fa8747b8cd960bb44c09dc97e80901464321b667"
+    },
+    {
+      "path": "failures/overlapping-build-excluded/context.json.gz",
+      "bytes": 800,
+      "sha256": "1b0bf220c09b182f24fe47d14e26acec08db9446fd3b66179ac04486f3439e47"
+    },
+    {
+      "path": "failures/overlapping-build-excluded/postgres-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "failures/overlapping-build-excluded/postgres-server.log.stderr",
+      "bytes": 6905,
+      "sha256": "6541e9ae8f135e1f66218d97c5408c26145ecbc12b26380b9732c9971d32252f"
+    },
+    {
+      "path": "failures/reboot-native-columnar/README.md",
+      "bytes": 583,
+      "sha256": "5731195fb5d22119dbd37ecc51ab9531428429d3f29e925bcbf4ae2ed83c88a6"
+    },
+    {
+      "path": "failures/reboot-native-columnar/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 1389417,
+      "sha256": "6d58f07880f4180600a0f2f39953db839b191fd4b7edb42b555c0752f0e192e8"
+    },
+    {
+      "path": "failures/reboot-native-columnar/server.stderr.log",
+      "bytes": 226950,
+      "sha256": "355a4db9bf6c8c7825d0b8867247308038bfbe7acfea319e98f4070d7c922c1c"
+    },
+    {
+      "path": "foundationdb-cleanup.json",
+      "bytes": 5454,
+      "sha256": "73ae0b42997e198b8580b7cc09656c228c6897e8ac714300e5b1c996f316eeea"
+    },
+    {
+      "path": "host-observations.json",
+      "bytes": 418,
+      "sha256": "4bb2810d4a96d4fc4c30a101a245578566abac786325d8c3d3be8469848b999c"
+    },
+    {
+      "path": "large/REPORT.md",
+      "bytes": 16271,
+      "sha256": "75a45bf532563e033875cf53a8b2194b7c8201d5b0a44e32614db288079d0d8f"
+    },
+    {
+      "path": "large/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 359332,
+      "sha256": "a9e1042e781c1a1df8d11251c593b9f3acd74641ef66c85c9ea47ba816e76c9b"
+    },
+    {
+      "path": "large/bare-metal-pgrust-row.json.gz",
+      "bytes": 630155,
+      "sha256": "c4a24ca461b322d033c57643e288a6f115d8adf8034d9b4b172713b57fb2b9d6"
+    },
+    {
+      "path": "large/bare-metal-postgres.json.gz",
+      "bytes": 627052,
+      "sha256": "bdacf176016ae286acc1561b92293303a41317dba49ca77257ea5dd5a1f46e23"
+    },
+    {
+      "path": "large/bare-metal-sqlite.json.gz",
+      "bytes": 601631,
+      "sha256": "e0ac3bb092895c0d0333149728df02c09b99b2e6c11f6ab29f94eab94b94e591"
+    },
+    {
+      "path": "large/context-native.json",
+      "bytes": 7107,
+      "sha256": "c5ce7b9ac3f133cec12d0795e1f1512f96f62cb7114ef58eb7afb1bca79944ab"
+    },
+    {
+      "path": "large/context.json",
+      "bytes": 7107,
+      "sha256": "c5ce7b9ac3f133cec12d0795e1f1512f96f62cb7114ef58eb7afb1bca79944ab"
+    },
+    {
+      "path": "large/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "large/pgrust-columnar-server.log.stderr",
+      "bytes": 226950,
+      "sha256": "355a4db9bf6c8c7825d0b8867247308038bfbe7acfea319e98f4070d7c922c1c"
+    },
+    {
+      "path": "large/pgrust-row-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "large/pgrust-row-server.log.stderr",
+      "bytes": 15986,
+      "sha256": "20702a118befbb45ad4f6f91de158ce3b96dd5d99827c42d587316b9defdf154"
+    },
+    {
+      "path": "large/postgres-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "large/postgres-server.log.stderr",
+      "bytes": 12901,
+      "sha256": "ae98e40bc7fb2e2aed6c743cc65b252b96e32b96f70a57dc5121445217c3fa1c"
+    },
+    {
+      "path": "large-docker/REPORT.md",
+      "bytes": 23396,
+      "sha256": "03a587dc9122af9418ad256ff45432863937cc0c922a9839c7f0ffe701947a6e"
+    },
+    {
+      "path": "large-docker/alloydb-container-state.json",
+      "bytes": 1544,
+      "sha256": "38704d46a28eceba33f4ff01ae3b19305ea25189ed6e2a9180280123f9b0d8b8"
+    },
+    {
+      "path": "large-docker/alloydb-docker.log",
+      "bytes": 261251,
+      "sha256": "71e67ed7ff90306ad5bdd6eeffd1e537f545c199a1490a5f3b90c39f4a6dd763"
+    },
+    {
+      "path": "large-docker/context.json",
+      "bytes": 54150,
+      "sha256": "3608916f7fdbf15f08b9939a0e434418b32888b28d6d49b55c965d727a5e0958"
+    },
+    {
+      "path": "large-docker/docker-alloydb.json.gz",
+      "bytes": 710068,
+      "sha256": "6296d5beb70c4ac38d043f2375bd32a4d6af4a1ad4192b9df0957d9970ca98b8"
+    },
+    {
+      "path": "large-docker/docker-orioledb.json.gz",
+      "bytes": 712571,
+      "sha256": "17e3bd9f261c9fa9f2f268be05078b73b7a6083193778bf84ad4ca813d8e8964"
+    },
+    {
+      "path": "large-docker/docker-pgrust-columnar.json.gz",
+      "bytes": 277259,
+      "sha256": "ded0d25aab986e2a5df774562a3b326b97818b6acfd669ccdfcccd08ea093420"
+    },
+    {
+      "path": "large-docker/docker-pgrust-row.json.gz",
+      "bytes": 710840,
+      "sha256": "c41591c7c392523bc0876b7f2872d8d13c18f797700914a4daa1b4eebd5b4fb8"
+    },
+    {
+      "path": "large-docker/docker-postgres.json.gz",
+      "bytes": 657480,
+      "sha256": "952af4be1cc5669f2f432fe745642b6bdb23f18a5f6595ffa1e6b6e719fb16c3"
+    },
+    {
+      "path": "large-docker/docker-sqlite.json.gz",
+      "bytes": 660599,
+      "sha256": "89062672358ac2389fcb9268af74d7722efc76be7753781c59646d1ca4d227fe"
+    },
+    {
+      "path": "large-docker/orioledb-container-state.json",
+      "bytes": 1547,
+      "sha256": "bc8e0ed6d322e087c5d247fb98fdc43a0fa570230925ec149a8935a2669911ed"
+    },
+    {
+      "path": "large-docker/orioledb-docker.log",
+      "bytes": 20328,
+      "sha256": "b84910c344784cf6727ecff6bf50cc2e76c74c579a9e7832ef6c8758ee767c9b"
+    },
+    {
+      "path": "large-docker/pgrust-columnar-container-state.json",
+      "bytes": 1550,
+      "sha256": "379faba2f98c0154e64f43befdc614d60a2234ba056e0855e1c0cb12c9a3365e"
+    },
+    {
+      "path": "large-docker/pgrust-columnar-docker.log",
+      "bytes": 1717126,
+      "sha256": "fc451ff52b37beb4556d6ddc55a9afa188e17b099b594bce803656b952dfb18e"
+    },
+    {
+      "path": "large-docker/pgrust-row-container-state.json",
+      "bytes": 1550,
+      "sha256": "b699b2483ccd7ef8d9445802a1de3f90f47db56d2dad0b4a80ea4287dbf5ddab"
+    },
+    {
+      "path": "large-docker/pgrust-row-docker.log",
+      "bytes": 1956009,
+      "sha256": "a760e0727cda02ba4b232aa55bb3660688006219bba736f662c805bc2414d705"
+    },
+    {
+      "path": "large-docker/postgres-container-state.json",
+      "bytes": 1546,
+      "sha256": "33e290a48ae6c915cddbb78bcfd4cb63b39010a9e6fb0739c4107968873e6a2a"
+    },
+    {
+      "path": "large-docker/postgres-docker.log",
+      "bytes": 16104,
+      "sha256": "0ac5a7a7ab3d2fae902a36e70e7226619de2fa3ecce68553e92e15906f7b1fe0"
+    },
+    {
+      "path": "medium/REPORT.md",
+      "bytes": 122856,
+      "sha256": "59264a610231772b0638960fa739bdfdf6c75b2a05678c19327afebf5dfc2117"
+    },
+    {
+      "path": "medium/alloydb-docker.log",
+      "bytes": 281423,
+      "sha256": "5e8ed6c8c58f163cc5b98762198d6f0c2f5a335aa66b00f7a3589524c96fab2f"
+    },
+    {
+      "path": "medium/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 1789514,
+      "sha256": "d393871714dc2d46d2cdc13660bdea5a7386ae6f7281a1e8d296264a0eca6f1c"
+    },
+    {
+      "path": "medium/bare-metal-pgrust-row.json.gz",
+      "bytes": 1705162,
+      "sha256": "349d7e9634b494729f610191597876c842ad3e77951011c3440d5dca4f754427"
+    },
+    {
+      "path": "medium/bare-metal-postgres.json.gz",
+      "bytes": 1684114,
+      "sha256": "a4841e581cc16ca13479f7215dd6b5a4fbd2c8e7ba5c99c6241503a98cc887e8"
+    },
+    {
+      "path": "medium/bare-metal-sqlite.json.gz",
+      "bytes": 1569101,
+      "sha256": "845f43362e0d811d58ac13b174938595ca23e586a89c510d0c2a333ccb5207af"
+    },
+    {
+      "path": "medium/context.json",
+      "bytes": 59470,
+      "sha256": "ca5d78e26e9dd200683498163e7150643ca76a3eb27c3f24137ac3ec4f5daf3a"
+    },
+    {
+      "path": "medium/docker-alloydb.json.gz",
+      "bytes": 1885054,
+      "sha256": "5aa3077a7b8c53788b1ea35d8738b18751f166edd6d0e3591f1331b9bdaa8609"
+    },
+    {
+      "path": "medium/docker-orioledb.json.gz",
+      "bytes": 1899779,
+      "sha256": "6e5fae40962687027a5b3d85f4e1f5c277729e8a2cdf69eed26af0711de5e713"
+    },
+    {
+      "path": "medium/docker-pgrust-columnar.json.gz",
+      "bytes": 1974339,
+      "sha256": "e83509d6c8c6977f4bb67b46bb624e6c843d1b95e6519267ce4f6c4c04a35a4d"
+    },
+    {
+      "path": "medium/docker-pgrust-row.json.gz",
+      "bytes": 1906835,
+      "sha256": "a5510d6fdb54cade2b6755215bfc7476942e79f95544dc586e2d43ed32205795"
+    },
+    {
+      "path": "medium/docker-postgres.json.gz",
+      "bytes": 1883133,
+      "sha256": "7e7e99d59a2a0d7e78dc4e42e47ec5075247498fc552e65f9e38b2a2fee592b7"
+    },
+    {
+      "path": "medium/docker-sqlite.json.gz",
+      "bytes": 1757485,
+      "sha256": "647eaddc9bfd6da248a5312eea2f03236a128aed06154d2ab20debaf20beb184"
+    },
+    {
+      "path": "medium/orioledb-docker.log",
+      "bytes": 46786,
+      "sha256": "e5263020cad9edefc95c7a2d025eb670956e1190eebb33ca51b7eeff5c5dd89c"
+    },
+    {
+      "path": "medium/pgrust-columnar-docker.log",
+      "bytes": 47980,
+      "sha256": "e196511324c0afe1b9d63278e687ae79498a8ed94b8569701ff0c393a0e826a7"
+    },
+    {
+      "path": "medium/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "medium/pgrust-columnar-server.log.stderr",
+      "bytes": 37795,
+      "sha256": "23e817441d0eee5e0405e124650f18f5e8abb99ff2181571b8f7760683e02ee7"
+    },
+    {
+      "path": "medium/pgrust-row-docker.log",
+      "bytes": 41578,
+      "sha256": "a996ec1df6bfd482abcfe575406303312533a91c5f4c50daf654af5c5c3effa4"
+    },
+    {
+      "path": "medium/pgrust-row-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "medium/pgrust-row-server.log.stderr",
+      "bytes": 34413,
+      "sha256": "77d6748da75c23c66c884ac3148e28331102db8a62996e5ae358c892f5a2a512"
+    },
+    {
+      "path": "medium/postgres-docker.log",
+      "bytes": 34345,
+      "sha256": "b657736dc5f0bd9230c887bc432185244d9c8efd2481428ff45bfc6e6a0f3700"
+    },
+    {
+      "path": "medium/postgres-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "medium/postgres-server.log.stderr",
+      "bytes": 29803,
+      "sha256": "5d0b0d8bc57ccb58cf6fd0419f8e921786f951b0165fc091867ff31917f702dd"
+    },
+    {
+      "path": "pgrust-native-sha256.txt",
+      "bytes": 101,
+      "sha256": "4d042f6ef23e3da62619d1576bba6146c0d7cba65bebf734d47af6adaf2559f0"
+    },
+    {
+      "path": "provenance/native-before-docker-memory-guard.ts.txt",
+      "bytes": 15628,
+      "sha256": "78be04a1d7a6158bca9e85389cc1a11c79eb1278bfc75757f7fceffa0e9f465b"
+    },
+    {
+      "path": "provenance/native-compose-medium-and-native-large.yaml",
+      "bytes": 2358,
+      "sha256": "45f6a3b41bdf79bbc3820775fb3b57cee7d95718c12f0e284b8e9ff66c564dfb"
+    },
+    {
+      "path": "provenance/removed-server-images.json",
+      "bytes": 17910,
+      "sha256": "b6f6f22b56c64ad1addb88b16d374bbdb4cb2bb544681a3c5b33e86b3a56c453"
+    },
+    {
+      "path": "supplemental/attempts.json",
+      "bytes": 3585,
+      "sha256": "793caf80670cba8c264bed9d6a8cca26549fffdc9a0c27dabd26ca003a5dcd06"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/REPORT.md",
+      "bytes": 1910,
+      "sha256": "25ce88e0fa102227b97788ac555b36b26b2ece132af27bf827eaa991b06ab1e9"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/attempt.json",
+      "bytes": 212,
+      "sha256": "e0c3bbe69d10cd826c2fc76bbf9607096aa892f85093d33768d0507657f92f45"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 27034,
+      "sha256": "3a0340ee2bfa12ac8d843a798d0f29a9a5c1c49ac5a1bfec7e611dec2c958a79"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/command.json",
+      "bytes": 406,
+      "sha256": "9b7f58166bc97d46ef9e6ec3c401d1ad28a784509cd9ad36f772af4d2216c63d"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/context.json",
+      "bytes": 26506,
+      "sha256": "99aa8c444f923fe13ec38143cd6094a05465216dcdcc6666ce03a34f671dc531"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 29917,
+      "sha256": "58417325adb9ed82ca2d19d510e3419a26f9e8fc1d7946fc878f7f8db7f6f055"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/driver.log",
+      "bytes": 2625,
+      "sha256": "b3e28cdef1da7ba74b00007871f8d04ee289b5b2b3a7aa50b43511188fc0ae62"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/pgrust-columnar-container-state.json",
+      "bytes": 1327,
+      "sha256": "8530aafcb48773451d6289211158fdf359554566c1204a2e1773c07f5a04c357"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/pgrust-columnar-docker.log",
+      "bytes": 59873,
+      "sha256": "bd0cb693a63c18bf1a626addd2f5597326172ccd99f73a7a50f80f582be90367"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/compact-hot-burst/pgrust-columnar-server.log.stderr",
+      "bytes": 4695,
+      "sha256": "511868e6e2a0f571251fa64c89375901ed72498b48caa1f0ac5e6272c362f7fe"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/REPORT.md",
+      "bytes": 1920,
+      "sha256": "40d9d1b6ba2cc28386e079ae57b32d9236a6c8151c147a224a987a49a1d07879"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/attempt.json",
+      "bytes": 217,
+      "sha256": "4be47731ce207a4814d8b98490667ae61fbe466bd21e3d588c1c5535f345cb7d"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 20049,
+      "sha256": "5a638d8d3114b0b7baa677ef4fe9e0089a13f5caec1185e0746103fd4ddb6414"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/command.json",
+      "bytes": 416,
+      "sha256": "bb11eed9582a898b56183634753fa17db160e42e697162ee9ac62326fd60510a"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/context.json",
+      "bytes": 26516,
+      "sha256": "88c5cd09218930ff74b74140c4fa0ea5c13030afb4e422e75dd732514e4d4b42"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 22477,
+      "sha256": "4910f3daafc440205788d5a8244c5c0d66cab7034cdba05cc617924c21176f41"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/driver.log",
+      "bytes": 2640,
+      "sha256": "77b01804a57db6a5c2ba3992e87491e4a6dc01417f0838e2d1e13fc0a2068787"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1637,
+      "sha256": "b27bcb8e683ef00d5fa779e374ee138273a7b3e4d2e4299207c075eb31d0bcf3"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/pgrust-columnar-docker.log",
+      "bytes": 48889,
+      "sha256": "a0e99519699790f67a85604d9441416f1fd1afa3644c0e3c8ae5ea95d5280522"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/compact-hot-saturation/pgrust-columnar-server.log.stderr",
+      "bytes": 4696,
+      "sha256": "6dcff6534d854025312b3f767136bb41bd20407503070eb3261bccf77a49ee4b"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/REPORT.md",
+      "bytes": 1961,
+      "sha256": "89e8f2feddeb776c6739f103f6f38f8a7e7cdfc55aca1f3f397925c418d9c9ad"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/attempt.json",
+      "bytes": 217,
+      "sha256": "6bc9c459b475647562b37e0b696729553d67382f298de4acf5494fa186239133"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/command.json",
+      "bytes": 414,
+      "sha256": "3c4b94b89923e5c20ef391879edb214cdcb1a6911d8359aab438d814aad2cb03"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/context.json",
+      "bytes": 25721,
+      "sha256": "b09e52a563fb95be1a3b7a4caf14245de02abe3515e9bd6d7d68d6155d5a874a"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/driver.log",
+      "bytes": 2895,
+      "sha256": "ee5f7f5c9409f3928bfb82fef7da4617aa93c62f4b6c84f7c8b4b8165609beb2"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/pgrust-columnar-container-state.json",
+      "bytes": 1553,
+      "sha256": "a92aa4fd6930bfa10addcf219a4c609756a2c6f8972dd83c20a6d7cf5f8a706a"
+    },
+    {
+      "path": "supplemental/compact-spread-burst/pgrust-columnar-docker.log",
+      "bytes": 13978,
+      "sha256": "b9dcb47c3caa1d90165d6b5195eecca06ead5fd689671049b69a4f9ea966c626"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/REPORT.md",
+      "bytes": 1966,
+      "sha256": "00dc7669f1772d5f6f422f7d7aba4648a80a7196579121832b3840ab730eb699"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/attempt.json",
+      "bytes": 222,
+      "sha256": "9d6bc383fb94de4799d84ddcc7544e6ece595405f3851a7c59b7f2d5ae54b737"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/command.json",
+      "bytes": 424,
+      "sha256": "a79e0296a706a28cbf417a678d2fcedf598ef4043806dca96d3bf10a2e35fea0"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/context.json",
+      "bytes": 25735,
+      "sha256": "bcdac6eda4b67d7973b6ca97d133e9e774c3fbb9807d8eda03b90896ea856f70"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/driver.log",
+      "bytes": 2910,
+      "sha256": "9bf6d1ced8e918bbdfce47f3977c93b522409ba7840d4a69546e148ffbea48c6"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1746,
+      "sha256": "be0e166befd2edc44240beb2b8cdd1db972392391e8a66d912d0b44b57e13f57"
+    },
+    {
+      "path": "supplemental/compact-spread-saturation/pgrust-columnar-docker.log",
+      "bytes": 63813,
+      "sha256": "124b6531a766c20eec83b15bc0726f1f749c97cebaea017713a66f108a15153f"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/REPORT.md",
+      "bytes": 2909,
+      "sha256": "bcc0d504bdc2e649f9e11c6471bae9dc456dd1517952a3bb9e1348dc3a985040"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/attempt.json",
+      "bytes": 210,
+      "sha256": "615c9559dfe87f29cdab47b98fa7aa8e9e6ee3144822aece137806f3be0083ba"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 33744,
+      "sha256": "a4593aa4520e81b1529ac4e815e893c9f703290733292c1086bf1318f28a87e3"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/command.json",
+      "bytes": 402,
+      "sha256": "bb4f9c6e8089bf8fc3d4d097c6e1b68fbcebf55363aa9e107b4754dfdcffa616"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/context.json",
+      "bytes": 26505,
+      "sha256": "135281f979c320baf182c15660f56a0af5bc4136e813d4f34e25d6c67c8e6082"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 37860,
+      "sha256": "5252b05d768fe3d6ce67981a65afad4ce9c8000f7a65d2b9bf4bf81b86e71676"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/driver.log",
+      "bytes": 2615,
+      "sha256": "cb89432016362a4f25225fc8db36c1a20648368fca7d5bf20377d02cc4165b6d"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/pgrust-columnar-container-state.json",
+      "bytes": 1714,
+      "sha256": "b299853b4e012d7fea1ee9ef83dd913197c64fbe283f4df256b68c1cbd248353"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/pgrust-columnar-docker.log",
+      "bytes": 15161,
+      "sha256": "7d8d126ee2c864f6821a2b14b7ab03d1a0510f990f8fef22c0f2bb1702725e1c"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/mixed-hot-burst/pgrust-columnar-server.log.stderr",
+      "bytes": 4699,
+      "sha256": "85246ba50d4aeab89420a1a9eae617439d75057e31adb15a391f0e4bd9e6ca2e"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/REPORT.md",
+      "bytes": 2956,
+      "sha256": "41a3ba94fbccec8957cea760b0ed273a63e7b12a570c0f7832ad4011b073b535"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/attempt.json",
+      "bytes": 215,
+      "sha256": "cabee6ad68272c6baa6ad13b149d4ea5d049efaf3ce1f4bf7f117f2c76fb6081"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 26749,
+      "sha256": "704436bd1750123104383fe67c9eb3311f92aaf1e3234d5a4debda6dc41bcb56"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/command.json",
+      "bytes": 412,
+      "sha256": "01d15d9c1ffcaa1d51c02c67c0cf1810559dc1bb910f3085387d445d0dc57c82"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/context.json",
+      "bytes": 26515,
+      "sha256": "2527a4f508beafa38569e582f62900a7359cd9fb496bd867890e8123f18f2b14"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 29231,
+      "sha256": "f3aac75301bdf62aa5f8b4449dcb842d0b830e12b0ecffaaa3aeced38f979a8b"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/driver.log",
+      "bytes": 2630,
+      "sha256": "bb767a1933794025b6c0d40f9cc43079a3425b477161e1a1c44011eb4ce39283"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1715,
+      "sha256": "caa8aba8e7abfca6d44105e282cb3ae5f787bba6c0f685fac6aa2cb6d98b8256"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/pgrust-columnar-docker.log",
+      "bytes": 34399,
+      "sha256": "8a8ce8a7f03fb7e9fb72567168f50270a7bdf69a3944cc030dfaa35e8f0cc8d1"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/mixed-hot-saturation/pgrust-columnar-server.log.stderr",
+      "bytes": 5138,
+      "sha256": "0cccf2229613ec2db2489be5e0681ba822526cd440ef145b8cd5737d10ac0fa8"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/REPORT.md",
+      "bytes": 2959,
+      "sha256": "2f78ed3aa1618df86b9da922084139290817a6e08ab6aa860c20e71eb1b69541"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/attempt.json",
+      "bytes": 213,
+      "sha256": "447b6ce7131261911b911dbc83e5ab0865c0665e883c25745dff5a845b4e223f"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 34088,
+      "sha256": "7acff94801fd73d4e7e3bc469f0d900a5934b5e55605c71e1b73794a2f724b72"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/command.json",
+      "bytes": 408,
+      "sha256": "398f3bad94ec068f3f2fb657158a22cd78ccdd544c07c6864623ae69c0618144"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/context.json",
+      "bytes": 26507,
+      "sha256": "90633d8eff06d74dbcb3bf9b6ed8482d17adc90c5f306b21e33110c7bdb4c44b"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 37973,
+      "sha256": "b7cadf9bff8b2f27221a6ac572c64faea253f1eb262aa7046aedb4c2c263ebde"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/driver.log",
+      "bytes": 2626,
+      "sha256": "d781ef4313fe924735097487ad3432caa6135961e55dcb6b45c1be778ee17f33"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/pgrust-columnar-container-state.json",
+      "bytes": 1552,
+      "sha256": "bddbd68cf1e28856576233417369fb6625f7bcadd7a8e7945e101df3a558e29d"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/pgrust-columnar-docker.log",
+      "bytes": 31511,
+      "sha256": "677ccc8a033f981f48936b53e5f7071b7b7b8778f612a37bd6f83ac12634625d"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/mixed-spread-burst/pgrust-columnar-server.log.stderr",
+      "bytes": 4704,
+      "sha256": "f7d24e97a85e4ed59f81dfe9f0bdb935b545cf81b51271846de9ee742f709552"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/REPORT.md",
+      "bytes": 3006,
+      "sha256": "5baaec1dc3306c530630c2747e543c5cde0d8d9f22559b929df8057506dadbc3"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/attempt.json",
+      "bytes": 218,
+      "sha256": "2a716e57ef3fb654da27f0e5e72d3d67f811307809cb344c2e56408bb27f0cc5"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 26685,
+      "sha256": "e498b2e9bf497035d836c04456350cd4296c95885a05536acf7735830c23c856"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/command.json",
+      "bytes": 418,
+      "sha256": "ba69603152b4a7776a01f5d5ad598d710d4a561be90a508bae2769f0c04e39bd"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/context.json",
+      "bytes": 26519,
+      "sha256": "7c1e194385010d99fecd0869b9c74ace9a210680a21ab52ed4d687a50fdc54e7"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 28916,
+      "sha256": "1a19b052bb97746eae80b1e0e8a5e3d2337e7c84fb16662898e1508201c440a9"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/driver.log",
+      "bytes": 2639,
+      "sha256": "829309a69b0dc057a2c1f6f45a6548b7079eddb1c2df73e37e8e40ef838880fe"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1554,
+      "sha256": "5986a58038c598f3148891dfe46e5b611228948b195295502a0fafa84d8d33c5"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/pgrust-columnar-docker.log",
+      "bytes": 24883,
+      "sha256": "ee5f9114171652fa77ebd8e3974c74c0cba99a73bbc48adb321f48ce25ce126b"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/mixed-spread-saturation/pgrust-columnar-server.log.stderr",
+      "bytes": 4704,
+      "sha256": "e1bf7b5027c43f78cdea35a16a9cc5179940c9fe0557252b97ea8d60c7c8ad2c"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/REPORT.md",
+      "bytes": 1906,
+      "sha256": "cd921d30a6360d4e2b944d19f83f8030d1669fcca5a0fc115a77d775edab6868"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/attempt.json",
+      "bytes": 215,
+      "sha256": "f02c2da77845ceeaa85d46340c16dce3ecb67d562c1ba7c68b5896ec3f27112c"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 28376,
+      "sha256": "2506e7ec25cf5d409d9db058413db6469e476ff7b40d5c62fa7cbf4a563d30e9"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/command.json",
+      "bytes": 412,
+      "sha256": "b0136906bf2c818007797bec894681485d250403666bc7b16ca2512638578528"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/context.json",
+      "bytes": 26512,
+      "sha256": "03896bff228f73467c7edd9d88850f79e0774ddf5ee3036eeac1a8afe6755b03"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 33123,
+      "sha256": "5e46d2a88f4904a143d02f92b2ab9b1a8527253347ac159122a80a303128f50e"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/driver.log",
+      "bytes": 2624,
+      "sha256": "049d63910072718a1e340e8c5d915f3681a1cdc701ef51c7642bbefa9149bf5a"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/pgrust-columnar-container-state.json",
+      "bytes": 1327,
+      "sha256": "7a58b449426dfa7a2bba3239994f0d658f9d6fe7f2e0df1539be8698d9dee90c"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/pgrust-columnar-docker.log",
+      "bytes": 331454,
+      "sha256": "5c6f31c8cf460cbf93e6e2cb7f35f5b48e288837aa02b6b80a404e77a7ab7c3d"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/read_delta-hot-burst/pgrust-columnar-server.log.stderr",
+      "bytes": 4699,
+      "sha256": "713116ca3637468594f969574a2f8adb9e36f73c3238a9dc23def46f13838bbd"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/REPORT.md",
+      "bytes": 1914,
+      "sha256": "7a2c11d7f72b077316e9b5b383d369be1520ff6214289ad982e4fcc3e27c8864"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/attempt.json",
+      "bytes": 220,
+      "sha256": "3cf6a71fb2fc302faf1ea0b88964a2d19fd746415c2e6006a2b7743766c5e8d8"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 21440,
+      "sha256": "26e655ce9efbba7773f398e3b19c3c234b3f6f84a3e2b1a723e20ed573076ebd"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/command.json",
+      "bytes": 422,
+      "sha256": "86720b32a420887a5d8407f6789ea4fe7ede52f56d6ad2514519e4d74894f30c"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/context.json",
+      "bytes": 26523,
+      "sha256": "ec468fe7fa3b6b5f089354ea3eb72bb4c9161c26f44a570c7e7b73afe5931014"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 23918,
+      "sha256": "11fd3fb2db57447899b1deb691553d9fc7c555731534fa29590792994ca0ced5"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/driver.log",
+      "bytes": 2639,
+      "sha256": "95a00b28a8d72201d45e62e3fd34d681782b09c6b82fb2e0b3bb804a7a1e820b"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1638,
+      "sha256": "5a3f08b61c3ccd6fa3e11507fc3d9e2d0f7b3d73ffe441048e2092f5d40d6750"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/pgrust-columnar-docker.log",
+      "bytes": 247313,
+      "sha256": "4217c33af7024dc49b4305ac91b10f43385ea2472d3baa52b716dda76022535f"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/read_delta-hot-saturation/pgrust-columnar-server.log.stderr",
+      "bytes": 4700,
+      "sha256": "6045884c2c4452b67a0e61e2b1038916108888be61f5cdc78dcbbdd08912a349"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/REPORT.md",
+      "bytes": 1913,
+      "sha256": "059cf9334179264f84acc84ce1fd359b304e3bd3cd4729be45ea932bfd55bed9"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/attempt.json",
+      "bytes": 218,
+      "sha256": "428188271409ece48b0d02f69341fe502df566ad5ffaa61670c67a8757383fd6"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 29332,
+      "sha256": "06f53495587c21970fa87e575ddb28a1efd69eece83f29732a01f76dd1692c05"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/command.json",
+      "bytes": 418,
+      "sha256": "867b8e5db743f5df1f730396d6ecb040fa6f15602dc58e02846cced40201adef"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/context.json",
+      "bytes": 26516,
+      "sha256": "c2aef1cb981bcb435f9e81cda5931ebcbdf1f50ca9d42651a282382fd6cd1e07"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 33818,
+      "sha256": "95d2dee575f62dc9ae5e6d2dbdadb84eb2d4029859ed3f9d24be1ac6bef1c9a7"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/driver.log",
+      "bytes": 2634,
+      "sha256": "29a48b1ccb9bc2cd938d7357ff5480138dadfbee22ad2001a282ba610b0a3f51"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/pgrust-columnar-container-state.json",
+      "bytes": 1551,
+      "sha256": "569e3e65196373a3a7905f0af0bd48fea24a021a85d0a8ee2641674cecdd5f84"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/pgrust-columnar-docker.log",
+      "bytes": 402631,
+      "sha256": "bf85a8dec61804e5814e93fa3a69806a308e53402d83991935cc4fad7e3b9cd1"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/read_delta-spread-burst/pgrust-columnar-server.log.stderr",
+      "bytes": 4704,
+      "sha256": "9c6b926b1acaddab2b7831c36029440d9094f493ce98f33de41776c96210a825"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/REPORT.md",
+      "bytes": 1924,
+      "sha256": "ae561af9765d206397034991beaff1fa281a818f84766435b12972ed95e7ae4a"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/attempt.json",
+      "bytes": 223,
+      "sha256": "dc5f76b9120faf46581a432fb213868d565bec323f2be50f0a540ab77aed98a4"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/bare-metal-pgrust-columnar.json.gz",
+      "bytes": 21739,
+      "sha256": "ee3e5445897d4297e7d800f92b6e87ebf6fa53c27ccbb6731394d1bc75933995"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/command.json",
+      "bytes": 428,
+      "sha256": "6aa55e01292bbe9f1d86b6214a5578055f9a65c5ee35eb24c92ea00cd9bcb4cb"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/context.json",
+      "bytes": 26527,
+      "sha256": "d35774fb155c2c96b177ae4ae653763325e3476ac841c4e13665c3aca9a805ea"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 24556,
+      "sha256": "c1c5b15f1a5f43946d00518de6f6f66dd7c87f61b0867827eac1eddca68d6f8e"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/driver.log",
+      "bytes": 2650,
+      "sha256": "e2eed3b6d8fd8432d336793f5cf25807bf6fa8c5bda158a959186dc4d1760a74"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1554,
+      "sha256": "182f04abfd468b32f0e64ee55c7ce5f61860ba143537bf1c7d9b1882541d2d74"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/pgrust-columnar-docker.log",
+      "bytes": 394932,
+      "sha256": "f3833263d541677582e58c7935729e0c45f24f1c128858b6d4f9858827d6fcaa"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/pgrust-columnar-server.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "supplemental/read_delta-spread-saturation/pgrust-columnar-server.log.stderr",
+      "bytes": 4703,
+      "sha256": "630d675c3d5d40d21519255670ab1585a57b3e5e1fc83238f5e296bf34cd6f1e"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/REPORT.md",
+      "bytes": 1812,
+      "sha256": "6a4ad4bedc84018ed1df46f0c152e387481999e1ec51d0f49d473240de49e193"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/attempt.json",
+      "bytes": 218,
+      "sha256": "7ba54c8afa5030e7a8317f51050d43346c93cc032ad91bed6855c1348d86e225"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/command.json",
+      "bytes": 416,
+      "sha256": "fd20388d2e81fda1876b08b59e30a3b8a1e116dfea4b0dd1ec0f88d54ca704b7"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/context.json",
+      "bytes": 25535,
+      "sha256": "0dfa42cbafe6c86fc0d5449d3aa49599e20d75dc1fe79c6c616dbd9bbe802555"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/docker-pgrust-columnar.json.gz",
+      "bytes": 32795,
+      "sha256": "22626367c1f48117a234883eab2a24acc296a5db52b64851becf1ed9d3fba8aa"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/driver.log",
+      "bytes": 2231,
+      "sha256": "990ba3910e2770308ebe5a703efe61484eb0063e4ac75a99bedab4edf847d40f"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/pgrust-columnar-container-state.json",
+      "bytes": 1555,
+      "sha256": "db9b22275087005a9b19eceaf7ff2472192dd179877ca579c7391c6ff99f6c5f"
+    },
+    {
+      "path": "supplemental/write_patch-hot-burst/pgrust-columnar-docker.log",
+      "bytes": 11912,
+      "sha256": "a9deba2924170bd626c40d41ddc94366a85001eeb6c555f8de1eb5c0d37e1a43"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/REPORT.md",
+      "bytes": 1816,
+      "sha256": "292867a9190c5cce2288c48e6f20bdc1f16e64d022e31fd10091173e0933c300"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/attempt.json",
+      "bytes": 223,
+      "sha256": "8a5de169a762cf7f943372139faf3411d62c8e5f6e279b3e304f988618a78028"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/command.json",
+      "bytes": 426,
+      "sha256": "aaee72a0332f77d11da87657cf610c051e4484ed3ab1f853f8dcda5bf5095f34"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/context.json",
+      "bytes": 25546,
+      "sha256": "e981e8c6a9bce0483199580b596075bc6ca53dacf573a716d63bb1edbe2ee1e8"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 25599,
+      "sha256": "8677fdd85e3f732a2882b535bb85fd31eb1754ab3046f76a4b88a6b7a855738e"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/driver.log",
+      "bytes": 2241,
+      "sha256": "9e61cca070fc222e9a0663b339634c3a70be572222073ebeab78f696c78b6ae1"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1555,
+      "sha256": "0c2c0c77caf347d4a6b45b981463d7e1b5f8dc965833b395de81d16f41e99e95"
+    },
+    {
+      "path": "supplemental/write_patch-hot-saturation/pgrust-columnar-docker.log",
+      "bytes": 11814,
+      "sha256": "9f37d5bcf668febad69f3a0b573e04dad775bab3bfb93a2ae0ac5822e99cb0cd"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/REPORT.md",
+      "bytes": 1818,
+      "sha256": "b1e5ce9717a562164900295af2eae2e32f9fdf2c50696d43b206aa7fe75be96a"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/attempt.json",
+      "bytes": 226,
+      "sha256": "dc0a2b2db5fa82b30812637592a2fd7d2a4b675ffa0ba5e8a130e7136bb7d1fa"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/command.json",
+      "bytes": 432,
+      "sha256": "41bb58c647b20fe52fe4a373bce6b54b6081fea1bd33d6c245e458b825a7be8f"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/context.json",
+      "bytes": 25554,
+      "sha256": "e3a2bdb35c790e06bf3a1cb0ee4879a8a8a649728e055fe61d70b348308ecc0b"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/docker-pgrust-columnar.json.gz",
+      "bytes": 24646,
+      "sha256": "c92addd6f9eb46fd91373f2a8abd21d07f2cb15b8053a9338cf0f3e4c2bf6980"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/driver.log",
+      "bytes": 2248,
+      "sha256": "6275c838e304ffb906085cddd4ba25256c8ea4d482189a9ed55e5e12a4e61c61"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/pgrust-columnar-container-state.json",
+      "bytes": 1550,
+      "sha256": "9a4e255b6537722ccb4b87471112a995e05a01d99a0ea98f6ef6f0f9a9707600"
+    },
+    {
+      "path": "supplemental/write_patch-spread-saturation/pgrust-columnar-docker.log",
+      "bytes": 11814,
+      "sha256": "32e19e6acbc881347cf2e764b699a487dac7a728a3f92ae8947b3bba3ec7a592"
+    },
+    {
+      "path": "validation/final-build.log",
+      "bytes": 640,
+      "sha256": "cdb671538cce4876093a46a0eba5f818c7efb4c4e93a927805cbd54deb57c64f"
+    },
+    {
+      "path": "validation/final-check.log",
+      "bytes": 37044,
+      "sha256": "cb0d33eaade471dcb83ef40b785ab79ed9d8aa5c9846c34b31ba2787d8a21889"
+    },
+    {
+      "path": "validation/final-legacy-docker-check.log",
+      "bytes": 4992,
+      "sha256": "0b09c4edee0f99db62afc2efa51bc30ab195b11508ef7b33f728274bc0abfa91"
+    },
+    {
+      "path": "validation/final-package-check.log",
+      "bytes": 148,
+      "sha256": "ec797f823c0c70e018a4e9ee9b1ad1a702c20432b15085e5c6a1a15c5ca57e20"
+    },
+    {
+      "path": "validation/final-rust-check.log",
+      "bytes": 505,
+      "sha256": "685f511fef88d23c47d2edd6b3fb3595ae4e8a43807487521fba2f96d34e0772"
+    },
+    {
+      "path": "validation/final-storage-check.log",
+      "bytes": 3496,
+      "sha256": "12005d364387b0117def975727c564b5ca5f729c38fd254576c2e4619b7b2edd"
+    }
+  ],
+  "recordedRequests": 957000,
+  "recordedRequestErrors": 584,
+  "mainMatricesCompleted": "18/20",
+  "freshProbeGroups": "13 passed, 2 OOM failures",
+  "note": "Completed checkpoints only; all interrupted and fatal outcomes stay explicit."
+}

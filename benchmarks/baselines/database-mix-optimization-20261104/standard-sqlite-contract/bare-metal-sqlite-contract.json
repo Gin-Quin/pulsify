@@ -1,0 +1,13 @@
+{
+  "busyDeadlineMs": 30000,
+  "busyMode": "timeout",
+  "settings": {
+    "cache_size": "-2000",
+    "journal_mode": "wal",
+    "mmap_size": "0",
+    "page_size": "4096",
+    "synchronous": "2",
+    "wal_autocheckpoint": "1000"
+  },
+  "sqliteVersion": "3.51.1"
+}

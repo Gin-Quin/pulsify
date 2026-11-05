@@ -1,0 +1,1093 @@
+$ bun benchmarks/database/native.ts --environment both --profile medium --databases "postgres,sqlite,alloydb,orioledb,pgrust-row,pgrust-columnar" --concurrency "1,16,64" --requests "1000" --results-dir "benchmarks/baselines/database-engines-20261104/medium"
+Generated medium: 64 real actor streams × 1000 patches
+    Finished `release` profile [optimized] target(s) in 0.15s
+Verified postgres: PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.3.34.2), 64-bit; both tables USING heap
+postgres/write_full/spread/burst/c1: 957.3 req/s, p99 6.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c1: 1662.5 req/s, p99 0.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c1: 1550.9 req/s, p99 1.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c1: 1681.2 req/s, p99 1.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c1: 1799.2 req/s, p99 0.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c1: 1805.5 req/s, p99 0.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c1: 1827.7 req/s, p99 0.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c1: 1830.4 req/s, p99 0.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c1: 1400.7 req/s, p99 1.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c1: 1396.8 req/s, p99 1.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c1: 1306.0 req/s, p99 1.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c1: 1214.6 req/s, p99 2.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c1: 227.8 req/s, p99 5.30 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c1: 213.4 req/s, p99 7.84 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c1: 3966.0 req/s, p99 0.93 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c1: 1471.5 req/s, p99 6.98 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c1: 1817.9 req/s, p99 4.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c1: 3627.7 req/s, p99 0.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c1: 3441.8 req/s, p99 0.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c1: 3489.7 req/s, p99 1.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c1: 1368.5 req/s, p99 2.35 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+postgres/mixed/spread/saturation/c1: 1281.1 req/s, p99 2.37 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+postgres/mixed/hot/burst/c1: 1389.6 req/s, p99 2.21 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+postgres/mixed/hot/saturation/c1: 1373.5 req/s, p99 2.44 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+postgres/write_full/spread/burst/c16: 4419.5 req/s, p99 10.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c16: 5143.3 req/s, p99 15.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c16: 5990.8 req/s, p99 9.61 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c16: 5697.0 req/s, p99 13.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c16: 5865.6 req/s, p99 4.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c16: 6243.8 req/s, p99 3.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c16: 7342.9 req/s, p99 3.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c16: 5206.2 req/s, p99 7.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c16: 3478.6 req/s, p99 9.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c16: 3586.0 req/s, p99 8.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c16: 1201.7 req/s, p99 38.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c16: 1198.8 req/s, p99 45.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c16: 806.2 req/s, p99 59.79 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c16: 791.6 req/s, p99 60.50 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c16: 19421.2 req/s, p99 9.38 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c16: 14721.7 req/s, p99 11.50 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c16: 7390.5 req/s, p99 13.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c16: 9381.4 req/s, p99 6.88 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c16: 11390.2 req/s, p99 3.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c16: 12708.1 req/s, p99 2.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c16: 3395.3 req/s, p99 43.32 ms, 0 errors, 19 retries, 46/54 useful/noop compactions
+postgres/mixed/spread/saturation/c16: 3761.5 req/s, p99 37.99 ms, 0 errors, 24 retries, 49/51 useful/noop compactions
+postgres/mixed/hot/burst/c16: 1158.3 req/s, p99 143.54 ms, 0 errors, 555 retries, 63/37 useful/noop compactions
+postgres/mixed/hot/saturation/c16: 1064.3 req/s, p99 186.88 ms, 0 errors, 664 retries, 71/29 useful/noop compactions
+postgres/write_full/spread/burst/c64: 3888.7 req/s, p99 82.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c64: 3767.2 req/s, p99 66.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c64: 4366.1 req/s, p99 39.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c64: 3550.2 req/s, p99 66.06 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c64: 5470.7 req/s, p99 24.81 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c64: 5160.3 req/s, p99 24.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c64: 4576.2 req/s, p99 43.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c64: 4571.4 req/s, p99 80.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c64: 2441.0 req/s, p99 69.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c64: 2351.3 req/s, p99 90.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c64: 878.7 req/s, p99 146.48 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c64: 1026.9 req/s, p99 121.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c64: 561.5 req/s, p99 591.66 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c64: 730.1 req/s, p99 420.69 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c64: 8467.9 req/s, p99 113.57 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c64: 10816.2 req/s, p99 89.34 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c64: 5617.5 req/s, p99 24.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c64: 7680.6 req/s, p99 15.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c64: 10588.1 req/s, p99 13.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c64: 9683.7 req/s, p99 15.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c64: 2618.2 req/s, p99 144.51 ms, 0 errors, 27 retries, 16/84 useful/noop compactions
+postgres/mixed/spread/saturation/c64: 3753.0 req/s, p99 84.76 ms, 0 errors, 27 retries, 14/86 useful/noop compactions
+postgres/mixed/hot/burst/c64: 914.3 req/s, p99 707.64 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+postgres/mixed/hot/saturation/c64: 1175.0 req/s, p99 583.31 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+sqlite/write_full/spread/burst/c1: 4095.9 req/s, p99 3.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c1: 4696.6 req/s, p99 1.86 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c1: 4569.0 req/s, p99 2.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c1: 3691.2 req/s, p99 2.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c1: 3584.6 req/s, p99 0.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c1: 3932.7 req/s, p99 0.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c1: 3974.4 req/s, p99 0.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c1: 3980.4 req/s, p99 0.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c1: 13886.0 req/s, p99 0.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c1: 13006.5 req/s, p99 0.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c1: 14460.8 req/s, p99 0.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c1: 14644.0 req/s, p99 0.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c1: 1370.9 req/s, p99 2.96 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c1: 1605.9 req/s, p99 2.71 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c1: 109101.3 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c1: 108319.4 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c1: 14995.5 req/s, p99 0.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c1: 14375.5 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c1: 12115.4 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c1: 13983.5 req/s, p99 0.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c1: 5569.6 req/s, p99 1.75 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+sqlite/mixed/spread/saturation/c1: 6355.3 req/s, p99 1.23 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+sqlite/mixed/hot/burst/c1: 3720.3 req/s, p99 1.62 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+sqlite/mixed/hot/saturation/c1: 3895.0 req/s, p99 1.36 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+sqlite/write_full/spread/burst/c16: 1763.8 req/s, p99 248.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c16: 2792.2 req/s, p99 148.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c16: 1486.3 req/s, p99 204.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c16: 1493.5 req/s, p99 206.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c16: 16053.0 req/s, p99 2.57 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c16: 12197.0 req/s, p99 6.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c16: 16749.9 req/s, p99 3.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c16: 13003.6 req/s, p99 6.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c16: 6544.9 req/s, p99 118.68 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c16: 3877.9 req/s, p99 119.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c16: 3909.3 req/s, p99 92.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c16: 2715.6 req/s, p99 93.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c16: 1014.8 req/s, p99 464.57 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c16: 1291.4 req/s, p99 257.58 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c16: 10731.1 req/s, p99 7.79 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c16: 15737.0 req/s, p99 3.36 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c16: 21415.3 req/s, p99 2.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c16: 22271.4 req/s, p99 2.57 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c16: 34117.8 req/s, p99 1.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c16: 32205.1 req/s, p99 2.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c16: 4880.5 req/s, p99 65.27 ms, 0 errors, 7 retries, 61/39 useful/noop compactions
+sqlite/mixed/spread/saturation/c16: 5510.0 req/s, p99 62.31 ms, 0 errors, 14 retries, 58/42 useful/noop compactions
+sqlite/mixed/hot/burst/c16: 5077.3 req/s, p99 61.55 ms, 0 errors, 46 retries, 56/44 useful/noop compactions
+sqlite/mixed/hot/saturation/c16: 3956.6 req/s, p99 85.87 ms, 0 errors, 24 retries, 64/36 useful/noop compactions
+sqlite/write_full/spread/burst/c64: 844.5 req/s, p99 778.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c64: 778.5 req/s, p99 784.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c64: 1018.8 req/s, p99 666.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c64: 1025.1 req/s, p99 765.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c64: 12359.3 req/s, p99 57.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c64: 8772.0 req/s, p99 60.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c64: 15467.6 req/s, p99 13.98 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c64: 10675.5 req/s, p99 38.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c64: 1779.1 req/s, p99 454.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c64: 1497.6 req/s, p99 457.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c64: 1799.7 req/s, p99 350.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c64: 1758.7 req/s, p99 256.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c64: 493.8 req/s, p99 1500.46 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c64: 582.5 req/s, p99 1183.67 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c64: 3879.8 req/s, p99 126.26 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c64: 1767.2 req/s, p99 155.87 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c64: 10686.9 req/s, p99 15.96 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c64: 13819.4 req/s, p99 13.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c64: 25445.4 req/s, p99 12.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c64: 24019.7 req/s, p99 11.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c64: 1282.7 req/s, p99 254.61 ms, 0 errors, 22 retries, 49/51 useful/noop compactions
+sqlite/mixed/spread/saturation/c64: 1764.2 req/s, p99 357.30 ms, 0 errors, 23 retries, 50/50 useful/noop compactions
+sqlite/mixed/hot/burst/c64: 2410.3 req/s, p99 255.85 ms, 0 errors, 50 retries, 54/46 useful/noop compactions
+sqlite/mixed/hot/saturation/c64: 2159.6 req/s, p99 209.56 ms, 0 errors, 65 retries, 53/47 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+Verified pgrust-row: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-apple-darwin, 64-bit; both tables USING heap
+pgrust-row/write_full/spread/burst/c1: 1085.5 req/s, p99 1.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c1: 787.7 req/s, p99 5.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c1: 1281.7 req/s, p99 2.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c1: 1351.6 req/s, p99 1.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c1: 1693.2 req/s, p99 0.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c1: 1653.9 req/s, p99 0.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c1: 1754.1 req/s, p99 0.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c1: 1709.3 req/s, p99 0.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c1: 1251.7 req/s, p99 1.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c1: 1226.0 req/s, p99 1.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c1: 1228.1 req/s, p99 1.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c1: 1084.6 req/s, p99 3.18 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c1: 200.7 req/s, p99 8.20 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c1: 200.5 req/s, p99 6.37 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c1: 3843.2 req/s, p99 0.72 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c1: 3753.6 req/s, p99 1.08 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c1: 2141.7 req/s, p99 2.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c1: 1663.2 req/s, p99 2.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c1: 1814.0 req/s, p99 2.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c1: 1571.6 req/s, p99 2.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c1: 894.4 req/s, p99 5.12 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c1: 1213.1 req/s, p99 3.10 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-row/mixed/hot/burst/c1: 1247.4 req/s, p99 2.43 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c1: 1124.5 req/s, p99 3.24 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-row/write_full/spread/burst/c16: 3805.6 req/s, p99 34.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c16: 4322.3 req/s, p99 27.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c16: 4794.3 req/s, p99 17.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c16: 4614.1 req/s, p99 24.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c16: 4407.4 req/s, p99 6.94 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c16: 5663.3 req/s, p99 5.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c16: 4587.8 req/s, p99 18.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c16: 4371.5 req/s, p99 13.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c16: 2900.4 req/s, p99 13.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c16: 2874.9 req/s, p99 12.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c16: 1060.8 req/s, p99 68.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c16: 1178.6 req/s, p99 34.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c16: 645.5 req/s, p99 52.91 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c16: 636.7 req/s, p99 58.81 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c16: 14591.1 req/s, p99 17.14 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c16: 12740.6 req/s, p99 13.95 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c16: 6585.3 req/s, p99 7.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c16: 6708.2 req/s, p99 6.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c16: 10683.5 req/s, p99 3.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c16: 10057.3 req/s, p99 4.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c16: 2623.9 req/s, p99 54.81 ms, 0 errors, 27 retries, 53/47 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c16: 2667.3 req/s, p99 47.06 ms, 0 errors, 22 retries, 47/53 useful/noop compactions
+pgrust-row/mixed/hot/burst/c16: 732.3 req/s, p99 208.20 ms, 0 errors, 481 retries, 57/43 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c16: 810.7 req/s, p99 285.58 ms, 0 errors, 629 retries, 69/31 useful/noop compactions
+pgrust-row/write_full/spread/burst/c64: 3879.1 req/s, p99 70.68 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c64: 2761.7 req/s, p99 114.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c64: 3018.9 req/s, p99 106.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c64: 3029.5 req/s, p99 98.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c64: 3392.9 req/s, p99 50.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c64: 3692.6 req/s, p99 56.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c64: 3394.2 req/s, p99 76.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c64: 5624.9 req/s, p99 16.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c64: 2141.4 req/s, p99 52.84 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c64: 1799.1 req/s, p99 188.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c64: 907.6 req/s, p99 128.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c64: 570.8 req/s, p99 299.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c64: 657.1 req/s, p99 212.21 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c64: 574.3 req/s, p99 261.32 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c64: 8743.0 req/s, p99 104.96 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c64: 9637.0 req/s, p99 99.51 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c64: 3294.3 req/s, p99 131.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c64: 4865.7 req/s, p99 28.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c64: 4130.3 req/s, p99 73.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c64: 5294.4 req/s, p99 21.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c64: 2075.5 req/s, p99 270.99 ms, 0 errors, 35 retries, 20/80 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c64: 2313.2 req/s, p99 166.82 ms, 0 errors, 37 retries, 22/78 useful/noop compactions
+pgrust-row/mixed/hot/burst/c64: 413.2 req/s, p99 1396.85 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c64: 490.9 req/s, p99 1211.34 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+Verified pgrust-columnar: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-apple-darwin, 64-bit; both tables USING pgrcolumnar
+pgrust-columnar/write_full/spread/burst/c1: 783.8 req/s, p99 2.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/spread/saturation/c1: 838.9 req/s, p99 1.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/burst/c1: 627.6 req/s, p99 2.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/saturation/c1: 441.7 req/s, p99 2.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/burst/c1: 717.9 req/s, p99 1.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/saturation/c1: 685.0 req/s, p99 1.61 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/burst/c1: 676.3 req/s, p99 1.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/saturation/c1: 678.0 req/s, p99 1.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/burst/c1: 226.6 req/s, p99 5.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/saturation/c1: 201.3 req/s, p99 6.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/burst/c1: 108.5 req/s, p99 35.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/saturation/c1: 71.7 req/s, p99 64.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/compact/spread/burst/c1: 26.1 req/s, p99 53.37 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/spread/saturation/c1: 10.5 req/s, p99 306.04 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/hot/burst/c1: 178.3 req/s, p99 12.49 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-columnar/compact/hot/saturation/c1: 179.0 req/s, p99 8.20 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-columnar/read_delta/spread/burst/c1: 1977.3 req/s, p99 0.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/spread/saturation/c1: 1966.1 req/s, p99 0.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/burst/c1: 1973.8 req/s, p99 0.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/saturation/c1: 1961.4 req/s, p99 0.81 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/mixed/spread/burst/c1: 250.9 req/s, p99 27.86 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-columnar/mixed/spread/saturation/c1: 235.3 req/s, p99 30.58 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-columnar/mixed/hot/burst/c1: 282.8 req/s, p99 22.27 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-columnar/mixed/hot/saturation/c1: 274.5 req/s, p99 21.81 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-columnar/write_full/spread/burst/c16: 1919.6 req/s, p99 23.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/spread/saturation/c16: 1693.0 req/s, p99 24.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/burst/c16: 1640.8 req/s, p99 28.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/saturation/c16: 1461.3 req/s, p99 31.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/burst/c16: 2439.3 req/s, p99 53.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/saturation/c16: 2943.1 req/s, p99 9.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/burst/c16: 3109.8 req/s, p99 11.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/saturation/c16: 2821.7 req/s, p99 33.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/burst/c16: 691.2 req/s, p99 40.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/saturation/c16: 1219.4 req/s, p99 33.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/burst/c16: 413.5 req/s, p99 88.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/saturation/c16: 391.6 req/s, p99 76.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/compact/spread/burst/c16: 121.7 req/s, p99 414.36 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/spread/saturation/c16: 9.8 req/s, p99 4246.35 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/hot/burst/c16: 1614.6 req/s, p99 260.15 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-columnar/compact/hot/saturation/c16: 7273.1 req/s, p99 19.11 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-columnar/read_delta/spread/burst/c16: 4474.2 req/s, p99 12.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/spread/saturation/c16: 4404.6 req/s, p99 43.94 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/burst/c16: 3945.2 req/s, p99 18.94 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/saturation/c16: 4724.8 req/s, p99 16.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/mixed/spread/burst/c16: 1605.2 req/s, p99 116.17 ms, 0 errors, 21 retries, 48/52 useful/noop compactions
+pgrust-columnar/mixed/spread/saturation/c16: 1257.7 req/s, p99 155.02 ms, 0 errors, 26 retries, 46/54 useful/noop compactions
+pgrust-columnar/mixed/hot/burst/c16: 424.6 req/s, p99 381.77 ms, 0 errors, 575 retries, 64/36 useful/noop compactions
+pgrust-columnar/mixed/hot/saturation/c16: 358.0 req/s, p99 481.90 ms, 0 errors, 711 retries, 73/27 useful/noop compactions
+pgrust-columnar/write_full/spread/burst/c64: 1888.0 req/s, p99 86.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/spread/saturation/c64: 1979.4 req/s, p99 101.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/burst/c64: 1899.8 req/s, p99 107.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/saturation/c64: 1589.2 req/s, p99 139.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/burst/c64: 2329.5 req/s, p99 142.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/saturation/c64: 2022.9 req/s, p99 258.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/burst/c64: 1754.9 req/s, p99 176.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/saturation/c64: 2138.3 req/s, p99 217.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/burst/c64: 892.2 req/s, p99 101.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/saturation/c64: 970.5 req/s, p99 133.96 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/burst/c64: 176.7 req/s, p99 837.81 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/hot/saturation/c64: 194.1 req/s, p99 451.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/compact/spread/burst/c64: 18.8 req/s, p99 4806.77 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/spread/saturation/c64: 37.1 req/s, p99 2627.60 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-columnar/compact/hot/burst/c64: 3241.5 req/s, p99 296.98 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+pgrust-columnar/compact/hot/saturation/c64: 2809.7 req/s, p99 274.35 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+pgrust-columnar/read_delta/spread/burst/c64: 6494.7 req/s, p99 21.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/spread/saturation/c64: 7345.8 req/s, p99 17.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/burst/c64: 5647.1 req/s, p99 29.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_delta/hot/saturation/c64: 3585.6 req/s, p99 123.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/mixed/spread/burst/c64: 843.2 req/s, p99 575.60 ms, 0 errors, 47 retries, 23/77 useful/noop compactions
+pgrust-columnar/mixed/spread/saturation/c64: 779.1 req/s, p99 741.88 ms, 0 errors, 44 retries, 21/79 useful/noop compactions
+pgrust-columnar/mixed/hot/burst/c64: 243.1 req/s, p99 2595.98 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+pgrust-columnar/mixed/hot/saturation/c64: 226.6 req/s, p99 2338.65 ms, 0 errors, 456 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Image pulsify-native-benchmark Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 568B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from native.Dockerfile
+#2 transferring dockerfile: 1.29kB 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/rust:1.95-slim-bookworm
+#3 DONE 1.0s
+
+#4 [internal] load metadata for docker.io/library/debian:bookworm-slim
+#4 DONE 1.0s
+
+#5 [build 1/6] FROM docker.io/library/rust:1.95-slim-bookworm@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082
+#5 DONE 0.0s
+
+#6 [stage-1 1/3] FROM docker.io/library/debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 26B
+#7 transferring context: 1.06kB 0.5s done
+#7 DONE 0.5s
+
+#8 [build 2/6] WORKDIR /source
+#8 CACHED
+
+#9 [build 3/6] COPY crates/pulsify-protocol crates/pulsify-protocol
+#9 DONE 1.6s
+
+#10 [build 4/6] COPY crates/pulsify-db-bench/Cargo.toml crates/pulsify-db-bench/Cargo.lock crates/pulsify-db-bench/
+#10 DONE 0.1s
+
+#11 [build 5/6] COPY crates/pulsify-db-bench/src crates/pulsify-db-bench/src
+#11 DONE 0.1s
+
+#12 [build 6/6] RUN --mount=type=tmpfs,target=/target mkdir -p /target/tmp /target/cargo && TMPDIR=/target/tmp CARGO_HOME=/target/cargo CARGO_TARGET_DIR=/target cargo build --release --locked --manifest-path crates/pulsify-db-bench/Cargo.toml && cp /target/release/pulsify-db-bench /pulsify-db-bench
+#12 0.973     Updating crates.io index
+#12 2.452  Downloading crates ...
+#12 2.574   Downloaded siphasher v1.0.4
+#12 2.576   Downloaded cpufeatures v0.3.1
+#12 2.587   Downloaded adler2 v2.0.1
+#12 2.596   Downloaded futures-core v0.3.34
+#12 2.599   Downloaded whoami v2.1.3
+#12 2.622   Downloaded zmij v1.0.23
+#12 2.623   Downloaded ctutils v0.4.8
+#12 2.627   Downloaded anstyle-parse v1.0.0
+#12 2.629   Downloaded scopeguard v1.2.0
+#12 2.633   Downloaded zlib-rs v0.6.8
+#12 2.642   Downloaded heck v0.5.0
+#12 2.644   Downloaded parking_lot_core v0.9.12
+#12 2.646   Downloaded hashlink v0.11.1
+#12 2.648   Downloaded version_check v0.9.5
+#12 2.649   Downloaded cpufeatures v0.2.17
+#12 2.650   Downloaded block-buffer v0.12.1
+#12 2.652   Downloaded strsim v0.11.1
+#12 2.653   Downloaded quote v1.0.47
+#12 2.656   Downloaded postgres-protocol v0.6.12
+#12 2.658   Downloaded vcpkg v0.2.15
+#12 2.702   Downloaded utf8parse v0.2.2
+#12 2.704   Downloaded unicode-properties v0.1.5
+#12 2.708   Downloaded tokio-util v0.7.20
+#12 2.712   Downloaded proc-macro2 v1.0.107
+#12 2.714   Downloaded syn v3.0.9
+#12 2.725   Downloaded digest v0.10.7
+#12 2.726   Downloaded hashbrown v0.16.1
+#12 2.729   Downloaded find-msvc-tools v0.1.15
+#12 2.731   Downloaded serde_core v1.0.229
+#12 2.732   Downloaded libc v0.2.191
+#12 2.759   Downloaded unicode-ident v1.0.27
+#12 2.760   Downloaded phf_shared v0.13.1
+#12 2.762   Downloaded tokio v1.54.1
+#12 2.795   Downloaded cmov v0.5.4
+#12 2.796   Downloaded fallible-iterator v0.2.0
+#12 2.797   Downloaded bitflags v2.13.2
+#12 2.805   Downloaded const-oid v0.10.2
+#12 2.807   Downloaded serde_derive v1.0.229
+#12 2.808   Downloaded unicode-normalization v0.1.26
+#12 2.810   Downloaded serde_json v1.0.154
+#12 2.816   Downloaded futures-util v0.3.34
+#12 2.823   Downloaded clap_builder v4.6.7
+#12 2.826   Downloaded rand v0.10.3
+#12 2.828   Downloaded mio v1.2.4
+#12 2.831   Downloaded bytes v1.12.1
+#12 2.832   Downloaded serde v1.0.229
+#12 2.834   Downloaded postgres v0.19.14
+#12 2.835   Downloaded hybrid-array v0.4.15
+#12 2.837   Downloaded hmac v0.13.0
+#12 2.837   Downloaded getrandom v0.4.3
+#12 2.839   Downloaded futures-channel v0.3.34
+#12 2.840   Downloaded flate2 v1.1.10
+#12 2.842   Downloaded fallible-streaming-iterator v0.1.9
+#12 2.843   Downloaded digest v0.11.3
+#12 2.844   Downloaded crypto-common v0.1.7
+#12 2.845   Downloaded crc32fast v1.5.4
+#12 2.846   Downloaded chacha20 v0.10.2
+#12 2.847   Downloaded cfg-if v1.0.5
+#12 2.848   Downloaded async-trait v0.1.92
+#12 2.849   Downloaded anyhow v1.0.104
+#12 2.853   Downloaded tinyvec v1.13.3
+#12 2.855   Downloaded stringprep v0.1.5
+#12 2.856   Downloaded slab v0.4.12
+#12 2.856   Downloaded base64 v0.22.1
+#12 2.859   Downloaded rand_core v0.10.1
+#12 2.860   Downloaded postgres-types v0.2.14
+#12 2.863   Downloaded pkg-config v0.3.34
+#12 2.864   Downloaded pin-project-lite v0.2.17
+#12 2.869   Downloaded miniz_oxide v0.9.1
+#12 2.871   Downloaded md-5 v0.11.0
+#12 2.872   Downloaded log v0.4.35
+#12 2.874   Downloaded lock_api v0.4.14
+#12 2.875   Downloaded itoa v1.0.18
+#12 2.876   Downloaded generic-array v0.14.7
+#12 2.877   Downloaded futures-sink v0.3.34
+#12 2.878   Downloaded colorchoice v1.0.5
+#12 2.878   Downloaded clap_derive v4.6.7
+#12 2.879   Downloaded typenum v1.20.1
+#12 2.881   Downloaded memchr v2.8.3
+#12 2.884   Downloaded libsqlite3-sys v0.36.0
+#12 2.934   Downloaded clap v4.6.7
+#12 2.937   Downloaded rusqlite v0.38.0
+#12 2.940   Downloaded cc v1.11.0
+#12 2.943   Downloaded tokio-postgres v0.7.18
+#12 2.946   Downloaded byteorder v1.5.0
+#12 2.947   Downloaded block-buffer v0.10.4
+#12 2.947   Downloaded unicode-bidi v0.3.18
+#12 2.949   Downloaded socket2 v0.6.5
+#12 2.950   Downloaded smallvec v1.16.4
+#12 2.951   Downloaded simd-adler32 v0.3.10
+#12 2.952   Downloaded shlex v2.0.1
+#12 2.952   Downloaded sha2 v0.11.1
+#12 2.953   Downloaded sha2 v0.10.9
+#12 2.954   Downloaded phf v0.13.1
+#12 2.955   Downloaded parking_lot v0.12.5
+#12 2.956   Downloaded is_terminal_polyfill v1.70.2
+#12 2.956   Downloaded foldhash v0.2.0
+#12 2.956   Downloaded fallible-iterator v0.3.0
+#12 2.958   Downloaded clap_lex v1.1.1
+#12 2.958   Downloaded anstream v1.0.0
+#12 2.959   Downloaded anstyle-query v1.1.5
+#12 2.959   Downloaded futures-task v0.3.34
+#12 2.960   Downloaded percent-encoding v2.3.2
+#12 2.960   Downloaded anstyle v1.0.14
+#12 2.961   Downloaded crypto-common v0.2.2
+#12 2.982    Compiling libc v0.2.191
+#12 2.982    Compiling typenum v1.20.1
+#12 2.982    Compiling cfg-if v1.0.5
+#12 2.982    Compiling proc-macro2 v1.0.107
+#12 2.985    Compiling unicode-ident v1.0.27
+#12 2.985    Compiling quote v1.0.47
+#12 2.985    Compiling cmov v0.5.4
+#12 2.985    Compiling const-oid v0.10.2
+#12 2.985    Compiling rand_core v0.10.1
+#12 2.990    Compiling version_check v0.9.5
+#12 3.207    Compiling getrandom v0.4.3
+#12 3.268    Compiling tinyvec v1.13.3
+#12 3.314    Compiling bytes v1.12.1
+#12 3.378    Compiling ctutils v0.4.8
+#12 3.387    Compiling generic-array v0.14.7
+#12 3.418    Compiling chacha20 v0.10.2
+#12 3.441    Compiling futures-sink v0.3.34
+#12 3.444    Compiling smallvec v1.16.4
+#12 3.480    Compiling unicode-bidi v0.3.18
+#12 3.503    Compiling parking_lot_core v0.9.12
+#12 3.522    Compiling memchr v2.8.3
+#12 3.578    Compiling unicode-normalization v0.1.26
+#12 3.583    Compiling shlex v2.0.1
+#12 3.588    Compiling pin-project-lite v0.2.17
+#12 3.622    Compiling futures-core v0.3.34
+#12 3.629    Compiling unicode-properties v0.1.5
+#12 3.697    Compiling hybrid-array v0.4.15
+#12 3.717    Compiling find-msvc-tools v0.1.15
+#12 3.861    Compiling stringprep v0.1.5
+#12 3.938    Compiling syn v3.0.9
+#12 3.968    Compiling cc v1.11.0
+#12 3.978    Compiling serde_core v1.0.229
+#12 4.021    Compiling crypto-common v0.2.2
+#12 4.040    Compiling block-buffer v0.12.1
+#12 4.126    Compiling utf8parse v0.2.2
+#12 4.133    Compiling vcpkg v0.2.15
+#12 4.144    Compiling fallible-iterator v0.2.0
+#12 4.176    Compiling byteorder v1.5.0
+#12 4.225    Compiling cpufeatures v0.3.1
+#12 4.274    Compiling rand v0.10.3
+#12 4.310    Compiling mio v1.2.4
+#12 4.327    Compiling socket2 v0.6.5
+#12 4.342    Compiling siphasher v1.0.4
+#12 4.498    Compiling digest v0.11.3
+#12 4.586    Compiling scopeguard v1.2.0
+#12 4.591    Compiling sha2 v0.11.1
+#12 4.612    Compiling md-5 v0.11.0
+#12 4.639    Compiling hmac v0.13.0
+#12 4.734    Compiling pkg-config v0.3.34
+#12 4.803    Compiling base64 v0.22.1
+#12 4.813    Compiling lock_api v0.4.14
+#12 4.842    Compiling tokio v1.54.1
+#12 4.941    Compiling phf_shared v0.13.1
+#12 5.074    Compiling anstyle-parse v1.0.0
+#12 5.095    Compiling postgres-protocol v0.6.12
+#12 5.166    Compiling zmij v1.0.23
+#12 5.171    Compiling anstyle v1.0.14
+#12 5.180    Compiling foldhash v0.2.0
+#12 5.230    Compiling colorchoice v1.0.5
+#12 5.281    Compiling futures-task v0.3.34
+#12 5.296    Compiling is_terminal_polyfill v1.70.2
+#12 5.302    Compiling libsqlite3-sys v0.36.0
+#12 5.306    Compiling anstyle-query v1.1.5
+#12 5.328    Compiling crc32fast v1.5.4
+#12 5.330    Compiling futures-util v0.3.34
+#12 5.346    Compiling anstream v1.0.0
+#12 5.362    Compiling hashbrown v0.16.1
+#12 5.470    Compiling postgres-types v0.2.14
+#12 5.874    Compiling parking_lot v0.12.5
+#12 5.911    Compiling phf v0.13.1
+#12 5.919    Compiling whoami v2.1.3
+#12 6.042    Compiling crypto-common v0.1.7
+#12 6.134    Compiling block-buffer v0.10.4
+#12 6.201    Compiling futures-channel v0.3.34
+#12 6.329    Compiling strsim v0.11.1
+#12 6.371    Compiling clap_lex v1.1.1
+#12 6.434    Compiling serde v1.0.229
+#12 6.600    Compiling percent-encoding v2.3.2
+#12 6.642    Compiling simd-adler32 v0.3.10
+#12 6.694    Compiling adler2 v2.0.1
+#12 6.707    Compiling anyhow v1.0.104
+#12 6.767    Compiling log v0.4.35
+#12 6.805    Compiling serde_json v1.0.154
+#12 6.851    Compiling heck v0.5.0
+#12 6.912    Compiling miniz_oxide v0.9.1
+#12 6.952    Compiling clap_builder v4.6.7
+#12 6.969    Compiling digest v0.10.7
+#12 6.987    Compiling hashlink v0.11.1
+#12 7.054    Compiling async-trait v0.1.92
+#12 7.102    Compiling clap_derive v4.6.7
+#12 7.150    Compiling serde_derive v1.0.229
+#12 7.608    Compiling cpufeatures v0.2.17
+#12 7.652    Compiling bitflags v2.13.2
+#12 7.745    Compiling fallible-iterator v0.3.0
+#12 7.812    Compiling fallible-streaming-iterator v0.1.9
+#12 7.856    Compiling itoa v1.0.18
+#12 7.893    Compiling sha2 v0.10.9
+#12 8.019    Compiling flate2 v1.1.10
+#12 8.061    Compiling tokio-util v0.7.20
+#12 8.439    Compiling tokio-postgres v0.7.18
+#12 8.733    Compiling pulsify-protocol v0.1.0 (/source/crates/pulsify-protocol)
+#12 9.023    Compiling clap v4.6.7
+#12 10.32    Compiling postgres v0.19.14
+#12 32.02    Compiling rusqlite v0.38.0
+#12 32.42    Compiling pulsify-db-bench v0.1.0 (/source/crates/pulsify-db-bench)
+#12 34.07     Finished `release` profile [optimized] target(s) in 33.47s
+#12 DONE 34.2s
+
+#13 [stage-1 2/3] RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 && rm -rf /var/lib/apt/lists/*
+#13 CACHED
+
+#14 [stage-1 3/3] COPY --from=build /pulsify-db-bench /usr/local/bin/pulsify-db-bench
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 writing image sha256:db84c2c6e7fd9fc4331f857451ce0c40cd1b0543ff9f8209d1c29b677f77308b done
+#15 naming to docker.io/library/pulsify-native-benchmark done
+#15 DONE 0.0s
+
+#16 resolving provenance for metadata file
+#16 DONE 0.0s
+ Image pulsify-native-benchmark Built
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Volume pulsify-native-43175-1793820081260_postgres-data Creating
+ Volume pulsify-native-43175-1793820081260_postgres-data Creating
+ Volume pulsify-native-43175-1793820081260_postgres-data Created
+ Volume pulsify-native-43175-1793820081260_postgres-data Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-postgres-1 Creating
+ Container pulsify-native-43175-1793820081260-postgres-1 Created
+ Container pulsify-native-43175-1793820081260-postgres-1 Starting
+ Container pulsify-native-43175-1793820081260-postgres-1 Started
+ Container pulsify-native-43175-1793820081260-postgres-1 Waiting
+ Container pulsify-native-43175-1793820081260-postgres-1 Healthy
+ Container pulsify-native-43175-1793820081260-native-run-a30efaa6fe66 Creating
+ Container pulsify-native-43175-1793820081260-native-run-a30efaa6fe66 Created
+Verified postgres: PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit; both tables USING heap
+postgres/write_full/spread/burst/c1: 454.7 req/s, p99 4.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c1: 371.1 req/s, p99 11.43 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c1: 356.6 req/s, p99 7.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c1: 239.3 req/s, p99 46.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c1: 2242.2 req/s, p99 0.59 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c1: 2254.5 req/s, p99 0.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c1: 2260.0 req/s, p99 0.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c1: 2013.3 req/s, p99 1.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c1: 291.9 req/s, p99 43.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c1: 423.4 req/s, p99 6.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c1: 420.2 req/s, p99 4.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c1: 247.4 req/s, p99 25.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c1: 144.7 req/s, p99 26.08 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c1: 156.6 req/s, p99 26.59 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c1: 5502.4 req/s, p99 0.85 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c1: 3468.9 req/s, p99 0.94 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c1: 2980.9 req/s, p99 1.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c1: 3212.6 req/s, p99 1.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c1: 3853.6 req/s, p99 1.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c1: 3394.7 req/s, p99 1.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c1: 397.3 req/s, p99 23.99 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+postgres/mixed/spread/saturation/c1: 515.8 req/s, p99 12.96 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+postgres/mixed/hot/burst/c1: 617.7 req/s, p99 6.37 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+postgres/mixed/hot/saturation/c1: 448.6 req/s, p99 23.92 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+postgres/write_full/spread/burst/c16: 2453.9 req/s, p99 25.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c16: 1858.1 req/s, p99 20.81 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c16: 1970.2 req/s, p99 58.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c16: 1788.9 req/s, p99 43.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c16: 4973.0 req/s, p99 15.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c16: 4552.5 req/s, p99 17.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c16: 4046.0 req/s, p99 25.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c16: 3503.0 req/s, p99 35.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c16: 965.5 req/s, p99 56.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c16: 608.1 req/s, p99 109.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c16: 311.4 req/s, p99 253.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c16: 435.4 req/s, p99 71.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c16: 831.1 req/s, p99 41.76 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c16: 903.8 req/s, p99 33.87 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c16: 14856.4 req/s, p99 13.35 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c16: 13742.5 req/s, p99 13.26 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c16: 11359.2 req/s, p99 14.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c16: 11952.4 req/s, p99 14.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c16: 16018.5 req/s, p99 4.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c16: 5855.5 req/s, p99 31.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c16: 2009.1 req/s, p99 65.35 ms, 0 errors, 17 retries, 53/47 useful/noop compactions
+postgres/mixed/spread/saturation/c16: 2091.4 req/s, p99 50.03 ms, 0 errors, 16 retries, 46/54 useful/noop compactions
+postgres/mixed/hot/burst/c16: 464.0 req/s, p99 381.91 ms, 0 errors, 625 retries, 68/32 useful/noop compactions
+postgres/mixed/hot/saturation/c16: 469.9 req/s, p99 416.49 ms, 0 errors, 739 retries, 75/25 useful/noop compactions
+postgres/write_full/spread/burst/c64: 3776.8 req/s, p99 47.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c64: 3138.7 req/s, p99 48.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c64: 1886.8 req/s, p99 80.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c64: 3384.8 req/s, p99 41.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c64: 4394.3 req/s, p99 56.48 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c64: 4516.5 req/s, p99 45.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c64: 5302.8 req/s, p99 37.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c64: 4350.6 req/s, p99 69.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c64: 742.5 req/s, p99 346.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c64: 788.3 req/s, p99 331.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c64: 339.3 req/s, p99 617.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c64: 319.9 req/s, p99 325.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c64: 908.5 req/s, p99 134.43 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c64: 1252.0 req/s, p99 93.25 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c64: 11610.7 req/s, p99 81.27 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c64: 10350.9 req/s, p99 88.36 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c64: 6572.6 req/s, p99 61.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c64: 10406.1 req/s, p99 27.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c64: 9296.4 req/s, p99 40.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c64: 9586.7 req/s, p99 35.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c64: 2522.1 req/s, p99 100.78 ms, 0 errors, 33 retries, 14/86 useful/noop compactions
+postgres/mixed/spread/saturation/c64: 2250.7 req/s, p99 117.24 ms, 0 errors, 33 retries, 17/83 useful/noop compactions
+postgres/mixed/hot/burst/c64: 502.2 req/s, p99 1265.91 ms, 0 errors, 460 retries, 13/87 useful/noop compactions
+postgres/mixed/hot/saturation/c64: 565.0 req/s, p99 1111.74 ms, 0 errors, 456 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Container pulsify-native-43175-1793820081260-postgres-1 Stopping
+ Container pulsify-native-43175-1793820081260-postgres-1 Stopped
+ Container pulsify-native-43175-1793820081260-postgres-1 Removing
+ Container pulsify-native-43175-1793820081260-postgres-1 Removed
+ Network pulsify-native-43175-1793820081260_default Removing
+ Volume pulsify-native-43175-1793820081260_postgres-data Removing
+ Volume pulsify-native-43175-1793820081260_postgres-data Removed
+ Network pulsify-native-43175-1793820081260_default Removed
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-native-run-b48e8ba98769 Creating
+ Container pulsify-native-43175-1793820081260-native-run-b48e8ba98769 Created
+sqlite/write_full/spread/burst/c1: 880.0 req/s, p99 5.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c1: 680.4 req/s, p99 10.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c1: 372.6 req/s, p99 23.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c1: 372.1 req/s, p99 12.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c1: 4352.3 req/s, p99 0.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c1: 4243.4 req/s, p99 0.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c1: 4300.6 req/s, p99 0.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c1: 4220.0 req/s, p99 0.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c1: 1071.4 req/s, p99 4.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c1: 780.0 req/s, p99 10.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c1: 409.9 req/s, p99 32.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c1: 1079.0 req/s, p99 4.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c1: 390.5 req/s, p99 10.79 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c1: 361.0 req/s, p99 24.54 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c1: 104608.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c1: 89611.4 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c1: 11866.4 req/s, p99 0.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c1: 12644.4 req/s, p99 0.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c1: 12168.5 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c1: 12089.7 req/s, p99 0.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c1: 546.2 req/s, p99 18.82 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+sqlite/mixed/spread/saturation/c1: 1027.0 req/s, p99 7.78 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+sqlite/mixed/hot/burst/c1: 584.8 req/s, p99 15.84 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+sqlite/mixed/hot/saturation/c1: 334.6 req/s, p99 14.38 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+sqlite/write_full/spread/burst/c16: 255.2 req/s, p99 2879.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c16: 295.7 req/s, p99 1617.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c16: 638.1 req/s, p99 854.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c16: 680.1 req/s, p99 953.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c16: 18047.2 req/s, p99 4.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c16: 15540.2 req/s, p99 4.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c16: 16004.1 req/s, p99 6.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c16: 10581.1 req/s, p99 13.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c16: 682.1 req/s, p99 962.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c16: 860.6 req/s, p99 952.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c16: 388.2 req/s, p99 2369.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c16: 734.5 req/s, p99 959.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c16: 411.5 req/s, p99 1167.09 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c16: 249.1 req/s, p99 1175.23 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c16: 23696.2 req/s, p99 10.85 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c16: 70137.9 req/s, p99 7.24 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c16: 29089.9 req/s, p99 2.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c16: 29677.3 req/s, p99 3.43 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c16: 35683.8 req/s, p99 2.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c16: 41780.7 req/s, p99 2.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c16: 1180.4 req/s, p99 535.68 ms, 0 errors, 13 retries, 63/37 useful/noop compactions
+sqlite/mixed/spread/saturation/c16: 403.1 req/s, p99 958.38 ms, 0 errors, 4 retries, 68/32 useful/noop compactions
+sqlite/mixed/hot/burst/c16: 482.8 req/s, p99 1664.40 ms, 0 errors, 7 retries, 64/36 useful/noop compactions
+sqlite/mixed/hot/saturation/c16: 794.0 req/s, p99 744.11 ms, 0 errors, 13 retries, 66/34 useful/noop compactions
+sqlite/write_full/spread/burst/c64: 249.9 req/s, p99 3186.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/spread/saturation/c64: 346.1 req/s, p99 2474.57 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/burst/c64: 160.6 req/s, p99 5619.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_full/hot/saturation/c64: 137.3 req/s, p99 6357.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/burst/c64: 6540.7 req/s, p99 51.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/spread/saturation/c64: 8271.3 req/s, p99 25.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/burst/c64: 4591.9 req/s, p99 75.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c64: 12359.0 req/s, p99 29.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/burst/c64: 255.8 req/s, p99 2989.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/spread/saturation/c64: 481.2 req/s, p99 1757.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/burst/c64: 358.1 req/s, p99 2575.57 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c64: 441.0 req/s, p99 1665.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/spread/burst/c64: 231.5 req/s, p99 3303.88 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/spread/saturation/c64: 231.9 req/s, p99 3399.39 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+sqlite/compact/hot/burst/c64: 15096.8 req/s, p99 29.16 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+sqlite/compact/hot/saturation/c64: 10654.0 req/s, p99 64.83 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+sqlite/read_delta/spread/burst/c64: 15095.9 req/s, p99 13.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/spread/saturation/c64: 16584.7 req/s, p99 15.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/burst/c64: 18699.9 req/s, p99 25.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_delta/hot/saturation/c64: 24532.1 req/s, p99 13.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/spread/burst/c64: 191.6 req/s, p99 4898.01 ms, 0 errors, 22 retries, 44/56 useful/noop compactions
+sqlite/mixed/spread/saturation/c64: 420.4 req/s, p99 1870.93 ms, 0 errors, 20 retries, 48/52 useful/noop compactions
+sqlite/mixed/hot/burst/c64: 372.3 req/s, p99 2170.09 ms, 0 errors, 17 retries, 59/41 useful/noop compactions
+sqlite/mixed/hot/saturation/c64: 386.2 req/s, p99 2271.10 ms, 0 errors, 22 retries, 58/42 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Network pulsify-native-43175-1793820081260_default Removing
+ Network pulsify-native-43175-1793820081260_default Removed
+ Volume pulsify-native-43175-1793820081260_alloy-data Creating
+ Volume pulsify-native-43175-1793820081260_alloy-data Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Volume pulsify-native-43175-1793820081260_alloy-data Created
+ Volume pulsify-native-43175-1793820081260_alloy-data Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-alloydb-1 Creating
+ Container pulsify-native-43175-1793820081260-alloydb-1 Created
+ Container pulsify-native-43175-1793820081260-alloydb-1 Starting
+ Container pulsify-native-43175-1793820081260-alloydb-1 Started
+ Container pulsify-native-43175-1793820081260-alloydb-1 Waiting
+ Container pulsify-native-43175-1793820081260-alloydb-1 Healthy
+ Container pulsify-native-43175-1793820081260-native-run-68bc08adec6b Creating
+ Container pulsify-native-43175-1793820081260-native-run-68bc08adec6b Created
+Verified alloydb: PostgreSQL 17.10 on aarch64-unknown-linux-gnu, 64-bit; both tables USING heap
+alloydb/write_full/spread/burst/c1: 242.5 req/s, p99 15.61 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/spread/saturation/c1: 195.5 req/s, p99 13.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/burst/c1: 226.4 req/s, p99 23.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/saturation/c1: 276.3 req/s, p99 9.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/burst/c1: 2382.6 req/s, p99 0.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/saturation/c1: 2418.7 req/s, p99 0.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/burst/c1: 2270.1 req/s, p99 0.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/saturation/c1: 2332.4 req/s, p99 0.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/burst/c1: 212.5 req/s, p99 17.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/saturation/c1: 250.3 req/s, p99 18.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/burst/c1: 261.7 req/s, p99 11.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/saturation/c1: 318.2 req/s, p99 14.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/compact/spread/burst/c1: 111.9 req/s, p99 70.56 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/spread/saturation/c1: 134.0 req/s, p99 25.38 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/hot/burst/c1: 4416.2 req/s, p99 1.10 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+alloydb/compact/hot/saturation/c1: 6128.5 req/s, p99 0.95 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+alloydb/read_delta/spread/burst/c1: 3957.5 req/s, p99 1.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/spread/saturation/c1: 3621.6 req/s, p99 2.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/burst/c1: 5287.8 req/s, p99 0.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/saturation/c1: 5780.2 req/s, p99 0.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/mixed/spread/burst/c1: 357.5 req/s, p99 21.31 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+alloydb/mixed/spread/saturation/c1: 349.8 req/s, p99 11.70 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+alloydb/mixed/hot/burst/c1: 372.7 req/s, p99 11.32 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+alloydb/mixed/hot/saturation/c1: 314.2 req/s, p99 10.27 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+alloydb/write_full/spread/burst/c16: 1917.9 req/s, p99 49.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/spread/saturation/c16: 2073.8 req/s, p99 15.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/burst/c16: 2892.5 req/s, p99 21.07 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/saturation/c16: 2963.2 req/s, p99 11.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/burst/c16: 10330.9 req/s, p99 6.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/saturation/c16: 8361.1 req/s, p99 7.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/burst/c16: 5432.7 req/s, p99 19.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/saturation/c16: 5549.2 req/s, p99 19.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/burst/c16: 1571.9 req/s, p99 39.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/saturation/c16: 2121.5 req/s, p99 21.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/burst/c16: 297.6 req/s, p99 395.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/saturation/c16: 236.9 req/s, p99 127.48 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/compact/spread/burst/c16: 1439.2 req/s, p99 21.25 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/spread/saturation/c16: 1292.6 req/s, p99 25.53 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/hot/burst/c16: 23527.6 req/s, p99 12.14 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+alloydb/compact/hot/saturation/c16: 20436.5 req/s, p99 17.94 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+alloydb/read_delta/spread/burst/c16: 20554.4 req/s, p99 5.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/spread/saturation/c16: 16578.6 req/s, p99 5.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/burst/c16: 15116.1 req/s, p99 6.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/saturation/c16: 9836.8 req/s, p99 7.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/mixed/spread/burst/c16: 2193.2 req/s, p99 59.21 ms, 0 errors, 19 retries, 50/50 useful/noop compactions
+alloydb/mixed/spread/saturation/c16: 2235.2 req/s, p99 45.42 ms, 0 errors, 22 retries, 52/48 useful/noop compactions
+alloydb/mixed/hot/burst/c16: 397.5 req/s, p99 540.17 ms, 0 errors, 699 retries, 73/27 useful/noop compactions
+alloydb/mixed/hot/saturation/c16: 289.8 req/s, p99 678.84 ms, 0 errors, 613 retries, 68/32 useful/noop compactions
+alloydb/write_full/spread/burst/c64: 4532.2 req/s, p99 33.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/spread/saturation/c64: 4863.1 req/s, p99 27.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/burst/c64: 4253.0 req/s, p99 35.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_full/hot/saturation/c64: 4164.9 req/s, p99 35.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/burst/c64: 5341.9 req/s, p99 35.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/spread/saturation/c64: 5112.4 req/s, p99 58.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/burst/c64: 4901.2 req/s, p99 43.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_full/hot/saturation/c64: 5170.4 req/s, p99 52.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/burst/c64: 567.0 req/s, p99 834.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/spread/saturation/c64: 779.1 req/s, p99 222.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/burst/c64: 195.6 req/s, p99 967.07 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/write_patch/hot/saturation/c64: 193.5 req/s, p99 933.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/compact/spread/burst/c64: 1085.8 req/s, p99 120.65 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/spread/saturation/c64: 1135.4 req/s, p99 98.95 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+alloydb/compact/hot/burst/c64: 10009.5 req/s, p99 90.16 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+alloydb/compact/hot/saturation/c64: 2184.4 req/s, p99 449.06 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+alloydb/read_delta/spread/burst/c64: 11858.8 req/s, p99 37.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/spread/saturation/c64: 10419.7 req/s, p99 35.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/burst/c64: 10359.5 req/s, p99 25.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/read_delta/hot/saturation/c64: 14629.2 req/s, p99 17.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+alloydb/mixed/spread/burst/c64: 712.5 req/s, p99 282.66 ms, 0 errors, 25 retries, 17/83 useful/noop compactions
+alloydb/mixed/spread/saturation/c64: 2156.4 req/s, p99 176.11 ms, 0 errors, 39 retries, 22/78 useful/noop compactions
+alloydb/mixed/hot/burst/c64: 441.6 req/s, p99 1089.19 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+alloydb/mixed/hot/saturation/c64: 141.4 req/s, p99 5598.41 ms, 0 errors, 454 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Container pulsify-native-43175-1793820081260-alloydb-1 Stopping
+ Container pulsify-native-43175-1793820081260-alloydb-1 Stopped
+ Container pulsify-native-43175-1793820081260-alloydb-1 Removing
+ Container pulsify-native-43175-1793820081260-alloydb-1 Removed
+ Volume pulsify-native-43175-1793820081260_alloy-data Removing
+ Network pulsify-native-43175-1793820081260_default Removing
+ Volume pulsify-native-43175-1793820081260_alloy-data Removed
+ Network pulsify-native-43175-1793820081260_default Removed
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Volume pulsify-native-43175-1793820081260_oriole-data Creating
+ Volume pulsify-native-43175-1793820081260_oriole-data Creating
+ Volume pulsify-native-43175-1793820081260_oriole-data Created
+ Volume pulsify-native-43175-1793820081260_oriole-data Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-orioledb-1 Creating
+ Container pulsify-native-43175-1793820081260-orioledb-1 Created
+ Container pulsify-native-43175-1793820081260-orioledb-1 Starting
+ Container pulsify-native-43175-1793820081260-orioledb-1 Started
+ Container pulsify-native-43175-1793820081260-orioledb-1 Waiting
+ Container pulsify-native-43175-1793820081260-orioledb-1 Healthy
+ Container pulsify-native-43175-1793820081260-native-run-7a2457d46710 Creating
+ Container pulsify-native-43175-1793820081260-native-run-7a2457d46710 Created
+Verified orioledb: PostgreSQL 17.11 OrioleDB beta 19 PGTAG=patches17_23 alpine:3.21+clang build:2026-11-02T14:08:58+00:00 17.11 on aarch64-unknown-linux-musl, compiled by Alpine clang version 19.1.4, 64-bit; both tables USING orioledb
+orioledb/write_full/spread/burst/c1: 357.9 req/s, p99 17.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/spread/saturation/c1: 464.7 req/s, p99 16.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/burst/c1: 448.3 req/s, p99 7.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/saturation/c1: 394.2 req/s, p99 9.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/burst/c1: 2127.5 req/s, p99 0.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/saturation/c1: 2031.8 req/s, p99 1.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/burst/c1: 1613.2 req/s, p99 3.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/saturation/c1: 1591.9 req/s, p99 3.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/burst/c1: 334.9 req/s, p99 11.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/saturation/c1: 162.5 req/s, p99 58.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/burst/c1: 282.3 req/s, p99 16.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/saturation/c1: 151.7 req/s, p99 66.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/compact/spread/burst/c1: 194.5 req/s, p99 11.44 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/spread/saturation/c1: 150.2 req/s, p99 37.49 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/hot/burst/c1: 4647.0 req/s, p99 1.41 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+orioledb/compact/hot/saturation/c1: 5993.3 req/s, p99 0.56 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+orioledb/read_delta/spread/burst/c1: 3954.9 req/s, p99 0.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/spread/saturation/c1: 4391.3 req/s, p99 0.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/burst/c1: 4505.0 req/s, p99 0.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/saturation/c1: 4012.0 req/s, p99 0.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/mixed/spread/burst/c1: 273.5 req/s, p99 84.94 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+orioledb/mixed/spread/saturation/c1: 340.4 req/s, p99 65.86 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+orioledb/mixed/hot/burst/c1: 629.4 req/s, p99 7.39 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+orioledb/mixed/hot/saturation/c1: 557.4 req/s, p99 8.61 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+orioledb/write_full/spread/burst/c16: 2800.7 req/s, p99 19.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/spread/saturation/c16: 3589.5 req/s, p99 17.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/burst/c16: 2733.0 req/s, p99 50.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/saturation/c16: 1868.4 req/s, p99 78.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/burst/c16: 8258.7 req/s, p99 11.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/saturation/c16: 5638.1 req/s, p99 14.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/burst/c16: 4809.8 req/s, p99 26.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/saturation/c16: 8362.3 req/s, p99 10.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/burst/c16: 2336.7 req/s, p99 22.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/saturation/c16: 2370.6 req/s, p99 40.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/burst/c16: 409.9 req/s, p99 524.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/saturation/c16: 506.4 req/s, p99 76.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/compact/spread/burst/c16: 807.5 req/s, p99 126.89 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/spread/saturation/c16: 1140.4 req/s, p99 27.28 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/hot/burst/c16: 19768.3 req/s, p99 14.00 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+orioledb/compact/hot/saturation/c16: 16463.8 req/s, p99 15.08 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+orioledb/read_delta/spread/burst/c16: 10834.7 req/s, p99 10.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/spread/saturation/c16: 14603.1 req/s, p99 5.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/burst/c16: 10415.7 req/s, p99 7.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/saturation/c16: 11722.5 req/s, p99 6.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/mixed/spread/burst/c16: 1630.2 req/s, p99 67.37 ms, 0 errors, 29 retries, 56/44 useful/noop compactions
+orioledb/mixed/spread/saturation/c16: 1417.2 req/s, p99 139.78 ms, 0 errors, 25 retries, 53/47 useful/noop compactions
+orioledb/mixed/hot/burst/c16: 610.8 req/s, p99 295.58 ms, 0 errors, 661 retries, 70/30 useful/noop compactions
+orioledb/mixed/hot/saturation/c16: 587.9 req/s, p99 265.17 ms, 0 errors, 557 retries, 62/38 useful/noop compactions
+orioledb/write_full/spread/burst/c64: 3334.6 req/s, p99 44.43 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/spread/saturation/c64: 2781.5 req/s, p99 61.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/burst/c64: 3282.1 req/s, p99 45.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_full/hot/saturation/c64: 3615.1 req/s, p99 28.48 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/burst/c64: 2836.1 req/s, p99 127.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/spread/saturation/c64: 3552.3 req/s, p99 171.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/burst/c64: 3461.1 req/s, p99 91.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_full/hot/saturation/c64: 4724.4 req/s, p99 47.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/burst/c64: 517.2 req/s, p99 952.56 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/spread/saturation/c64: 1883.4 req/s, p99 77.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/burst/c64: 331.0 req/s, p99 770.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/write_patch/hot/saturation/c64: 510.7 req/s, p99 193.61 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/compact/spread/burst/c64: 837.0 req/s, p99 155.61 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/spread/saturation/c64: 757.3 req/s, p99 157.12 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+orioledb/compact/hot/burst/c64: 8629.7 req/s, p99 107.00 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+orioledb/compact/hot/saturation/c64: 4212.7 req/s, p99 209.14 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+orioledb/read_delta/spread/burst/c64: 7453.8 req/s, p99 84.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/spread/saturation/c64: 7513.0 req/s, p99 29.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/burst/c64: 8675.0 req/s, p99 38.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/read_delta/hot/saturation/c64: 3032.7 req/s, p99 95.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+orioledb/mixed/spread/burst/c64: 1521.0 req/s, p99 212.45 ms, 0 errors, 45 retries, 24/76 useful/noop compactions
+orioledb/mixed/spread/saturation/c64: 1727.2 req/s, p99 152.45 ms, 0 errors, 25 retries, 14/86 useful/noop compactions
+orioledb/mixed/hot/burst/c64: 298.8 req/s, p99 1551.64 ms, 0 errors, 460 retries, 13/87 useful/noop compactions
+orioledb/mixed/hot/saturation/c64: 469.3 req/s, p99 1561.90 ms, 0 errors, 449 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Container pulsify-native-43175-1793820081260-orioledb-1 Stopping
+ Container pulsify-native-43175-1793820081260-orioledb-1 Stopped
+ Container pulsify-native-43175-1793820081260-orioledb-1 Removing
+ Container pulsify-native-43175-1793820081260-orioledb-1 Removed
+ Network pulsify-native-43175-1793820081260_default Removing
+ Volume pulsify-native-43175-1793820081260_oriole-data Removing
+ Volume pulsify-native-43175-1793820081260_oriole-data Removed
+ Network pulsify-native-43175-1793820081260_default Removed
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Creating
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Created
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Creating
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Created
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Starting
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Started
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Waiting
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Healthy
+ Container pulsify-native-43175-1793820081260-native-run-c343d0c60f81 Creating
+ Container pulsify-native-43175-1793820081260-native-run-c343d0c60f81 Created
+Verified pgrust-row: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-unknown-linux-gnu, 64-bit; both tables USING heap
+pgrust-row/write_full/spread/burst/c1: 401.1 req/s, p99 12.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c1: 399.2 req/s, p99 10.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c1: 433.9 req/s, p99 5.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c1: 445.5 req/s, p99 4.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c1: 1714.2 req/s, p99 2.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c1: 1834.4 req/s, p99 0.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c1: 1930.9 req/s, p99 0.68 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c1: 1805.4 req/s, p99 1.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c1: 381.1 req/s, p99 6.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c1: 386.4 req/s, p99 6.56 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c1: 386.5 req/s, p99 7.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c1: 289.2 req/s, p99 25.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c1: 138.6 req/s, p99 23.54 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c1: 198.4 req/s, p99 8.71 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c1: 5630.2 req/s, p99 0.57 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c1: 4460.1 req/s, p99 1.30 ms, 0 errors, 0 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c1: 2018.2 req/s, p99 2.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c1: 2469.2 req/s, p99 2.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c1: 3587.8 req/s, p99 0.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c1: 1916.0 req/s, p99 2.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c1: 439.4 req/s, p99 13.30 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c1: 389.2 req/s, p99 14.32 ms, 0 errors, 0 retries, 66/34 useful/noop compactions
+pgrust-row/mixed/hot/burst/c1: 429.3 req/s, p99 7.35 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c1: 254.7 req/s, p99 37.71 ms, 0 errors, 0 retries, 68/32 useful/noop compactions
+pgrust-row/write_full/spread/burst/c16: 3519.0 req/s, p99 34.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c16: 2580.0 req/s, p99 31.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c16: 2223.5 req/s, p99 27.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c16: 521.3 req/s, p99 226.43 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c16: 2837.0 req/s, p99 42.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c16: 4330.8 req/s, p99 27.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c16: 3891.3 req/s, p99 25.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c16: 3074.7 req/s, p99 33.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c16: 239.7 req/s, p99 748.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c16: 511.9 req/s, p99 464.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c16: 106.7 req/s, p99 1993.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c16: 300.4 req/s, p99 453.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c16: 632.2 req/s, p99 127.03 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c16: 956.0 req/s, p99 40.39 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c16: 19235.1 req/s, p99 11.71 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c16: 9105.2 req/s, p99 76.02 ms, 0 errors, 15 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c16: 11684.6 req/s, p99 6.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c16: 14333.7 req/s, p99 5.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c16: 21212.7 req/s, p99 3.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c16: 14356.4 req/s, p99 4.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c16: 1822.7 req/s, p99 63.70 ms, 0 errors, 17 retries, 48/52 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c16: 2125.9 req/s, p99 50.38 ms, 0 errors, 16 retries, 47/53 useful/noop compactions
+pgrust-row/mixed/hot/burst/c16: 411.8 req/s, p99 673.88 ms, 0 errors, 503 retries, 59/41 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c16: 635.2 req/s, p99 295.07 ms, 0 errors, 578 retries, 65/35 useful/noop compactions
+pgrust-row/write_full/spread/burst/c64: 4053.6 req/s, p99 55.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/spread/saturation/c64: 3019.6 req/s, p99 131.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/burst/c64: 3687.4 req/s, p99 37.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_full/hot/saturation/c64: 3141.4 req/s, p99 41.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/burst/c64: 7238.0 req/s, p99 52.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/spread/saturation/c64: 6861.5 req/s, p99 28.57 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/burst/c64: 7397.1 req/s, p99 31.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_full/hot/saturation/c64: 8245.8 req/s, p99 42.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/burst/c64: 1438.5 req/s, p99 100.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/spread/saturation/c64: 2425.5 req/s, p99 65.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/burst/c64: 377.7 req/s, p99 429.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/write_patch/hot/saturation/c64: 510.8 req/s, p99 162.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/compact/spread/burst/c64: 995.8 req/s, p99 246.89 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/spread/saturation/c64: 933.4 req/s, p99 188.12 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+pgrust-row/compact/hot/burst/c64: 14226.3 req/s, p99 67.66 ms, 0 errors, 61 retries, 1/999 useful/noop compactions
+pgrust-row/compact/hot/saturation/c64: 13769.1 req/s, p99 69.14 ms, 0 errors, 63 retries, 1/999 useful/noop compactions
+pgrust-row/read_delta/spread/burst/c64: 9782.7 req/s, p99 56.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/spread/saturation/c64: 11909.0 req/s, p99 37.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/burst/c64: 7097.6 req/s, p99 53.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/read_delta/hot/saturation/c64: 8022.8 req/s, p99 61.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-row/mixed/spread/burst/c64: 2632.9 req/s, p99 134.33 ms, 0 errors, 24 retries, 18/82 useful/noop compactions
+pgrust-row/mixed/spread/saturation/c64: 3773.6 req/s, p99 80.55 ms, 0 errors, 40 retries, 22/78 useful/noop compactions
+pgrust-row/mixed/hot/burst/c64: 807.4 req/s, p99 766.12 ms, 0 errors, 456 retries, 13/87 useful/noop compactions
+pgrust-row/mixed/hot/saturation/c64: 617.8 req/s, p99 805.24 ms, 0 errors, 455 retries, 13/87 useful/noop compactions
+Verified 120 new representative histories; 120 retained materialization proofs
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Stopping
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Stopped
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Removing
+ Container pulsify-native-43175-1793820081260-pgrust-row-1 Removed
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Removing
+ Network pulsify-native-43175-1793820081260_default Removing
+ Volume pulsify-native-43175-1793820081260_pgrust-row-data Removed
+ Network pulsify-native-43175-1793820081260_default Removed
+ Network pulsify-native-43175-1793820081260_default Creating
+ Network pulsify-native-43175-1793820081260_default Creating
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Creating
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Creating
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Created
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Network pulsify-native-43175-1793820081260_default Created
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Creating
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Created
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Starting
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Started
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Waiting
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Healthy
+ Container pulsify-native-43175-1793820081260-native-run-94bcebcf10a7 Creating
+ Container pulsify-native-43175-1793820081260-native-run-94bcebcf10a7 Created
+Verified pgrust-columnar: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-unknown-linux-gnu, 64-bit; both tables USING pgrcolumnar
+pgrust-columnar/write_full/spread/burst/c1: 425.5 req/s, p99 3.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/spread/saturation/c1: 405.8 req/s, p99 5.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/burst/c1: 307.4 req/s, p99 8.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_full/hot/saturation/c1: 278.8 req/s, p99 7.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/burst/c1: 604.8 req/s, p99 5.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/spread/saturation/c1: 444.9 req/s, p99 5.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/burst/c1: 479.1 req/s, p99 5.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/read_full/hot/saturation/c1: 558.4 req/s, p99 4.68 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+pgrust-columnar/write_patch/spread/burst/c1: 183.0 req/s, p99 12.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+
+214 | 		report.cells.length !== expected ||
+215 | 		report.cells.some(
+216 | 			(c: { events: unknown[] }) => c.events.length !== Number(requests),
+217 | 		)
+218 | 	)
+219 | 		throw new Error(`Incomplete backend campaign: ${path}`);
+                  ^
+error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/medium/docker-pgrust-columnar.json
+      at verify (/home/benchmark/code/pulsify/benchmarks/database/native.ts:219:13)
+      at async measure (/home/benchmark/code/pulsify/benchmarks/database/native.ts:263:8)
+
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Stopping
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Stopping
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Stopped
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Removing
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Stopped
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Removing
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Removed
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Removing
+ Network pulsify-native-43175-1793820081260_default Removing
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Resource is still in use
+ Container pulsify-native-43175-1793820081260-pgrust-columnar-1 Removed
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Removing
+ Volume pulsify-native-43175-1793820081260_pgrust-columnar-data Removed
+ Network pulsify-native-43175-1793820081260_default Removed
+error: script "bench:database" exited with code 130

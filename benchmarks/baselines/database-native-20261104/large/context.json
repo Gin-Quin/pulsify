@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-11-04T18:41:34.331Z",
+  "completedAt": "2026-11-04T18:42:48.575Z",
+  "sourceSha256": "6ae2eb3634a38b620b81bd92185751e568e1223e40aef23ac36c10b7ba34b327",
+  "fixtureSha256": "2eac65ad652a6539884ac16a4f413d56119ecda971b09b4b932dff87d63e6fbb",
+  "resourceSettings": {
+    "postgres": {
+      "maxConnections": 180,
+      "sharedBuffersMiB": 128,
+      "maxWalMiB": 128,
+      "minWalMiB": 32,
+      "checkpointSeconds": 60
+    },
+    "foundationdb": {
+      "residentLimitMiB": 4096,
+      "storageMemoryMiB": 256,
+      "cacheMemoryMiB": 128
+    },
+    "oneMeasuredBackendAtATime": true
+  },
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "large",
+  "selectedDatabases": [
+    "postgres"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    128
+  ],
+  "command": [
+    "--environment",
+    "docker",
+    "--databases",
+    "postgres",
+    "--fdb-memory",
+    "4GiB",
+    "--profile",
+    "large",
+    "--requests",
+    "1000",
+    "--concurrency",
+    "128",
+    "--results-dir",
+    "benchmarks/baselines/database-native-20261104/large"
+  ],
+  "rust": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "databases": {
+    "docker": {
+      "runnerImage": "sha256:88e30c447de1e520ccc3e1bf053260e58076f7c31fa01c835eabd2e5759ff267",
+      "project": "pulsify-native-34598-1793817695570",
+      "postgres": "16.15",
+      "foundationdb": "7.3.77 single ssd"
+    }
+  },
+  "requestErrors": {
+    "docker/postgres": 0
+  },
+  "backendFailures": {}
+}

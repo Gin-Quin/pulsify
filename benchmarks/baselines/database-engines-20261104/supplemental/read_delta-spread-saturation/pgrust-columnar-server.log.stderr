@@ -1,0 +1,31 @@
+2026-11-04 22:15:09.452 CET [4641] LOG:  cost profile: cached (/home/benchmark/.cache/pgrust/cost-profile/aarch64-unknown-l1d0k-l20k-smt1-vd5454b46bb75c69c.tsv); host aarch64-unknown-l1d0k-l20k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.75, gather 0.625, check 0.625, miss 1, update 0.625, sort 0.5; anchors ns: read 0.064, gather 0.329, check 0.112, miss 98.963, update 0.534, sort 7.123
+2026-11-04 22:15:09.454 CET [4641] LOG:  file descriptor budget sized from the kernel's per-process cap 122880, not the soft limit 1048576 (the kernel refuses opens past the cap)
+2026-11-04 22:15:09.454 CET [4641] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+2026-11-04 22:15:09.454 CET [4641] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+2026-11-04 22:15:09.454 CET [4641] LOG:  listening on IPv4 address "127.0.0.1", port 51369
+2026-11-04 22:15:09.463 CET [4641] LOG:  listening on Unix socket "/var/folders/zd/5rzvg2jx4rv606p2fmgrqbc40000gn/T/pulsify-native-Pgwo2Z/.s.PGSQL.51369"
+pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+2026-11-04 22:15:09.473 CET [4641] LOG:  global allocator: mimalloc (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; Hearth is off and its PGRUST_POOL_* switches are ignored; PGRUST_ALLOCATOR=hearth at start turns it on)
+2026-11-04 22:15:09.474 CET [1002] LOG:  database system was shut down at 2026-11-04 22:15:09 CET
+2026-11-04 22:15:09.477 CET [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+gravity: machine: the L2 size was not detected (sysfs cpu0/cache); the reference 2 MiB stands in (phase-1 table 512 KiB)
+2026-11-04 22:15:09.478 CET [1030] LOG:  gravity: code cache warmed in 241 us
+2026-11-04 22:15:09.481 CET [1030] LOG:  gravity: process image warmed (60 MB), 1 databases to warm (no columnar relation), 3766 us
+2026-11-04 22:15:09.491 CET [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 834 blocks, 0 part lists, image 0 MB, 8838 us
+2026-11-04 22:15:09.493 CET [4641] LOG:  database system is ready to accept connections
+2026-11-04 22:15:10.055 CET [1036] LOG:  gravity: grant pool armed at 14207 MiB, 0 statements in flight (memory limit 32768 MiB, mapped 0 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 128 MiB)
+2026-11-04 22:15:10.055 CET [1036] STATEMENT:  SET statement_timeout='30s'; SET lock_timeout='30s';
+2026-11-04 22:15:10.146 CET [1000] LOG:  checkpoint starting: immediate force wait
+2026-11-04 22:15:10.149 CET [1000] LOG:  checkpoint complete: wrote 70 buffers (0.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.002 s, total=0.003 s; sync files=55, longest=0.001 s, average=0.001 s; distance=391 kB, estimate=391 kB; lsn=0/17F4518, redo lsn=0/17F44C0
+2026-11-04 22:15:10.504 CET [4641] LOG:  memory watchdog: armed: limit=32768 MB (source=physical memory; no cgroup v2 limit, pgrust.memory_watchdog_limit is 0) tiers=80%/90%/95% interval=1000 ms
+2026-11-04 22:15:15.778 CET [1000] LOG:  checkpoint starting: immediate force wait
+2026-11-04 22:15:15.792 CET [1000] LOG:  checkpoint complete: wrote 1373 buffers (8.4%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.011 s, sync=0.003 s, total=0.014 s; sync files=19, longest=0.002 s, average=0.001 s; distance=12566 kB, estimate=12566 kB; lsn=0/2439E10, redo lsn=0/2439DB8
+2026-11-04 22:15:15.863 CET [4641] LOG:  received fast shutdown request
+2026-11-04 22:15:15.868 CET [4641] LOG:  aborting any active transactions
+2026-11-04 22:15:15.868 CET [4641] LOG:  background worker "logical replication launcher" (PID 1031) exited with exit code 1
+2026-11-04 22:15:15.932 CET [1029] FATAL:  terminating connection due to administrator command
+2026-11-04 22:15:15.933 CET [4641] LOG:  background worker "pgrcolumnar front launcher" (PID 1029) exited with exit code 1
+2026-11-04 22:15:15.933 CET [1000] LOG:  shutting down
+2026-11-04 22:15:15.933 CET [1000] LOG:  checkpoint starting: shutdown immediate
+2026-11-04 22:15:15.934 CET [1000] LOG:  checkpoint complete: wrote 0 buffers (0.0%), wrote 0 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.001 s; sync files=0, longest=0.000 s, average=0.000 s; distance=0 kB, estimate=11309 kB; lsn=0/2439E88, redo lsn=0/2439E88
+2026-11-04 22:15:15.934 CET [4641] LOG:  database system is shut down

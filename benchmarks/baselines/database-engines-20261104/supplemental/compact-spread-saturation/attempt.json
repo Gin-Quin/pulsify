@@ -1,0 +1,10 @@
+{
+  "operation": "compact",
+  "topology": "spread",
+  "mode": "saturation",
+  "environment": "docker",
+  "code": 1,
+  "guard": null,
+  "startedAt": "2026-11-04T21:15:59.822Z",
+  "completedAt": "2026-11-04T21:17:25.908Z"
+}

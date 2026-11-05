@@ -1,0 +1,10 @@
+{
+  "operation": "read_delta",
+  "topology": "hot",
+  "mode": "saturation",
+  "environment": "both",
+  "code": 0,
+  "guard": null,
+  "startedAt": "2026-11-04T21:14:50.626Z",
+  "completedAt": "2026-11-04T21:14:59.964Z"
+}

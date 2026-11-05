@@ -1,0 +1,9 @@
+[
+  {
+    "at": "2026-11-04T19:29:24.995896+00:00",
+    "phase": "medium Docker AlloyDB",
+    "dockerContext": "orbstack",
+    "swap": "vm.swapusage: total = 29696.00M  used = 28200.06M  free = 1495.94M  (encrypted)",
+    "filesystem": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  19572184    39%  453127 195721840    0%   /"
+  }
+]

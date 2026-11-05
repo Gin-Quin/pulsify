@@ -1,0 +1,34 @@
+Generated large: 128 real actor streams × 1000 patches
+Verified pgrust-columnar: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-apple-darwin, 64-bit; both tables USING pgrcolumnar
+Verified 1 new representative histories; 1 retained materialization proofs
+Verified pgrust-columnar: PostgreSQL 18.6 (pgrust 0.4-beta, build 20911cc) on aarch64-unknown-linux-gnu, 64-bit; both tables USING pgrcolumnar
+Verified 1 new representative histories; 1 retained materialization proofs
+Native campaign report: /home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/supplemental/compact-hot-burst/REPORT.md (2 cells, 2000 requests, 0 errors)
+
+    Finished `release` profile [optimized] target(s) in 0.11s
+pgrust-columnar/compact/hot/burst/c128: 6282.2 req/s, p99 156.05 ms, 0 errors, 127 retries, 1/999 useful/noop compactions
+ Network pulsify-native-4828-1793826955360_default Creating
+ Network pulsify-native-4828-1793826955360_default Creating
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Creating
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Creating
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Created
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Created
+ Network pulsify-native-4828-1793826955360_default Created
+ Network pulsify-native-4828-1793826955360_default Created
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Creating
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Created
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Starting
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Started
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Waiting
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Healthy
+ Container pulsify-native-4828-1793826955360-native-run-b2844b42ba1c Creating
+ Container pulsify-native-4828-1793826955360-native-run-b2844b42ba1c Created
+pgrust-columnar/compact/hot/burst/c128: 7653.9 req/s, p99 126.49 ms, 0 errors, 127 retries, 1/999 useful/noop compactions
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Stopping
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Stopped
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Removing
+ Container pulsify-native-4828-1793826955360-pgrust-columnar-1 Removed
+ Network pulsify-native-4828-1793826955360_default Removing
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Removing
+ Volume pulsify-native-4828-1793826955360_pgrust-columnar-data Removed
+ Network pulsify-native-4828-1793826955360_default Removed

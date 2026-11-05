@@ -1,0 +1,232 @@
+pgrust-row-1  | The files belonging to this database system will be owned by user "postgres".
+pgrust-row-1  | This user must also own the server process.
+pgrust-row-1  |
+pgrust-row-1  | The database cluster will be initialized with locale "C.UTF-8".
+pgrust-row-1  | The default database encoding has accordingly been set to "UTF8".
+pgrust-row-1  | The default text search configuration will be set to "english".
+pgrust-row-1  |
+pgrust-row-1  | Data page checksums are enabled.
+pgrust-row-1  |
+pgrust-row-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+pgrust-row-1  | creating subdirectories ... ok
+pgrust-row-1  | selecting dynamic shared memory implementation ... posix
+pgrust-row-1  | selecting default "max_connections" ... 100
+pgrust-row-1  | selecting default "shared_buffers" ... 128MB
+pgrust-row-1  | selecting default time zone ... Etc/UTC
+pgrust-row-1  | creating configuration files ... ok
+pgrust-row-1  | 2026-11-04 20:22:12.891 UTC [33] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-row-1  | running bootstrap script ... ok
+pgrust-row-1  | 2026-11-04 20:22:12.948 UTC [34] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-row-1  | 2026-11-04 20:22:12.950 UTC [34] LOG:  gravity: grant pool armed at 5320 MiB, 0 statements in flight (memory limit 16039 MiB, mapped 17129948 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 16 MiB + tables 8 MiB, mode Estimate, small lane 128 MiB)
+pgrust-row-1  | 2026-11-04 20:22:12.950 UTC [34] STATEMENT:  REVOKE ALL ON pg_authid FROM public;
+pgrust-row-1  |
+pgrust-row-1  | performing post-bootstrap initialization ... ok
+pgrust-row-1  | syncing data to disk ... ok
+pgrust-row-1  |
+pgrust-row-1  |
+pgrust-row-1  | Success. You can now start the database server using:
+pgrust-row-1  |
+pgrust-row-1  |     /usr/local/bin/postgres -D /var/lib/postgresql/data
+pgrust-row-1  |
+pgrust-row-1  | initdb: warning: enabling "trust" authentication for local connections
+pgrust-row-1  | You can change this by editing pg_hba.conf or using the option -A, or
+pgrust-row-1  | --auth-local and --auth-host, the next time you run initdb.
+pgrust-row-1  | 2026-11-04 20:22:14.720 UTC [52] LOG:  cost profile: measured in 38 ms, kept in /var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv; host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.75, gather 0.5, check 0.625, miss 1, update 0.5, sort 0.5; anchors ns: read 0.062, gather 0.298, check 0.110, miss 95.051, update 0.528, sort 7.221
+pgrust-row-1  | 2026-11-04 20:22:14.725 UTC [52] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-row-1  | 2026-11-04 20:22:14.725 UTC [52] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-row-1  | 2026-11-04 20:22:14.725 UTC [52] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-row-1  | 2026-11-04 20:22:14.725 UTC [52] LOG:  listening on IPv6 address "::", port 5432
+pgrust-row-1  | 2026-11-04 20:22:14.735 UTC [52] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-row-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-row-1  | 2026-11-04 20:22:14.739 UTC [1002] LOG:  database system was shut down at 2026-11-04 20:22:13 UTC
+pgrust-row-1  | 2026-11-04 20:22:14.740 UTC [1005] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-row-1  | 2026-11-04 20:22:14.741 UTC [52] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-row-1  | 2026-11-04 20:22:14.750 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-row-1  | 2026-11-04 20:22:14.752 UTC [1030] LOG:  gravity: code cache warmed in 699 us
+pgrust-row-1  | 2026-11-04 20:22:14.761 UTC [1030] LOG:  gravity: process image warmed (68 MB), 1 databases to warm (no columnar relation), 9270 us
+pgrust-row-1  | 2026-11-04 20:22:14.774 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 9512 us
+pgrust-row-1  | 2026-11-04 20:22:14.777 UTC [52] LOG:  database system is ready to accept connections
+pgrust-row-1  | 2026-11-04 20:22:15.197 UTC [1036] LOG:  gravity: grant pool armed at 5320 MiB, 0 statements in flight (memory limit 16039 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 128 MiB)
+pgrust-row-1  | 2026-11-04 20:22:15.197 UTC [1036] STATEMENT:  SELECT 1 FROM pg_database WHERE datname = 'pulsify_benchmark' ;
+pgrust-row-1  | CREATE DATABASE
+pgrust-row-1  |
+pgrust-row-1  |
+pgrust-row-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+pgrust-row-1  |
+pgrust-row-1  | 2026-11-04 20:22:15.246 UTC [52] LOG:  received fast shutdown request
+pgrust-row-1  | 2026-11-04 20:22:15.249 UTC [52] LOG:  aborting any active transactions
+pgrust-row-1  | 2026-11-04 20:22:15.249 UTC [52] LOG:  background worker "logical replication launcher" (PID 1031) exited with exit code 1
+pgrust-row-1  | 2026-11-04 20:22:15.265 UTC [1029] FATAL:  terminating connection due to administrator command
+pgrust-row-1  | 2026-11-04 20:22:15.265 UTC [52] LOG:  background worker "pgrcolumnar front launcher" (PID 1029) exited with exit code 1
+pgrust-row-1  | 2026-11-04 20:22:15.265 UTC [1000] LOG:  shutting down
+pgrust-row-1  | 2026-11-04 20:22:15.271 UTC [1000] LOG:  checkpoint starting: shutdown immediate
+pgrust-row-1  | 2026-11-04 20:22:15.584 UTC [1000] LOG:  checkpoint complete: wrote 941 buffers (5.7%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.049 s, sync=0.259 s, total=0.319 s; sync files=303, longest=0.015 s, average=0.001 s; distance=4336 kB, estimate=4336 kB; lsn=0/1B9AB50, redo lsn=0/1B9AB50
+pgrust-row-1  | 2026-11-04 20:22:15.587 UTC [52] LOG:  database system is shut down
+pgrust-row-1  |
+pgrust-row-1  | PostgreSQL init process complete; ready for start up.
+pgrust-row-1  |
+pgrust-row-1  | 2026-11-04 20:22:15.597 UTC [112] LOG:  cost profile: cached (/var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv); host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.75, gather 0.5, check 0.625, miss 1, update 0.5, sort 0.5; anchors ns: read 0.062, gather 0.298, check 0.110, miss 95.051, update 0.528, sort 7.221
+pgrust-row-1  | 2026-11-04 20:22:15.600 UTC [112] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-row-1  | 2026-11-04 20:22:15.600 UTC [112] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-row-1  | 2026-11-04 20:22:15.601 UTC [112] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-row-1  | 2026-11-04 20:22:15.601 UTC [112] LOG:  listening on IPv6 address "::", port 5432
+pgrust-row-1  | 2026-11-04 20:22:15.602 UTC [112] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-row-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-row-1  | 2026-11-04 20:22:15.607 UTC [112] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-row-1  | 2026-11-04 20:22:15.607 UTC [1002] LOG:  database system was shut down at 2026-11-04 20:22:15 UTC
+pgrust-row-1  | 2026-11-04 20:22:15.607 UTC [1004] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-row-1  | 2026-11-04 20:22:15.612 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-row-1  | 2026-11-04 20:22:15.614 UTC [1030] LOG:  gravity: code cache warmed in 344 us
+pgrust-row-1  | 2026-11-04 20:22:15.621 UTC [1030] LOG:  gravity: process image warmed (68 MB), 2 databases to warm (no columnar relation), 7865 us
+pgrust-row-1  | 2026-11-04 20:22:15.629 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 7014 us
+pgrust-row-1  | 2026-11-04 20:22:15.636 UTC [1033] LOG:  gravity: catalog pages warmed for database 16384: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 4590 us
+pgrust-row-1  | 2026-11-04 20:22:15.637 UTC [112] LOG:  database system is ready to accept connections
+pgrust-row-1  | 2026-11-04 20:22:16.620 UTC [112] LOG:  memory watchdog: armed: limit=16039 MB (source=physical memory; no cgroup v2 limit, pgrust.memory_watchdog_limit is 0) tiers=80%/90%/95% interval=1000 ms
+pgrust-row-1  | 2026-11-04 20:22:16.663 UTC [1037] LOG:  gravity: grant pool armed at 5320 MiB, 0 statements in flight (memory limit 16039 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 128 MiB)
+pgrust-row-1  | 2026-11-04 20:22:16.663 UTC [1037] STATEMENT:  SET statement_timeout='30s'; SET lock_timeout='30s';
+pgrust-row-1  | 2026-11-04 20:22:16.829 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:16.881 UTC [1000] LOG:  checkpoint complete: wrote 56 buffers (0.3%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.044 s, total=0.052 s; sync files=44, longest=0.003 s, average=0.001 s; distance=322 kB, estimate=322 kB; lsn=0/1BEB578, redo lsn=0/1BEB520
+pgrust-row-1  | 2026-11-04 20:22:19.553 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:19.587 UTC [1000] LOG:  checkpoint complete: wrote 626 buffers (3.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.005 s, sync=0.021 s, total=0.035 s; sync files=14, longest=0.005 s, average=0.002 s; distance=5512 kB, estimate=5512 kB; lsn=0/214D5A8, redo lsn=0/214D550
+pgrust-row-1  | 2026-11-04 20:22:22.304 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:22.350 UTC [1000] LOG:  checkpoint complete: wrote 622 buffers (3.8%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.034 s, total=0.046 s; sync files=11, longest=0.024 s, average=0.004 s; distance=5531 kB, estimate=5531 kB; lsn=0/26B4520, redo lsn=0/26B44C8
+pgrust-row-1  | 2026-11-04 20:22:24.682 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:24.722 UTC [1000] LOG:  checkpoint complete: wrote 651 buffers (4.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.007 s, sync=0.029 s, total=0.041 s; sync files=11, longest=0.022 s, average=0.003 s; distance=5763 kB, estimate=5763 kB; lsn=0/2C55460, redo lsn=0/2C55408
+pgrust-row-1  | 2026-11-04 20:22:26.553 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:26.584 UTC [1000] LOG:  checkpoint complete: wrote 658 buffers (4.0%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.006 s, sync=0.018 s, total=0.032 s; sync files=11, longest=0.005 s, average=0.002 s; distance=5828 kB, estimate=5828 kB; lsn=0/32064C0, redo lsn=0/3206468
+pgrust-row-1  | 2026-11-04 20:22:27.136 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:27.161 UTC [1000] LOG:  checkpoint complete: wrote 123 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.016 s, total=0.025 s; sync files=10, longest=0.005 s, average=0.002 s; distance=1078 kB, estimate=5353 kB; lsn=0/3313DB8, redo lsn=0/3313D60
+pgrust-row-1  | 2026-11-04 20:22:27.676 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:27.700 UTC [1000] LOG:  checkpoint complete: wrote 121 buffers (0.7%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.016 s, total=0.024 s; sync files=10, longest=0.005 s, average=0.002 s; distance=1105 kB, estimate=4928 kB; lsn=0/3428398, redo lsn=0/3428340
+pgrust-row-1  | 2026-11-04 20:22:28.283 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:28.304 UTC [1000] LOG:  checkpoint complete: wrote 25 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.013 s, total=0.021 s; sync files=10, longest=0.003 s, average=0.002 s; distance=199 kB, estimate=4455 kB; lsn=0/345A378, redo lsn=0/345A320
+pgrust-row-1  | 2026-11-04 20:22:28.777 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:28.793 UTC [1000] LOG:  checkpoint complete: wrote 27 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.009 s, total=0.016 s; sync files=9, longest=0.002 s, average=0.001 s; distance=206 kB, estimate=4030 kB; lsn=0/348DCE8, redo lsn=0/348DC90
+pgrust-row-1  | 2026-11-04 20:22:31.231 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:31.258 UTC [1000] LOG:  checkpoint complete: wrote 241 buffers (1.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.019 s, total=0.028 s; sync files=10, longest=0.006 s, average=0.002 s; distance=2331 kB, estimate=3860 kB; lsn=0/36D4B88, redo lsn=0/36D4B30
+pgrust-row-1  | 2026-11-04 20:22:33.383 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:33.414 UTC [1000] LOG:  checkpoint complete: wrote 248 buffers (1.5%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.021 s, total=0.031 s; sync files=10, longest=0.005 s, average=0.003 s; distance=2358 kB, estimate=3710 kB; lsn=0/3922570, redo lsn=0/3922518
+pgrust-row-1  | 2026-11-04 20:22:36.023 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:36.058 UTC [1000] LOG:  checkpoint complete: wrote 188 buffers (1.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.027 s, total=0.035 s; sync files=18, longest=0.006 s, average=0.002 s; distance=1790 kB, estimate=3518 kB; lsn=0/3AE1FE0, redo lsn=0/3AE1F88
+pgrust-row-1  | 2026-11-04 20:22:38.621 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:38.645 UTC [1000] LOG:  checkpoint complete: wrote 146 buffers (0.9%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.014 s, total=0.024 s; sync files=9, longest=0.003 s, average=0.002 s; distance=1488 kB, estimate=3315 kB; lsn=0/3C56020, redo lsn=0/3C55FB0
+pgrust-row-1  | 2026-11-04 20:22:53.582 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:22:53.661 UTC [1000] LOG:  checkpoint complete: wrote 5289 buffers (32.3%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.042 s, sync=0.028 s, total=0.080 s; sync files=11, longest=0.015 s, average=0.003 s; distance=48564 kB, estimate=48564 kB; lsn=0/6BC3270, redo lsn=0/6BC3218
+pgrust-row-1  | 2026-11-04 20:23:08.073 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:08.279 UTC [1000] LOG:  checkpoint complete: wrote 5693 buffers (34.7%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.033 s, sync=0.159 s, total=0.206 s; sync files=11, longest=0.146 s, average=0.015 s; distance=51725 kB, estimate=51725 kB; lsn=0/9E46888, redo lsn=0/9E46830
+pgrust-row-1  | 2026-11-04 20:23:08.479 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:08.493 UTC [1000] LOG:  checkpoint complete: wrote 11 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.009 s, total=0.015 s; sync files=9, longest=0.002 s, average=0.001 s; distance=82 kB, estimate=46561 kB; lsn=0/9E5B0E8, redo lsn=0/9E5B090
+pgrust-row-1  | 2026-11-04 20:23:08.701 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:08.718 UTC [1000] LOG:  checkpoint complete: wrote 17 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.012 s, total=0.018 s; sync files=9, longest=0.002 s, average=0.002 s; distance=115 kB, estimate=41916 kB; lsn=0/9E77D18, redo lsn=0/9E77CC0
+pgrust-row-1  | 2026-11-04 20:23:09.109 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:09.129 UTC [1000] LOG:  checkpoint complete: wrote 124 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.012 s, total=0.021 s; sync files=10, longest=0.003 s, average=0.002 s; distance=1104 kB, estimate=37835 kB; lsn=0/9F8BF10, redo lsn=0/9F8BEB8
+pgrust-row-1  | 2026-11-04 20:23:09.511 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:09.533 UTC [1000] LOG:  checkpoint complete: wrote 124 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.002 s, sync=0.012 s, total=0.023 s; sync files=10, longest=0.003 s, average=0.002 s; distance=1118 kB, estimate=34163 kB; lsn=0/A0A3798, redo lsn=0/A0A3740
+pgrust-row-1  | 2026-11-04 20:23:09.865 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:09.881 UTC [1000] LOG:  checkpoint complete: wrote 25 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.010 s, total=0.017 s; sync files=9, longest=0.002 s, average=0.002 s; distance=192 kB, estimate=30766 kB; lsn=0/A0D38A8, redo lsn=0/A0D3850
+pgrust-row-1  | 2026-11-04 20:23:10.223 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:10.241 UTC [1000] LOG:  checkpoint complete: wrote 25 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.010 s, total=0.019 s; sync files=9, longest=0.002 s, average=0.002 s; distance=196 kB, estimate=27709 kB; lsn=0/A104B88, redo lsn=0/A104B30
+pgrust-row-1  | 2026-11-04 20:23:11.922 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:11.948 UTC [1000] LOG:  checkpoint complete: wrote 250 buffers (1.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.017 s, total=0.027 s; sync files=11, longest=0.006 s, average=0.002 s; distance=2371 kB, estimate=25175 kB; lsn=0/A355858, redo lsn=0/A355800
+pgrust-row-1  | 2026-11-04 20:23:13.773 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:13.795 UTC [1000] LOG:  checkpoint complete: wrote 251 buffers (1.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.014 s, total=0.023 s; sync files=11, longest=0.004 s, average=0.002 s; distance=2391 kB, estimate=22897 kB; lsn=0/A5AB618, redo lsn=0/A5AB5C0
+pgrust-row-1  | 2026-11-04 20:23:15.646 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:15.670 UTC [1000] LOG:  checkpoint complete: wrote 135 buffers (0.8%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.016 s, total=0.025 s; sync files=11, longest=0.003 s, average=0.002 s; distance=1398 kB, estimate=20747 kB; lsn=0/A708E20, redo lsn=0/A708DC8
+pgrust-row-1  | 2026-11-04 20:23:17.456 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:17.561 UTC [1000] LOG:  checkpoint complete: wrote 5503 buffers (33.6%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.077 s, sync=0.019 s, total=0.105 s; sync files=13, longest=0.005 s, average=0.002 s; distance=24140 kB, estimate=24140 kB; lsn=0/BF85108, redo lsn=0/BE9C018
+pgrust-row-1  | 2026-11-04 20:23:18.336 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:18.397 UTC [1000] LOG:  checkpoint complete: wrote 2808 buffers (17.1%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.039 s, sync=0.016 s, total=0.062 s; sync files=12, longest=0.004 s, average=0.002 s; distance=15731 kB, estimate=23299 kB; lsn=0/CE98BF8, redo lsn=0/CDF8FD8
+pgrust-row-1  | 2026-11-04 20:23:19.048 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:19.113 UTC [1000] LOG:  checkpoint complete: wrote 2665 buffers (16.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.037 s, sync=0.021 s, total=0.065 s; sync files=14, longest=0.009 s, average=0.002 s; distance=11508 kB, estimate=22120 kB; lsn=0/D9410C0, redo lsn=0/D936018
+pgrust-row-1  | 2026-11-04 20:23:19.757 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:19.804 UTC [1000] LOG:  checkpoint complete: wrote 3098 buffers (18.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.025 s, sync=0.018 s, total=0.047 s; sync files=14, longest=0.004 s, average=0.002 s; distance=6195 kB, estimate=20527 kB; lsn=0/DF4C510, redo lsn=0/DF42C28
+pgrust-row-1  | 2026-11-04 20:23:20.327 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:20.390 UTC [1000] LOG:  checkpoint complete: wrote 2733 buffers (16.7%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.038 s, sync=0.018 s, total=0.063 s; sync files=14, longest=0.004 s, average=0.002 s; distance=7245 kB, estimate=19199 kB; lsn=0/E660ED0, redo lsn=0/E656418
+pgrust-row-1  | 2026-11-04 20:23:20.640 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:20.672 UTC [1000] LOG:  checkpoint complete: wrote 1202 buffers (7.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.015 s, total=0.032 s; sync files=13, longest=0.003 s, average=0.002 s; distance=1288 kB, estimate=17408 kB; lsn=0/E79F958, redo lsn=0/E798440
+pgrust-row-1  | 2026-11-04 20:23:20.893 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:20.926 UTC [1000] LOG:  checkpoint complete: wrote 1029 buffers (6.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.018 s, total=0.034 s; sync files=13, longest=0.005 s, average=0.002 s; distance=1314 kB, estimate=15799 kB; lsn=0/E8E8858, redo lsn=0/E8E0D38
+pgrust-row-1  | 2026-11-04 20:23:21.071 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:21.087 UTC [1000] LOG:  checkpoint complete: wrote 459 buffers (2.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.008 s, total=0.017 s; sync files=13, longest=0.002 s, average=0.001 s; distance=2587 kB, estimate=14477 kB; lsn=0/EB96570, redo lsn=0/EB67A00
+pgrust-row-1  | 2026-11-04 20:23:21.234 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:21.265 UTC [1000] LOG:  checkpoint complete: wrote 444 buffers (2.7%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.007 s, sync=0.019 s, total=0.032 s; sync files=16, longest=0.007 s, average=0.002 s; distance=2776 kB, estimate=13307 kB; lsn=0/EEB4818, redo lsn=0/EE1DD48
+pgrust-row-1  | 2026-11-04 20:23:21.663 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:21.682 UTC [1000] LOG:  checkpoint complete: wrote 661 buffers (4.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.004 s, sync=0.013 s, total=0.020 s; sync files=14, longest=0.005 s, average=0.001 s; distance=14719 kB, estimate=14719 kB; lsn=0/FCE5038, redo lsn=0/FC7DB10
+pgrust-row-1  | 2026-11-04 20:23:22.055 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:22.077 UTC [1000] LOG:  checkpoint complete: wrote 1722 buffers (10.5%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.009 s, sync=0.010 s, total=0.023 s; sync files=14, longest=0.005 s, average=0.001 s; distance=14238 kB, estimate=14671 kB; lsn=0/10ADB648, redo lsn=0/10A654B0
+pgrust-row-1  | 2026-11-04 20:23:23.983 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:24.041 UTC [1000] LOG:  checkpoint complete: wrote 4330 buffers (26.4%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.021 s, sync=0.028 s, total=0.059 s; sync files=16, longest=0.011 s, average=0.002 s; distance=20795 kB, estimate=20795 kB; lsn=0/11EB4410, redo lsn=0/11EB43B8
+pgrust-row-1  | 2026-11-04 20:23:25.927 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:25.955 UTC [1000] LOG:  checkpoint complete: wrote 153 buffers (0.9%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.002 s, sync=0.019 s, total=0.029 s; sync files=14, longest=0.004 s, average=0.002 s; distance=1475 kB, estimate=18863 kB; lsn=0/12025020, redo lsn=0/12024FC8
+pgrust-row-1  | 2026-11-04 20:23:31.735 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:31.817 UTC [1000] LOG:  checkpoint complete: wrote 5526 buffers (33.7%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.037 s, sync=0.034 s, total=0.082 s; sync files=16, longest=0.017 s, average=0.003 s; distance=50003 kB, estimate=50003 kB; lsn=0/150F9E78, redo lsn=0/150F9E20
+pgrust-row-1  | 2026-11-04 20:23:39.216 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:39.294 UTC [1000] LOG:  checkpoint complete: wrote 5587 buffers (34.1%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.027 s, sync=0.039 s, total=0.079 s; sync files=21, longest=0.016 s, average=0.002 s; distance=50792 kB, estimate=50792 kB; lsn=0/18293ED0, redo lsn=0/18293E78
+pgrust-row-1  | 2026-11-04 20:23:39.384 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:39.408 UTC [1000] LOG:  checkpoint complete: wrote 14 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.016 s, total=0.024 s; sync files=12, longest=0.002 s, average=0.002 s; distance=94 kB, estimate=45722 kB; lsn=0/182AB970, redo lsn=0/182AB918
+pgrust-row-1  | 2026-11-04 20:23:39.490 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:39.514 UTC [1000] LOG:  checkpoint complete: wrote 18 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.017 s, total=0.025 s; sync files=12, longest=0.002 s, average=0.002 s; distance=111 kB, estimate=41161 kB; lsn=0/182C7658, redo lsn=0/182C7600
+pgrust-row-1  | 2026-11-04 20:23:39.698 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:39.719 UTC [1000] LOG:  checkpoint complete: wrote 123 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.014 s, total=0.022 s; sync files=13, longest=0.003 s, average=0.002 s; distance=1105 kB, estimate=37155 kB; lsn=0/183DBB98, redo lsn=0/183DBB40
+pgrust-row-1  | 2026-11-04 20:23:39.895 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:39.921 UTC [1000] LOG:  checkpoint complete: wrote 125 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.018 s, total=0.026 s; sync files=13, longest=0.003 s, average=0.002 s; distance=1114 kB, estimate=33551 kB; lsn=0/184F2730, redo lsn=0/184F26D8
+pgrust-row-1  | 2026-11-04 20:23:40.019 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:40.041 UTC [1000] LOG:  checkpoint complete: wrote 28 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.015 s, total=0.023 s; sync files=12, longest=0.003 s, average=0.002 s; distance=202 kB, estimate=30216 kB; lsn=0/18524FE8, redo lsn=0/18524F90
+pgrust-row-1  | 2026-11-04 20:23:40.140 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:40.162 UTC [1000] LOG:  checkpoint complete: wrote 28 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.016 s, total=0.022 s; sync files=12, longest=0.003 s, average=0.002 s; distance=205 kB, estimate=27215 kB; lsn=0/18558558, redo lsn=0/18558500
+pgrust-row-1  | 2026-11-04 20:23:40.633 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:40.655 UTC [1000] LOG:  checkpoint complete: wrote 262 buffers (1.6%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.016 s, total=0.023 s; sync files=13, longest=0.003 s, average=0.002 s; distance=2316 kB, estimate=24725 kB; lsn=0/1879B658, redo lsn=0/1879B600
+pgrust-row-1  | 2026-11-04 20:23:41.037 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:41.061 UTC [1000] LOG:  checkpoint complete: wrote 295 buffers (1.8%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.016 s, total=0.024 s; sync files=13, longest=0.004 s, average=0.002 s; distance=2761 kB, estimate=22529 kB; lsn=0/18A4DB18, redo lsn=0/18A4DAC0
+pgrust-row-1  | 2026-11-04 20:23:42.472 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:42.498 UTC [1000] LOG:  checkpoint complete: wrote 148 buffers (0.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.019 s, total=0.027 s; sync files=12, longest=0.004 s, average=0.002 s; distance=1531 kB, estimate=20429 kB; lsn=0/18BCC860, redo lsn=0/18BCC808
+pgrust-row-1  | 2026-11-04 20:23:43.875 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:43.903 UTC [1000] LOG:  checkpoint complete: wrote 178 buffers (1.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.020 s, total=0.028 s; sync files=12, longest=0.005 s, average=0.002 s; distance=1864 kB, estimate=18572 kB; lsn=0/18D9EC50, redo lsn=0/18D9EBF8
+pgrust-row-1  | 2026-11-04 20:23:44.511 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:44.545 UTC [1000] LOG:  checkpoint complete: wrote 736 buffers (4.5%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.006 s, sync=0.020 s, total=0.035 s; sync files=13, longest=0.006 s, average=0.002 s; distance=5870 kB, estimate=17302 kB; lsn=0/1935A770, redo lsn=0/1935A718
+pgrust-row-1  | 2026-11-04 20:23:45.117 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:45.147 UTC [1000] LOG:  checkpoint complete: wrote 722 buffers (4.4%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.018 s, total=0.030 s; sync files=12, longest=0.005 s, average=0.002 s; distance=5796 kB, estimate=16152 kB; lsn=0/199038A8, redo lsn=0/19903850
+pgrust-row-1  | 2026-11-04 20:23:45.759 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:45.791 UTC [1000] LOG:  checkpoint complete: wrote 742 buffers (4.5%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.021 s, total=0.033 s; sync files=12, longest=0.005 s, average=0.002 s; distance=6029 kB, estimate=15139 kB; lsn=0/19EE6FB8, redo lsn=0/19EE6F60
+pgrust-row-1  | 2026-11-04 20:23:46.367 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:46.437 UTC [1000] LOG:  checkpoint complete: wrote 756 buffers (4.6%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.007 s, sync=0.045 s, total=0.071 s; sync files=12, longest=0.007 s, average=0.004 s; distance=6154 kB, estimate=14241 kB; lsn=0/1A4E9840, redo lsn=0/1A4E97E8
+pgrust-row-1  | 2026-11-04 20:23:46.813 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:46.833 UTC [1000] LOG:  checkpoint complete: wrote 134 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.012 s, total=0.021 s; sync files=11, longest=0.003 s, average=0.002 s; distance=1163 kB, estimate=12933 kB; lsn=0/1A60C5D8, redo lsn=0/1A60C580
+pgrust-row-1  | 2026-11-04 20:23:47.159 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:47.186 UTC [1000] LOG:  checkpoint complete: wrote 144 buffers (0.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.019 s, total=0.027 s; sync files=11, longest=0.004 s, average=0.002 s; distance=1225 kB, estimate=11762 kB; lsn=0/1A73ECC0, redo lsn=0/1A73EC68
+pgrust-row-1  | 2026-11-04 20:23:47.445 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:47.467 UTC [1000] LOG:  checkpoint complete: wrote 26 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.014 s, total=0.022 s; sync files=10, longest=0.002 s, average=0.002 s; distance=194 kB, estimate=10605 kB; lsn=0/1A76F528, redo lsn=0/1A76F4D0
+pgrust-row-1  | 2026-11-04 20:23:47.746 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:47.767 UTC [1000] LOG:  checkpoint complete: wrote 26 buffers (0.2%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.013 s, total=0.022 s; sync files=10, longest=0.003 s, average=0.002 s; distance=199 kB, estimate=9565 kB; lsn=0/1A7A14F8, redo lsn=0/1A7A14A0
+pgrust-row-1  | 2026-11-04 20:23:48.259 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:48.276 UTC [1000] LOG:  checkpoint complete: wrote 317 buffers (1.9%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.012 s, total=0.018 s; sync files=12, longest=0.006 s, average=0.001 s; distance=2718 kB, estimate=8880 kB; lsn=0/1AA48FA8, redo lsn=0/1AA48F50
+pgrust-row-1  | 2026-11-04 20:23:48.964 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:48.981 UTC [1000] LOG:  checkpoint complete: wrote 371 buffers (2.3%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.010 s, total=0.017 s; sync files=11, longest=0.005 s, average=0.001 s; distance=3520 kB, estimate=8344 kB; lsn=0/1ADB9160, redo lsn=0/1ADB9108
+pgrust-row-1  | 2026-11-04 20:23:51.256 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:51.286 UTC [1000] LOG:  checkpoint complete: wrote 231 buffers (1.4%), wrote 2 SLRU buffers; 0 WAL file(s) added, 1 removed, 0 recycled; write=0.003 s, sync=0.021 s, total=0.030 s; sync files=11, longest=0.007 s, average=0.002 s; distance=2453 kB, estimate=7755 kB; lsn=0/1B01E8C0, redo lsn=0/1B01E868
+pgrust-row-1  | 2026-11-04 20:23:53.801 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:23:53.833 UTC [1000] LOG:  checkpoint complete: wrote 239 buffers (1.5%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.021 s, total=0.033 s; sync files=11, longest=0.007 s, average=0.002 s; distance=2538 kB, estimate=7233 kB; lsn=0/1B299170, redo lsn=0/1B299118
+pgrust-row-1  | 2026-11-04 20:24:02.951 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:03.071 UTC [1000] LOG:  checkpoint complete: wrote 5777 buffers (35.3%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.059 s, sync=0.049 s, total=0.121 s; sync files=12, longest=0.035 s, average=0.005 s; distance=52553 kB, estimate=52553 kB; lsn=0/1E5EB828, redo lsn=0/1E5EB7D0
+pgrust-row-1  | 2026-11-04 20:24:14.110 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:14.294 UTC [1000] LOG:  checkpoint complete: wrote 5685 buffers (34.7%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 3 recycled; write=0.036 s, sync=0.141 s, total=0.185 s; sync files=12, longest=0.099 s, average=0.012 s; distance=51481 kB, estimate=52446 kB; lsn=0/21831C90, redo lsn=0/21831C38
+pgrust-row-1  | 2026-11-04 20:24:14.566 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:14.598 UTC [1000] LOG:  checkpoint complete: wrote 12 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.016 s, total=0.032 s; sync files=10, longest=0.004 s, average=0.002 s; distance=83 kB, estimate=47210 kB; lsn=0/21846A40, redo lsn=0/218469E8
+pgrust-row-1  | 2026-11-04 20:24:14.813 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:14.826 UTC [1000] LOG:  checkpoint complete: wrote 15 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.008 s, total=0.014 s; sync files=10, longest=0.002 s, average=0.001 s; distance=110 kB, estimate=42500 kB; lsn=0/21862470, redo lsn=0/21862418
+pgrust-row-1  | 2026-11-04 20:24:15.124 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:15.150 UTC [1000] LOG:  checkpoint complete: wrote 133 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.017 s, total=0.027 s; sync files=11, longest=0.004 s, average=0.002 s; distance=1174 kB, estimate=38367 kB; lsn=0/21987DA8, redo lsn=0/21987D50
+pgrust-row-1  | 2026-11-04 20:24:15.490 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:15.522 UTC [1000] LOG:  checkpoint complete: wrote 134 buffers (0.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.024 s, total=0.032 s; sync files=11, longest=0.011 s, average=0.003 s; distance=1162 kB, estimate=34647 kB; lsn=0/21AAA668, redo lsn=0/21AAA610
+pgrust-row-1  | 2026-11-04 20:24:15.783 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:15.813 UTC [1000] LOG:  checkpoint complete: wrote 92 buffers (0.6%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.015 s, total=0.031 s; sync files=10, longest=0.003 s, average=0.002 s; distance=393 kB, estimate=31221 kB; lsn=0/21B80078, redo lsn=0/21B0CA30
+pgrust-row-1  | 2026-11-04 20:24:16.128 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:16.180 UTC [1000] LOG:  checkpoint complete: wrote 308 buffers (1.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.010 s, sync=0.034 s, total=0.052 s; sync files=10, longest=0.024 s, average=0.004 s; distance=3608 kB, estimate=28460 kB; lsn=0/21EC11D8, redo lsn=0/21E92CF0
+pgrust-row-1  | 2026-11-04 20:24:16.808 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:16.846 UTC [1000] LOG:  checkpoint complete: wrote 950 buffers (5.8%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.023 s, sync=0.012 s, total=0.038 s; sync files=12, longest=0.004 s, average=0.001 s; distance=7791 kB, estimate=26393 kB; lsn=0/22654BE8, redo lsn=0/2262EAD8
+pgrust-row-1  | 2026-11-04 20:24:17.431 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:17.534 UTC [1000] LOG:  checkpoint complete: wrote 1632 buffers (10.0%), wrote 2 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.027 s, sync=0.067 s, total=0.104 s; sync files=12, longest=0.049 s, average=0.006 s; distance=11838 kB, estimate=24937 kB; lsn=0/23226288, redo lsn=0/231BE470
+pgrust-row-1  | 2026-11-04 20:24:19.133 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:19.210 UTC [1000] LOG:  checkpoint complete: wrote 3092 buffers (18.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.049 s, sync=0.019 s, total=0.078 s; sync files=13, longest=0.005 s, average=0.002 s; distance=19429 kB, estimate=24387 kB; lsn=0/24586CF0, redo lsn=0/244B7A30
+pgrust-row-1  | 2026-11-04 20:24:20.735 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-row-1  | 2026-11-04 20:24:20.799 UTC [1000] LOG:  checkpoint complete: wrote 2634 buffers (16.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.028 s, sync=0.027 s, total=0.065 s; sync files=14, longest=0.009 s, average=0.002 s; distance=20097 kB, estimate=23958 kB; lsn=0/2591B018, redo lsn=0/258580F0

@@ -1,0 +1,85 @@
+{
+  "startedAt": "2026-11-04T22:07:41.306Z",
+  "completedAt": "2026-11-04T22:07:55.547Z",
+  "sourceSha256": "b044d3db1f3b68239bb55dc7e9472117cae83651e1b699368850d90da322a47f",
+  "orchestrationSha256": "708be13e02540156f424cc5f3bf713804269bfc9e2c76f56b08228a0236b5a48",
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "memorySnapshots": {
+    "bare-metal/postgres/before": {
+      "at": "2026-11-04T22:07:44.081Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 43751 \nPages purgeable: 14191 \nPages purged: 255874 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 720536 \nPages inactive: 712641 \nPages speculative: 9307 \nPages throttled: 0 \nPages wired down: 182922 \n\nCompressor Stats:\nPages used by compressor: 387623 \nPages decompressed: 1136523 \nPages compressed: 2342794 \n\nFile I/O:\nPageins: 2949206 \nPageouts: 172909 \n\nSystem-wide memory free percentage: 72%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  56867072    18%  453127 568670720    0%   /"
+    },
+    "bare-metal/sqlite/before": {
+      "at": "2026-11-04T22:07:50.258Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 74243 \nPages purgeable: 5708 \nPages purged: 264765 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 704591 \nPages inactive: 702449 \nPages speculative: 1959 \nPages throttled: 0 \nPages wired down: 185214 \n\nCompressor Stats:\nPages used by compressor: 388219 \nPages decompressed: 1139368 \nPages compressed: 2349680 \n\nFile I/O:\nPageins: 2950655 \nPageouts: 172970 \n\nSystem-wide memory free percentage: 72%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  56865980    18%  453127 568659800    0%   /"
+    },
+    "completed": {
+      "at": "2026-11-04T22:07:55.547Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 70980 \nPages purgeable: 5299 \nPages purged: 264765 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 704881 \nPages inactive: 704616 \nPages speculative: 2726 \nPages throttled: 0 \nPages wired down: 185059 \n\nCompressor Stats:\nPages used by compressor: 388121 \nPages decompressed: 1139641 \nPages compressed: 2349680 \n\nFile I/O:\nPageins: 2951002 \nPageouts: 172970 \n\nSystem-wide memory free percentage: 72%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  56834804    18%  453127 568348040    0%   /"
+    }
+  },
+  "fixtureSha256": "2eac65ad652a6539884ac16a4f413d56119ecda971b09b4b932dff87d63e6fbb",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "large",
+  "selectedDatabases": [
+    "postgres",
+    "sqlite"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    128
+  ],
+  "command": [
+    "--environment",
+    "bare-metal",
+    "--profile",
+    "large",
+    "--concurrency",
+    "128",
+    "--requests",
+    "1000",
+    "--scenarios",
+    "mixed",
+    "--results-dir",
+    "benchmarks/baselines/database-mix-optimization-20261104/experiment-1-cache-vector"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "dockerContainerMemoryLimitBytes": 4294967296,
+    "dockerContainerSwapLimitBytes": 0,
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {},
+  "requestErrors": {
+    "bare-metal/postgres": 0,
+    "bare-metal/sqlite": 0
+  },
+  "backendFailures": {},
+  "unsupported": {}
+}

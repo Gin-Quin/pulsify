@@ -1,0 +1,91 @@
+# Pulsify database benchmark
+
+Real Pulsify history; sequential durable transactions, warm local reads. Times include the adapter and its transport.
+
+FoundationDB includes a Python JSON/base64 pipe per KV primitive. SQLite is embedded in the Docker runner. These numbers do not establish an engine ranking.
+
+Environment and configuration: see the accompanying JSON, including raw warmup and measured samples.
+
+| Database | Profile | Scenario | Median ms | p95 ms | Details (last sample) |
+| --- | --- | --- | ---: | ---: | --- |
+| postgres | small | write_full | 1.992 | 2.718 | {"rows":1,"operationBytes":2314} |
+| postgres | small | write_patch | 1.940 | 2.153 | {"rows":1,"operationBytes":93} |
+| postgres | small | read_full | 0.136 | 0.195 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| postgres | small | load_full | 0.238 | 0.368 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| postgres | small | read_delta | 0.104 | 0.165 | {"rows":2,"segments":2,"payloadBytes":352} |
+| postgres | small | sync_delta | 0.114 | 1.411 | {"rows":2,"segments":2,"payloadBytes":352} |
+| postgres | small | compact | 4.525 | 5.449 | {"removedSegments":16,"beforePayloadBytes":7449,"afterPayloadBytes":3727,"savedPayloadPercent":49.966438448113834} |
+| postgres | small | read_full_compacted | 0.149 | 0.283 | {"rows":21,"segments":5,"payloadBytes":3727} |
+| postgres | small | read_delta_compacted | 0.102 | 0.823 | {"rows":2,"segments":2,"payloadBytes":352} |
+| postgres | medium | write_full | 2.357 | 7.826 | {"rows":1,"operationBytes":33873} |
+| postgres | medium | write_patch | 1.817 | 5.449 | {"rows":1,"operationBytes":61} |
+| postgres | medium | read_full | 0.402 | 0.576 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| postgres | medium | load_full | 0.797 | 2.071 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| postgres | medium | read_delta | 0.145 | 0.538 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| postgres | medium | sync_delta | 0.191 | 0.330 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| postgres | medium | compact | 8.032 | 19.348 | {"removedSegments":96,"beforePayloadBytes":68493,"afterPayloadBytes":38280,"savedPayloadPercent":44.111077044369495} |
+| postgres | medium | read_full_compacted | 0.277 | 0.456 | {"rows":101,"segments":5,"payloadBytes":38280} |
+| postgres | medium | read_delta_compacted | 0.199 | 0.410 | {"rows":10,"segments":4,"payloadBytes":4318} |
+| postgres | large | write_full | 4.677 | 71.548 | {"rows":1,"operationBytes":266286} |
+| postgres | large | write_patch | 2.161 | 6.422 | {"rows":1,"operationBytes":62} |
+| postgres | large | read_full | 3.047 | 4.527 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| postgres | large | load_full | 9.178 | 11.281 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| postgres | large | read_delta | 0.784 | 1.064 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| postgres | large | sync_delta | 0.978 | 1.421 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| postgres | large | compact | 127.686 | 133.854 | {"removedSegments":996,"beforePayloadBytes":787977,"afterPayloadBytes":307606,"savedPayloadPercent":60.96256616627135} |
+| postgres | large | read_full_compacted | 1.284 | 2.134 | {"rows":1001,"segments":5,"payloadBytes":307606} |
+| postgres | large | read_delta_compacted | 1.056 | 3.930 | {"rows":100,"segments":4,"payloadBytes":41231} |
+| foundationdb | small | write_full | 8.832 | 16.921 | {"rows":1,"operationBytes":2314} |
+| foundationdb | small | write_patch | 9.754 | 16.168 | {"rows":1,"operationBytes":93} |
+| foundationdb | small | read_full | 11.994 | 40.331 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| foundationdb | small | load_full | 10.101 | 29.332 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| foundationdb | small | read_delta | 4.443 | 10.215 | {"rows":2,"segments":2,"payloadBytes":352} |
+| foundationdb | small | sync_delta | 5.237 | 11.023 | {"rows":2,"segments":2,"payloadBytes":352} |
+| foundationdb | small | compact | 43.999 | 67.272 | {"removedSegments":16,"beforePayloadBytes":7449,"afterPayloadBytes":3729,"savedPayloadPercent":49.939589206604914} |
+| foundationdb | small | read_full_compacted | 6.437 | 13.322 | {"rows":21,"segments":5,"payloadBytes":3729} |
+| foundationdb | small | read_delta_compacted | 4.619 | 12.033 | {"rows":2,"segments":2,"payloadBytes":352} |
+| foundationdb | medium | write_full | 11.372 | 15.466 | {"rows":1,"operationBytes":33873} |
+| foundationdb | medium | write_patch | 11.599 | 13.911 | {"rows":1,"operationBytes":61} |
+| foundationdb | medium | read_full | 76.785 | 157.105 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| foundationdb | medium | load_full | 58.973 | 73.958 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| foundationdb | medium | read_delta | 9.370 | 16.087 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| foundationdb | medium | sync_delta | 9.362 | 14.029 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| foundationdb | medium | compact | 207.823 | 271.631 | {"removedSegments":96,"beforePayloadBytes":68493,"afterPayloadBytes":38280,"savedPayloadPercent":44.111077044369495} |
+| foundationdb | medium | read_full_compacted | 8.817 | 18.727 | {"rows":101,"segments":5,"payloadBytes":38280} |
+| foundationdb | medium | read_delta_compacted | 6.048 | 13.428 | {"rows":10,"segments":4,"payloadBytes":4318} |
+| foundationdb | large | write_full | 9.195 | 17.937 | {"rows":1,"operationBytes":266286} |
+| foundationdb | large | write_patch | 9.666 | 20.694 | {"rows":1,"operationBytes":62} |
+| foundationdb | large | read_full | 601.496 | 909.448 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| foundationdb | large | load_full | 713.892 | 976.981 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| foundationdb | large | read_delta | 87.582 | 181.360 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| foundationdb | large | sync_delta | 73.216 | 151.228 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| foundationdb | large | compact | 2086.529 | 2573.398 | {"removedSegments":996,"beforePayloadBytes":787977,"afterPayloadBytes":307603,"savedPayloadPercent":60.96294688804369} |
+| foundationdb | large | read_full_compacted | 30.278 | 42.383 | {"rows":1001,"segments":5,"payloadBytes":307603} |
+| foundationdb | large | read_delta_compacted | 17.488 | 28.863 | {"rows":100,"segments":4,"payloadBytes":41228} |
+| sqlite | small | write_full | 1.272 | 1.964 | {"rows":1,"operationBytes":2314} |
+| sqlite | small | write_patch | 1.454 | 1.882 | {"rows":1,"operationBytes":93} |
+| sqlite | small | read_full | 0.056 | 0.103 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| sqlite | small | load_full | 0.099 | 0.146 | {"rows":21,"segments":21,"payloadBytes":7449} |
+| sqlite | small | read_delta | 0.020 | 0.035 | {"rows":2,"segments":2,"payloadBytes":352} |
+| sqlite | small | sync_delta | 0.023 | 0.037 | {"rows":2,"segments":2,"payloadBytes":352} |
+| sqlite | small | compact | 2.797 | 3.448 | {"removedSegments":16,"beforePayloadBytes":7449,"afterPayloadBytes":3730,"savedPayloadPercent":49.92616458585045} |
+| sqlite | small | read_full_compacted | 0.071 | 0.105 | {"rows":21,"segments":5,"payloadBytes":3730} |
+| sqlite | small | read_delta_compacted | 0.023 | 0.040 | {"rows":2,"segments":2,"payloadBytes":352} |
+| sqlite | medium | write_full | 1.718 | 3.656 | {"rows":1,"operationBytes":33873} |
+| sqlite | medium | write_patch | 1.306 | 1.886 | {"rows":1,"operationBytes":61} |
+| sqlite | medium | read_full | 0.223 | 0.346 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| sqlite | medium | load_full | 0.532 | 1.031 | {"rows":101,"segments":101,"payloadBytes":68493} |
+| sqlite | medium | read_delta | 0.061 | 0.098 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| sqlite | medium | sync_delta | 0.082 | 0.122 | {"rows":10,"segments":10,"payloadBytes":3286} |
+| sqlite | medium | compact | 4.015 | 7.748 | {"removedSegments":96,"beforePayloadBytes":68493,"afterPayloadBytes":38280,"savedPayloadPercent":44.111077044369495} |
+| sqlite | medium | read_full_compacted | 0.137 | 0.192 | {"rows":101,"segments":5,"payloadBytes":38280} |
+| sqlite | medium | read_delta_compacted | 0.110 | 2.050 | {"rows":10,"segments":4,"payloadBytes":4318} |
+| sqlite | large | write_full | 2.590 | 4.281 | {"rows":1,"operationBytes":266286} |
+| sqlite | large | write_patch | 2.208 | 4.274 | {"rows":1,"operationBytes":62} |
+| sqlite | large | read_full | 2.337 | 3.782 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| sqlite | large | load_full | 6.435 | 8.867 | {"rows":1001,"segments":1001,"payloadBytes":787977} |
+| sqlite | large | read_delta | 0.703 | 0.865 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| sqlite | large | sync_delta | 1.023 | 1.429 | {"rows":100,"segments":100,"payloadBytes":51941} |
+| sqlite | large | compact | 18.693 | 30.305 | {"removedSegments":996,"beforePayloadBytes":787977,"afterPayloadBytes":307606,"savedPayloadPercent":60.96256616627135} |
+| sqlite | large | read_full_compacted | 0.872 | 1.353 | {"rows":1001,"segments":5,"payloadBytes":307606} |
+| sqlite | large | read_delta_compacted | 0.844 | 3.256 | {"rows":100,"segments":4,"payloadBytes":41231} |

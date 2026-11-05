@@ -1,0 +1,178 @@
+orioledb-1  | The files belonging to this database system will be owned by user "postgres".
+orioledb-1  | This user must also own the server process.
+orioledb-1  |
+orioledb-1  | The database cluster will be initialized with locale "C".
+orioledb-1  | The default database encoding has accordingly been set to "SQL_ASCII".
+orioledb-1  | The default text search configuration will be set to "english".
+orioledb-1  |
+orioledb-1  | Data page checksums are disabled.
+orioledb-1  |
+orioledb-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+orioledb-1  | creating subdirectories ... ok
+orioledb-1  | selecting dynamic shared memory implementation ... posix
+orioledb-1  | selecting default "max_connections" ... 100
+orioledb-1  | selecting default "shared_buffers" ... 128MB
+orioledb-1  | selecting default time zone ... UTC
+orioledb-1  | creating configuration files ... ok
+orioledb-1  | running bootstrap script ... ok
+orioledb-1  | sh: locale: not found
+orioledb-1  | 2026-11-04 21:07:07.846 UTC [30] WARNING:  no usable system locales were found
+orioledb-1  | performing post-bootstrap initialization ... ok
+orioledb-1  | syncing data to disk ... ok
+orioledb-1  |
+orioledb-1  |
+orioledb-1  | Success. You can now start the database server using:
+orioledb-1  |
+orioledb-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+orioledb-1  |
+orioledb-1  | initdb: warning: enabling "trust" authentication for local connections
+orioledb-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+orioledb-1  | waiting for server to start....2026-11-04 21:07:08.674 UTC [41] LOG:  registered custom resource manager "OrioleDB resource manager" with ID 129
+orioledb-1  | 2026-11-04 21:07:08.686 UTC [41] LOG:  starting PostgreSQL 17.11 OrioleDB beta 19 PGTAG=patches17_23 alpine:3.21+clang build:2026-11-02T14:08:58+00:00 17.11 on aarch64-unknown-linux-musl, compiled by Alpine clang version 19.1.4, 64-bit
+orioledb-1  | 2026-11-04 21:07:08.687 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+orioledb-1  | 2026-11-04 21:07:08.689 UTC [44] LOG:  Cleanup of old files at startup. Checkpoint 0
+orioledb-1  | 2026-11-04 21:07:08.690 UTC [44] LOG:  database system was shut down at 2026-11-04 21:07:07 UTC
+orioledb-1  | 2026-11-04 21:07:08.690 UTC [45] LOG:  orioledb background writer 0 started
+orioledb-1  | 2026-11-04 21:07:08.693 UTC [41] LOG:  database system is ready to accept connections
+orioledb-1  |  done
+orioledb-1  | server started
+orioledb-1  | CREATE DATABASE
+orioledb-1  |
+orioledb-1  |
+orioledb-1  | /usr/local/bin/docker-entrypoint.sh: sourcing /docker-default-initdb.d/default-orioledb.sh
+orioledb-1  | CREATE EXTENSION
+orioledb-1  | CREATE EXTENSION
+orioledb-1  |
+orioledb-1  |
+orioledb-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+orioledb-1  |
+orioledb-1  | waiting for server to shut down....2026-11-04 21:07:08.798 UTC [41] LOG:  received fast shutdown request
+orioledb-1  | 2026-11-04 21:07:08.799 UTC [41] LOG:  aborting any active transactions
+orioledb-1  | 2026-11-04 21:07:08.799 UTC [45] LOG:  orioledb bgwriter 0 is shut down
+orioledb-1  | 2026-11-04 21:07:08.800 UTC [41] LOG:  background worker "logical replication launcher" (PID 48) exited with exit code 1
+orioledb-1  | 2026-11-04 21:07:08.800 UTC [42] LOG:  shutting down
+orioledb-1  | 2026-11-04 21:07:08.801 UTC [42] LOG:  checkpoint starting: shutdown immediate
+orioledb-1  | 2026-11-04 21:07:08.844 UTC [42] LOG:  orioledb checkpoint 1 started
+orioledb-1  | 2026-11-04 21:07:08.914 UTC [42] LOG:  orioledb checkpoint 1 complete
+orioledb-1  | 2026-11-04 21:07:09.088 UTC [42] LOG:  checkpoint complete: wrote 1035 buffers (6.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.112 s, sync=0.173 s, total=0.288 s; sync files=344, longest=0.002 s, average=0.001 s; distance=4971 kB, estimate=4971 kB; lsn=0/19C8140, redo lsn=0/19C8140
+orioledb-1  | 2026-11-04 21:07:09.094 UTC [41] LOG:  database system is shut down
+orioledb-1  |  done
+orioledb-1  | server stopped
+orioledb-1  |
+orioledb-1  | PostgreSQL init process complete; ready for start up.
+orioledb-1  |
+orioledb-1  | 2026-11-04 21:07:09.109 UTC [1] LOG:  registered custom resource manager "OrioleDB resource manager" with ID 129
+orioledb-1  | 2026-11-04 21:07:09.122 UTC [1] LOG:  starting PostgreSQL 17.11 OrioleDB beta 19 PGTAG=patches17_23 alpine:3.21+clang build:2026-11-02T14:08:58+00:00 17.11 on aarch64-unknown-linux-musl, compiled by Alpine clang version 19.1.4, 64-bit
+orioledb-1  | 2026-11-04 21:07:09.122 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+orioledb-1  | 2026-11-04 21:07:09.122 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+orioledb-1  | 2026-11-04 21:07:09.123 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+orioledb-1  | 2026-11-04 21:07:09.125 UTC [61] LOG:  Cleanup of old files at startup. Checkpoint 1
+orioledb-1  | 2026-11-04 21:07:09.125 UTC [62] LOG:  orioledb background writer 0 started
+orioledb-1  | 2026-11-04 21:07:09.126 UTC [61] LOG:  database system was shut down at 2026-11-04 21:07:09 UTC
+orioledb-1  | 2026-11-04 21:07:09.128 UTC [1] LOG:  database system is ready to accept connections
+orioledb-1  | 2026-11-04 21:07:10.751 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:10.762 UTC [59] LOG:  orioledb checkpoint 2 started
+orioledb-1  | 2026-11-04 21:07:10.852 UTC [59] LOG:  orioledb checkpoint 2 complete
+orioledb-1  | 2026-11-04 21:07:10.980 UTC [59] LOG:  checkpoint complete: wrote 123 buffers (0.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.098 s, sync=0.123 s, total=0.230 s; sync files=72, longest=0.004 s, average=0.002 s; distance=784 kB, estimate=784 kB; lsn=0/1A8C358, redo lsn=0/1A8C2E8
+orioledb-1  | 2026-11-04 21:07:12.952 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:12.955 UTC [59] LOG:  orioledb checkpoint 3 started
+orioledb-1  | 2026-11-04 21:07:13.046 UTC [59] LOG:  orioledb checkpoint 3 complete
+orioledb-1  | 2026-11-04 21:07:13.053 UTC [59] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.092 s, sync=0.001 s, total=0.102 s; sync files=1, longest=0.001 s, average=0.001 s; distance=31561 kB, estimate=31561 kB; lsn=0/395E850, redo lsn=0/395E7E0
+orioledb-1  | 2026-11-04 21:07:15.141 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:15.144 UTC [59] LOG:  orioledb checkpoint 4 started
+orioledb-1  | 2026-11-04 21:07:15.199 UTC [59] LOG:  orioledb checkpoint 4 complete
+orioledb-1  | 2026-11-04 21:07:15.203 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.056 s, sync=0.001 s, total=0.062 s; sync files=0, longest=0.000 s, average=0.000 s; distance=31765 kB, estimate=31765 kB; lsn=0/5863D38, redo lsn=0/5863CC8
+orioledb-1  | 2026-11-04 21:07:17.343 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:17.346 UTC [59] LOG:  orioledb checkpoint 5 started
+orioledb-1  | 2026-11-04 21:07:17.411 UTC [59] LOG:  orioledb checkpoint 5 complete
+orioledb-1  | 2026-11-04 21:07:17.415 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.065 s, sync=0.001 s, total=0.072 s; sync files=0, longest=0.000 s, average=0.000 s; distance=31550 kB, estimate=31743 kB; lsn=0/7733700, redo lsn=0/7733690
+orioledb-1  | 2026-11-04 21:07:19.522 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:19.526 UTC [59] LOG:  orioledb checkpoint 6 started
+orioledb-1  | 2026-11-04 21:07:19.581 UTC [59] LOG:  orioledb checkpoint 6 complete
+orioledb-1  | 2026-11-04 21:07:19.586 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.055 s, sync=0.001 s, total=0.064 s; sync files=0, longest=0.000 s, average=0.000 s; distance=31754 kB, estimate=31754 kB; lsn=0/9636098, redo lsn=0/9636028
+orioledb-1  | 2026-11-04 21:07:24.605 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:24.609 UTC [59] LOG:  orioledb checkpoint 7 started
+orioledb-1  | 2026-11-04 21:07:24.651 UTC [59] LOG:  orioledb checkpoint 7 complete
+orioledb-1  | 2026-11-04 21:07:24.652 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.042 s, sync=0.001 s, total=0.047 s; sync files=0, longest=0.000 s, average=0.000 s; distance=7852 kB, estimate=29364 kB; lsn=0/9DE1408, redo lsn=0/9DE1398
+orioledb-1  | 2026-11-04 21:07:29.926 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:29.933 UTC [59] LOG:  orioledb checkpoint 8 started
+orioledb-1  | 2026-11-04 21:07:29.992 UTC [59] LOG:  orioledb checkpoint 8 complete
+orioledb-1  | 2026-11-04 21:07:30.006 UTC [59] LOG:  checkpoint complete: wrote 70 buffers (0.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.061 s, sync=0.012 s, total=0.080 s; sync files=23, longest=0.002 s, average=0.001 s; distance=8344 kB, estimate=27262 kB; lsn=0/A607768, redo lsn=0/A6076F8
+orioledb-1  | 2026-11-04 21:07:31.396 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:31.403 UTC [59] LOG:  orioledb checkpoint 9 started
+orioledb-1  | 2026-11-04 21:07:31.475 UTC [59] LOG:  orioledb checkpoint 9 complete
+orioledb-1  | 2026-11-04 21:07:31.477 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.073 s, sync=0.001 s, total=0.082 s; sync files=0, longest=0.000 s, average=0.000 s; distance=981 kB, estimate=24634 kB; lsn=0/A6FCF00, redo lsn=0/A6FCE90
+orioledb-1  | 2026-11-04 21:07:32.894 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:32.899 UTC [59] LOG:  orioledb checkpoint 10 started
+orioledb-1  | 2026-11-04 21:07:32.944 UTC [59] LOG:  orioledb checkpoint 10 complete
+orioledb-1  | 2026-11-04 21:07:32.946 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.046 s, sync=0.001 s, total=0.052 s; sync files=0, longest=0.000 s, average=0.000 s; distance=997 kB, estimate=22270 kB; lsn=0/A7F6650, redo lsn=0/A7F65E0
+orioledb-1  | 2026-11-04 21:07:37.631 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:37.634 UTC [59] LOG:  orioledb checkpoint 11 started
+orioledb-1  | 2026-11-04 21:07:37.693 UTC [59] LOG:  orioledb checkpoint 11 complete
+orioledb-1  | 2026-11-04 21:07:37.697 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.059 s, sync=0.001 s, total=0.066 s; sync files=0, longest=0.000 s, average=0.000 s; distance=9412 kB, estimate=20984 kB; lsn=0/B127688, redo lsn=0/B127618
+orioledb-1  | 2026-11-04 21:07:42.490 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:42.494 UTC [59] LOG:  orioledb checkpoint 12 started
+orioledb-1  | 2026-11-04 21:07:42.539 UTC [59] LOG:  orioledb checkpoint 12 complete
+orioledb-1  | 2026-11-04 21:07:42.541 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.046 s, sync=0.001 s, total=0.051 s; sync files=0, longest=0.000 s, average=0.000 s; distance=9408 kB, estimate=19827 kB; lsn=0/BA57848, redo lsn=0/BA577D8
+orioledb-1  | 2026-11-04 21:07:45.330 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:45.333 UTC [59] LOG:  orioledb checkpoint 13 started
+orioledb-1  | 2026-11-04 21:07:45.372 UTC [59] LOG:  orioledb checkpoint 13 complete
+orioledb-1  | 2026-11-04 21:07:45.373 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.040 s, sync=0.001 s, total=0.043 s; sync files=0, longest=0.000 s, average=0.000 s; distance=3096 kB, estimate=18154 kB; lsn=0/BD5D848, redo lsn=0/BD5D7D8
+orioledb-1  | 2026-11-04 21:07:48.086 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:48.089 UTC [59] LOG:  orioledb checkpoint 14 started
+orioledb-1  | 2026-11-04 21:07:48.133 UTC [59] LOG:  orioledb checkpoint 14 complete
+orioledb-1  | 2026-11-04 21:07:48.136 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.045 s, sync=0.001 s, total=0.051 s; sync files=0, longest=0.000 s, average=0.000 s; distance=3132 kB, estimate=16651 kB; lsn=0/C06C8B0, redo lsn=0/C06C840
+orioledb-1  | 2026-11-04 21:07:58.136 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:07:58.142 UTC [59] LOG:  orioledb checkpoint 15 started
+orioledb-1  | 2026-11-04 21:07:58.246 UTC [59] LOG:  orioledb checkpoint 15 complete
+orioledb-1  | 2026-11-04 21:07:58.255 UTC [59] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 3 recycled; write=0.104 s, sync=0.003 s, total=0.119 s; sync files=3, longest=0.001 s, average=0.001 s; distance=64044 kB, estimate=64044 kB; lsn=0/FEF7C30, redo lsn=0/FEF7BC0
+orioledb-1  | 2026-11-04 21:08:05.160 UTC [59] LOG:  checkpoints are occurring too frequently (7 seconds apart)
+orioledb-1  | 2026-11-04 21:08:05.160 UTC [59] HINT:  Consider increasing the configuration parameter "max_wal_size".
+orioledb-1  | 2026-11-04 21:08:05.160 UTC [59] LOG:  checkpoint starting: wal
+orioledb-1  | 2026-11-04 21:08:05.168 UTC [59] LOG:  orioledb checkpoint 16 started
+orioledb-1  | 2026-11-04 21:08:07.388 UTC [59] LOG:  orioledb checkpoint 16 complete
+orioledb-1  | 2026-11-04 21:08:07.405 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 4 recycled; write=2.221 s, sync=0.001 s, total=2.246 s; sync files=0, longest=0.000 s, average=0.000 s; distance=50260 kB, estimate=62666 kB; lsn=0/13C2AD48, redo lsn=0/1300CE70
+orioledb-1  | 2026-11-04 21:08:08.258 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:08.263 UTC [59] LOG:  orioledb checkpoint 17 started
+orioledb-1  | 2026-11-04 21:08:08.332 UTC [59] LOG:  orioledb checkpoint 17 complete
+orioledb-1  | 2026-11-04 21:08:08.333 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.070 s, sync=0.001 s, total=0.076 s; sync files=0, longest=0.000 s, average=0.000 s; distance=14537 kB, estimate=57853 kB; lsn=0/13E3F5F0, redo lsn=0/13E3F580
+orioledb-1  | 2026-11-04 21:08:08.782 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:08.788 UTC [59] LOG:  orioledb checkpoint 18 started
+orioledb-1  | 2026-11-04 21:08:08.834 UTC [59] LOG:  orioledb checkpoint 18 complete
+orioledb-1  | 2026-11-04 21:08:08.835 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.047 s, sync=0.001 s, total=0.054 s; sync files=0, longest=0.000 s, average=0.000 s; distance=64 kB, estimate=52074 kB; lsn=0/13E4F7A0, redo lsn=0/13E4F730
+orioledb-1  | 2026-11-04 21:08:09.312 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:09.317 UTC [59] LOG:  orioledb checkpoint 19 started
+orioledb-1  | 2026-11-04 21:08:09.365 UTC [59] LOG:  orioledb checkpoint 19 complete
+orioledb-1  | 2026-11-04 21:08:09.371 UTC [59] LOG:  checkpoint complete: wrote 8 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.049 s, sync=0.005 s, total=0.060 s; sync files=8, longest=0.001 s, average=0.001 s; distance=102 kB, estimate=46877 kB; lsn=0/13E69368, redo lsn=0/13E692F8
+orioledb-1  | 2026-11-04 21:08:13.891 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:13.897 UTC [59] LOG:  orioledb checkpoint 20 started
+orioledb-1  | 2026-11-04 21:08:13.946 UTC [59] LOG:  orioledb checkpoint 20 complete
+orioledb-1  | 2026-11-04 21:08:13.948 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.050 s, sync=0.001 s, total=0.057 s; sync files=0, longest=0.000 s, average=0.000 s; distance=7852 kB, estimate=42975 kB; lsn=0/14614708, redo lsn=0/14614698
+orioledb-1  | 2026-11-04 21:08:18.759 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:18.764 UTC [59] LOG:  orioledb checkpoint 21 started
+orioledb-1  | 2026-11-04 21:08:18.820 UTC [59] LOG:  orioledb checkpoint 21 complete
+orioledb-1  | 2026-11-04 21:08:18.821 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.056 s, sync=0.001 s, total=0.063 s; sync files=0, longest=0.000 s, average=0.000 s; distance=7980 kB, estimate=39475 kB; lsn=0/14DDF8B0, redo lsn=0/14DDF840
+orioledb-1  | 2026-11-04 21:08:19.972 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:19.977 UTC [59] LOG:  orioledb checkpoint 22 started
+orioledb-1  | 2026-11-04 21:08:20.025 UTC [59] LOG:  orioledb checkpoint 22 complete
+orioledb-1  | 2026-11-04 21:08:20.026 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.049 s, sync=0.001 s, total=0.055 s; sync files=0, longest=0.000 s, average=0.000 s; distance=981 kB, estimate=35626 kB; lsn=0/14ED5048, redo lsn=0/14ED4FD8
+orioledb-1  | 2026-11-04 21:08:21.258 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:21.263 UTC [59] LOG:  orioledb checkpoint 23 started
+orioledb-1  | 2026-11-04 21:08:21.307 UTC [59] LOG:  orioledb checkpoint 23 complete
+orioledb-1  | 2026-11-04 21:08:21.309 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.045 s, sync=0.001 s, total=0.051 s; sync files=0, longest=0.000 s, average=0.000 s; distance=997 kB, estimate=32163 kB; lsn=0/14FCE7A8, redo lsn=0/14FCE738
+orioledb-1  | 2026-11-04 21:08:27.907 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:27.911 UTC [59] LOG:  orioledb checkpoint 24 started
+orioledb-1  | 2026-11-04 21:08:27.971 UTC [59] LOG:  orioledb checkpoint 24 complete
+orioledb-1  | 2026-11-04 21:08:27.974 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.060 s, sync=0.001 s, total=0.068 s; sync files=0, longest=0.000 s, average=0.000 s; distance=11887 kB, estimate=30135 kB; lsn=0/15B6A708, redo lsn=0/15B6A698
+orioledb-1  | 2026-11-04 21:08:34.780 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:34.785 UTC [59] LOG:  orioledb checkpoint 25 started
+orioledb-1  | 2026-11-04 21:08:34.839 UTC [59] LOG:  orioledb checkpoint 25 complete
+orioledb-1  | 2026-11-04 21:08:34.845 UTC [59] LOG:  checkpoint complete: wrote 31 buffers (0.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.056 s, sync=0.003 s, total=0.065 s; sync files=5, longest=0.001 s, average=0.001 s; distance=12038 kB, estimate=28326 kB; lsn=0/1672C258, redo lsn=0/1672C1E8
+orioledb-1  | 2026-11-04 21:08:38.174 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:38.179 UTC [59] LOG:  orioledb checkpoint 26 started
+orioledb-1  | 2026-11-04 21:08:38.228 UTC [59] LOG:  orioledb checkpoint 26 complete
+orioledb-1  | 2026-11-04 21:08:38.229 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.049 s, sync=0.001 s, total=0.055 s; sync files=0, longest=0.000 s, average=0.000 s; distance=5090 kB, estimate=26002 kB; lsn=0/16C24D58, redo lsn=0/16C24CE8
+orioledb-1  | 2026-11-04 21:08:41.629 UTC [59] LOG:  checkpoint starting: immediate force wait
+orioledb-1  | 2026-11-04 21:08:41.633 UTC [59] LOG:  orioledb checkpoint 27 started
+orioledb-1  | 2026-11-04 21:08:41.683 UTC [59] LOG:  orioledb checkpoint 27 complete
+orioledb-1  | 2026-11-04 21:08:41.685 UTC [59] LOG:  checkpoint complete: wrote 0 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.051 s, sync=0.001 s, total=0.057 s; sync files=0, longest=0.000 s, average=0.000 s; distance=5142 kB, estimate=23916 kB; lsn=0/1712A7C8, redo lsn=0/1712A758

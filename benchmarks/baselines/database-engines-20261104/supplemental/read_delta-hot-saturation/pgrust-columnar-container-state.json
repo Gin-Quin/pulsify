@@ -1,0 +1,50 @@
+[
+  {
+    "name": "/pulsify-native-4490-1793826894250-pgrust-columnar-1",
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 60440,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-04T21:14:54.507871824Z",
+      "FinishedAt": "0001-01-01T00:00:00Z",
+      "Health": {
+        "Status": "healthy",
+        "FailingStreak": 0,
+        "Log": [
+          {
+            "Start": "2026-11-04T22:14:55.549133128+01:00",
+            "End": "2026-11-04T22:14:55.566468426+01:00",
+            "ExitCode": 2,
+            "Output": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n"
+          },
+          {
+            "Start": "2026-11-04T22:14:56.568230883+01:00",
+            "End": "2026-11-04T22:14:56.587964932+01:00",
+            "ExitCode": 2,
+            "Output": "psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  the database system is shutting down\n"
+          },
+          {
+            "Start": "2026-11-04T22:14:57.588854722+01:00",
+            "End": "2026-11-04T22:14:57.621317108+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          },
+          {
+            "Start": "2026-11-04T22:14:58.624619816+01:00",
+            "End": "2026-11-04T22:14:58.638246154+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          }
+        ]
+      }
+    },
+    "memoryBytes": 4294967296,
+    "memorySwapBytes": 4294967296
+  }
+]

@@ -1,0 +1,116 @@
+{
+  "startedAt": "2026-11-04T19:40:06.699Z",
+  "completedAt": "",
+  "sourceSha256": "d3ec4937c3a9ee6bd865ba3a51bec27e421629ffd9f967de443c6798d0051447",
+  "orchestrationSha256": "271010bc85b254aa47d621c38b82d7bacb2bf30a67ee7f73a6b47605c73f0b2f",
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "memorySnapshots": {
+    "bare-metal/postgres/before": {
+      "at": "2026-11-04T19:40:07.370Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 10154 \nPages purgeable: 7577 \nPages purged: 133176302 \n\nSwap I/O:\nSwapins: 6999510 \nSwapouts: 10463043 \n\nPage Q counts:\nPages active: 757769 \nPages inactive: 753309 \nPages speculative: 4809 \nPages throttled: 0 \nPages wired down: 277827 \n\nCompressor Stats:\nPages used by compressor: 252566 \nPages decompressed: 1710049699 \nPages compressed: 1806929732 \n\nFile I/O:\nPageins: 69969319 \nPageouts: 24988191 \n\nSystem-wide memory free percentage: 74%",
+      "swap": "vm.swapusage: total = 18432.00M  used = 17201.19M  free = 1230.81M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  31382592    28%  453127 313825920    0%   /"
+    },
+    "bare-metal/sqlite/before": {
+      "at": "2026-11-04T19:41:36.811Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 76757 \nPages purgeable: 580 \nPages purged: 133183960 \n\nSwap I/O:\nSwapins: 7075442 \nSwapouts: 10500999 \n\nPage Q counts:\nPages active: 675818 \nPages inactive: 673467 \nPages speculative: 2091 \nPages throttled: 0 \nPages wired down: 270688 \n\nCompressor Stats:\nPages used by compressor: 357988 \nPages decompressed: 1710476688 \nPages compressed: 1807509860 \n\nFile I/O:\nPageins: 70003587 \nPageouts: 25007156 \n\nSystem-wide memory free percentage: 69%",
+      "swap": "vm.swapusage: total = 17408.00M  used = 16581.25M  free = 826.75M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  32184728    28%  453127 321847280    0%   /"
+    },
+    "bare-metal/alloydb/before": {
+      "at": "2026-11-04T19:42:06.089Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 64536 \nPages purgeable: 1230 \nPages purged: 133184968 \n\nSwap I/O:\nSwapins: 7077400 \nSwapouts: 10500999 \n\nPage Q counts:\nPages active: 673780 \nPages inactive: 670951 \nPages speculative: 2382 \nPages throttled: 0 \nPages wired down: 281533 \n\nCompressor Stats:\nPages used by compressor: 363380 \nPages decompressed: 1710569790 \nPages compressed: 1807617826 \n\nFile I/O:\nPageins: 70008849 \nPageouts: 25009076 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 17408.00M  used = 16565.25M  free = 842.75M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  32108744    28%  453127 321087440    0%   /"
+    },
+    "bare-metal/orioledb/before": {
+      "at": "2026-11-04T19:42:06.091Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 64545 \nPages purgeable: 1230 \nPages purged: 133184968 \n\nSwap I/O:\nSwapins: 7077400 \nSwapouts: 10500999 \n\nPage Q counts:\nPages active: 673782 \nPages inactive: 670949 \nPages speculative: 2383 \nPages throttled: 0 \nPages wired down: 281531 \n\nCompressor Stats:\nPages used by compressor: 363380 \nPages decompressed: 1710569790 \nPages compressed: 1807617826 \n\nFile I/O:\nPageins: 70008852 \nPageouts: 25009076 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 17408.00M  used = 16565.25M  free = 842.75M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  32108744    28%  453127 321087440    0%   /"
+    },
+    "bare-metal/pgrust-row/before": {
+      "at": "2026-11-04T19:42:06.092Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 64832 \nPages purgeable: 1230 \nPages purged: 133184968 \n\nSwap I/O:\nSwapins: 7077400 \nSwapouts: 10500999 \n\nPage Q counts:\nPages active: 673798 \nPages inactive: 670949 \nPages speculative: 2383 \nPages throttled: 0 \nPages wired down: 281530 \n\nCompressor Stats:\nPages used by compressor: 363380 \nPages decompressed: 1710569790 \nPages compressed: 1807617826 \n\nFile I/O:\nPageins: 70008855 \nPageouts: 25009076 \n\nSystem-wide memory free percentage: 68%",
+      "swap": "vm.swapusage: total = 17408.00M  used = 16565.25M  free = 842.75M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  32108744    28%  453127 321087440    0%   /"
+    },
+    "bare-metal/pgrust-columnar/before": {
+      "at": "2026-11-04T19:43:47.413Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 110411 \nPages purgeable: 2186 \nPages purged: 133189227 \n\nSwap I/O:\nSwapins: 7095547 \nSwapouts: 10500999 \n\nPage Q counts:\nPages active: 623063 \nPages inactive: 623374 \nPages speculative: 1623 \nPages throttled: 0 \nPages wired down: 261409 \n\nCompressor Stats:\nPages used by compressor: 436851 \nPages decompressed: 1710867399 \nPages compressed: 1808053940 \n\nFile I/O:\nPageins: 70034117 \nPageouts: 25015204 \n\nSystem-wide memory free percentage: 65%",
+      "swap": "vm.swapusage: total = 17408.00M  used = 16269.25M  free = 1138.75M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  32035812    28%  453127 320358120    0%   /"
+    }
+  },
+  "fixtureSha256": "285d70746b17625a44ca5e39cb62171b9f64df23a69e65a111746dd5053eae5e",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "medium",
+  "selectedDatabases": [
+    "postgres",
+    "sqlite",
+    "alloydb",
+    "orioledb",
+    "pgrust-row",
+    "pgrust-columnar"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    1,
+    16,
+    64
+  ],
+  "command": [
+    "--environment",
+    "both",
+    "--profile",
+    "medium",
+    "--databases",
+    "postgres,sqlite,alloydb,orioledb,pgrust-row,pgrust-columnar",
+    "--concurrency",
+    "1,16,64",
+    "--requests",
+    "1000",
+    "--results-dir",
+    "benchmarks/baselines/database-engines-20261104/medium"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {},
+  "requestErrors": {
+    "bare-metal/postgres": 0,
+    "bare-metal/sqlite": 0,
+    "bare-metal/pgrust-row": 0
+  },
+  "backendFailures": {
+    "bare-metal/pgrust-columnar": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/medium/bare-metal-pgrust-columnar.json",
+    "campaign": "Interrupted for a benchmark adapter correction; excluded from comparisons."
+  },
+  "unsupported": {
+    "bare-metal/alloydb": "No macOS native deployment configured; use Docker (Linux).",
+    "bare-metal/orioledb": "No macOS native deployment configured; use Docker (Linux)."
+  },
+  "excluded": "Columnar adaptation omitted the non-unique (doc,sid,start) lookup index after removing the unsupported primary key. Retained campaign reruns after adding it.",
+  "interrupted": true
+}

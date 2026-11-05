@@ -1,0 +1,40 @@
+$ bun scripts/test-storage.ts
+bun test v1.4.4 (38afee6c8)
+
+packages/pulse/tests/storage.test.ts:
+(pass) encoded storage requests reject document IDs that cannot round-trip through UTF-8 or SQL [0.60ms]
+(pass) SQLite actual database > state-only transport cannot be persisted as exact operation history [6.42ms]
+(pass) SQLite actual database > append is opaque, idempotent, isolated and queryable from a vector [0.33ms]
+(pass) SQLite actual database > gaps and cross-actor dependencies remain dangling until satisfied [0.21ms]
+(pass) SQLite actual database > conflicting duplicates, partial overlaps and forks reject atomically [0.34ms]
+(pass) SQLite actual database > undeclared initial and later gaps never advance the contiguous frontier [0.26ms]
+(pass) SQLite actual database > a declared out-of-order row still needs every earlier sequence number [0.30ms]
+(pass) SQLite actual database > accepts the normal encoded update without decoding its operation bytes [0.10ms]
+(pass) SQLite actual database > grouped encoded ingress stores every exact row without an application schema [3.12ms]
+(pass) SQLite actual database > grouped large string payloads cross native chunks and remain idempotent [4.75ms]
+(pass) SQLite actual database > handles large binary payloads [0.29ms]
+(pass) SQLite actual database > parallel appends preserve the complete frontier [0.19ms]
+(pass) SQLite actual database > invalid batches and vectors fail before writing [0.07ms]
+(pass) SQLite actual database > document IDs remain distinct through UTF-8 storage and reject lossy strings [0.13ms]
+(pass) SQLite actual database > actor capacity is enforced atomically for both ready and dangling history [43.15ms]
+(pass) PostgreSQL actual database > state-only transport cannot be persisted as exact operation history [45.37ms]
+(pass) PostgreSQL actual database > append is opaque, idempotent, isolated and queryable from a vector [4.36ms]
+(pass) PostgreSQL actual database > gaps and cross-actor dependencies remain dangling until satisfied [5.55ms]
+(pass) PostgreSQL actual database > conflicting duplicates, partial overlaps and forks reject atomically [5.70ms]
+(pass) PostgreSQL actual database > undeclared initial and later gaps never advance the contiguous frontier [8.33ms]
+(pass) PostgreSQL actual database > a declared out-of-order row still needs every earlier sequence number [4.89ms]
+(pass) PostgreSQL actual database > accepts the normal encoded update without decoding its operation bytes [1.68ms]
+(pass) PostgreSQL actual database > grouped encoded ingress stores every exact row without an application schema [11.23ms]
+(pass) PostgreSQL actual database > grouped large string payloads cross native chunks and remain idempotent [10.52ms]
+(pass) PostgreSQL actual database > handles large binary payloads [3.86ms]
+(pass) PostgreSQL actual database > parallel appends preserve the complete frontier [8.94ms]
+(pass) PostgreSQL actual database > invalid batches and vectors fail before writing [0.26ms]
+(pass) PostgreSQL actual database > document IDs remain distinct through UTF-8 storage and reject lossy strings [2.03ms]
+(pass) PostgreSQL actual database > actor capacity is enforced atomically for both ready and dangling history [86.60ms]
+(pass) PostgreSQL batch path deduplicates identical input and rolls back equivocation [2.60ms]
+(pass) PostgreSQL causal batch promotion agrees with an independent dependency closure [25.35ms]
+
+ 31 pass
+ 0 fail
+ 160 expect() calls
+Ran 31 tests across 1 file. [314.00ms]

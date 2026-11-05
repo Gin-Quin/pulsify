@@ -1,0 +1,159 @@
+{
+  "removed": [
+    {
+      "path": "/private/tmp/pulsify-native-tools",
+      "bytes": 298510323
+    },
+    {
+      "path": "/private/tmp/pulsify-foundationdb-7.3.77.tar.gz",
+      "bytes": 49903
+    },
+    {
+      "path": "/private/tmp/boost_interprocess/fdbserver_shared_memory_id",
+      "bytes": 1000
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foundationdb-0.11.0",
+      "bytes": 591312
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foundationdb-gen-0.11.0",
+      "bytes": 393922
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foundationdb-sys-0.11.0",
+      "bytes": 586832
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foundationdb-macros-0.4.0",
+      "bytes": 13032
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foundationdb-tuple-0.11.0",
+      "bytes": 85797
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/foundationdb-0.11.0.crate",
+      "bytes": 126412
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/foundationdb-macros-0.4.0.crate",
+      "bytes": 3926
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/foundationdb-gen-0.11.0.crate",
+      "bytes": 71818
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/foundationdb-sys-0.11.0.crate",
+      "bytes": 121228
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/cache/index.crates.io-1949cf8c6b5b557f/foundationdb-tuple-0.11.0.crate",
+      "bytes": 17045
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/index/index.crates.io-1949cf8c6b5b557f/.cache/fo/un/foundationdb-sys",
+      "bytes": 7493
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/index/index.crates.io-1949cf8c6b5b557f/.cache/fo/un/foundationdb-tuple",
+      "bytes": 1830
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/index/index.crates.io-1949cf8c6b5b557f/.cache/fo/un/foundationdb-gen",
+      "bytes": 6027
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/index/index.crates.io-1949cf8c6b5b557f/.cache/fo/un/foundationdb-macros",
+      "bytes": 4732
+    },
+    {
+      "path": "/home/benchmark/.cargo/registry/index/index.crates.io-1949cf8c6b5b557f/.cache/fo/un/foundationdb",
+      "bytes": 39696
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-0258926e7f1da7d0d3cba6b0c4ff348f@@@1",
+      "bytes": 729727
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-84bd1a3260033826c680a8b8174b3995@@@1",
+      "bytes": 797136
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-800b7303e0aea4d72ab3c0138dbdfb08@@@1",
+      "bytes": 868221
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-8f0fd552ad44219b53942efb3f02d42e@@@1",
+      "bytes": 867053
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-b50a721a2907f2502dca052b5876041b@@@1",
+      "bytes": 784842
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-3ce5b0381e0d1d31e6c53bc4991aca7e@@@1",
+      "bytes": 867097
+    },
+    {
+      "path": "/private/tmp/pulsify-bun-cache/@T@sha512-43f0957859e548bfa31ee713e25640da@@@1",
+      "bytes": 693829
+    },
+    {
+      "path": "/private/tmp/pulsify-typecheck-bun-cache/@T@sha512-9b4760f314294f525db91bc845150fa9@@@1",
+      "bytes": 644933
+    }
+  ],
+  "filesystemBytes": 306885166,
+  "cargoCleanMiB": 788.7,
+  "removedDockerImage": "sha256:150e983beebafb12b98b184d2d970ee80bab1321d147426ed63f5207e13b64ec",
+  "checkedAt": "2026-11-04T19:41:04.691989+00:00",
+  "removedFoundationDBDockerRunners": [
+    "88e30c447de1",
+    "66870047c4cd",
+    "1f8e08b5dbf4",
+    "4fdd3e10f575"
+  ],
+  "legacyBaseCacheRecordsRemoved": [
+    "oupxcqomzo2jgsyamhyfo8ht1",
+    "aiu3d4kgbrtfuor1lsnclq6mj",
+    "n9bi5k57zpyzmwj5fni4ia096",
+    "8s9k24elw8o44294yq5001ac3",
+    "j9iln2vpbyv6qtoec1jd37xoj",
+    "w8wfg0dfjm1pou3mza52t6f77",
+    "pdv9vvekt0jbxirtvsg15594b",
+    "g59qvslqrs4jno52c42ea20im",
+    "1k8qp1nm2j3u2h3n366140mb8",
+    "srfez6nzizctj0wo82cglv0h9",
+    "lsv0pmvp7o9l4483xpzd8ixcl",
+    "wqe7emtlmt91gsx8bzg9blmsa",
+    "todliclrduhqeypp8mt4s1inc",
+    "sp0c02hsgwzzgqacn77dig7we",
+    "7pawpymb5khr54nhb4shprn87"
+  ],
+  "dockerReclaim": {
+    "beforeFreeBytes": 21276819456,
+    "afterFreeBytes": 22128738304,
+    "command": "docker run --rm --privileged --pid=host docker/desktop-reclaim-space",
+    "source": "https://docs.docker.com/desktop/troubleshoot-and-support/faqs/macfaqs/",
+    "outsideMeasuredWorker": true
+  },
+  "installationPaths": {
+    "/usr/local/etc/foundationdb": false,
+    "/usr/local/libexec/fdbserver": false,
+    "/usr/local/bin/fdbcli": false,
+    "/usr/local/lib/libfdb_c.dylib": false,
+    "/usr/local/include/foundationdb": false,
+    "/Library/LaunchDaemons/com.foundationdb.fdbmonitor.plist": false,
+    "/var/db/foundationdb": false,
+    "/var/log/foundationdb": false,
+    "/opt/homebrew/opt/foundationdb": false,
+    "/opt/homebrew/lib/libfdb_c.dylib": false,
+    "/private/tmp/pulsify-native-tools": false
+  },
+  "pythonFdbImportable": false,
+  "finalAuditAt": "2026-11-04T21:26:15.344814+00:00",
+  "remainingCargoArtifacts": [],
+  "matchingDockerImages": 0
+}

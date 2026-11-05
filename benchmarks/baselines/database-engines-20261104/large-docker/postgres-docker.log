@@ -1,0 +1,127 @@
+postgres-1  | The files belonging to this database system will be owned by user "postgres".
+postgres-1  | This user must also own the server process.
+postgres-1  |
+postgres-1  | The database cluster will be initialized with this locale configuration:
+postgres-1  |   provider:    libc
+postgres-1  |   LC_COLLATE:  C
+postgres-1  |   LC_CTYPE:    C.UTF-8
+postgres-1  |   LC_MESSAGES: C
+postgres-1  |   LC_MONETARY: C
+postgres-1  |   LC_NUMERIC:  C
+postgres-1  |   LC_TIME:     C
+postgres-1  | The default database encoding has accordingly been set to "UTF8".
+postgres-1  | The default text search configuration will be set to "english".
+postgres-1  |
+postgres-1  | Data page checksums are disabled.
+postgres-1  |
+postgres-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1  | creating subdirectories ... ok
+postgres-1  | selecting dynamic shared memory implementation ... posix
+postgres-1  | selecting default max_connections ... 100
+postgres-1  | selecting default shared_buffers ... 128MB
+postgres-1  | selecting default time zone ... UTC
+postgres-1  | creating configuration files ... ok
+postgres-1  | running bootstrap script ... ok
+postgres-1  | sh: locale: not found
+postgres-1  | 2026-11-04 21:03:23.459 UTC [34] WARNING:  no usable system locales were found
+postgres-1  | performing post-bootstrap initialization ... ok
+postgres-1  | initdb: warning: enabling "trust" authentication for local connections
+postgres-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+postgres-1  | syncing data to disk ... ok
+postgres-1  |
+postgres-1  |
+postgres-1  | Success. You can now start the database server using:
+postgres-1  |
+postgres-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1  |
+postgres-1  | waiting for server to start....2026-11-04 21:03:24.394 UTC [45] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+postgres-1  | 2026-11-04 21:03:24.395 UTC [45] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-11-04 21:03:24.397 UTC [48] LOG:  database system was shut down at 2026-11-04 21:03:23 UTC
+postgres-1  | 2026-11-04 21:03:24.400 UTC [45] LOG:  database system is ready to accept connections
+postgres-1  |  done
+postgres-1  | server started
+postgres-1  | CREATE DATABASE
+postgres-1  |
+postgres-1  |
+postgres-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1  |
+postgres-1  | waiting for server to shut down....2026-11-04 21:03:24.513 UTC [45] LOG:  received fast shutdown request
+postgres-1  | 2026-11-04 21:03:24.514 UTC [45] LOG:  aborting any active transactions
+postgres-1  | 2026-11-04 21:03:24.514 UTC [45] LOG:  background worker "logical replication launcher" (PID 51) exited with exit code 1
+postgres-1  | 2026-11-04 21:03:24.515 UTC [46] LOG:  shutting down
+postgres-1  | 2026-11-04 21:03:24.515 UTC [46] LOG:  checkpoint starting: shutdown immediate
+postgres-1  | 2026-11-04 21:03:24.728 UTC [46] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.033 s, sync=0.178 s, total=0.214 s; sync files=301, longest=0.030 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D00, redo lsn=0/1925D00
+postgres-1  | 2026-11-04 21:03:24.730 UTC [45] LOG:  database system is shut down
+postgres-1  |  done
+postgres-1  | server stopped
+postgres-1  |
+postgres-1  | PostgreSQL init process complete; ready for start up.
+postgres-1  |
+postgres-1  | 2026-11-04 21:03:24.831 UTC [1] LOG:  starting PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+postgres-1  | 2026-11-04 21:03:24.831 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1  | 2026-11-04 21:03:24.831 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1  | 2026-11-04 21:03:24.832 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-11-04 21:03:24.834 UTC [61] LOG:  database system was shut down at 2026-11-04 21:03:24 UTC
+postgres-1  | 2026-11-04 21:03:24.835 UTC [1] LOG:  database system is ready to accept connections
+postgres-1  | 2026-11-04 21:03:26.429 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:26.487 UTC [59] LOG:  checkpoint complete: wrote 62 buffers (0.4%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.008 s, sync=0.046 s, total=0.058 s; sync files=44, longest=0.004 s, average=0.002 s; distance=246 kB, estimate=246 kB; lsn=0/1963598, redo lsn=0/1963560
+postgres-1  | 2026-11-04 21:03:28.473 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:28.573 UTC [59] LOG:  checkpoint complete: wrote 4096 buffers (25.0%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.030 s, sync=0.060 s, total=0.100 s; sync files=14, longest=0.036 s, average=0.005 s; distance=31807 kB, estimate=31807 kB; lsn=0/3873360, redo lsn=0/3873328
+postgres-1  | 2026-11-04 21:03:30.556 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:30.657 UTC [59] LOG:  checkpoint complete: wrote 4112 buffers (25.1%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.027 s, sync=0.064 s, total=0.102 s; sync files=11, longest=0.050 s, average=0.006 s; distance=31856 kB, estimate=31856 kB; lsn=0/578F758, redo lsn=0/578F720
+postgres-1  | 2026-11-04 21:03:32.717 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:32.856 UTC [59] LOG:  checkpoint complete: wrote 4174 buffers (25.5%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.042 s, sync=0.087 s, total=0.140 s; sync files=11, longest=0.073 s, average=0.008 s; distance=32147 kB, estimate=32147 kB; lsn=0/76F46F0, redo lsn=0/76F46B8
+postgres-1  | 2026-11-04 21:03:34.832 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:34.945 UTC [59] LOG:  checkpoint complete: wrote 4116 buffers (25.1%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.022 s, sync=0.080 s, total=0.114 s; sync files=10, longest=0.067 s, average=0.008 s; distance=32098 kB, estimate=32142 kB; lsn=0/964CFB8, redo lsn=0/964CF80
+postgres-1  | 2026-11-04 21:03:36.590 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:36.635 UTC [59] LOG:  checkpoint complete: wrote 1381 buffers (8.4%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.007 s, sync=0.030 s, total=0.046 s; sync files=10, longest=0.018 s, average=0.003 s; distance=11942 kB, estimate=30122 kB; lsn=0/A1F6840, redo lsn=0/A1F6808
+postgres-1  | 2026-11-04 21:03:38.324 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:38.368 UTC [59] LOG:  checkpoint complete: wrote 1453 buffers (8.9%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.008 s, sync=0.030 s, total=0.045 s; sync files=10, longest=0.019 s, average=0.003 s; distance=12607 kB, estimate=28371 kB; lsn=0/AE464A0, redo lsn=0/AE46468
+postgres-1  | 2026-11-04 21:03:39.545 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:39.569 UTC [59] LOG:  checkpoint complete: wrote 180 buffers (1.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.016 s, total=0.024 s; sync files=10, longest=0.004 s, average=0.002 s; distance=1510 kB, estimate=25685 kB; lsn=0/AFC0060, redo lsn=0/AFC0028
+postgres-1  | 2026-11-04 21:03:40.805 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:40.827 UTC [59] LOG:  checkpoint complete: wrote 186 buffers (1.1%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.002 s, sync=0.013 s, total=0.023 s; sync files=9, longest=0.003 s, average=0.002 s; distance=1557 kB, estimate=23272 kB; lsn=0/B145540, redo lsn=0/B145508
+postgres-1  | 2026-11-04 21:03:42.158 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:42.203 UTC [59] LOG:  checkpoint complete: wrote 1552 buffers (9.5%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.029 s, total=0.046 s; sync files=11, longest=0.017 s, average=0.003 s; distance=13211 kB, estimate=22266 kB; lsn=0/BE2C2B8, redo lsn=0/BE2C280
+postgres-1  | 2026-11-04 21:03:43.605 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:43.650 UTC [59] LOG:  checkpoint complete: wrote 1510 buffers (9.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.017 s, sync=0.018 s, total=0.046 s; sync files=11, longest=0.008 s, average=0.002 s; distance=12792 kB, estimate=21318 kB; lsn=0/CAAA5D8, redo lsn=0/CAAA5A0
+postgres-1  | 2026-11-04 21:03:46.129 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:46.156 UTC [59] LOG:  checkpoint complete: wrote 496 buffers (3.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.004 s, sync=0.018 s, total=0.028 s; sync files=11, longest=0.006 s, average=0.002 s; distance=3260 kB, estimate=19513 kB; lsn=0/CDD9680, redo lsn=0/CDD9648
+postgres-1  | 2026-11-04 21:03:48.656 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:03:48.686 UTC [59] LOG:  checkpoint complete: wrote 498 buffers (3.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.003 s, sync=0.019 s, total=0.031 s; sync files=10, longest=0.006 s, average=0.002 s; distance=3392 kB, estimate=17901 kB; lsn=0/D129960, redo lsn=0/D129928
+postgres-1  | 2026-11-04 21:03:54.642 UTC [59] LOG:  checkpoints are occurring too frequently (6 seconds apart)
+postgres-1  | 2026-11-04 21:03:54.642 UTC [59] HINT:  Consider increasing the configuration parameter "max_wal_size".
+postgres-1  | 2026-11-04 21:03:54.642 UTC [59] LOG:  checkpoint starting: wal
+postgres-1  | 2026-11-04 21:03:57.730 UTC [59] LOG:  checkpoint complete: wrote 7706 buffers (47.0%); 0 WAL file(s) added, 1 removed, 3 recycled; write=2.954 s, sync=0.093 s, total=3.089 s; sync files=14, longest=0.025 s, average=0.007 s; distance=64370 kB, estimate=64370 kB; lsn=0/154966B8, redo lsn=0/11006140
+postgres-1  | 2026-11-04 21:03:57.730 UTC [59] LOG:  checkpoints are occurring too frequently (3 seconds apart)
+postgres-1  | 2026-11-04 21:03:57.730 UTC [59] HINT:  Consider increasing the configuration parameter "max_wal_size".
+postgres-1  | 2026-11-04 21:03:57.730 UTC [59] LOG:  checkpoint starting: immediate force wait wal
+postgres-1  | 2026-11-04 21:03:57.808 UTC [59] LOG:  checkpoint complete: wrote 7830 buffers (47.8%); 0 WAL file(s) added, 0 removed, 4 recycled; write=0.028 s, sync=0.040 s, total=0.078 s; sync files=18, longest=0.022 s, average=0.003 s; distance=70209 kB, estimate=70209 kB; lsn=0/15496768, redo lsn=0/15496730
+postgres-1  | 2026-11-04 21:04:02.967 UTC [59] LOG:  checkpoints are occurring too frequently (5 seconds apart)
+postgres-1  | 2026-11-04 21:04:02.967 UTC [59] HINT:  Consider increasing the configuration parameter "max_wal_size".
+postgres-1  | 2026-11-04 21:04:02.967 UTC [59] LOG:  checkpoint starting: wal
+postgres-1  | 2026-11-04 21:04:06.476 UTC [59] LOG:  checkpoint complete: wrote 7362 buffers (44.9%); 0 WAL file(s) added, 1 removed, 3 recycled; write=3.448 s, sync=0.032 s, total=3.510 s; sync files=11, longest=0.010 s, average=0.003 s; distance=60883 kB, estimate=69276 kB; lsn=0/1D755188, redo lsn=0/1900B508
+postgres-1  | 2026-11-04 21:04:06.477 UTC [59] LOG:  checkpoints are occurring too frequently (4 seconds apart)
+postgres-1  | 2026-11-04 21:04:06.477 UTC [59] HINT:  Consider increasing the configuration parameter "max_wal_size".
+postgres-1  | 2026-11-04 21:04:06.477 UTC [59] LOG:  checkpoint starting: immediate force wait wal
+postgres-1  | 2026-11-04 21:04:06.553 UTC [59] LOG:  checkpoint complete: wrote 8386 buffers (51.2%); 0 WAL file(s) added, 0 removed, 4 recycled; write=0.027 s, sync=0.034 s, total=0.077 s; sync files=9, longest=0.025 s, average=0.004 s; distance=72999 kB, estimate=72999 kB; lsn=0/1D755238, redo lsn=0/1D755200
+postgres-1  | 2026-11-04 21:04:06.901 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:06.920 UTC [59] LOG:  checkpoint complete: wrote 15 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.013 s, total=0.020 s; sync files=9, longest=0.002 s, average=0.002 s; distance=91 kB, estimate=65708 kB; lsn=0/1D76C178, redo lsn=0/1D76C140
+postgres-1  | 2026-11-04 21:04:07.295 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:07.315 UTC [59] LOG:  checkpoint complete: wrote 24 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.014 s, total=0.021 s; sync files=10, longest=0.002 s, average=0.002 s; distance=132 kB, estimate=59150 kB; lsn=0/1D78D448, redo lsn=0/1D78D410
+postgres-1  | 2026-11-04 21:04:08.505 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:08.554 UTC [59] LOG:  checkpoint complete: wrote 1349 buffers (8.2%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.009 s, sync=0.029 s, total=0.050 s; sync files=10, longest=0.016 s, average=0.003 s; distance=11791 kB, estimate=54414 kB; lsn=0/1E3112F8, redo lsn=0/1E3112C0
+postgres-1  | 2026-11-04 21:04:09.764 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:09.803 UTC [59] LOG:  checkpoint complete: wrote 1389 buffers (8.5%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.009 s, sync=0.026 s, total=0.039 s; sync files=10, longest=0.013 s, average=0.003 s; distance=12194 kB, estimate=50192 kB; lsn=0/1EEF9BF8, redo lsn=0/1EEF9BC0
+postgres-1  | 2026-11-04 21:04:10.373 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:10.398 UTC [59] LOG:  checkpoint complete: wrote 178 buffers (1.1%); 0 WAL file(s) added, 1 removed, 0 recycled; write=0.002 s, sync=0.016 s, total=0.025 s; sync files=9, longest=0.004 s, average=0.002 s; distance=1502 kB, estimate=45323 kB; lsn=0/1F071460, redo lsn=0/1F071428
+postgres-1  | 2026-11-04 21:04:10.981 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:11.008 UTC [59] LOG:  checkpoint complete: wrote 189 buffers (1.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.005 s, sync=0.015 s, total=0.027 s; sync files=10, longest=0.004 s, average=0.002 s; distance=1577 kB, estimate=40949 kB; lsn=0/1F1FB8E0, redo lsn=0/1F1FB8A8
+postgres-1  | 2026-11-04 21:04:12.965 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:13.010 UTC [59] LOG:  checkpoint complete: wrote 2012 buffers (12.3%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.013 s, sync=0.025 s, total=0.045 s; sync files=10, longest=0.014 s, average=0.003 s; distance=17111 kB, estimate=38565 kB; lsn=0/202B1598, redo lsn=0/202B1560
+postgres-1  | 2026-11-04 21:04:14.772 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:14.818 UTC [59] LOG:  checkpoint complete: wrote 2007 buffers (12.2%); 0 WAL file(s) added, 1 removed, 0 recycled; write=0.013 s, sync=0.027 s, total=0.046 s; sync files=11, longest=0.015 s, average=0.003 s; distance=16562 kB, estimate=36365 kB; lsn=0/212DDF90, redo lsn=0/212DDF58
+postgres-1  | 2026-11-04 21:04:16.973 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:17.004 UTC [59] LOG:  checkpoint complete: wrote 802 buffers (4.9%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.007 s, sync=0.019 s, total=0.032 s; sync files=11, longest=0.007 s, average=0.002 s; distance=6184 kB, estimate=33347 kB; lsn=0/218E8340, redo lsn=0/218E8308
+postgres-1  | 2026-11-04 21:04:19.109 UTC [59] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-11-04 21:04:19.146 UTC [59] LOG:  checkpoint complete: wrote 834 buffers (5.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.008 s, sync=0.024 s, total=0.038 s; sync files=11, longest=0.013 s, average=0.003 s; distance=6484 kB, estimate=30660 kB; lsn=0/21F3D6E0, redo lsn=0/21F3D6A8

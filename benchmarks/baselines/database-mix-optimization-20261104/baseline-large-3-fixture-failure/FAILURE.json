@@ -1,0 +1,67 @@
+{
+  "completed": false,
+  "error": "Error: bun benchmarks/database/native-fixtures.ts generate /var/folders/zd/5rzvg2jx4rv606p2fmgrqbc40000gn/T/pulsify-native-7O7v6H/fixture.json failed (1): ",
+  "context": {
+    "startedAt": "2026-11-04T22:11:11.226Z",
+    "completedAt": "",
+    "sourceSha256": "65cef0e135247c9dbd2e740239b249eb11b522d0fd0f123088af8908361e28a8",
+    "orchestrationSha256": "708be13e02540156f424cc5f3bf713804269bfc9e2c76f56b08228a0236b5a48",
+    "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+    "memorySnapshots": {},
+    "fixtureSha256": "",
+    "host": {
+      "platform": "darwin",
+      "architecture": "arm64",
+      "cpu": "Apple M4",
+      "cpus": 10,
+      "ramBytes": 34359738368
+    },
+    "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+    "dirty": true,
+    "profile": "large",
+    "selectedDatabases": [
+      "postgres",
+      "sqlite"
+    ],
+    "requests": 1000,
+    "concurrency": [
+      128
+    ],
+    "command": [
+      "--environment",
+      "bare-metal",
+      "--profile",
+      "large",
+      "--concurrency",
+      "128",
+      "--requests",
+      "1000",
+      "--scenarios",
+      "mixed",
+      "--results-dir",
+      "/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/baseline-large-3"
+    ],
+    "resourceSettings": {
+      "postgresCompatibleArguments": [
+        "-c",
+        "max_connections=180",
+        "-c",
+        "shared_buffers=128MB",
+        "-c",
+        "max_wal_size=128MB",
+        "-c",
+        "min_wal_size=32MB",
+        "-c",
+        "checkpoint_timeout=60s"
+      ],
+      "dockerContainerMemoryLimitBytes": 4294967296,
+      "dockerContainerSwapLimitBytes": 0,
+      "oneMeasuredBackendAtATime": true,
+      "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+    },
+    "databases": {},
+    "requestErrors": {},
+    "backendFailures": {},
+    "unsupported": {}
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "startedAt": "2026-11-04T22:09:05.656Z",
+  "completedAt": "2026-11-04T22:09:08.994Z",
+  "sourceSha256": "475e016160f814dde70eb9898273ce68e348b2154c6e8a4e638aff30e3bc732e",
+  "orchestrationSha256": "326be5b4b60cb56ef83eb6cdf01f30818cf9bc65b806899f86bf40d4521567ad",
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "memorySnapshots": {
+    "bare-metal/sqlite/before": {
+      "at": "2026-11-04T22:09:08.471Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 57769 \nPages purgeable: 5617 \nPages purged: 266129 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 711978 \nPages inactive: 706209 \nPages speculative: 9555 \nPages throttled: 0 \nPages wired down: 183412 \n\nCompressor Stats:\nPages used by compressor: 387561 \nPages decompressed: 1140252 \nPages compressed: 2349680 \n\nFile I/O:\nPageins: 2960977 \nPageouts: 172974 \n\nSystem-wide memory free percentage: 72%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  56853580    18%  453127 568535800    0%   /"
+    },
+    "completed": {
+      "at": "2026-11-04T22:09:08.994Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 46761 \nPages purgeable: 4870 \nPages purged: 266129 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 712100 \nPages inactive: 706202 \nPages speculative: 9606 \nPages throttled: 0 \nPages wired down: 195099 \n\nCompressor Stats:\nPages used by compressor: 386621 \nPages decompressed: 1144514 \nPages compressed: 2349680 \n\nFile I/O:\nPageins: 2961304 \nPageouts: 172974 \n\nSystem-wide memory free percentage: 71%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  56853508    18%  453127 568535080    0%   /"
+    }
+  },
+  "fixtureSha256": "2eac65ad652a6539884ac16a4f413d56119ecda971b09b4b932dff87d63e6fbb",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "large",
+  "selectedDatabases": [
+    "sqlite"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    128
+  ],
+  "command": [
+    "--environment",
+    "bare-metal",
+    "--profile",
+    "large",
+    "--databases",
+    "sqlite",
+    "--concurrency",
+    "128",
+    "--requests",
+    "1000",
+    "--scenarios",
+    "mixed",
+    "--results-dir",
+    "benchmarks/baselines/database-mix-optimization-20261104/experiment-3-sqlite-jitter"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "dockerContainerMemoryLimitBytes": 4294967296,
+    "dockerContainerSwapLimitBytes": 0,
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {},
+  "requestErrors": {},
+  "backendFailures": {
+    "bare-metal/sqlite": "Error: ENOENT: no such file or directory, open '/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/experiment-3-sqlite-jitter/bare-metal-sqlite.json'"
+  },
+  "unsupported": {}
+}

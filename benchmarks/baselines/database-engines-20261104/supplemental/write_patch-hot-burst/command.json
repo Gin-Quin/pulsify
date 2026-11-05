@@ -1,0 +1,22 @@
+[
+  "bun",
+  "benchmarks/database/native.ts",
+  "--environment",
+  "docker",
+  "--profile",
+  "large",
+  "--databases",
+  "pgrust-columnar",
+  "--concurrency",
+  "128",
+  "--requests",
+  "1000",
+  "--scenarios",
+  "write_patch",
+  "--topologies",
+  "hot",
+  "--modes",
+  "burst",
+  "--results-dir",
+  "/home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/supplemental/write_patch-hot-burst"
+]

@@ -1,0 +1,455 @@
+$ bun run typecheck && bun run test && bun run test:crdt && bun run test:database
+$ tsc --noEmit -p tsconfig.json
+$ bun test packages/pulse/tests
+bun test v1.4.4 (38afee6c8)
+
+packages/pulse/tests/fixtures.test.ts:
+(pass) stable wire bytes: connect-empty [0.47ms]
+(pass) stable wire bytes: connect-unicode-max-safe [0.07ms]
+(pass) stable wire bytes: sync-not-found [0.02ms]
+(pass) stable wire bytes: sync-document [0.04ms]
+(pass) stable wire bytes: sync-page [0.01ms]
+(pass) stable wire bytes: sync-back [0.03ms]
+(pass) stable wire bytes: update
+(pass) stable wire bytes: ack [0.01ms]
+(pass) stable wire bytes: error
+(pass) stable operation bytes: all-operation-variants [1.05ms]
+
+packages/pulse/tests/protocol.test.ts:
+(pass) binary protocol > binary constants own their bytes after decoding [0.05ms]
+(pass) binary protocol > all variants round-trip and result buffers remain independent [0.08ms]
+(pass) binary protocol > every truncation and trailing byte is rejected [0.87ms]
+(pass) binary protocol > unsupported versions, unknown tags and invalid causal vectors are rejected [0.27ms]
+(pass) binary protocol > all operation variants preserve payloads, optional fields and constants [0.14ms]
+(pass) binary protocol > random frames either round-trip or report decoding errors [1.58ms]
+(pass) causal patch journal > out-of-order segments wait for predecessors and exact duplicates are harmless [1.42ms]
+(pass) causal patch journal > conflicts, overlaps and false span metadata are rejected [1.16ms]
+(pass) causal patch journal > remote invalid data cannot modify the live model or journal [0.14ms]
+(pass) causal patch journal > callers cannot mutate persisted bytes through input or output rows [0.13ms]
+
+packages/pulse/tests/core-buffer.test.ts:
+(pass) Buffer initial values, assignments, reads and snapshots are isolated (legacy) [2.45ms]
+(pass) constant Buffer leaves return independent copies (legacy) [0.16ms]
+(pass) Buffer initial values, assignments, reads and snapshots are isolated (typed) [1.56ms]
+(pass) constant Buffer leaves return independent copies (typed) [0.49ms]
+(pass) portable preparation, compiled copies and constant views own Buffer slices [0.08ms]
+(pass) model builds detach Buffer leaves from prepared operation storage [0.18ms]
+(pass) materialized Buffer snapshots preserve offsets and remain detached [0.59ms]
+(pass) journal owns Buffer rows through actor batches [0.07ms]
+(pass) journal owns Buffer rows through pending gaps [0.04ms]
+(pass) rich-text Buffer attributes are detached on input and delta reads [0.49ms]
+(pass) journal append owns imported offset Buffers and isolates exported bytes [0.04ms]
+(pass) journal appendRemoteRows owns imported offset Buffers and isolates exported bytes [0.02ms]
+(pass) journal appendPatch owns bytes returned by a custom lazy encoder [0.05ms]
+(pass) journal appendLocalPatch owns bytes returned by a custom lazy encoder [0.02ms]
+(pass) public journal callbacks cannot mutate Buffer-backed cached wire bytes [0.04ms]
+(pass) runtime import owns the Buffer frame independently of model and journal [0.27ms]
+
+packages/pulse/tests/compiled-remote-validation.test.ts:
+(pass) compiled remote preflight rejects incompatible decoded layouts before committing a batch [0.94ms]
+(pass) compiled remote preflight stages all nodes and rejects malformed root, fields, references and scalars [2.15ms]
+(pass) typed non-finite scalar decoding cannot bypass scalar preflight [0.10ms]
+(pass) typed decoded object extras obey the portable grammar before being dropped [0.92ms]
+(pass) rich-text character nodes do not consume the portable value depth budget [9.79ms]
+
+packages/pulse/tests/review-grouped.test.ts:
+(pass) review: forwarding a larger vector retains the expanded byte budget [5.83ms]
+(pass) review: forwarding multiple runs falls back to chunked export [57.96ms]
+(pass) review: a legacy Bun upgrade must not advertise grouped support [8.76ms]
+(pass) review: a legacy HTTP upgrade without subprotocol remains compatible [8.41ms]
+(pass) review: grouped export must reject an over-limit single patch [1.43ms]
+(pass) review: grouped encode must retain document-row consistency validation [0.10ms]
+
+packages/pulse/tests/constant-float32.test.ts:
+(pass) constant leaf preserves an already-rounded negative float32 zero [0.59ms]
+(pass) constant object preserves an already-rounded negative float32 zero [0.45ms]
+(pass) constant union preserves an already-rounded negative float32 zero [0.51ms]
+
+packages/pulse/tests/websocket.test.ts:
+(pass) real WebSocket transport synchronizes documents and closes all sessions [7.35ms]
+(pass) scheduled sends from a closed connection cannot fail its replacement [2.24ms]
+
+packages/pulse/tests/schema-prepare-equivalence.test.ts:
+(pass) compiled preparation matches the previous mutation pipeline > primitive boundaries, bigint, binary and float32 normalization [1.90ms]
+(pass) compiled preparation matches the previous mutation pipeline > dense arrays, prototypes, aliases, cycles and unsupported runtime values [0.55ms]
+(pass) compiled preparation matches the previous mutation pipeline > object fields use the same enumerable input properties as the portable clone [0.78ms]
+(pass) compiled preparation matches the previous mutation pipeline > explicit markers survive schema normalization, and dropped marker paths reject [1.72ms]
+(pass) compiled preparation matches the previous mutation pipeline > optional, tagged and untagged unions use the same selected clone [3.42ms]
+(pass) compiled preparation matches the previous mutation pipeline > map, tuple, literal and unknown layouts preserve the portable value grammar [1.78ms]
+(pass) compiled preparation matches the previous mutation pipeline > recursive layouts and initial depth obey the input depth before optional synthesis [1.27ms]
+(pass) compiled preparation matches the previous mutation pipeline > normalization rejects a synthetic optional beyond depth 32 before mutation [0.26ms]
+(pass) compiled preparation matches the previous mutation pipeline > unknown subtrees include their enclosing schema depth [1.55ms]
+(pass) compiled preparation matches the previous mutation pipeline > seeded mixed-value fuzz catches rejected extras and selected union branches [3.63ms]
+
+packages/pulse/tests/patch-log.test.ts:
+(pass) journal: immutable local dependency snapshots survive later actor advances [0.08ms]
+(pass) journal: a gap cannot advance the frontier even without declared predecessor metadata [0.03ms]
+(pass) journal: reverse batches close contiguous gaps across dependent actors [0.05ms]
+(pass) journal: a new local transaction can release pending remote rows [0.04ms]
+(pass) journal: public precommit callbacks cannot mutate persisted metadata or bytes [0.03ms]
+(pass) journal: aborting public callbacks preserves existing dangling rows and frontier [0.05ms]
+(pass) journal: public native callbacks cannot mutate dependency snapshots [0.03ms]
+(pass) journal: internal receive still owns copies of caller-owned input buffers [0.02ms]
+(pass) journal: single remote deliveries retain fork checks, duplicate identity and atomic preflight [0.06ms]
+(pass) journal: single remote delivery enforces the actor vector limit before preflight [1.81ms]
+(pass) journal: ascending remote actor batches match the general journal for gaps, forks and duplicates [0.49ms]
+(pass) journal: ascending actor batches preflight atomically and own every input row [0.07ms]
+(pass) journal: actor forks, overlaps and invalid numeric ranges reject the whole batch [0.08ms]
+(pass) journal: the optimized local path preserves the history row limit [14.72ms]
+
+packages/pulse/tests/sync.test.ts:
+(pass) synchronization > creation, loading, retained references and continuous updates [9.62ms]
+(pass) synchronization > offline concurrent edits converge on reconnect [1.20ms]
+(pass) synchronization > a local connector relays remote updates into a second connector [1.48ms]
+(pass) synchronization > no connector, missing documents, timeouts and cancellation always settle [32.49ms]
+(pass) synchronization > ready can resolve before a remote connector; destruction cancels pending work [0.53ms]
+(pass) synchronization > migrations load old documents and persist the latest storage shape [0.76ms]
+(pass) synchronization > a newer incompatible document does not poison the identity map [0.20ms]
+(pass) waitFor a selected connector does not wait for a silent unrelated connector [0.22ms]
+(pass) histories larger than one frame upload and download in complete pages [32.71ms]
+
+packages/pulse/tests/core-review.test.ts:
+(pass) core review: schema field order gives nested containers identical IDs [1.02ms]
+(pass) core review: schema extras are rejected or removed before IDs are allocated [0.46ms]
+(pass) core review: float32 uses its wire value on the originating replica [0.40ms]
+(pass) core review: tuple edits preserve element schemas and tuple cardinality [0.56ms]
+(pass) core review: remote text markers cannot change a typed scalar into a sequence [0.19ms]
+(pass) core review: rich text deltas retain distinct binary and object attributes [0.14ms]
+
+packages/pulse/tests/review-regressions.test.ts:
+(pass) object keys cannot lose their identity during UTF-8 encoding [0.13ms]
+(pass) codec handles collections without a second schema traversal or node budget [8.54ms]
+(pass) migration keys cannot normalize into a different key on another replica [0.53ms]
+(pass) wire-size limits are checked at export, without encoding local creation or edits [5.93ms]
+(pass) dense dependency vectors are paginated for the Rust relay's structural budget [17.95ms]
+(pass) initial cancellation after 0 microtasks cannot affect its replacement [1.66ms]
+(pass) initial cancellation after 1 microtasks cannot affect its replacement [1.38ms]
+(pass) initial cancellation after 2 microtasks cannot affect its replacement [1.23ms]
+(pass) initial cancellation after 3 microtasks cannot affect its replacement [1.26ms]
+(pass) initial cancellation after 4 microtasks cannot affect its replacement [1.22ms]
+(pass) initial cancellation after 5 microtasks cannot affect its replacement [1.27ms]
+(pass) initial cancellation after 6 microtasks cannot affect its replacement [1.58ms]
+(pass) initial cancellation after 7 microtasks cannot affect its replacement [1.24ms]
+(pass) initial cancellation after 8 microtasks cannot affect its replacement [1.22ms]
+(pass) initial cancellation after 9 microtasks cannot affect its replacement [1.30ms]
+(pass) initial cancellation after 10 microtasks cannot affect its replacement [1.21ms]
+(pass) initial cancellation after 11 microtasks cannot affect its replacement [1.25ms]
+(pass) initial cancellation after 12 microtasks cannot affect its replacement [1.22ms]
+(pass) initial cancellation after 13 microtasks cannot affect its replacement [1.24ms]
+(pass) initial cancellation after 14 microtasks cannot affect its replacement [1.21ms]
+(pass) initial cancellation after 15 microtasks cannot affect its replacement [1.20ms]
+(pass) initial cancellation after 16 microtasks cannot affect its replacement [1.20ms]
+(pass) cancellation from the connecting event cannot open or subscribe a stale transport [0.25ms]
+(pass) a subscription can replace a connection while its initial download is applied [0.31ms]
+
+packages/pulse/tests/stability.test.ts:
+(pass) convergence with concurrent edits, reordering and duplicates (seed 1) [5.12ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 2) [7.92ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 3) [3.90ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 4) [3.46ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 5) [3.80ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 6) [5.20ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 7) [4.11ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 8) [3.74ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 9) [3.43ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 10) [4.77ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 11) [3.38ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 12) [3.04ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 13) [2.98ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 14) [3.08ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 15) [4.39ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 16) [2.98ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 17) [3.01ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 18) [2.89ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 19) [4.29ms]
+(pass) convergence with concurrent edits, reordering and duplicates (seed 20) [3.30ms]
+(pass) repeated creation and destruction release identity maps, subscriptions and sessions [2.96ms]
+
+packages/pulse/tests/core-migrations.test.ts:
+(pass) versioned typed document migrations > loading typed v1 rows migrates to the registered v2 schema [1.21ms]
+(pass) versioned typed document migrations > latest edits replay from complete mixed-version binary history without repeating migrations [0.94ms]
+(pass) versioned typed document migrations > latest materialization stays bound after a typed migration and replay [0.77ms]
+(pass) versioned typed document migrations > old-client edits address their original fields after nested schema reordering [1.10ms]
+(pass) versioned typed document migrations > a new schema version can freeze an existing value and preserve it on replay [0.85ms]
+(pass) versioned typed document migrations > a same-shape migration preserves compatibility while old clients reject its future version [0.36ms]
+(pass) versioned typed document migrations > old clients reject a different future schema atomically [0.36ms]
+(pass) versioned typed document migrations > invalid typed migration output cannot append a local patch or advance its actor clock [0.30ms]
+(pass) versioned typed document migrations > a failing later migration leaves earlier migration changes uncommitted [0.32ms]
+(pass) versioned typed document migrations > a migration cannot rewrite an existing constant value [0.19ms]
+(pass) versioned typed document migrations > concurrent constant upgrades exchange their initialization captures and converge [0.40ms]
+(pass) versioned typed document migrations > late v1 child edits cannot change a captured constant in either delivery order [0.33ms]
+(pass) versioned typed document migrations > different concurrent constant captures choose the same stamp winner [0.59ms]
+(pass) versioned typed document migrations > a string-to-rich-text annotation migration captures a collaborative text node [0.42ms]
+(pass) versioned typed document migrations > binary leaves inside struct constants are detached on every public read [0.07ms]
+(pass) versioned typed document migrations > nested annotation upgrades capture enclosing fields with concrete array and map paths [2.42ms]
+(pass) versioned typed document migrations > nested constant captures ignore late edits independently of delivery order [0.80ms]
+(pass) versioned typed document migrations > removing a root constant annotation rejects the migration before commit [0.49ms]
+(pass) versioned typed document migrations > removing a nested constant annotation rejects the migration before commit [0.20ms]
+(pass) versioned typed document migrations > a constant retired from the schema remains immutable legacy data [0.26ms]
+
+packages/pulse/tests/core-scalar.test.ts:
+(pass) scalar patch bodies stay lazy and produce the unchanged immutable row format [0.17ms]
+(pass) scalar commits match generic commits and preserve every historical row after long edits [9.89ms]
+(pass) scalar writes keep validation, stale-child guards, notifications and scope lifecycle [0.42ms]
+(pass) scalar commits reject exhausted clocks and history quotas without changing state [22.45ms]
+(pass) runtime rejects NUL document IDs before registering a pulse [0.07ms]
+(pass) union and lazy root histories retain managed metadata and editable nested IDs [1.73ms]
+
+packages/pulse/tests/core-codec.test.ts:
+(pass) single register writes preserve schema-compiled bytes and strict decoding [1.47ms]
+(pass) single register writes reject invalid numeric field slots before encoding [0.04ms]
+(pass) repeated register headers remain byte-exact across cache hits, changes and oversized strings [0.14ms]
+(pass) register header caches own Buffer bytes and compare every byte [0.06ms]
+(pass) warm register caches still reject truncated lengths and invalid field variants [0.28ms]
+
+packages/pulse/tests/snapshot-fast-path.test.ts:
+(pass) compiled snapshots preserve deleted optional fields in objects, arrays and maps [1.53ms]
+(pass) a deleted root optional uses the shape-preserving snapshot fallback [0.30ms]
+(pass) compiled snapshots retain stored nested fields retired by a schema migration [0.75ms]
+(pass) full codec kind unions snapshot metadata, bigint, float32, constants and rich text [1.53ms]
+(pass) typed push and unshift validate atomically and keep empty calls out of history [0.59ms]
+
+packages/pulse/tests/reviewer-v2.test.ts:
+(pass) reviewer v2: root tagged union preserves managed metadata [0.48ms]
+(pass) reviewer v2: nested constant upgrades converge across late v1 edits [0.49ms]
+(pass) reviewer v2: schema rich text write without markers remains rich text [0.13ms]
+(pass) reviewer v2: schema rich text fast apply cannot commit a batch then fail [0.14ms]
+(pass) reviewer v2: rich text annotations apply to array entries [0.26ms]
+(pass) reviewer v2: optional annotated rich text can remain absent [0.28ms]
+(pass) reviewer v2: typed non-finite remote floats are rejected atomically [0.20ms]
+(pass) reviewer v2: path-specific annotations apply below recursive layouts [0.88ms]
+(pass) reviewer v2: a version write cannot authorize rewriting pre-existing constants [0.37ms]
+
+packages/pulse/tests/core-schema.test.ts:
+(pass) compiled pulse schemas > document and field bytes are the exact codec representation [0.67ms]
+(pass) compiled pulse schemas > field slots and layout ids are stable across independent compilation [0.48ms]
+(pass) compiled pulse schemas > annotations preserve schema identity and codec bytes [0.26ms]
+(pass) compiled pulse schemas > occurrence flags cover terminal array and map elements [0.33ms]
+(pass) compiled pulse schemas > schema clones detach arrays, objects, and typed leaves [1.38ms]
+(pass) compiled pulse schemas > compiled boundary checks reject coercions, holes, and cycles [0.38ms]
+(pass) compiled pulse schemas > tagged and untagged unions preserve discriminants and optional shapes [0.48ms]
+(pass) compiled pulse schemas > recursive lazy schemas compile once per active schema and copy finite trees [0.26ms]
+(pass) compiled pulse schemas > generated property access does not interpret schema field names as code [0.11ms]
+(pass) compiled pulse schemas > invalid compiled property names are rejected before a definition can be used [2.41ms]
+(pass) compiled pulse schemas > definitions retain original schemas and one compiled layout [0.36ms]
+(pass) compiled pulse schemas > versioned definitions preserve each schema and its annotations [0.36ms]
+(pass) compiled pulse schemas > registry keeps legacy gaps and reuses unchanged compiled schemas [0.10ms]
+(pass) compiled pulse schemas > fingerprints are compact, stable, and sensitive to binary layout and annotations [0.75ms]
+(pass) compiled pulse schemas > recursive lazy schema fingerprints are independent of closure identity [0.22ms]
+(pass) compiled pulse schemas > layout clones normalize float32 and object ordering exactly like codec [0.79ms]
+
+packages/pulse/tests/core-prepare.test.ts:
+(pass) single-pass compiled preparation > marker lists preserve input DFS order while object values use schema order [0.92ms]
+(pass) single-pass compiled preparation > tagged union discriminants and ordinary fields are read only once [0.46ms]
+(pass) single-pass compiled preparation > empty object layouts validate discarded extras and reject discarded markers [0.13ms]
+(pass) single-pass compiled preparation > fallback root markers are emitted once and binary aliases detach independently [0.23ms]
+(pass) single-pass compiled preparation > normalization canonicalizes input negative zero before float32 rounding [0.04ms]
+(pass) single-pass compiled preparation > integer clones canonicalize negative zero exactly like each integer codec [0.19ms]
+(pass) single-pass compiled preparation > shallow checks defer child validation but keep leaf and atomic guarantees [0.44ms]
+
+packages/pulse/tests/storage.test.ts:
+(pass) encoded storage requests reject document IDs that cannot round-trip through UTF-8 or SQL [0.18ms]
+(pass) SQLite actual database > state-only transport cannot be persisted as exact operation history [5.43ms]
+(pass) SQLite actual database > append is opaque, idempotent, isolated and queryable from a vector [0.68ms]
+(pass) SQLite actual database > gaps and cross-actor dependencies remain dangling until satisfied [0.18ms]
+(pass) SQLite actual database > conflicting duplicates, partial overlaps and forks reject atomically [0.27ms]
+(pass) SQLite actual database > undeclared initial and later gaps never advance the contiguous frontier [0.19ms]
+(pass) SQLite actual database > a declared out-of-order row still needs every earlier sequence number [0.20ms]
+(pass) SQLite actual database > accepts the normal encoded update without decoding its operation bytes [0.07ms]
+(pass) SQLite actual database > grouped encoded ingress stores every exact row without an application schema [1.88ms]
+(pass) SQLite actual database > grouped large string payloads cross native chunks and remain idempotent [2.34ms]
+(pass) SQLite actual database > handles large binary payloads [0.19ms]
+(pass) SQLite actual database > parallel appends preserve the complete frontier [0.10ms]
+(pass) SQLite actual database > invalid batches and vectors fail before writing [0.06ms]
+(pass) SQLite actual database > document IDs remain distinct through UTF-8 storage and reject lossy strings [0.18ms]
+(pass) SQLite actual database > actor capacity is enforced atomically for both ready and dangling history [26.01ms]
+(skip) PostgreSQL integration: set PULSIFY_POSTGRES_URL
+
+packages/pulse/tests/grouped-exchange.test.ts:
+(pass) public grouped exchange preserves every exact row, all partial vectors, forwarding and fresh replay [17.32ms]
+(pass) duplicates, overlapping deliveries and gaps take the exact general path [0.47ms]
+(pass) malformed and overwritten-invalid run values reject atomically; buffers are owned [0.56ms]
+(pass) grouped notifications preserve one batch and existing newer winning stamp [0.10ms]
+(pass) ineligible writes and unknown endpoints retain v1 [0.12ms]
+(pass) actual memory sessions negotiate grouped uploads and legacy subscribers receive exact v1 [0.83ms]
+(pass) real WebSocket subprotocol enables grouped traffic while an old endpoint stays v1 [4.90ms]
+(pass) storage row equality reads owned operation bytes once per row [0.54ms]
+
+packages/pulse/tests/materialized-snapshot.test.ts:
+(pass) materialized rich text snapshots infer plain strings and preserve detached binary leaves [0.59ms]
+(pass) plain binary snapshots preserve Uint8Array type and copy initial input [0.25ms]
+
+packages/pulse/tests/core-convergence.test.ts:
+(pass) core: simultaneous insertion runs at one anchor stay contiguous [0.52ms]
+(pass) core: insertion after a concurrently deleted anchor survives its tombstone [0.31ms]
+(pass) core: concurrent deletion and child edit cannot resurrect an array entry [0.17ms]
+(pass) core: concurrent replacements of one array entry keep its cardinality [0.21ms]
+(pass) core: replacing a parent does not reattach a concurrently edited old child [0.23ms]
+(pass) core: replacing an array item isolates edits made to its previous value [0.17ms]
+(pass) core: a causally later register write wins even from the lower actor [0.20ms]
+(pass) core: simultaneous register writes have one delivery-independent winner [0.16ms]
+(pass) core: a deleted property may be reinserted by a causally later write [0.21ms]
+(pass) core: concurrent deletion and assignment of a property converge [0.14ms]
+(pass) core: missing actor history cannot advance the contiguous frontier [0.25ms]
+(pass) core: a dependent cross-actor edit waits for its creating transaction [0.24ms]
+(pass) core: a batch may update an array entry inserted by an earlier row in that batch [0.23ms]
+(pass) core: imported Lamport time does not create gaps in the local actor sequence [0.32ms]
+(pass) core: schema constants reject replacement and deep mutation on all replicas [1.18ms]
+(pass) core: deep constant values survive binary transfer and rejected edits are atomic [0.21ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (1) [15.38ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (2) [13.94ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (3) [16.69ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (4) [17.54ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (5) [17.99ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (6) [15.01ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (7) [17.02ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (8) [17.84ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (9) [18.50ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (10) [15.19ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (11) [15.56ms]
+(pass) core: mixed offline sequence converges under reordering and duplication (12) [14.85ms]
+
+packages/pulse/tests/reviewer-v3.test.ts:
+(pass) reviewer v3: float32 root map keeps managed metadata outside its element layout [0.48ms]
+(pass) reviewer v3: rich-text root map keeps managed metadata as plain primitives [0.20ms]
+(pass) reviewer v3: an attributed rich-text insertion rejects a full history atomically [23.36ms]
+
+packages/pulse/tests/core-version-guards.test.ts:
+(pass) versioned root unions retain their effective layout without repeated subtree retyping [1.31ms]
+(pass) root fingerprints must match the declared stored version before initialization commits [0.67ms]
+(pass) runtime identity guards reject nonprimitive IDs and malformed kinds before scope registration [0.18ms]
+(pass) dynamic root map migrations normalize new keys and preserve concurrent constant captures [0.71ms]
+(pass) remote root value markers cannot turn managed metadata into collaborative nodes [0.16ms]
+
+packages/pulse/tests/core-prepared-model.test.ts:
+(pass) application, partial and complete object schemas retain framework metadata and stable nested IDs [1.58ms]
+(pass) incompatible declared metadata types reject initial creation and remote roots before commit [0.52ms]
+(pass) notifications snapshot listeners when a subscription replaces itself during a callback [0.12ms]
+
+packages/pulse/tests/state-exchange.test.ts:
+(pass) hybrid scalar merge converges without claiming omitted physical history; exact backfill restores it [2.41ms]
+(pass) state forwarding preserves causal creation order and future edits; small and sequence updates keep exact operations [0.34ms]
+(pass) state envelopes cannot be persisted, silently downgraded, or uploaded to an authoritative relay [0.26ms]
+(pass) memory relay keeps full uploads while state downloads can explicitly recover exact history [1.30ms]
+(pass) a condensed causal prefix releases pending exact edits atomically and duplicate state stays harmless after replacement [0.17ms]
+(pass) conflicting historical metadata and last values cannot hydrate a state-covered range [0.58ms]
+(pass) many state-only peers converge across reversed concurrent deliveries and forward to a fresh peer [0.99ms]
+(pass) condensed coverage cannot release a pending actor fork [0.14ms]
+(pass) recovery never reports success when the history source supplies no missing operations [0.18ms]
+(pass) recovery detects journal loss even when a connected source returns a complete empty sync [0.36ms]
+(pass) state framing rejects truncation, trailing bytes, noncanonical integers and invalid typed values without advancing state [0.32ms]
+(pass) a state-only client backfills exact history automatically when connecting to a legacy endpoint [0.65ms]
+
+packages/pulse/tests/runtime-single-row-review.test.ts:
+(pass) single-row delivery matches general delivery for gaps, duplicates, containers and rich text [0.94ms]
+(pass) single-row validation preserves the same atomic failures and notification behavior [0.71ms]
+(pass) an invalid pending patch cannot make its gap-closing predecessor partially commit [0.11ms]
+(pass) single-row root-map migration captures match general migration bytes and late edits [0.46ms]
+
+packages/pulse/tests/runtime.test.ts:
+(pass) incompatible metadata writes leave both the model and journal unchanged [0.13ms]
+(pass) an incompatible root replacement cannot overwrite a loaded document [0.06ms]
+(pass) metadata cannot be changed after a root replacement in the same transaction [0.07ms]
+(pass) a batch with a valid edit followed by incompatible metadata is rejected atomically [0.08ms]
+(pass) metadata id cannot be rebound even to an identical inline value [0.04ms]
+(pass) metadata kind cannot be rebound even to an identical inline value [0.02ms]
+(pass) metadata generation cannot be rebound even to an identical inline value [0.01ms]
+(pass) an input object shared by fields is copied into independently editable containers [0.03ms]
+(pass) plain snapshots are detached and preserve undefined, arrays and constants [0.03ms]
+(pass) native journal output owns its metadata and cached encoded bytes [0.04ms]
+(pass) rejected native entries never consume the committed encoded-byte quota [127.35ms]
+(pass) local patches keep detached initial values until their first export [0.28ms]
+(pass) connect true exports the native initial history and subsequent edits [0.38ms]
+(pass) a native local commit releases causally dependent incoming rows [0.24ms]
+
+packages/pulse/tests/core-bigint.test.ts:
+(pass) bigint primitives legacy retain exact values through binary sync [1.72ms]
+(pass) bigint primitives typed retain exact values through binary sync [0.78ms]
+(pass) typed bigint bounds reject before state or journal advances [0.37ms]
+
+packages/pulse/tests/core-rich-text.test.ts:
+(pass) collaborative rich text > initial markers are immutable and use Unicode code points [0.10ms]
+(pass) collaborative rich text > insertions, deletions and formatting share one stable text view [0.17ms]
+(pass) collaborative rich text > concurrent insertions and per-attribute formatting converge through binary transport [0.43ms]
+(pass) collaborative rich text > invalid edits leave state and the version vector untouched [0.11ms]
+(pass) collaborative rich text > replaced and destroyed text views reject further edits [0.04ms]
+(pass) collaborative rich text > a codec string schema can expose collaborative text using an annotation [0.38ms]
+(pass) collaborative rich text > array and map terminal annotations expose editable text entries and replay [0.81ms]
+(pass) collaborative rich text > array and map terminal constant entries reject nested edits [0.91ms]
+
+packages/pulse/tests/api.test.ts:
+(pass) local document API > array helpers accept plain values and return detached removed values [0.14ms]
+(pass) local document API > local mutations keep every view and model consistent [0.10ms]
+(pass) local document API > array mutations agree with native arrays [0.28ms]
+(pass) local document API > invalid changes are rejected before the model or history changes [0.13ms]
+(pass) local document API > identity maps return the materialized pulse and isolate clients [0.04ms]
+(pass) local document API > subscriptions observe committed changes and destruction releases resources [0.06ms]
+(pass) local document API > tuple and struct constants cannot be mutated through a view [0.04ms]
+
+packages/pulse/tests/core-shapes.test.ts:
+(pass) typed shape integration matrix > object fields and nested replacements canonicalize permuted property order [1.60ms]
+(pass) typed shape integration matrix > root tagged union branch note preserves metadata and editable leaves [0.93ms]
+(pass) typed shape integration matrix > root tagged union branch count preserves metadata and editable leaves [0.42ms]
+(pass) typed shape integration matrix > lazy root objects retain metadata through full wire history and nested edits [0.60ms]
+(pass) typed shape integration matrix > optional nested objects can be assigned, removed and rebuilt before subsequent child edits [1.46ms]
+(pass) typed shape integration matrix > maps of objects support key insertion, replacement, deletion and nested array edits [1.81ms]
+(pass) typed shape integration matrix > arrays of tagged unions preserve branch layouts across replacement and insertion [1.87ms]
+(pass) typed shape integration matrix > untagged object/string/null unions can replace branches and then address new child IDs [0.85ms]
+(pass) typed shape integration matrix > codec tuples retain fixed cardinality and each position's runtime schema [1.19ms]
+(pass) typed shape integration matrix > binary leaves and finite primitives round-trip after every editable scalar changes [1.39ms]
+(pass) typed shape integration matrix > recursive schemas preserve a path-specific constant without freezing deeper occurrences [3.09ms]
+(pass) typed shape integration matrix > terminal rich text annotations work in arrays and maps with optional absent entries [1.22ms]
+(pass) typed shape integration matrix > literal object values remain constant beside editable fields [0.55ms]
+(pass) typed shape integration matrix > root constant annotations preserve managed metadata [0.46ms]
+(pass) typed shape integration matrix > literal object root schemas preserve managed metadata [0.15ms]
+
+packages/pulse/tests/benchmarks.test.ts:
+(pass) performance comparison flags real regressions and refuses incompatible baselines [46.30ms]
+
+1 tests skipped:
+(skip) PostgreSQL integration: set PULSIFY_POSTGRES_URL
+
+ 332 pass
+ 1 skip
+ 0 fail
+ 8485 expect() calls
+Ran 333 tests across 35 files. [1019.00ms]
+$ bun test benchmarks/crdt-adapters.test.ts
+bun test v1.4.4 (38afee6c8)
+
+benchmarks/crdt-adapters.test.ts:
+(pass) pulsify: same editable shape, serialization and isolated initial input [4.56ms]
+(pass) pulsify: concurrent offline edits converge without replacing editable nested values [0.47ms]
+(pass) json-joy: same editable shape, serialization and isolated initial input [3.62ms]
+(pass) json-joy: concurrent offline edits converge without replacing editable nested values [0.61ms]
+(pass) yjs: same editable shape, serialization and isolated initial input [2.88ms]
+(pass) yjs: concurrent offline edits converge without replacing editable nested values [0.61ms]
+(pass) loro: same editable shape, serialization and isolated initial input [11.90ms]
+(pass) loro: concurrent offline edits converge without replacing editable nested values [5.91ms]
+(pass) proxy-free Pulsify uses the same mutation pipeline and produces identical encoded rows [0.80ms]
+(pass) Yjs V1 also preserves the same editable state and incremental updates [0.54ms]
+(pass) pulsify: sixteen conflicting peers converge independently of delivery order [1.52ms]
+(pass) json-joy: sixteen conflicting peers converge independently of delivery order [3.81ms]
+(pass) yjs: sixteen conflicting peers converge independently of delivery order [2.05ms]
+(pass) loro: sixteen conflicting peers converge independently of delivery order [10.11ms]
+
+ 14 pass
+ 0 fail
+ 64 expect() calls
+Ran 14 tests across 1 file. [144.00ms]
+$ bun test benchmarks/database/store.test.ts
+bun test v1.4.4 (38afee6c8)
+
+benchmarks/database/store.test.ts:
+(pass) sqlite database benchmark contract > real multi-actor history, partial vectors, lossless compaction and fresh/incremental replay [19.93ms]
+(pass) sqlite database benchmark contract > a vector inside a span includes that segment; omitted actors still return their history [5.53ms]
+(pass) sqlite database benchmark contract > identical appends are idempotent; conflicts and gaps roll back atomically [5.54ms]
+(pass) sqlite database benchmark contract > a concurrent append survives compaction; a stale competing plan is rejected [6.37ms]
+(pass) sqlite database benchmark contract > large binary values round-trip losslessly [6.64ms]
+(pass) segment encoding rejects non-contiguous history and detects corruption [1.00ms]
+(pass) report uses arithmetic median and nearest-rank p95 [0.04ms]
+
+ 7 pass
+ 0 fail
+ 29 expect() calls
+Ran 7 tests across 1 file. [65.00ms]

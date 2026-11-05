@@ -1,0 +1,11 @@
+    Finished `release` profile [optimized] target(s) in 0.23s
+     Running unittests src/main.rs (crates/pulsify-db-bench/target/release/deps/pulsify_db_bench-b96e9b433db669e9)
+
+running 4 tests
+test tests::real_postgres_parallel_contract ... ok
+test tests::exact_mix_and_burst_work_are_not_lost ... ok
+test tests::compacted_segments_are_lossless_and_checked ... ok
+test tests::sqlite_parallel_contract ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

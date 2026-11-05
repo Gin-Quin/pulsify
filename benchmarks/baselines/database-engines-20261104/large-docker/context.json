@@ -1,0 +1,884 @@
+{
+  "startedAt": "2026-11-04T21:03:21.759Z",
+  "completedAt": "2026-11-04T21:11:07.158Z",
+  "sourceSha256": "65cef0e135247c9dbd2e740239b249eb11b522d0fd0f123088af8908361e28a8",
+  "orchestrationSha256": "708be13e02540156f424cc5f3bf713804269bfc9e2c76f56b08228a0236b5a48",
+  "compiler": "rust:1.95-slim-bookworm",
+  "memorySnapshots": {
+    "docker/postgres/before": {
+      "at": "2026-11-04T21:03:23.019Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 16455 \nPages purgeable: 2529 \nPages purged: 98415 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 745590 \nPages inactive: 739152 \nPages speculative: 6580 \nPages throttled: 0 \nPages wired down: 215307 \n\nCompressor Stats:\nPages used by compressor: 333494 \nPages decompressed: 244385 \nPages compressed: 1131540 \n\nFile I/O:\nPageins: 1534117 \nPageouts: 67265 \n\nSystem-wide memory free percentage: 73%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  53412288    19%  453127 534122880    0%   /"
+    },
+    "docker/sqlite/before": {
+      "at": "2026-11-04T21:04:20.103Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 25463 \nPages purgeable: 2217 \nPages purged: 98806 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 724135 \nPages inactive: 722521 \nPages speculative: 1492 \nPages throttled: 0 \nPages wired down: 215265 \n\nCompressor Stats:\nPages used by compressor: 367638 \nPages decompressed: 255416 \nPages compressed: 1216189 \n\nFile I/O:\nPageins: 1550476 \nPageouts: 67373 \n\nSystem-wide memory free percentage: 71%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52832792    19%  453127 528327920    0%   /"
+    },
+    "docker/alloydb/before": {
+      "at": "2026-11-04T21:05:48.583Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 50859 \nPages purgeable: 4079 \nPages purged: 99783 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 714255 \nPages inactive: 711486 \nPages speculative: 2941 \nPages throttled: 0 \nPages wired down: 216970 \n\nCompressor Stats:\nPages used by compressor: 360075 \nPages decompressed: 281250 \nPages compressed: 1223884 \n\nFile I/O:\nPageins: 1561162 \nPageouts: 67446 \n\nSystem-wide memory free percentage: 71%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  53293700    19%  453127 532937000    0%   /"
+    },
+    "docker/orioledb/before": {
+      "at": "2026-11-04T21:07:07.143Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 45921 \nPages purgeable: 13552 \nPages purged: 109118 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 687776 \nPages inactive: 682632 \nPages speculative: 4500 \nPages throttled: 0 \nPages wired down: 217576 \n\nCompressor Stats:\nPages used by compressor: 417991 \nPages decompressed: 432627 \nPages compressed: 1477791 \n\nFile I/O:\nPageins: 1627457 \nPageouts: 68094 \n\nSystem-wide memory free percentage: 69%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52816456    19%  453127 528164560    0%   /"
+    },
+    "docker/pgrust-row/before": {
+      "at": "2026-11-04T21:08:42.700Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 21472 \nPages purgeable: 5582 \nPages purged: 115020 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 635679 \nPages inactive: 767495 \nPages speculative: 1671 \nPages throttled: 0 \nPages wired down: 224096 \n\nCompressor Stats:\nPages used by compressor: 406051 \nPages decompressed: 464704 \nPages compressed: 1482595 \n\nFile I/O:\nPageins: 1655080 \nPageouts: 68181 \n\nSystem-wide memory free percentage: 69%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52967228    19%  453127 529672280    0%   /"
+    },
+    "docker/pgrust-columnar/before": {
+      "at": "2026-11-04T21:09:51.170Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 18374 \nPages purgeable: 8635 \nPages purged: 118104 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 659805 \nPages inactive: 688303 \nPages speculative: 18891 \nPages throttled: 0 \nPages wired down: 215527 \n\nCompressor Stats:\nPages used by compressor: 455717 \nPages decompressed: 521737 \nPages compressed: 1672978 \n\nFile I/O:\nPageins: 1702061 \nPageouts: 68324 \n\nSystem-wide memory free percentage: 67%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52565988    19%  453127 525659880    0%   /"
+    },
+    "completed": {
+      "at": "2026-11-04T21:11:07.158Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 8578 \nPages purgeable: 2884 \nPages purged: 124555 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 677572 \nPages inactive: 675791 \nPages speculative: 968 \nPages throttled: 0 \nPages wired down: 203030 \n\nCompressor Stats:\nPages used by compressor: 490927 \nPages decompressed: 584211 \nPages compressed: 1798697 \n\nFile I/O:\nPageins: 1723105 \nPageouts: 68538 \n\nSystem-wide memory free percentage: 66%",
+      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  52741160    19%  453127 527411600    0%   /"
+    }
+  },
+  "fixtureSha256": "2eac65ad652a6539884ac16a4f413d56119ecda971b09b4b932dff87d63e6fbb",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "14cedc97860776e17c8e654b5f9d14c258756d46",
+  "dirty": true,
+  "profile": "large",
+  "selectedDatabases": [
+    "postgres",
+    "sqlite",
+    "alloydb",
+    "orioledb",
+    "pgrust-row",
+    "pgrust-columnar"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    128
+  ],
+  "command": [
+    "--environment",
+    "docker",
+    "--profile",
+    "large",
+    "--databases",
+    "postgres,sqlite,alloydb,orioledb,pgrust-row,pgrust-columnar",
+    "--concurrency",
+    "128",
+    "--requests",
+    "1000",
+    "--results-dir",
+    "benchmarks/baselines/database-engines-20261104/large-docker"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "dockerContainerMemoryLimitBytes": 4294967296,
+    "dockerContainerSwapLimitBytes": 0,
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {
+    "docker": {
+      "runnerImage": "sha256:889d175df2bb9efbfb6992815fd4f8544f1c8ab43c8cbe3ed87c0463303ccbbc",
+      "docker": {
+        "ID": "529db05a-4162-4a91-9817-c257bfa975c3",
+        "Containers": 11,
+        "ContainersRunning": 9,
+        "ContainersPaused": 0,
+        "ContainersStopped": 2,
+        "Images": 29,
+        "Driver": "overlay2",
+        "DriverStatus": [
+          [
+            "Backing Filesystem",
+            "btrfs"
+          ],
+          [
+            "Supports d_type",
+            "true"
+          ],
+          [
+            "Using metacopy",
+            "false"
+          ],
+          [
+            "Native Overlay Diff",
+            "true"
+          ],
+          [
+            "userxattr",
+            "false"
+          ]
+        ],
+        "Plugins": {
+          "Volume": [
+            "local"
+          ],
+          "Network": [
+            "bridge",
+            "host",
+            "ipvlan",
+            "macvlan",
+            "null",
+            "overlay"
+          ],
+          "Authorization": null,
+          "Log": [
+            "awslogs",
+            "fluentd",
+            "gcplogs",
+            "gelf",
+            "journald",
+            "json-file",
+            "local",
+            "splunk",
+            "syslog"
+          ]
+        },
+        "MemoryLimit": true,
+        "SwapLimit": true,
+        "CpuCfsPeriod": true,
+        "CpuCfsQuota": true,
+        "CPUShares": true,
+        "CPUSet": true,
+        "PidsLimit": true,
+        "IPv4Forwarding": true,
+        "Debug": false,
+        "NFd": 114,
+        "OomKillDisable": false,
+        "NGoroutines": 130,
+        "SystemTime": "2026-11-04T22:03:23.000166036+01:00",
+        "LoggingDriver": "json-file",
+        "CgroupDriver": "cgroupfs",
+        "CgroupVersion": "2",
+        "NEventsListener": 1,
+        "KernelVersion": "7.2.12-orbstack-00394-gbecdd6130068",
+        "OperatingSystem": "OrbStack",
+        "OSVersion": "",
+        "OSType": "linux",
+        "Architecture": "aarch64",
+        "IndexServerAddress": "https://index.docker.io/v1/",
+        "RegistryConfig": {
+          "InsecureRegistryCIDRs": [
+            "127.0.0.0/8",
+            "::1/128"
+          ],
+          "IndexConfigs": {
+            "docker.io": {
+              "Name": "docker.io",
+              "Mirrors": [],
+              "Secure": true,
+              "Official": true
+            }
+          },
+          "Mirrors": []
+        },
+        "NCPU": 10,
+        "MemTotal": 16818991104,
+        "GenericResources": null,
+        "DockerRootDir": "/var/lib/docker",
+        "HttpProxy": "http://proxy.orb.internal:8305",
+        "HttpsProxy": "http://proxy.orb.internal:8305",
+        "NoProxy": "localhost,127.0.0.1,127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,0.250.250.0/24,*.orb.internal,*.local,gateway.docker.internal,host.internal,host.docker.internal,host.lima.internal,docker.for.mac.localhost,docker.for.mac.host.internal",
+        "Name": "orbstack",
+        "Labels": [],
+        "ExperimentalBuild": true,
+        "ServerVersion": "29.8.2",
+        "Runtimes": {
+          "io.containerd.runc.v2": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          },
+          "runc": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          }
+        },
+        "DefaultRuntime": "runc",
+        "Swarm": {
+          "NodeID": "",
+          "NodeAddr": "",
+          "LocalNodeState": "inactive",
+          "ControlAvailable": false,
+          "Error": "",
+          "RemoteManagers": null
+        },
+        "LiveRestoreEnabled": false,
+        "Isolation": "",
+        "InitBinary": "docker-init",
+        "ContainerdCommit": {
+          "ID": "ee2735368117d2eb259779949d5e75cdafec9761"
+        },
+        "RuncCommit": {
+          "ID": "29dd3dc2b13b4123162e5fe132504bb4b15569f1"
+        },
+        "InitCommit": {
+          "ID": "de40ad0"
+        },
+        "SecurityOptions": [
+          "name=seccomp,profile=builtin",
+          "name=cgroupns"
+        ],
+        "ProductLicense": "Community Engine",
+        "DefaultAddressPools": [
+          {
+            "Base": "192.168.97.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.107.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.117.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.147.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.148.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.155.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.156.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.158.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.163.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.164.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.165.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.166.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.167.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.171.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.172.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.181.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.183.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.186.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.207.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.214.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.215.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.216.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.223.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.227.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.228.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.229.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.237.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.239.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.242.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.247.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "fd07:b51a:cc66:d000::/56",
+            "Size": 64
+          }
+        ],
+        "FirewallBackend": {
+          "Driver": "iptables",
+          "Info": [
+            [
+              "EnableUserlandProxy",
+              "true"
+            ],
+            [
+              "UserlandProxyPath",
+              "/opt/orbstack-guest/pstub"
+            ]
+          ]
+        },
+        "CDISpecDirs": [
+          "/etc/cdi",
+          "/var/run/cdi"
+        ],
+        "Containerd": {
+          "Address": "/var/run/docker/containerd/containerd.sock",
+          "Namespaces": {
+            "Containers": "moby",
+            "Plugins": "plugins.moby"
+          }
+        },
+        "Warnings": [
+          "WARNING: DOCKER_INSECURE_NO_IPTABLES_RAW is set"
+        ],
+        "ClientInfo": {
+          "Debug": false,
+          "Version": "29.8.2",
+          "DefaultAPIVersion": "1.56",
+          "GitCommit": "7fc2dff",
+          "GoVersion": "go1.26.8",
+          "Os": "darwin",
+          "Arch": "arm64",
+          "BuildTime": "Sun Oct 11 12:42:20 2026",
+          "Context": "orbstack",
+          "Plugins": [
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v0.37.2",
+              "ShortDescription": "Docker Buildx",
+              "Name": "buildx",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-buildx"
+            },
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v5.5.0",
+              "ShortDescription": "Docker Compose",
+              "Name": "compose",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-compose"
+            }
+          ],
+          "Warnings": null
+        }
+      },
+      "engines": {
+        "postgres": {
+          "image": "postgres:16-alpine",
+          "imageId": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7",
+            "RepoTags": [
+              "postgres:16-alpine"
+            ],
+            "RepoDigests": [
+              "postgres@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-10-21T23:19:19.130817935Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOSU_VERSION=1.19",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=16",
+                "PG_VERSION=16.15",
+                "PG_SHA256=c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed",
+                "DOCKER_PG_LLVM_DEPS=llvm21-dev \t\tclang21",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "WorkingDir": "/",
+              "StopSignal": "SIGINT"
+            },
+            "Architecture": "arm64",
+            "Variant": "v8",
+            "Os": "linux",
+            "Size": 288118565,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/1998b2dea655e4f0487b753616632df718fb268ff461980d0e2bb347a1c02f29/diff:/var/lib/docker/overlay2/7aa569cad2ef9e815234963f506e2dc427b1823c9e9cc5011168f979df552132/diff:/var/lib/docker/overlay2/63783425c3290dc626ed106344b2d271b9b9932c84b435f45f6695d10765d7c3/diff:/var/lib/docker/overlay2/22c6dcd0cd4b8ab2badd6d0a013fd290171fca6acc55e6076e7c8938e9dbbea0/diff:/var/lib/docker/overlay2/ae2a30ac039ea1e6ff7759e97156aed5399002abf5f0ca0bdc9941f21a9d43bd/diff:/var/lib/docker/overlay2/a972b87d29ead2218351e934ce15833ef1f32468026a974e8ff31be2873b133a/diff:/var/lib/docker/overlay2/04872b5750ae93fdc96e6d75cd8e61842eb263852eea573d634eeb3a711415ad/diff:/var/lib/docker/overlay2/ae4c86a0efe9bfe57114f7f61b39c32ee5d4252c7e1304b6cddb50f1de3fca43/diff:/var/lib/docker/overlay2/40abf9d29a0aa33fc6ed6454fb276fa31bea7fd7409c37fdc91383a13908192e/diff:/var/lib/docker/overlay2/fd20c2c54b057c1a33a91a86efa07e0e6357e7b386134f0e1d478ec0de6fe15c/diff",
+                "MergedDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/merged",
+                "UpperDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/diff",
+                "WorkDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:a278e6f39431cd0ed74238a3d377893ad0d905d68b676bf9a65529080669756b",
+                "sha256:25b35b60e822dc07db5d94c66aad3cf6e744dffe52ef8e96fe0ab7508ca13cef",
+                "sha256:178939e6df3b2eaa3f3f01f2b065c9f4920da570bb5f86931b284ba14989cfc3",
+                "sha256:3008a8b1b42bd43ca75b2ad6dc9445c3fc5ee804607b19c6a0e5772de2174779",
+                "sha256:b9ab9319124b78f2eab3e708e0f2bca3bbdd74a43e6079dcc24994e1bfad827b",
+                "sha256:fe66a4308294aa7a316259db6edd8b4ca689561673a81ffcd8909bb0c9270083",
+                "sha256:c69654a286a965d6f50adbbd3cc3b365ff2107b36d465fa328ba6067c4153efc",
+                "sha256:a9937bfca4f569bc0880f4363d38466de4ff96d6d8c0a4fc01ea5a275b44cd3b",
+                "sha256:56c3932189be40d90dd8bc6814f7156ad1612351eb4a30a96e271b9c5e5f7350",
+                "sha256:9b0b3a6d972bc0a40a19e4a5c9e22e3eab1ef27161a3082c15d32a8a50965230",
+                "sha256:8461b6ba2dc08f48b6a17482a968b3a74e09a2cc83ff37c0fee57f40ccbf1caa"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "alloydb": {
+          "image": "google/alloydbomni:17.10.0",
+          "imageId": "sha256:166ff091cc258afe61a0f7b4739844dc9fb86b0409cb59c027a36e039d993951",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:166ff091cc258afe61a0f7b4739844dc9fb86b0409cb59c027a36e039d993951",
+            "RepoTags": [
+              "google/alloydbomni:17.10.0"
+            ],
+            "RepoDigests": [
+              "google/alloydbomni@sha256:ee3a5ed22fe0d239db05c990b2e0bdee6af9a40e6b7f3566fc2be4c1d4947a3e"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-09-27T17:09:23.270359081Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/17/bin:/usr/lib/postgresql/17/bin/google",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=17",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "Labels": {
+                "symbol_identifier_version": "alloydb_omni_pg17_20260912.05_RC03"
+              },
+              "StopSignal": "SIGINT",
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 3233274505,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/85009a8b8e97257ef1351dafe2c6b9635086573f5a6b1d6c67d4a1e44dd70db3/diff:/var/lib/docker/overlay2/7c58f6850b8085849511349619b55c112d496620fb45d1c36d6dd674db6ef7cc/diff:/var/lib/docker/overlay2/29ae42f3c62d8c7521c823c1dc541a3caa233bf47a0423c6775ece620dbfea64/diff:/var/lib/docker/overlay2/ebe97fb36583c51908c57d626bc720c3c3342af61c9c7ea09bb567198bdc3941/diff:/var/lib/docker/overlay2/167eb5e51a255ec01681017c802333e18727d2dcf46fd052fbc8cd293d2044c5/diff:/var/lib/docker/overlay2/8486a63f1aa206ec6bb1a4a84ccca57f6808d6a24ba496663ad3513fd3302c3e/diff:/var/lib/docker/overlay2/00f9a1f87b93c2fe614a984238a1803017fa3a53248891cd3c8d65fd98b974f0/diff:/var/lib/docker/overlay2/af41588aabca7dd507901822a605ed2fb42e3f661c75bb2c959ce9cf5e21990b/diff:/var/lib/docker/overlay2/5ddada29bb1c8a2150a2364c7aa7ede5ed8292f8d9bb4f2184b810492a65b372/diff:/var/lib/docker/overlay2/89691768e6a62b376d6b0225817228776adc540536fe040579e11bde06fa40d9/diff:/var/lib/docker/overlay2/ee3185942085a1f48cc02b12b251f9a2c07f0f4c997d99e9536f3b66f7af1d1c/diff:/var/lib/docker/overlay2/1b0ad3db57352c8621b1772dad9ef5bd748b54f0d50dd7b03c1a681f3fb8b04c/diff:/var/lib/docker/overlay2/e2939a258464ceb120c436ce45766276afaf16168a887b215119b0ca1a30603f/diff:/var/lib/docker/overlay2/90f23513df2deca5ccc4b8f3fbf006f34e15b35098cbe9f1bb57f1f29019ceb5/diff:/var/lib/docker/overlay2/354c09f22a0ad0a10c9f0b3b51a45b1539050f8af53787ce6ff8dd559aeed591/diff:/var/lib/docker/overlay2/4f9598b7e40c4e37cf9a1c45f39938b6fcbf6f70064345dbc4714fa896a992ac/diff:/var/lib/docker/overlay2/bc838f6ef9e3a1927eec0471b511033271e244b1ba809f16013fe0f22a388e40/diff:/var/lib/docker/overlay2/1fe004341b683e539efc67d1e3f2221234bec3a9c8f2e1b4538889d08ba3e576/diff:/var/lib/docker/overlay2/321204557ad8aefdab9ab55b347cdd2458bdc4567e3af9edd016f092f4fcb02c/diff:/var/lib/docker/overlay2/fc3cb59b975e1dd1cd1d25f5a5f42557d2b6ff6cbcb71fafccf4494c9b618058/diff:/var/lib/docker/overlay2/24127487ade84d65ce41b974415bae73181142403c8556f955888ce90e42ae9f/diff:/var/lib/docker/overlay2/dff75181a45abe0331b7b0f6c12d1f7821bfca8a02dc1ade3944acdb03ced36a/diff:/var/lib/docker/overlay2/1e82f1bce8077948c32611ab97af77182163eb76c501af95d8fb6e0d286eaa5e/diff:/var/lib/docker/overlay2/e64223c1bdc3343354879868028cb754190f70053f9812f294ce4d7231f8a5eb/diff:/var/lib/docker/overlay2/cebffbce8ee43225238fdf944c78a23eb93648a87c1f3bb0fd12eba6e51f04f0/diff:/var/lib/docker/overlay2/b6009b024b5bf0178aaac1217f56b440206560f65d1bf0b97e7974a7644fd441/diff:/var/lib/docker/overlay2/4a67727407917c5b28b222e1d07c8d4d4cd5d0a8368a46dfe0531e9c9f6cf5e3/diff:/var/lib/docker/overlay2/6ed36ad9b766c238bc61dc962d092adeb8258251b251d81e6114902fd3e5e74d/diff:/var/lib/docker/overlay2/f5e7d59304027afc4f93ce14fc76b70ffe3e30bd0ea712d569ec3031a71dd3f7/diff:/var/lib/docker/overlay2/e419759f062effc478adaef6451813371c81dd853856320e690cc984058050bc/diff",
+                "MergedDir": "/var/lib/docker/overlay2/dc907cc989657097ee64a246cfd4e0cead38554f62ffeab0bf50046e97e00e0a/merged",
+                "UpperDir": "/var/lib/docker/overlay2/dc907cc989657097ee64a246cfd4e0cead38554f62ffeab0bf50046e97e00e0a/diff",
+                "WorkDir": "/var/lib/docker/overlay2/dc907cc989657097ee64a246cfd4e0cead38554f62ffeab0bf50046e97e00e0a/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:e88ab6df2d621691cc9d35d7209e09748879f5dcf3895f7303cacdaf18c1b12f",
+                "sha256:e5dfa95301d7c71f4ebd2689d091962ee4636c7f73265746d1a89f3ccd3e8cf9",
+                "sha256:e76e50c2595f7bcea9b4011289605c2fcd10863e3279dd2441697c504a401227",
+                "sha256:43e72f7a5639aa9ceb698cd7bf5a662c67aa3adb6aec96aea928249e3ba811a4",
+                "sha256:9627bc49746a8098fabf0f2eadad18580b03281fc5cec67a86f98895100ec078",
+                "sha256:ee9099eed59e54c715d3615e4423210d62f25633d46bce0601f67f8cc4684552",
+                "sha256:91bad2e2f4af535791b4a459fed69e16a7cb8b469ea5e9c5a90aa037116f22a0",
+                "sha256:3385779cf4abcd9e3cec9cb7d411b6318cea0130b4a9e93cf3ef4fd84933b352",
+                "sha256:fb97597cf20345ef23b4a9c64461b5bb2273213c43cd3519e19aa2a8a18e6ce3",
+                "sha256:db0eb12f71dc02a7da7164ea1b4313b0989e694d85f851e6315ddfdf3ac888e9",
+                "sha256:42f8d8f82ec522acf6e70b5b03c724d0101cddcb0323939dbcdcd36f5d5d56d2",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:b93cf664c8a007411202ea34f9d95ec4fd8d7f36a01772c5d08bda24b75f0ce7",
+                "sha256:bc4efb135ff4c8010bf2484f0baba47c12ccb48118bb320ae2659e32c4389858",
+                "sha256:2cee007eb1001e3e3d277b7f4ba935eb46bdf80036d1ea07cdef18b99d1ca107",
+                "sha256:a76b9ebc81088fe7c1f0243f0d0dfa81615b892722129e286471dc214a278514",
+                "sha256:fff277c4b0f3af9af8dd41514c2c98d6a8256f0c0004715f6afb1643104e9314",
+                "sha256:3500917c285f5e7b279722c0d39c6dcdaae164cc2b50c4dd6ef404f2eb77d554",
+                "sha256:01a0c3565c435a4ed1726df0f4248f42820f707e724ba783979c238a11924868",
+                "sha256:8319e8b70049116af284967a21d3807dc7040aff9f16d3eb0b248b5a4f0b2392",
+                "sha256:ed802a0c6a871d4a8f11b29b63d46eada054fe2705cd8650d93f4a031742a6ea",
+                "sha256:49c65c1b8405af24581b19c87b34900e39cf5c7df312c09e3dfb492632710a29",
+                "sha256:92e6c56c87215a8e6acd1789568b0c0ee56a95b4234b556cf06bc005fddcba83",
+                "sha256:10f7e30e01a462b74f2978518fa1a31fbcf280f65c3ff7589176ee64bfd647fb",
+                "sha256:9573a20a1630773c0f43789399df29e88d3e1274cd00587cf9366127ae32ffd6",
+                "sha256:92e1a8f27561685b86220f768917eee81bdb877be6443eb7fa731823ffbf90a0",
+                "sha256:260d390eacd5c4f0ba36e76b7e01335c8093575f0d94b1f36746f3a7092dcab5",
+                "sha256:1572ed034a03a8c4c0d00a27e364191f52f03a4c0abd8cae85b2b532297bb17e",
+                "sha256:b2b8ddafae621d58a4f0c4fadd21bf121eec0d8879154c3027dd116e025160bd",
+                "sha256:e02c49aa621a7bca33ac77da808734a25775da37c428c089829d05b05510fbf8",
+                "sha256:5e8361ba0071eef1409b5fe2bc2c182cdbc2716cce9bc7782dc89c6739e1bac5"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "orioledb": {
+          "image": "orioledb/orioledb:latest-pg17",
+          "imageId": "sha256:970b635d3880cf3861c95b36bc414aed0ca8a8be63c9c573b0ea667e31646a3c",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:970b635d3880cf3861c95b36bc414aed0ca8a8be63c9c573b0ea667e31646a3c",
+            "RepoTags": [
+              "orioledb/orioledb:latest-pg17"
+            ],
+            "RepoDigests": [
+              "orioledb/orioledb@sha256:95a50cb53743c850e09aa032a9d06c3cbaca582b1b058488ae5139efcc6c9f03"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-11-02T14:12:40.851693268Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "PG_MAJOR=17",
+                "BUILD_CC_COMPILER=clang",
+                "DEBUG_MODE=false",
+                "DOCKER_PG_LLVM_DEPS=llvm-dev clang",
+                "LANG=en_US.utf8",
+                "PGDATA=/var/lib/postgresql/data",
+                "PG_CONF=/etc/postgresql/postgresql.conf",
+                "POSTGRES_INITDB_ARGS=--locale-provider=icu --icu-locale=en"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres",
+                "-D",
+                "/etc/postgresql"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "WorkingDir": "/",
+              "Labels": {
+                "org.opencontainers.image.created": "2026-11-02T14:08:56.574Z",
+                "org.opencontainers.image.description": "OrioleDB – building a modern cloud-native storage engine (... and solving some PostgreSQL wicked problems)",
+                "org.opencontainers.image.licenses": "Apache-2.0",
+                "org.opencontainers.image.revision": "11a093f5957f30e1723582d1b6f24a93c9887d9c",
+                "org.opencontainers.image.source": "https://github.com/orioledb/orioledb",
+                "org.opencontainers.image.title": "orioledb",
+                "org.opencontainers.image.url": "https://github.com/orioledb/orioledb",
+                "org.opencontainers.image.version": "v1.10.1-pg17"
+              },
+              "StopSignal": "SIGINT",
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 285355288,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/72af47d4b2141fc7c6198f154d729bacb8ad9f5fe13715cab125b92c4af10979/diff:/var/lib/docker/overlay2/b5730f4e321d7319fc81ef7ac9207bab916bbada1f779aa91228e00102bbae31/diff:/var/lib/docker/overlay2/6ba06b983d50cb40c84c253839deafcef1e6185f676959ce863675e726afa8ce/diff:/var/lib/docker/overlay2/b57cda235353366a8588579b320f079a8430ae1f70830fb514e284c82ea64050/diff:/var/lib/docker/overlay2/976401aaa4c38e459d597e99412ba50a778d0c21d9b8df8ab8b3eb4d691bf01d/diff:/var/lib/docker/overlay2/5ccc5f7fc22936cb54587f8ecb960074e92aacf97882c38a7d4b2790c4bf55df/diff:/var/lib/docker/overlay2/c8b1396f49a264babebc66baeb4cd5b68709231561225ff607a20689e8185a52/diff:/var/lib/docker/overlay2/870ad28442668a07829ffcb3cf83784a8a380b70af8470cf870b9bced442d914/diff:/var/lib/docker/overlay2/e3530dc61db05f7b844f49e4ea13e4bc1936f1eb1bb1c03caae528dcdd46c3dc/diff:/var/lib/docker/overlay2/fb7867e1d3a571823682ca5fad6abeb0e56f2a2fc6d2b638aaa5972478a875f8/diff:/var/lib/docker/overlay2/b04df953b2382737a491a0e24d0bf088855b2e0210530238311e2ca390edc262/diff",
+                "MergedDir": "/var/lib/docker/overlay2/a8773449d3887edd9465367ba51a6c750d8a149a688fd222ee9b245690ee7546/merged",
+                "UpperDir": "/var/lib/docker/overlay2/a8773449d3887edd9465367ba51a6c750d8a149a688fd222ee9b245690ee7546/diff",
+                "WorkDir": "/var/lib/docker/overlay2/a8773449d3887edd9465367ba51a6c750d8a149a688fd222ee9b245690ee7546/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:e553266e9961960d0d998d56a5d13d3f8b9555c7ec6acfe10f3d53796905d8ee",
+                "sha256:b968c399e696ae8a31bf8b3f8d83eefc91974f33395fe58a76c3521b86a79946",
+                "sha256:b5d25dbffff17c44acdec0130b5c4eaacec9285f3ca5b4ad1196f46a4852f58d",
+                "sha256:bcb7b2fd546a0bd94f7c17b6bf5c0de466bc736c2f2a4ee4379b04293bbf45d1",
+                "sha256:0384c860457f9b993f0a01972a10746553a28ecc487a7f6acd3a012cc9515ff1",
+                "sha256:310bd5293a2c17a72621fe16f55866858bec71ba793e5da23f0016941ad2b2d8",
+                "sha256:0af5713e1d715c9a2fcdc2bec844f3efc96756146e82b86959ac15c7ab7056b7",
+                "sha256:3406e145e46346f93f07db959a21c2b5e1d966b6923a2978b54a959e9af665ad",
+                "sha256:a7231ea5cc73d6e07d60d5bdf12efdf949295423811ef2aef68ab3ba95594141",
+                "sha256:2c02a2cd5ed3811bdcff0d26c1006b0a6d8b7279aeb17033befdb0c1f082ab7b",
+                "sha256:a16e7ce16247fb1cfd803be450331bd66dd12a9e8c2f5e34472ff21737261d25",
+                "sha256:2779fb7e2eb0e60b807e9a2d3c1d1614329f7d6b35acc447e7a541418c50a56f"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "pgrust-row": {
+          "image": "malisper/pgrust:v0.4-beta",
+          "imageId": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+            "RepoTags": [
+              "malisper/pgrust:v0.4-beta"
+            ],
+            "RepoDigests": [
+              "malisper/pgrust@sha256:62e3ab08273d85716b17cf594265077774ea017bf7ed1a541634be243bced6a0"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-10-22T15:19:15.804630026Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/lib/postgresql/18/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=18",
+                "LD_LIBRARY_PATH=/opt/runlibs",
+                "PGRUST_PGSHAREDIR=/usr/local/bin/share",
+                "RUST_MIN_STACK=33554432",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "StopSignal": "SIGINT",
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 249957555,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/39c3c8a1f454ca7e5b9bde35426c167f896b9fec144d6e0db673fcda77417194/diff:/var/lib/docker/overlay2/5f6022ae9a553605c9ea6b6a4928062358980f1d452168c4e52d95d15379ce14/diff:/var/lib/docker/overlay2/8d30399fcd588e3c755ba1bb721ed2d35db9abef7af0d8d6e821fc6adc4e0e1a/diff:/var/lib/docker/overlay2/d1937d9bc674dd90b713943e38927c09d148ba66388cd651c71a384b45aa8ed1/diff:/var/lib/docker/overlay2/cce455029cf894ee9749b88f59c69c790ff171ef4a35bb5e5d9f86c911fb3e3a/diff:/var/lib/docker/overlay2/599b5aba9db79869b196ebfd0e984ddfbc59c18c587c393f12f2e59eba000074/diff:/var/lib/docker/overlay2/a24428152946474aa79268a6a7fd071c855aa709bf98560bf6064c5a0232dffc/diff:/var/lib/docker/overlay2/e639fe0810d7f21a76f8a53898afcdd755706e8159252d25c9f008090a74580d/diff:/var/lib/docker/overlay2/d0830f3c896d767db8e06887ef0f0eddc949d3b72486f9cac0026e75055d2f5a/diff:/var/lib/docker/overlay2/6e9d4e6b8bf0ec3aa969fff1fcc9df0a7f51157846f756b3316c1475d4452484/diff:/var/lib/docker/overlay2/a7ff805963bc8974885ad9d2569b278e820c000b3f14814f503d8a8f0b342602/diff:/var/lib/docker/overlay2/2917dc8d0658727c2b6d51da06c86a6324180ef32b875b6b1755f9c63fd48ddc/diff:/var/lib/docker/overlay2/8572666d5a1925a25e840d7eb6f9041804762684b026cdef0b87b5c1210a9a84/diff:/var/lib/docker/overlay2/8e9c18a96cb5d6f4be7e63693a3a938c7048b71c280877365e2318ed397bd7d6/diff:/var/lib/docker/overlay2/6989b3caa02d629444bb4dd510cf6ae189bdfd74d4425c59d5084f696227b2ae/diff:/var/lib/docker/overlay2/002bda35458ef3f565aa53eba3213b647c01c867c32f40d8fc6271d6282e7887/diff",
+                "MergedDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/merged",
+                "UpperDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/diff",
+                "WorkDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:3b7c7ecdb9b2a2a7651551c07dc748fee9e27902c8b88c25cb3af3fbbc0a4b87",
+                "sha256:13f6dfafbb75e7daaee4452f8904e01281ecde8b11a5147ab9246b53f85914fa",
+                "sha256:37dc789fc8c11a4bfc707bc4cf9845f72bc54ab4b5fdd5e768729c1541596e3d",
+                "sha256:aad018cf1a106e513211e1fc49e216df154c929e858334683e902018d623df60",
+                "sha256:a4ac0134695c5af7899109b28f71cdab4a2a197e762390660e7d43a026dc55e5",
+                "sha256:eb16c1f515abfd2ef970651738b72c67fd22d09cc79d0abc2f59d0c557191365",
+                "sha256:3af4f3c2c20fab1b6cb05e69cc1edbf21afa3bc4aa54ac0d2c58415cf26f62c3",
+                "sha256:c12fae203219435a81470d14093595ab0584125f5f52cf1f286f98bc77c3f856",
+                "sha256:fcb06227e547f854d131f90a4555ab38500857336154ffff336bd0363a17c05f",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:cde534a73c78d7caf30475eff1f18058834095be41e35e2da9351177d8846f20",
+                "sha256:23a44c4095ca23901362d6b672cc295d6fdffe4456f1c6d031090dc49926358e",
+                "sha256:467641b3345e10e2e588381810ddb2f44a9901c63d88733c070f03c43c09d49e",
+                "sha256:6054979185cd36d10f21be70d7375bde399eb75f3be66aeb2c13ff7c52f0bf4d",
+                "sha256:8a34cf9c9ffe105a54c743f9a5ed43247b90a6a2246924ddaae296606b9bcc82",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "pgrust-columnar": {
+          "image": "malisper/pgrust:v0.4-beta",
+          "imageId": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:4c9cd6f3769f50ec0c31d922c656b6f0df7a779a03c68a3608a8b69765e3934f",
+            "RepoTags": [
+              "malisper/pgrust:v0.4-beta"
+            ],
+            "RepoDigests": [
+              "malisper/pgrust@sha256:62e3ab08273d85716b17cf594265077774ea017bf7ed1a541634be243bced6a0"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-10-22T15:19:15.804630026Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/lib/postgresql/18/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=18",
+                "LD_LIBRARY_PATH=/opt/runlibs",
+                "PGRUST_PGSHAREDIR=/usr/local/bin/share",
+                "RUST_MIN_STACK=33554432",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "StopSignal": "SIGINT",
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 249957555,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/39c3c8a1f454ca7e5b9bde35426c167f896b9fec144d6e0db673fcda77417194/diff:/var/lib/docker/overlay2/5f6022ae9a553605c9ea6b6a4928062358980f1d452168c4e52d95d15379ce14/diff:/var/lib/docker/overlay2/8d30399fcd588e3c755ba1bb721ed2d35db9abef7af0d8d6e821fc6adc4e0e1a/diff:/var/lib/docker/overlay2/d1937d9bc674dd90b713943e38927c09d148ba66388cd651c71a384b45aa8ed1/diff:/var/lib/docker/overlay2/cce455029cf894ee9749b88f59c69c790ff171ef4a35bb5e5d9f86c911fb3e3a/diff:/var/lib/docker/overlay2/599b5aba9db79869b196ebfd0e984ddfbc59c18c587c393f12f2e59eba000074/diff:/var/lib/docker/overlay2/a24428152946474aa79268a6a7fd071c855aa709bf98560bf6064c5a0232dffc/diff:/var/lib/docker/overlay2/e639fe0810d7f21a76f8a53898afcdd755706e8159252d25c9f008090a74580d/diff:/var/lib/docker/overlay2/d0830f3c896d767db8e06887ef0f0eddc949d3b72486f9cac0026e75055d2f5a/diff:/var/lib/docker/overlay2/6e9d4e6b8bf0ec3aa969fff1fcc9df0a7f51157846f756b3316c1475d4452484/diff:/var/lib/docker/overlay2/a7ff805963bc8974885ad9d2569b278e820c000b3f14814f503d8a8f0b342602/diff:/var/lib/docker/overlay2/2917dc8d0658727c2b6d51da06c86a6324180ef32b875b6b1755f9c63fd48ddc/diff:/var/lib/docker/overlay2/8572666d5a1925a25e840d7eb6f9041804762684b026cdef0b87b5c1210a9a84/diff:/var/lib/docker/overlay2/8e9c18a96cb5d6f4be7e63693a3a938c7048b71c280877365e2318ed397bd7d6/diff:/var/lib/docker/overlay2/6989b3caa02d629444bb4dd510cf6ae189bdfd74d4425c59d5084f696227b2ae/diff:/var/lib/docker/overlay2/002bda35458ef3f565aa53eba3213b647c01c867c32f40d8fc6271d6282e7887/diff",
+                "MergedDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/merged",
+                "UpperDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/diff",
+                "WorkDir": "/var/lib/docker/overlay2/ca2ecf56c3ef30819db4941a4c7f164b55e546185f1d5bc5c65a68ea42f375e1/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:3b7c7ecdb9b2a2a7651551c07dc748fee9e27902c8b88c25cb3af3fbbc0a4b87",
+                "sha256:13f6dfafbb75e7daaee4452f8904e01281ecde8b11a5147ab9246b53f85914fa",
+                "sha256:37dc789fc8c11a4bfc707bc4cf9845f72bc54ab4b5fdd5e768729c1541596e3d",
+                "sha256:aad018cf1a106e513211e1fc49e216df154c929e858334683e902018d623df60",
+                "sha256:a4ac0134695c5af7899109b28f71cdab4a2a197e762390660e7d43a026dc55e5",
+                "sha256:eb16c1f515abfd2ef970651738b72c67fd22d09cc79d0abc2f59d0c557191365",
+                "sha256:3af4f3c2c20fab1b6cb05e69cc1edbf21afa3bc4aa54ac0d2c58415cf26f62c3",
+                "sha256:c12fae203219435a81470d14093595ab0584125f5f52cf1f286f98bc77c3f856",
+                "sha256:fcb06227e547f854d131f90a4555ab38500857336154ffff336bd0363a17c05f",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:cde534a73c78d7caf30475eff1f18058834095be41e35e2da9351177d8846f20",
+                "sha256:23a44c4095ca23901362d6b672cc295d6fdffe4456f1c6d031090dc49926358e",
+                "sha256:467641b3345e10e2e588381810ddb2f44a9901c63d88733c070f03c43c09d49e",
+                "sha256:6054979185cd36d10f21be70d7375bde399eb75f3be66aeb2c13ff7c52f0bf4d",
+                "sha256:8a34cf9c9ffe105a54c743f9a5ed43247b90a6a2246924ddaae296606b9bcc82",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        }
+      }
+    }
+  },
+  "requestErrors": {
+    "docker/postgres": 0,
+    "docker/sqlite": 0,
+    "docker/alloydb": 0,
+    "docker/orioledb": 0,
+    "docker/pgrust-row": 0
+  },
+  "backendFailures": {
+    "docker/pgrust-columnar": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/large-docker/docker-pgrust-columnar.json"
+  },
+  "unsupported": {}
+}

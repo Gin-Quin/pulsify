@@ -1,0 +1,56 @@
+[
+  {
+    "name": "/pulsify-native-4695-1793826935032-pgrust-columnar-1",
+    "state": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 63110,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-04T21:15:35.318914791Z",
+      "FinishedAt": "0001-01-01T00:00:00Z",
+      "Health": {
+        "Status": "healthy",
+        "FailingStreak": 0,
+        "Log": [
+          {
+            "Start": "2026-11-04T22:15:38.420999318+01:00",
+            "End": "2026-11-04T22:15:38.4415402+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          },
+          {
+            "Start": "2026-11-04T22:15:39.442101989+01:00",
+            "End": "2026-11-04T22:15:39.457122203+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          },
+          {
+            "Start": "2026-11-04T22:15:40.4575997+01:00",
+            "End": "2026-11-04T22:15:40.471283455+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          },
+          {
+            "Start": "2026-11-04T22:15:41.472513869+01:00",
+            "End": "2026-11-04T22:15:41.491475959+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          },
+          {
+            "Start": "2026-11-04T22:15:42.492029415+01:00",
+            "End": "2026-11-04T22:15:42.509003628+01:00",
+            "ExitCode": 0,
+            "Output": ""
+          }
+        ]
+      }
+    },
+    "memoryBytes": 4294967296,
+    "memorySwapBytes": 4294967296
+  }
+]

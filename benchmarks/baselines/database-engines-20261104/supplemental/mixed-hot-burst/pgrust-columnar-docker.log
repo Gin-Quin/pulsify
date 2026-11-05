@@ -1,0 +1,108 @@
+pgrust-columnar-1  | The files belonging to this database system will be owned by user "postgres".
+pgrust-columnar-1  | This user must also own the server process.
+pgrust-columnar-1  |
+pgrust-columnar-1  | The database cluster will be initialized with locale "C.UTF-8".
+pgrust-columnar-1  | The default database encoding has accordingly been set to "UTF8".
+pgrust-columnar-1  | The default text search configuration will be set to "english".
+pgrust-columnar-1  |
+pgrust-columnar-1  | Data page checksums are enabled.
+pgrust-columnar-1  |
+pgrust-columnar-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+pgrust-columnar-1  | creating subdirectories ... ok
+pgrust-columnar-1  | selecting dynamic shared memory implementation ... posix
+pgrust-columnar-1  | selecting default "max_connections" ... 100
+pgrust-columnar-1  | selecting default "shared_buffers" ... 128MB
+pgrust-columnar-1  | selecting default time zone ... Etc/UTC
+pgrust-columnar-1  | creating configuration files ... ok
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:56.351 UTC [33] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | running bootstrap script ... ok
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:56.392 UTC [34] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:56.393 UTC [34] LOG:  gravity: grant pool armed at 5320 MiB, 0 statements in flight (memory limit 16039 MiB, mapped 17129948 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 16 MiB + tables 8 MiB, mode Estimate, small lane 128 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:56.393 UTC [34] STATEMENT:  REVOKE ALL ON pg_authid FROM public;
+pgrust-columnar-1  |
+pgrust-columnar-1  | performing post-bootstrap initialization ... ok
+pgrust-columnar-1  | syncing data to disk ... ok
+pgrust-columnar-1  |
+pgrust-columnar-1  |
+pgrust-columnar-1  | Success. You can now start the database server using:
+pgrust-columnar-1  |
+pgrust-columnar-1  |     /usr/local/bin/postgres -D /var/lib/postgresql/data
+pgrust-columnar-1  |
+pgrust-columnar-1  | initdb: warning: enabling "trust" authentication for local connections
+pgrust-columnar-1  | You can change this by editing pg_hba.conf or using the option -A, or
+pgrust-columnar-1  | --auth-local and --auth-host, the next time you run initdb.
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:57.838 UTC [53] LOG:  cost profile: measured in 33 ms, kept in /var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv; host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.625, gather 0.5, check 0.5, miss 0.875, update 0.5, sort 0.5; anchors ns: read 0.057, gather 0.300, check 0.100, miss 84.475, update 0.475, sort 6.947
+pgrust-columnar-1  | 2026-11-04 21:13:57.841 UTC [53] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-columnar-1  | 2026-11-04 21:13:57.841 UTC [53] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-columnar-1  | 2026-11-04 21:13:57.842 UTC [53] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:57.842 UTC [53] LOG:  listening on IPv6 address "::", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:57.845 UTC [53] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-columnar-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-columnar-1  | 2026-11-04 21:13:57.849 UTC [53] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-columnar-1  | 2026-11-04 21:13:57.850 UTC [1002] LOG:  database system was shut down at 2026-11-04 21:13:56 UTC
+pgrust-columnar-1  | 2026-11-04 21:13:57.850 UTC [1010] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-columnar-1  | 2026-11-04 21:13:57.855 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:57.855 UTC [1030] LOG:  gravity: code cache warmed in 277 us
+pgrust-columnar-1  | 2026-11-04 21:13:57.859 UTC [1030] LOG:  gravity: process image warmed (68 MB), 1 databases to warm (no columnar relation), 4104 us
+pgrust-columnar-1  | 2026-11-04 21:13:57.865 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 4244 us
+pgrust-columnar-1  | 2026-11-04 21:13:57.866 UTC [53] LOG:  database system is ready to accept connections
+pgrust-columnar-1  | 2026-11-04 21:13:58.326 UTC [1036] LOG:  gravity: grant pool armed at 1024 MiB, 0 statements in flight (memory limit 4096 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 64 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:58.326 UTC [1036] STATEMENT:  SELECT 1 FROM pg_database WHERE datname = 'pulsify_benchmark' ;
+pgrust-columnar-1  | CREATE DATABASE
+pgrust-columnar-1  |
+pgrust-columnar-1  |
+pgrust-columnar-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+pgrust-columnar-1  |
+pgrust-columnar-1  | 2026-11-04 21:13:58.365 UTC [53] LOG:  received fast shutdown request
+pgrust-columnar-1  | 2026-11-04 21:13:58.367 UTC [53] LOG:  aborting any active transactions
+pgrust-columnar-1  | 2026-11-04 21:13:58.367 UTC [53] LOG:  background worker "logical replication launcher" (PID 1031) exited with exit code 1
+pgrust-columnar-1  | 2026-11-04 21:13:58.463 UTC [1029] FATAL:  terminating connection due to administrator command
+pgrust-columnar-1  | 2026-11-04 21:13:58.463 UTC [53] LOG:  background worker "pgrcolumnar front launcher" (PID 1029) exited with exit code 1
+pgrust-columnar-1  | 2026-11-04 21:13:58.463 UTC [1000] LOG:  shutting down
+pgrust-columnar-1  | 2026-11-04 21:13:58.465 UTC [1000] LOG:  checkpoint starting: shutdown immediate
+pgrust-columnar-1  | 2026-11-04 21:13:58.683 UTC [1000] LOG:  checkpoint complete: wrote 941 buffers (5.7%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.039 s, sync=0.175 s, total=0.220 s; sync files=303, longest=0.021 s, average=0.001 s; distance=4336 kB, estimate=4336 kB; lsn=0/1B9AB50, redo lsn=0/1B9AB50
+pgrust-columnar-1  | 2026-11-04 21:13:58.685 UTC [53] LOG:  database system is shut down
+pgrust-columnar-1  |
+pgrust-columnar-1  | PostgreSQL init process complete; ready for start up.
+pgrust-columnar-1  |
+pgrust-columnar-1  | LOG:  pool-qos memory governor bar 2726297 kB (PGRUST_RUNTIME_QOS_MEM_BAR_KB; model: memory.max - page_cache_reserve 31% - kernel_slack 4%)
+pgrust-columnar-1  | 2026-11-04 21:13:58.691 UTC [113] LOG:  cost profile: cached (/var/lib/postgresql/.cache/pgrust/cost-profile/aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c.tsv); host aarch64-0x00000000610f0000-l1d128k-l216384k-smt1-vd5454b46bb75c69c; ratios to the reference: read 0.625, gather 0.5, check 0.5, miss 0.875, update 0.5, sort 0.5; anchors ns: read 0.057, gather 0.300, check 0.100, miss 84.475, update 0.475, sort 6.947
+pgrust-columnar-1  | 2026-11-04 21:13:58.692 UTC [113] LOG:  starting pgrust 0.4-beta, build 20911cc (PostgreSQL 18.6 compatible)
+pgrust-columnar-1  | 2026-11-04 21:13:58.692 UTC [113] LOG:  regexp engines: re2+spencer (regex_engine=auto dispatches compatible patterns to re2)
+pgrust-columnar-1  | 2026-11-04 21:13:58.692 UTC [113] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:58.692 UTC [113] LOG:  listening on IPv6 address "::", port 5432
+pgrust-columnar-1  | 2026-11-04 21:13:58.693 UTC [113] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+pgrust-columnar-1  | pgrust: cpu affinity: 10 workers on cpus 0-9 (gang mirrored; standbys pool-set)
+pgrust-columnar-1  | 2026-11-04 21:13:58.696 UTC [113] LOG:  global allocator: hearth (this architecture's default: Hearth on Linux aarch64 and x86_64, mimalloc elsewhere; PGRUST_ALLOCATOR=mimalloc at start turns it off)
+pgrust-columnar-1  | 2026-11-04 21:13:58.696 UTC [1002] LOG:  database system was shut down at 2026-11-04 21:13:58 UTC
+pgrust-columnar-1  | 2026-11-04 21:13:58.697 UTC [1004] LOG:  io_uring buffer reads unavailable (io_uring_setup: errno 1); falling back to posix_fadvise readahead
+pgrust-columnar-1  | 2026-11-04 21:13:58.698 UTC [1002] LOG:  gravity: columnar catalog loaded: 0 relations, 0 generations, 0 parts, sections 0 complete / 0 completed in 0 us (0 bytes held), 0 errors, 0 us, part fds 0 open of 16
+pgrust-columnar-1  | 2026-11-04 21:13:58.699 UTC [1030] LOG:  gravity: code cache warmed in 189 us
+pgrust-columnar-1  | 2026-11-04 21:13:58.703 UTC [1030] LOG:  gravity: process image warmed (68 MB), 2 databases to warm (no columnar relation), 4041 us
+pgrust-columnar-1  | 2026-11-04 21:13:58.708 UTC [1032] LOG:  gravity: catalog pages warmed for database 5: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 3540 us
+pgrust-columnar-1  | 2026-11-04 21:13:58.715 UTC [1033] LOG:  gravity: catalog pages warmed for database 16384: 0 relations, 0 attributes, 258 catalogs / 819 blocks, 0 part lists, image 0 MB, 3618 us
+pgrust-columnar-1  | 2026-11-04 21:13:58.717 UTC [113] LOG:  database system is ready to accept connections
+pgrust-columnar-1  | 2026-11-04 21:13:59.217 UTC [1036] LOG:  gravity: grant pool armed at 1024 MiB, 0 statements in flight (memory limit 4096 MiB, mapped 17141884 MiB, address-space limit 0 MiB, kept for backends 0 MiB, shared_buffers 128 MiB, a statement's regions 64 MiB + tables 32 MiB, mode Estimate, small lane 64 MiB)
+pgrust-columnar-1  | 2026-11-04 21:13:59.217 UTC [1036] STATEMENT:  SET statement_timeout='30s'; SET lock_timeout='30s';
+pgrust-columnar-1  | 2026-11-04 21:13:59.363 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-columnar-1  | 2026-11-04 21:13:59.425 UTC [1000] LOG:  checkpoint complete: wrote 71 buffers (0.4%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.055 s, total=0.062 s; sync files=56, longest=0.005 s, average=0.001 s; distance=392 kB, estimate=392 kB; lsn=0/1BFCD70, redo lsn=0/1BFCD18
+pgrust-columnar-1  | 2026-11-04 21:13:59.710 UTC [113] LOG:  memory watchdog: armed: limit=4096 MB (source=cgroup v2 memory.max) tiers=80%/90%/95% interval=1000 ms
+pgrust-columnar-1  | 2026-11-04 21:13:59.893 UTC [1095] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 900 of 1024 MiB, in flight 25/0, waits 1, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.893 UTC [1095] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.909 UTC [1116] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 900 of 1024 MiB, in flight 29/0, waits 6, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.909 UTC [1116] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.912 UTC [1150] LOG:  gravity: grant 32 MiB of 32 MiB asked after 2 ms (pool held 900 of 1024 MiB, in flight 29/0, waits 7, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.912 UTC [1150] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.912 UTC [1073] LOG:  gravity: grant 32 MiB of 32 MiB asked after 4 ms (pool held 900 of 1024 MiB, in flight 28/0, waits 7, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.912 UTC [1073] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.915 UTC [1051] LOG:  gravity: grant 32 MiB of 32 MiB asked after 7 ms (pool held 936 of 1024 MiB, in flight 28/0, waits 7, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.915 UTC [1051] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.915 UTC [1053] LOG:  gravity: grant 32 MiB of 32 MiB asked after 7 ms (pool held 936 of 1024 MiB, in flight 27/0, waits 7, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.915 UTC [1053] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:13:59.917 UTC [1098] LOG:  gravity: grant 32 MiB of 32 MiB asked after 9 ms (pool held 756 of 1024 MiB, in flight 21/0, waits 7, sheds 0; whole)
+pgrust-columnar-1  | 2026-11-04 21:13:59.917 UTC [1098] STATEMENT:  WITH remote(sid,clock) AS (SELECT * FROM unnest($2::bigint[],$3::bigint[])) SELECT s.metadata,s.payload FROM native_segments s LEFT JOIN remote r ON r.sid=s.sid WHERE s.doc=$1 AND s."end">coalesce(r.clock,0) ORDER BY s.sid,s.start
+pgrust-columnar-1  | 2026-11-04 21:14:01.890 UTC [1000] LOG:  checkpoint starting: immediate force wait
+pgrust-columnar-1  | 2026-11-04 21:14:01.937 UTC [1000] LOG:  checkpoint complete: wrote 967 buffers (5.9%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 1 recycled; write=0.008 s, sync=0.031 s, total=0.047 s; sync files=20, longest=0.006 s, average=0.002 s; distance=6096 kB, estimate=6096 kB; lsn=0/21F1108, redo lsn=0/21F10B0

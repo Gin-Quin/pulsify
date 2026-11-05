@@ -1,0 +1,552 @@
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { tmpdir, cpus, totalmem } from "node:os";
+import { resolve, join } from "node:path";
+import { createServer } from "node:net";
+import { engines, pgSettings, type Backend } from "./engines.js";
+
+const root = new URL("../../", import.meta.url).pathname;
+const argv = process.argv.slice(2);
+const valueFlags = new Set([
+	"--environment",
+	"--profile",
+	"--requests",
+	"--concurrency",
+	"--documents",
+	"--topologies",
+	"--modes",
+	"--scenarios",
+	"--results-dir",
+	"--databases",
+]);
+for (let i = 0; i < argv.length; i++) {
+	const flag = argv[i]!;
+	if (["--help", "--quick", "--contract-only"].includes(flag)) continue;
+	if (!valueFlags.has(flag) || !argv[i + 1] || argv[i + 1]!.startsWith("--"))
+		throw new Error(`Invalid argument ${flag}; use --help`);
+	i++;
+}
+const arg = (name: string, fallback: string) => {
+	const i = argv.indexOf(name);
+	return i < 0 ? fallback : argv[i + 1]!;
+};
+if (argv.includes("--help")) {
+	console.log(`Native Rust database load benchmark
+ bun run bench:database [--environment both|bare-metal|docker] [--quick] [--contract-only]
+ [--profile small|medium|large] [--requests 400] [--concurrency 1,16,64]
+ [--documents 8] [--topologies spread,hot] [--modes burst,saturation]
+ [--databases ${Object.keys(engines).join(",")}]
+ [--scenarios write_full,read_full,write_patch,compact,read_delta,mixed]
+ [--results-dir benchmarks/results/native-database]
+ Native: PG_BIN for PostgreSQL; PGRUST_BIN for the verified official 0.4-beta release.
+ AlloyDB Omni and OrioleDB run in Docker on this Mac. Unsupported native deployments
+ are recorded explicitly. Each engine gets fresh isolated data; no cloud resources.`);
+	process.exit(0);
+}
+const quick = argv.includes("--quick"),
+	contractOnly = argv.includes("--contract-only");
+const environment = arg("--environment", "both"),
+	profile = arg("--profile", quick ? "small" : "medium");
+const requests = arg("--requests", quick ? "20" : "400"),
+	concurrency = arg("--concurrency", quick ? "4" : "1,16,64");
+const selectedDatabases = arg("--databases", "postgres,sqlite").split(
+	",",
+) as Backend[];
+if (
+	!selectedDatabases.length ||
+	new Set(selectedDatabases).size !== selectedDatabases.length ||
+	selectedDatabases.some((db) => !Object.hasOwn(engines, db))
+)
+	throw new Error("Unknown or duplicate database");
+if (!["both", "bare-metal", "docker"].includes(environment))
+	throw new Error("Unknown environment");
+const levels = concurrency.split(",").map(Number),
+	workers = Math.max(...levels);
+if (
+	!levels.every((c) => Number.isSafeInteger(c) && c >= 1 && c <= 128) ||
+	!Number.isSafeInteger(Number(requests)) ||
+	Number(requests) < 20 ||
+	Number(requests) % 20
+)
+	throw new Error(
+		"Use concurrency 1..128 and requests a positive multiple of 20",
+	);
+const output = resolve(
+	root,
+	arg("--results-dir", "benchmarks/results/native-database"),
+);
+await mkdir(output, { recursive: true });
+const temporary = await mkdtemp(join(tmpdir(), "pulsify-native-")),
+	fixture = join(temporary, "fixture.json");
+const env: Record<string, string | undefined> = {
+	...process.env,
+	BENCH_RESULTS_DIR: output,
+	BENCH_FIXTURE: fixture,
+};
+const activeCommands = new Set<() => void>();
+async function run(
+	args: string[],
+	capture = false,
+	required = true,
+	onExit?: (code: number) => void,
+): Promise<string> {
+	const child = Bun.spawn(args, {
+		cwd: root,
+		env,
+		stdout: capture ? "pipe" : "inherit",
+		stderr: capture ? "pipe" : "inherit",
+	});
+	const stop = () => child.kill("SIGTERM");
+	activeCommands.add(stop);
+	const [stdout, stderr, code] = await Promise.all([
+		capture ? new Response(child.stdout).text() : Promise.resolve(""),
+		capture ? new Response(child.stderr).text() : Promise.resolve(""),
+		child.exited,
+	]);
+	activeCommands.delete(stop);
+	onExit?.(code);
+	if (required && code !== 0)
+		throw new Error(
+			`${args.slice(0, 4).join(" ")} failed (${code}): ${stderr || stdout}`,
+		);
+	return stdout.trim();
+}
+async function port(): Promise<number> {
+	const server = createServer();
+	await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+	const p = (server.address() as { port: number }).port;
+	await new Promise<void>((r) => server.close(() => r()));
+	return p;
+}
+const common = [
+	"--concurrency",
+	concurrency,
+	"--requests",
+	requests,
+	"--documents",
+	arg("--documents", "8"),
+	"--topologies",
+	arg("--topologies", "spread,hot"),
+	"--modes",
+	arg("--modes", quick ? "burst" : "burst,saturation"),
+	"--scenarios",
+	arg(
+		"--scenarios",
+		"write_full,read_full,write_patch,compact,read_delta,mixed",
+	),
+	...(contractOnly ? ["--contract-only"] : []),
+];
+env["BENCH_COMMIT"] = await run(["git", "rev-parse", "HEAD"], true);
+const context = {
+	startedAt: new Date().toISOString(),
+	completedAt: "",
+	sourceSha256: "",
+	orchestrationSha256: "",
+	compiler:
+		environment === "docker"
+			? "rust:1.95-slim-bookworm"
+			: await run(["rustc", "--version"], true),
+	memorySnapshots: {} as Record<string, unknown>,
+	fixtureSha256: "",
+	host: {
+		platform: process.platform,
+		architecture: process.arch,
+		cpu: cpus()[0]?.model,
+		cpus: cpus().length,
+		ramBytes: totalmem(),
+	},
+	commit: env["BENCH_COMMIT"],
+	dirty: !!(await run(["git", "status", "--porcelain"], true)),
+	profile,
+	selectedDatabases,
+	requests: Number(requests),
+	concurrency: levels,
+	command: argv,
+	resourceSettings: {
+		postgresCompatibleArguments: pgSettings,
+		oneMeasuredBackendAtATime: true,
+		alloydb:
+			"same PostgreSQL settings; effective settings captured in raw report",
+	},
+	databases: {} as Record<string, unknown>,
+	requestErrors: {} as Record<string, number>,
+	backendFailures: {} as Record<string, string>,
+	unsupported: {} as Record<string, string>,
+};
+async function memorySnapshot(key: string) {
+	const info =
+		process.platform === "darwin"
+			? await Promise.all([
+					run(["memory_pressure"], true, false),
+					run(["sysctl", "vm.swapusage"], true, false),
+					run(["df", "-k", "/"], true, false),
+				])
+			: [];
+	context.memorySnapshots[key] = {
+		at: new Date().toISOString(),
+		pressure: info[0],
+		swap: info[1],
+		disk: info[2],
+	};
+}
+const orchestrationHasher = new Bun.CryptoHasher("sha256");
+for (const path of [
+	"native.ts",
+	"engines.ts",
+	"native-compose.yaml",
+	"native.Dockerfile",
+	"native-fixtures.ts",
+	"fixtures.ts",
+	"native-report.ts",
+]) {
+	orchestrationHasher.update(path);
+	orchestrationHasher.update(
+		new Uint8Array(
+			await Bun.file(join(root, "benchmarks/database", path)).arrayBuffer(),
+		),
+	);
+}
+context.orchestrationSha256 = orchestrationHasher.digest("hex");
+const hasher = new Bun.CryptoHasher("sha256");
+for (const path of [
+	"Cargo.toml",
+	"Cargo.lock",
+	"src/main.rs",
+	"src/model.rs",
+	"src/tests.rs",
+	"src/contract.rs",
+	"src/storage/mod.rs",
+	"src/storage/pg.rs",
+	"src/storage/sqlite.rs",
+]) {
+	hasher.update(path);
+	hasher.update(
+		new Uint8Array(
+			await Bun.file(join(root, "crates/pulsify-db-bench", path)).arrayBuffer(),
+		),
+	);
+}
+context.sourceSha256 = hasher.digest("hex");
+const cleanupTasks: Array<() => Promise<unknown>> = [];
+let cleaning: Promise<unknown> | undefined;
+const cleanup = () =>
+	(cleaning ??= (async () => {
+		for (const f of cleanupTasks.toReversed()) await f().catch(console.error);
+		await rm(temporary, { recursive: true, force: true });
+	})());
+for (const signal of ["SIGINT", "SIGTERM"] as const)
+	process.on(signal, () => {
+		for (const stop of activeCommands) stop();
+		void cleanup().finally(() => process.exit(130));
+	});
+const saveContext = async () =>
+	Bun.write(join(output, "context.json"), JSON.stringify(context, null, 2));
+async function verify(path: string, exitCode: number) {
+	if (contractOnly) {
+		if (exitCode !== 0) throw new Error("Contract failed");
+		return;
+	}
+	const report = await Bun.file(path).json();
+	const expected =
+		levels.length *
+		common[common.indexOf("--scenarios") + 1]!.split(",").length *
+		arg("--topologies", "spread,hot").split(",").length *
+		arg("--modes", quick ? "burst" : "burst,saturation").split(",").length;
+	if (
+		report.cells.length !== expected ||
+		report.cells.some(
+			(c: { events: unknown[] }) => c.events.length !== Number(requests),
+		)
+	)
+		throw new Error(`Incomplete backend campaign: ${path}`);
+	const key = `${report.arguments.environment}/${report.arguments.backend}`;
+	context.requestErrors[key] = report.cells.reduce(
+		(n: number, c: { summary: { errors: number } }) => n + c.summary.errors,
+		0,
+	);
+	if (exitCode !== 0 && (exitCode !== 1 || context.requestErrors[key] === 0))
+		throw new Error(`Unexpected process exit ${exitCode}`);
+	await run(["bun", "benchmarks/database/native-fixtures.ts", "verify", path]);
+}
+async function measure(
+	backend: Backend,
+	deployment: string,
+	prefix: string[],
+	pgUrl: string,
+	mounted: boolean,
+) {
+	const name = `${deployment}-${backend}${contractOnly ? "-contract" : ""}.json`,
+		path = join(output, name);
+	await rm(path, { force: true });
+	let code = 0;
+	await run(
+		[
+			...prefix,
+			"--backend",
+			backend,
+			"--environment",
+			deployment,
+			"--fixture",
+			mounted ? "/fixture.json" : fixture,
+			"--output",
+			mounted ? `/results/${name}` : path,
+			"--postgres-url",
+			pgUrl,
+			"--sqlite-path",
+			mounted ? "/tmp/native.sqlite" : join(temporary, "native.sqlite"),
+			...common,
+		],
+		false,
+		false,
+		(value) => {
+			code = value;
+		},
+	);
+	await verify(path, code);
+}
+try {
+	await run([
+		"bun",
+		"benchmarks/database/native-fixtures.ts",
+		"generate",
+		fixture,
+		profile,
+		String(workers),
+		requests,
+	]);
+	context.fixtureSha256 = new Bun.CryptoHasher("sha256")
+		.update(new Uint8Array(await Bun.file(fixture).arrayBuffer()))
+		.digest("hex");
+	if (environment !== "docker") {
+		await run([
+			"cargo",
+			"build",
+			"--release",
+			"--locked",
+			"--manifest-path",
+			"crates/pulsify-db-bench/Cargo.toml",
+		]);
+		for (const backend of selectedDatabases) {
+			await memorySnapshot(
+				`${environment !== "docker" && !context.databases["docker"] ? "bare-metal" : "docker"}/${backend}/before`,
+			);
+			const native = engines[backend].native,
+				key = `bare-metal/${backend}`;
+			if (!native) {
+				context.unsupported[key] =
+					"No macOS native deployment configured; use Docker (Linux).";
+				continue;
+			}
+			let stop: (() => Promise<unknown>) | undefined;
+			try {
+				let url = "";
+				if (native !== "sqlite") {
+					const bin =
+						native === "postgres"
+							? (env["PG_BIN"] ?? "/opt/homebrew/opt/postgresql@16/bin")
+							: env["PGRUST_BIN"];
+					if (!bin || !(await Bun.file(join(bin, "initdb")).exists()))
+						throw new Error(
+							`Set ${native === "pgrust" ? "PGRUST_BIN" : "PG_BIN"} to installed native binaries`,
+						);
+					const data = join(temporary, backend),
+						n = await port(),
+						log = join(output, `${backend}-server.log`);
+					await run(
+						[
+							join(bin, "initdb"),
+							"-D",
+							data,
+							"--locale=C",
+							"--encoding=UTF8",
+							"--auth=trust",
+							"-U",
+							"postgres",
+						],
+						true,
+					);
+					url = `postgresql://postgres@127.0.0.1:${n}/postgres`;
+					const child = Bun.spawn(
+						[
+							"/bin/zsh",
+							"-c",
+							'ulimit -s 65520; exec "$@"',
+							"pulsify-server",
+							join(bin, "postgres"),
+							"-D",
+							data,
+							"-h",
+							"127.0.0.1",
+							"-p",
+							String(n),
+							"-k",
+							temporary,
+							...pgSettings,
+						],
+						{
+							env: { ...env, RUST_MIN_STACK: "33554432" },
+							stdout: Bun.file(log),
+							stderr: Bun.file(`${log}.stderr`),
+						},
+					);
+					stop = async () => {
+						if (child.exitCode === null) child.kill("SIGINT");
+						const timer = setTimeout(() => {
+							if (child.exitCode === null) child.kill("SIGKILL");
+						}, 20000);
+						await child.exited;
+						clearTimeout(timer);
+						await rm(data, { recursive: true, force: true });
+					};
+					cleanupTasks.push(stop);
+					let ready = false;
+					for (let i = 0; i < 120; i++) {
+						if (child.exitCode !== null)
+							throw new Error(`Server exited; see ${log}.stderr`);
+						const check = Bun.spawn(
+							[
+								"/opt/homebrew/opt/postgresql@16/bin/psql",
+								url,
+								"-Atc",
+								"SELECT 1",
+							],
+							{ stdout: "pipe", stderr: "pipe" },
+						);
+						await Promise.all([
+							new Response(check.stdout).text(),
+							new Response(check.stderr).text(),
+						]);
+						if ((await check.exited) === 0) {
+							ready = true;
+							break;
+						}
+						await Bun.sleep(250);
+					}
+					if (!ready) throw new Error(`Server readiness timed out; see ${log}`);
+				}
+				await measure(
+					backend,
+					"bare-metal",
+					["crates/pulsify-db-bench/target/release/pulsify-db-bench"],
+					url,
+					false,
+				);
+			} catch (error) {
+				context.backendFailures[key] = String(error);
+				console.error(error);
+			} finally {
+				if (stop) {
+					await stop();
+					cleanupTasks.pop();
+				}
+			}
+			await saveContext();
+		}
+	}
+	if (environment !== "bare-metal") {
+		const project = `pulsify-native-${process.pid}-${Date.now()}`;
+		const compose = [
+			"docker",
+			"compose",
+			"-p",
+			project,
+			"-f",
+			"benchmarks/database/native-compose.yaml",
+		];
+		const down = () =>
+			run([...compose, "down", "--volumes", "--remove-orphans"], false, false);
+		cleanupTasks.push(down);
+		if (!env["PULSIFY_NATIVE_IMAGE"])
+			await run([...compose, "build", "native"]);
+		context.databases["docker"] = {
+			runnerImage: await run(
+				[
+					"docker",
+					"image",
+					"inspect",
+					env["PULSIFY_NATIVE_IMAGE"] ?? "pulsify-native-benchmark",
+					"--format",
+					"{{.Id}}",
+				],
+				true,
+			),
+			docker: JSON.parse(
+				await run(["docker", "info", "--format", "{{json .}}"], true),
+			),
+			engines: {} as Record<string, unknown>,
+		};
+		for (const backend of selectedDatabases) {
+			await memorySnapshot(`docker/${backend}/before`);
+			try {
+				const engine = engines[backend];
+				if (engine.image) {
+					await run([
+						...compose,
+						"up",
+						"-d",
+						"--wait",
+						"--wait-timeout",
+						"180",
+						backend,
+					]);
+					const id = await run([...compose, "ps", "-q", backend], true);
+					const info = JSON.parse(
+						await run(["docker", "inspect", id], true),
+					)[0];
+					(
+						context.databases["docker"] as { engines: Record<string, unknown> }
+					).engines[backend] = {
+						image: engine.image,
+						imageId: info.Image,
+						inspection: JSON.parse(
+							await run(["docker", "image", "inspect", info.Image], true),
+						)[0],
+					};
+				}
+				await measure(
+					backend,
+					"docker",
+					[...compose, "run", "--rm", "native"],
+					`postgresql://postgres:pulsify-benchmark@${backend}/postgres`,
+					true,
+				);
+			} catch (error) {
+				context.backendFailures[`docker/${backend}`] = String(error);
+				console.error(error);
+			} finally {
+				if (engines[backend].image) {
+					const logs = await run(
+						[...compose, "logs", "--no-color", backend],
+						true,
+						false,
+					);
+					await Bun.write(join(output, `${backend}-docker.log`), logs);
+				}
+				// Only this engine is running during measurement; release data before the next.
+				await down();
+			}
+			await saveContext();
+		}
+	}
+	await memorySnapshot("completed");
+	context.completedAt = new Date().toISOString();
+	await saveContext();
+	if (!contractOnly)
+		await run(["bun", "benchmarks/database/native-report.ts", output]);
+	if (
+		Object.values(context.requestErrors).some((n) => n > 0) ||
+		Object.keys(context.backendFailures).length
+	)
+		process.exitCode = 1;
+} catch (error) {
+	await Bun.write(
+		join(output, "FAILURE.json"),
+		JSON.stringify(
+			{ completed: false, error: String(error), context },
+			null,
+			2,
+		),
+	);
+	throw error;
+} finally {
+	await cleanup();
+}

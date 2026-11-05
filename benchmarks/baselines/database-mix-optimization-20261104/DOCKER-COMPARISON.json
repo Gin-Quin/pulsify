@@ -1,0 +1,539 @@
+{
+  "baseline": [
+    "/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/baseline-docker"
+  ],
+  "candidate": [
+    "/home/benchmark/code/pulsify/benchmarks/baselines/database-mix-optimization-20261104/optimized-docker"
+  ],
+  "passed": true,
+  "rows": [
+    {
+      "key": "docker/postgres/128/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1599.104672807249,
+          "service": {
+            "p50_ms": 24.112583,
+            "p95_ms": 365.382568,
+            "p99_ms": 433.737315,
+            "max_ms": 471.878106
+          },
+          "queue": {
+            "p50_ms": 453.002565,
+            "p95_ms": 552.168103,
+            "p99_ms": 560.170477,
+            "max_ms": 562.583394
+          },
+          "latency": {
+            "p50_ms": 483.76347999999996,
+            "p95_ms": 589.9804340000001,
+            "p99_ms": 614.851433,
+            "max_ms": 625.349933
+          },
+          "retries": 45,
+          "useful_compactions": 9,
+          "noop_compactions": 91,
+          "removed_segments": 7969,
+          "useful_compactions_per_sec": 14.39194205526524
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2783.278409555226,
+          "service": {
+            "p50_ms": 24.917458,
+            "p95_ms": 132.454244,
+            "p99_ms": 186.473909,
+            "max_ms": 234.800115
+          },
+          "queue": {
+            "p50_ms": 183.002576,
+            "p95_ms": 286.828696,
+            "p99_ms": 293.66790399999996,
+            "max_ms": 295.235654
+          },
+          "latency": {
+            "p50_ms": 217.16878299999996,
+            "p95_ms": 321.03532,
+            "p99_ms": 346.658152,
+            "max_ms": 359.288485
+          },
+          "retries": 39,
+          "useful_compactions": 8,
+          "noop_compactions": 92,
+          "removed_segments": 7968,
+          "useful_compactions_per_sec": 22.26622727644181
+        }
+      ],
+      "gainPercent": 74.0522966935707
+    },
+    {
+      "key": "docker/postgres/128/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 1981.527459927288,
+          "service": {
+            "p50_ms": 34.291373,
+            "p95_ms": 243.681365,
+            "p99_ms": 306.48040399999996,
+            "max_ms": 367.20752699999997
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 34.291373,
+            "p95_ms": 243.681365,
+            "p99_ms": 306.48040399999996,
+            "max_ms": 367.20752699999997
+          },
+          "retries": 41,
+          "useful_compactions": 9,
+          "noop_compactions": 91,
+          "removed_segments": 7969,
+          "useful_compactions_per_sec": 17.833747139345594
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 2923.5354193376393,
+          "service": {
+            "p50_ms": 30.658957,
+            "p95_ms": 117.794912,
+            "p99_ms": 165.176118,
+            "max_ms": 195.2757
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 30.658957,
+            "p95_ms": 117.794912,
+            "p99_ms": 165.176118,
+            "max_ms": 195.2757
+          },
+          "retries": 44,
+          "useful_compactions": 10,
+          "noop_compactions": 90,
+          "removed_segments": 7970,
+          "useful_compactions_per_sec": 29.23535419337639
+        }
+      ],
+      "gainPercent": 47.539485495947574
+    },
+    {
+      "key": "docker/postgres/128/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 671.2862811866911,
+          "service": {
+            "p50_ms": 149.347328,
+            "p95_ms": 416.54060799999996,
+            "p99_ms": 721.6717209999999,
+            "max_ms": 856.2515480000001
+          },
+          "queue": {
+            "p50_ms": 499.471271,
+            "p95_ms": 1051.6405399999999,
+            "p99_ms": 1103.253622,
+            "max_ms": 1126.2875370000002
+          },
+          "latency": {
+            "p50_ms": 612.588475,
+            "p95_ms": 1365.5533610000002,
+            "p99_ms": 1485.973189,
+            "max_ms": 1489.677064
+          },
+          "retries": 156,
+          "useful_compactions": 5,
+          "noop_compactions": 95,
+          "removed_segments": 1124,
+          "useful_compactions_per_sec": 3.3564314059334555
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 875.0944552889941,
+          "service": {
+            "p50_ms": 144.307827,
+            "p95_ms": 262.303073,
+            "p99_ms": 651.67514,
+            "max_ms": 914.926795
+          },
+          "queue": {
+            "p50_ms": 329.05282,
+            "p95_ms": 812.513842,
+            "p99_ms": 863.4541730000001,
+            "max_ms": 881.0042559999999
+          },
+          "latency": {
+            "p50_ms": 443.185773,
+            "p95_ms": 1040.920082,
+            "p99_ms": 1138.980912,
+            "max_ms": 1142.733328
+          },
+          "retries": 203,
+          "useful_compactions": 6,
+          "noop_compactions": 94,
+          "removed_segments": 1131,
+          "useful_compactions_per_sec": 5.250566731733965
+        }
+      ],
+      "gainPercent": 30.36084302840416
+    },
+    {
+      "key": "docker/postgres/128/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 655.6465322160253,
+          "service": {
+            "p50_ms": 139.780952,
+            "p95_ms": 374.326193,
+            "p99_ms": 690.114222,
+            "max_ms": 824.8267999999999
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 139.780952,
+            "p95_ms": 374.326193,
+            "p99_ms": 690.114222,
+            "max_ms": 824.8267999999999
+          },
+          "retries": 135,
+          "useful_compactions": 5,
+          "noop_compactions": 95,
+          "removed_segments": 1122,
+          "useful_compactions_per_sec": 3.2782326610801267
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 875.9691268009941,
+          "service": {
+            "p50_ms": 131.033744,
+            "p95_ms": 274.233114,
+            "p99_ms": 520.546062,
+            "max_ms": 606.698517
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 131.033744,
+            "p95_ms": 274.233114,
+            "p99_ms": 520.546062,
+            "max_ms": 606.698517
+          },
+          "retries": 132,
+          "useful_compactions": 5,
+          "noop_compactions": 95,
+          "removed_segments": 1123,
+          "useful_compactions_per_sec": 4.379845634004971
+        }
+      ],
+      "gainPercent": 33.6038679012453
+    },
+    {
+      "key": "docker/sqlite/128/spread/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 437.35246037754547,
+          "service": {
+            "p50_ms": 2.0348330000000003,
+            "p95_ms": 1154.776994,
+            "p99_ms": 1662.6608899999999,
+            "max_ms": 2286.224324
+          },
+          "queue": {
+            "p50_ms": 584.493185,
+            "p95_ms": 943.5341699999999,
+            "p99_ms": 966.200836,
+            "max_ms": 973.216211
+          },
+          "latency": {
+            "p50_ms": 687.634681,
+            "p95_ms": 1219.934326,
+            "p99_ms": 1675.974932,
+            "max_ms": 2286.4821989999996
+          },
+          "retries": 38,
+          "useful_compactions": 40,
+          "noop_compactions": 60,
+          "removed_segments": 8030,
+          "useful_compactions_per_sec": 17.494098415101817
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 919.8493153259376,
+          "service": {
+            "p50_ms": 10.885374,
+            "p95_ms": 589.918393,
+            "p99_ms": 899.688838,
+            "max_ms": 1070.416039
+          },
+          "queue": {
+            "p50_ms": 388.514484,
+            "p95_ms": 847.34184,
+            "p99_ms": 887.118381,
+            "max_ms": 897.770713
+          },
+          "latency": {
+            "p50_ms": 481.629522,
+            "p95_ms": 1009.263876,
+            "p99_ms": 1071.9597059999999,
+            "max_ms": 1087.134289
+          },
+          "retries": 42,
+          "useful_compactions": 18,
+          "noop_compactions": 82,
+          "removed_segments": 7983,
+          "useful_compactions_per_sec": 16.557287675866878
+        }
+      ],
+      "gainPercent": 110.32219974980264
+    },
+    {
+      "key": "docker/sqlite/128/spread/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 438.00922306209594,
+          "service": {
+            "p50_ms": 2.8857079999999997,
+            "p95_ms": 1054.89279,
+            "p99_ms": 1766.455844,
+            "max_ms": 2179.455369
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 2.8857079999999997,
+            "p95_ms": 1054.89279,
+            "p99_ms": 1766.455844,
+            "max_ms": 2179.455369
+          },
+          "retries": 34,
+          "useful_compactions": 35,
+          "noop_compactions": 65,
+          "removed_segments": 8018,
+          "useful_compactions_per_sec": 15.330322807173358
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 899.3669163811073,
+          "service": {
+            "p50_ms": 7.237083,
+            "p95_ms": 593.6819340000001,
+            "p99_ms": 949.904752,
+            "max_ms": 1049.014541
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 7.237083,
+            "p95_ms": 593.6819340000001,
+            "p99_ms": 949.904752,
+            "max_ms": 1049.014541
+          },
+          "retries": 27,
+          "useful_compactions": 16,
+          "noop_compactions": 84,
+          "removed_segments": 7976,
+          "useful_compactions_per_sec": 14.389870662097717
+        }
+      ],
+      "gainPercent": 105.33058872452222
+    },
+    {
+      "key": "docker/sqlite/128/hot/burst",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 422.1075474768651,
+          "service": {
+            "p50_ms": 1.887334,
+            "p95_ms": 959.2352109999999,
+            "p99_ms": 1871.652882,
+            "max_ms": 2368.91607
+          },
+          "queue": {
+            "p50_ms": 432.732982,
+            "p95_ms": 823.505924,
+            "p99_ms": 849.553507,
+            "max_ms": 859.1778810000001
+          },
+          "latency": {
+            "p50_ms": 521.261978,
+            "p95_ms": 1130.7779540000001,
+            "p99_ms": 1872.072632,
+            "max_ms": 2369.0627780000004
+          },
+          "retries": 57,
+          "useful_compactions": 54,
+          "noop_compactions": 46,
+          "removed_segments": 1206,
+          "useful_compactions_per_sec": 22.793807563750715
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 888.8616336258546,
+          "service": {
+            "p50_ms": 28.334791000000003,
+            "p95_ms": 603.1897670000001,
+            "p99_ms": 1011.0740000000001,
+            "max_ms": 1108.1729540000001
+          },
+          "queue": {
+            "p50_ms": 496.272563,
+            "p95_ms": 916.725379,
+            "p99_ms": 951.605503,
+            "max_ms": 964.7445019999999
+          },
+          "latency": {
+            "p50_ms": 612.6789749999999,
+            "p95_ms": 1055.69279,
+            "p99_ms": 1110.663704,
+            "max_ms": 1125.034204
+          },
+          "retries": 169,
+          "useful_compactions": 40,
+          "noop_compactions": 60,
+          "removed_segments": 1157,
+          "useful_compactions_per_sec": 35.55446534503418
+        }
+      ],
+      "gainPercent": 110.57705291909556
+    },
+    {
+      "key": "docker/sqlite/128/hot/saturation",
+      "before": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 459.29900044889683,
+          "service": {
+            "p50_ms": 2.401041,
+            "p95_ms": 943.703003,
+            "p99_ms": 1457.240816,
+            "max_ms": 2176.203536
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 2.401041,
+            "p95_ms": 943.703003,
+            "p99_ms": 1457.240816,
+            "max_ms": 2176.203536
+          },
+          "retries": 67,
+          "useful_compactions": 45,
+          "noop_compactions": 55,
+          "removed_segments": 1199,
+          "useful_compactions_per_sec": 20.668455020200355
+        }
+      ],
+      "after": [
+        {
+          "requests": 1000,
+          "success": 1000,
+          "errors": 0,
+          "throughput_per_sec": 778.9265133277955,
+          "service": {
+            "p50_ms": 34.063373,
+            "p95_ms": 660.939556,
+            "p99_ms": 1073.410247,
+            "max_ms": 1269.4487809999998
+          },
+          "queue": {
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
+            "max_ms": 0
+          },
+          "latency": {
+            "p50_ms": 34.063373,
+            "p95_ms": 660.939556,
+            "p99_ms": 1073.410247,
+            "max_ms": 1269.4487809999998
+          },
+          "retries": 155,
+          "useful_compactions": 44,
+          "noop_compactions": 56,
+          "removed_segments": 1154,
+          "useful_compactions_per_sec": 34.272766586423
+        }
+      ],
+      "gainPercent": 69.59029141507169
+    }
+  ]
+}

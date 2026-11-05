@@ -1,0 +1,10 @@
+{
+  "operation": "mixed",
+  "topology": "spread",
+  "mode": "burst",
+  "environment": "both",
+  "code": 0,
+  "guard": null,
+  "startedAt": "2026-11-04T21:14:26.928Z",
+  "completedAt": "2026-11-04T21:14:50.626Z"
+}

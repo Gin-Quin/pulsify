@@ -1,0 +1,54 @@
+$ bun benchmarks/database/native.ts --environment both --profile large --requests "1000" --concurrency "128" --results-dir "benchmarks/baselines/database-native-20261104/large"
+Generated large: 128 real actor streams × 1000 patches
+    Finished `release` profile [optimized] target(s) in 0.11s
+    Finished `release` profile [optimized] target(s) in 0.08s
+     Running unittests src/main.rs (crates/pulsify-db-bench/target/release/deps/pulsify_db_bench-3fedc404aee1587b)
+
+running 4 tests
+test tests::compacted_segments_are_lossless_and_checked ... ok
+test tests::exact_mix_and_burst_work_are_not_lost ... ok
+test tests::real_postgres_and_foundationdb_parallel_contract ... ok
+test tests::sqlite_parallel_contract ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+postgres/write_full/spread/burst/c128: 2083.1 req/s, p99 233.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/spread/saturation/c128: 1877.9 req/s, p99 351.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/burst/c128: 2256.5 req/s, p99 230.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_full/hot/saturation/c128: 2196.0 req/s, p99 165.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/burst/c128: 1058.0 req/s, p99 530.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/spread/saturation/c128: 1205.7 req/s, p99 481.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/burst/c128: 1117.7 req/s, p99 420.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_full/hot/saturation/c128: 1219.5 req/s, p99 400.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/burst/c128: 3922.7 req/s, p99 50.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/spread/saturation/c128: 3869.1 req/s, p99 55.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/burst/c128: 1284.5 req/s, p99 116.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/write_patch/hot/saturation/c128: 1291.5 req/s, p99 117.48 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/compact/spread/burst/c128: 733.1 req/s, p99 595.15 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/spread/saturation/c128: 695.8 req/s, p99 681.47 ms, 0 errors, 0 retries, 1000/0 useful/noop compactions
+postgres/compact/hot/burst/c128: 5207.3 req/s, p99 187.03 ms, 0 errors, 127 retries, 1/999 useful/noop compactions
+postgres/compact/hot/saturation/c128: 4020.2 req/s, p99 244.91 ms, 0 errors, 127 retries, 1/999 useful/noop compactions
+postgres/read_delta/spread/burst/c128: 5185.4 req/s, p99 42.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/spread/saturation/c128: 5134.9 req/s, p99 58.06 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/burst/c128: 4804.5 req/s, p99 49.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/read_delta/hot/saturation/c128: 2314.2 req/s, p99 207.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+postgres/mixed/spread/burst/c128: 1270.5 req/s, p99 639.10 ms, 0 errors, 56 retries, 11/89 useful/noop compactions
+postgres/mixed/spread/saturation/c128: 1236.0 req/s, p99 665.74 ms, 0 errors, 57 retries, 12/88 useful/noop compactions
+postgres/mixed/hot/burst/c128: 1105.1 req/s, p99 455.50 ms, 0 errors, 124 retries, 5/95 useful/noop compactions
+postgres/mixed/hot/saturation/c128: 1056.7 req/s, p99 456.43 ms, 0 errors, 121 retries, 5/95 useful/noop compactions
+Verified 40 new representative histories; 40 retained materialization proofs
+foundationdb/write_full/spread/burst/c128: 2679.9 req/s, p99 86.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+ERROR: Out of memory
+Error: Operation aborted because the transaction timed out
+222 | 		report.cells.length !== expected ||
+223 | 		report.cells.some(
+224 | 			(c: { events: unknown[] }) => c.events.length !== Number(requests),
+225 | 		)
+226 | 	)
+227 | 		throw new Error(`Incomplete backend campaign: ${path}`);
+                  ^
+error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/baselines/database-native-20261104/large/bare-metal-foundationdb.json
+      at verify (/home/benchmark/code/pulsify/benchmarks/database/native.ts:227:13)
+
+Bun v1.4.4 (macOS arm64)
+error: script "bench:database" exited with code 1

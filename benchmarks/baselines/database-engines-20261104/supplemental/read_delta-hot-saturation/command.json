@@ -1,0 +1,22 @@
+[
+  "bun",
+  "benchmarks/database/native.ts",
+  "--environment",
+  "both",
+  "--profile",
+  "large",
+  "--databases",
+  "pgrust-columnar",
+  "--concurrency",
+  "128",
+  "--requests",
+  "1000",
+  "--scenarios",
+  "read_delta",
+  "--topologies",
+  "hot",
+  "--modes",
+  "saturation",
+  "--results-dir",
+  "/home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/supplemental/read_delta-hot-saturation"
+]
