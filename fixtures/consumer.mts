@@ -1,8 +1,31 @@
 import {
   connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse,
-  destroyPulse, loadPulse, snapshotPulse, arrayOperations, exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory, SUPPORTED_PROTOCOL_VERSIONS, type PulseProperties,
+  destroyPulse, loadPulse, snapshotPulse, arrayOperations, exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory, SUPPORTED_PROTOCOL_VERSIONS, MigrationDriftError, richText, type RichText, type RichTextSchema, type MigrationDriftDetails, type PulseProperties,
 } from "@pulsify/core";
 import { decodeMessage, encodeMessage, type PulseMessage } from "@pulsify/core/protocol";
+import { bindProseMirror, proseMirrorDocument, type ProseMirrorBinding } from "pulsify-prosemirror";
+import type { EditorView } from "prosemirror-view";
+import type { Schema, Node as ProseMirrorNode } from "prosemirror-model";
+import { bindLexical, lexicalDocument, type LexicalBinding } from "pulsify-lexical";
+import type { LexicalEditor, SerializedEditorState } from "lexical";
+
+function bindLexicalEditor(editor: LexicalEditor, field: RichText): LexicalBinding {
+  const state: SerializedEditorState = lexicalDocument(field);
+  void state;
+  // @ts-expect-error Plain strings are not collaborative fields.
+  bindLexical(editor, "text");
+  return bindLexical(editor, field, {schemaId: "consumer:v1"});
+}
+void bindLexicalEditor;
+
+function bindEditor(view: EditorView, field: RichText, schema: Schema): ProseMirrorBinding {
+  const doc: ProseMirrorNode = proseMirrorDocument(field, schema);
+  void doc;
+  // @ts-expect-error A plain string is not a collaborative field.
+  bindProseMirror(view, "text");
+  return bindProseMirror(view, field, { onError: error => console.error(error) });
+}
+void bindEditor;
 
 type Doc = PulseProperties<"Consumer"> & { title: string; items: { value: number }[] };
 const Doc = definePulse<Doc>("Consumer").materialize();
@@ -32,7 +55,7 @@ exportPulseUpdates(first,[],{peerVersion:4});
 destroyPulse(first); destroyPulse(second);
 
 // The typed codec API and storage entry point also compile from the tarball.
-import { object, array, tuple as codecTuple } from "@gin-quin/codec";
+import { object, array, optional, createCodec, tuple as codecTuple } from "@gin-quin/codec";
 import { PostgresPatchStore, type PatchStore } from "@pulsify/core/storage";
 const Typed = definePulse("TypedConsumer", object({
   body: "string", origin: object({ name: "string" }), values: array("uint"),
@@ -69,3 +92,70 @@ arrayOperations(tupleDocument.pair).replaceAll([4, "D", 5]);
 const plainTuple: [number, string] = snapshotPulse(tupleDocument).pair;
 void plainTuple;
 destroyPulse(tupleDocument);
+
+const migrationV1 = object({ title: "string", count: "string" });
+const migrationV2 = object({ title: "string", count: "uint", published: "boolean" });
+const migrationV3 = object({ heading: "string", count: "uint", published: "boolean" });
+const Migrated = definePulse("MigratedConsumer", migrationV1)
+  .migrateTo(migrationV2, before => ({ count: Number(before.count), published: false }))
+  .migrateTo(migrationV3, before => {
+    const count: number = before.count;
+    return { heading: before.title, count };
+  })
+  .materialize();
+const migrated = createPulse(Migrated, { heading: "Latest", count: 1, published: false }, { scope: createPulseScope() });
+migrated.count = 2;
+// @ts-expect-error Schema-first migration inference survives installed declarations.
+migrated.count = "bad";
+// @ts-expect-error New required fields cannot be omitted from a migration.
+definePulse("MissingMigrationField", migrationV1).migrateTo(migrationV2, () => ({ count: 0 }));
+destroyPulse(migrated);
+
+const driftDetails: MigrationDriftDetails = {
+  docId: "consumer", kind: "MigratedConsumer", version: 3,
+  expected: Migrated.migrationChain?.schemaIds[2], received: "m3:00000000000000000000000000000000",
+  reason: "Published migration history changed",
+};
+const drift = new MigrationDriftError(driftDetails);
+const driftCode: string = drift.code;
+void driftCode;
+
+const inlineField: RichTextSchema = richText();
+const inlineSchema = object({
+  body: inlineField, nested: array(object({ text: richText() })),
+  paragraphs: array(richText()), optional: optional(richText()),
+});
+const Inline = definePulse("InlineConsumer", inlineSchema).materialize();
+const inline = createPulse(Inline, { body: "Hello", nested: [{ text: "Nested" }], paragraphs: ["First"] }, { scope: createPulseScope() });
+const inlineBody: RichText = inline.body;
+inlineBody.insert(5, "!");
+inline.nested[0]!.text.format(0, 1, { bold: true });
+inline.paragraphs.push(richText("Next"));
+const inlineText: string = snapshotPulse(inline).body;
+const codecText: string = createCodec(inlineSchema).decode(createCodec(inlineSchema).encode({ body: "Text", nested: [], paragraphs: [] })).body;
+void inlineText; void codecText;
+// @ts-expect-error Schema markers are not creation data.
+createPulse(Inline, { body: richText(), nested: [], paragraphs: [] });
+const InlineMigrated = definePulse("InlineMigratedConsumer", object({ body: richText() }))
+  .migrateTo(object({ body: richText(), count: "uint" }), before => {
+    const text: string = before.body;
+    // @ts-expect-error Migration input is detached text, not a RichText view.
+    before.body.text;
+    return { body: text.toUpperCase(), count: 0 };
+  }).materialize();
+createPulse(InlineMigrated, { body: "Text", count: 1 }, { scope: createPulseScope() }).body.insert(0, "A");
+destroyPulse(inline);
+
+type PreservedRich = PulseProperties<"PreservedRichConsumer"> & { body: RichText };
+type PreservedRichV2 = PreservedRich & { count: number };
+const PreservedRichBuilder = definePulse<PreservedRich>("PreservedRichConsumer");
+const PreservedRichDefinition = PreservedRichBuilder.migrate<PreservedRichV2>(before => {
+  const text: string = before.body;
+  void text;
+  return { count: 0 };
+}).materialize();
+const preservedRich = createPulse(PreservedRichDefinition, { body: richText("Preserved"), count: 0 }, { scope: createPulseScope() });
+preservedRich.body.format(0, 1, { bold: true });
+// @ts-expect-error New required fields remain mandatory when unchanged rich fields are omitted.
+PreservedRichBuilder.migrate<PreservedRichV2>(() => ({}));
+destroyPulse(preservedRich);

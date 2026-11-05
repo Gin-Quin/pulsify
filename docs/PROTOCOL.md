@@ -108,7 +108,7 @@ and metadata before committing its journal and applying the changes.
 [Database adapters](STORAGE.md) use these range and dependency columns directly.
 `appendEncoded` decodes the frame envelope once and stores the operation bytes
 without reading or materializing the document. PostgreSQL performs append and
-causal promotion in one database call. SQLite and FoundationDB provide the same
+causal promotion in one database call. SQLite provides the same
 logical interface. Database acceptance of an opaque row does not replace
 application authorization or client-side operation validation.
 
@@ -125,11 +125,32 @@ ops:operation[]
 ```
 
 `lamport` is positive and advances beyond the highest applied Lamport time
-when a local transaction is generated. `schema` is empty for the legacy typed
-TypeScript API without a runtime schema. Otherwise it is the definition's
-32-character compatibility fingerprint. The fingerprint includes the resolved
-codec layout graph and constant/rich-text annotations. It detects incompatible
-layouts; it is not an authentication mechanism.
+when a local transaction is generated. In document version 1, `schema` is empty
+without a runtime schema, or the 32-character compatibility fingerprint of its
+resolved codec layout graph and constant/rich-text annotations. Versions 2+
+produced by current definitions use `m<version>:<chainFingerprint>` instead.
+This reuses the existing string field; operation payload and envelope versions
+do not change. Historical V1 writes remain addressable by their original identity.
+These fingerprints detect incompatibility; they are not authentication.
+
+The chain uses the same four-stream 32-bit fingerprint function as layout hashes.
+Its input is the codec encoding of `object({previous:"string", version:"uint",
+schema:"string"})`. For V1, `previous` is the document kind; for version N > 1,
+it is the full chain fingerprint at N - 1. `schema` is that version's layout hash,
+or the empty string when no runtime schema was declared. Thus changing any prior
+schema or annotation changes all subsequent identities. Callback source text is
+deliberately excluded; a callback-only change with identical schemas is not
+detectable. TypeScript-only shapes have no runtime layout to fingerprint.
+
+Definitions cache these identities and the identity-to-version map once; documents
+share them. Incoming current-version identities use the existing equality check,
+historical versions use a map lookup. Unknown identities within a known version
+raise `MIGRATION_DRIFT` before journal application; newer version numbers raise
+`INCOMPATIBLE_DOCUMENT` instead. Compare the chain at the same version, not at
+different peers' latest versions. Root metadata and migration version writes must
+match their registered identity. Layout-only identities from old migrated clients
+do not establish a verified chain: applications must explicitly upgrade those
+histories; current definitions do not silently accept them as current versions.
 
 Each operation starts with its numeric `kind:uint`, followed by these fields:
 
@@ -228,6 +249,13 @@ migration commits. A field omitted by a new schema may remain as immutable
 legacy data; its old value is not made mutable by omitting it from the schema.
 Materializers and migrator functions remain local code and are never sent to
 the relay.
+
+Published migration chains are append-only: once a step has been used, never
+replace, remove or reorder it, or change its historical schema or transformation.
+Corrections require a new version, including corrections that keep the same
+schema. A document already at a version does not rerun earlier callbacks when
+application code changes. Layout fingerprints do not identify migration behavior
+and cannot detect a rewritten callback that keeps the same schema.
 
 ## Bounds, encoding and lifecycle
 

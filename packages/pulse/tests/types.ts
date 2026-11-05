@@ -10,7 +10,7 @@ type V1 = PulseProperties<"User"> & { name: string; email: string };
 type V2 = PulseProperties<"User"> & { name: string; emailV2: string };
 export function typeAssertions(): void {
 	const User = definePulse<V1>("User")
-		.migrate<V2>("v2", (before) => ({ emailV2: before.email }))
+		.migrate<V2>((before) => ({ emailV2: before.email }))
 		.materialize<V1>(({ bind }) => ({ email: bind("emailV2") }));
 	const user = createPulse(
 		User,
@@ -27,8 +27,8 @@ export function typeAssertions(): void {
 	// @ts-expect-error Creation requires the latest stored schema.
 	createPulse(User, { name: "Ada", email: "old@example.com" });
 	// @ts-expect-error Migration must supply the new field.
-	definePulse<V1>("User").migrate<V2>("v2", () => ({}));
-	definePulse<V1>("User").migrate<V2>("v2", () => ({
+	definePulse<V1>("User").migrate<V2>(() => ({}));
+	definePulse<V1>("User").migrate<V2>(() => ({
 		emailV2: "x",
 		// @ts-expect-error Migrations cannot change managed properties.
 		version: 2,

@@ -2,6 +2,7 @@ import { isStruct } from "../utilities/Struct.js";
 import { isTuple } from "../utilities/Tuple.js";
 
 export const RichTextSymbol: unique symbol = Symbol("RichText");
+export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
 export type PreparedValue = {
 	value: unknown;
 	constants: string[][];

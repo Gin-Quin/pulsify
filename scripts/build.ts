@@ -7,6 +7,7 @@ const result = await Bun.build({
 		`${root}packages/pulse/source/index.ts`,
 		`${root}packages/pulse/source/protocol.ts`,
 		`${root}packages/pulse/source/storage.ts`,
+		`${root}packages/pulse/source/bindings.ts`,
 	],
 	outdir,
 	target: "browser",
@@ -37,3 +38,40 @@ console.log(
 		})),
 	}),
 );
+
+for (const name of ["pulsify-prosemirror", "pulsify-lexical"]) {
+	const directory = `${root}packages/${name}`;
+	const manifest = await Bun.file(`${directory}/package.json`).json();
+	await rm(`${directory}/dist`, { recursive: true, force: true });
+	const adapter = await Bun.build({
+		entrypoints: [`${directory}/source/index.ts`],
+		outdir: `${directory}/dist`,
+		target: "browser",
+		format: "esm",
+		sourcemap: "external",
+		minify: true,
+		external: [
+			...Object.keys(manifest.peerDependencies),
+			...Object.keys(manifest.dependencies ?? {}),
+			"@pulsify/core/*",
+		],
+	});
+	if (!adapter.success)
+		throw new AggregateError(adapter.logs, `Cannot build ${name}`);
+	const types = Bun.spawn(
+		[
+			"bun",
+			"x",
+			"--no-install",
+			"tsc",
+			"-p",
+			`${directory}/tsconfig.build.json`,
+		],
+		{ cwd: root, stdout: "inherit", stderr: "inherit" },
+	);
+	if ((await types.exited) !== 0)
+		throw new Error(`Declaration build failed for ${name}`);
+	console.log(
+		JSON.stringify({ package: name, bytes: adapter.outputs[0]!.size }),
+	);
+}

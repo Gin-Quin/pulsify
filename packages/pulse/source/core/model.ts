@@ -1,6 +1,11 @@
 import { createCodec, object, type Codec } from "@gin-quin/codec";
+import { RT_NODE, richTextContent, trackRichTextAnchor } from "./richTextBinding.js";
 import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
-import { PulseError } from "../protocol/errors.js";
+import { MigrationDriftError, PulseError } from "../protocol/errors.js";
+import {
+	migrationVersion,
+	type MigrationChain,
+} from "../migration/MigrationChain.js";
 import {
 	compilePulseSchema,
 	schemaFingerprint,
@@ -109,10 +114,11 @@ export class CoreModel {
 		public readonly maxVersion: number,
 		public readonly compiled?: CompiledPulseSchema,
 		public readonly schemas: readonly (CompiledPulseSchema | undefined)[] = [],
+		public readonly migrationChain?: MigrationChain,
 	) {
 		let cached = compiled ? schemaCache.get(compiled) : undefined;
 		if (!cached && compiled) {
-			const schema = compiled.schema;
+			const schema = compiled.codecSchema ?? compiled.schema;
 			cached = { id: schemaFingerprint(compiled) };
 			if (typeof schema === "object" && schema._type === "object")
 				cached.codec = createCodec(
@@ -126,7 +132,8 @@ export class CoreModel {
 				) as Codec<unknown>;
 			schemaCache.set(compiled, cached);
 		}
-		this.schemaId = cached?.id ?? "";
+		this.schemaId =
+			migrationChain?.schemaIds[maxVersion - 1] ?? cached?.id ?? "";
 		this.rootCodec = cached?.codec;
 		this.encoding = {
 			encode: (value, op) => {
@@ -162,11 +169,52 @@ export class CoreModel {
 	}
 	schemaFor(id: string): CompiledPulseSchema | undefined {
 		if (id === this.schemaId) return this.compiled;
+		if (this.migrationChain) {
+			const known = this.migrationChain.versions.get(id);
+			if (known !== undefined) return this.schemaAtVersion(known);
+			const version = migrationVersion(id);
+			if (version !== undefined && version > this.maxVersion)
+				throw new PulseError(
+					"INCOMPATIBLE_DOCUMENT",
+					"Document requires a newer migration version",
+				);
+			if (version !== undefined || this.maxVersion > 1)
+				throw this.migrationDrift(
+					id,
+					version,
+					"Migration chain does not match the published history",
+				);
+			throw new PulseError(
+				"INCOMPATIBLE_DOCUMENT",
+				"Patch schema does not match the pulse definition",
+			);
+		}
 		for (const schema of this.schemas)
 			if ((schema ? schemaFingerprint(schema) : "") === id) return schema;
 		throw new PulseError(
 			"INCOMPATIBLE_DOCUMENT",
 			"Patch schema does not match a supported migration version",
+		);
+	}
+	private migrationDrift(
+		received: string,
+		version: number | undefined,
+		reason: string,
+		incomingSnapshot?: unknown,
+	): MigrationDriftError {
+		return new MigrationDriftError(
+			{
+				docId: this.docId,
+				kind: this.kind,
+				version,
+				expected:
+					version === undefined
+						? undefined
+						: this.migrationChain?.schemaIds[version - 1],
+				received,
+				reason,
+			},
+			incomingSnapshot,
 		);
 	}
 	private schemaAtVersion(version: number): CompiledPulseSchema | undefined {
@@ -190,8 +238,8 @@ export class CoreModel {
 				if (layout === 1) {
 					let cache = schemaCache.get(compiled);
 					if (!cache) {
-						const schema = compiled.schema;
-						cache = { id };
+						const schema = compiled.codecSchema ?? compiled.schema;
+						cache = { id: schemaFingerprint(compiled) };
 						if (typeof schema === "object" && schema._type === "object")
 							cache.codec = createCodec(
 								object({
@@ -587,6 +635,17 @@ export class CoreModel {
 								"INCOMPATIBLE_DOCUMENT",
 								"Document metadata is managed by Pulsify",
 							);
+						if (
+							op.kind === 1 &&
+							this.migrationChain &&
+							patch.schema !==
+								this.migrationChain.schemaIds[(op.value.value as number) - 1]
+						)
+							throw this.migrationDrift(
+								patch.schema,
+								op.value.value as number,
+								"Migration patch identity does not match its target version",
+							);
 					}
 					if (
 						!managedFields.has(key) &&
@@ -796,11 +855,17 @@ export class CoreModel {
 		values: readonly CoreScalar[],
 	): void {
 		const layout = this.scalarColumn(run.target, run.field);
-		if (!layout || run.schema !== this.schemaId || run.layout !== layout.id + 2)
+		if (
+			!layout ||
+			run.schema !== this.schemaId ||
+			run.layout !== layout.id + 2
+		) {
+			if (run.schema !== this.schemaId) this.schemaFor(run.schema);
 			throw new PulseError(
 				"INCOMPATIBLE_DOCUMENT",
 				"Invalid scalar run layout",
 			);
+		}
 		const node = this.index.get(run.target)!;
 		const actor = node.initialStamp[1],
 			created = node.initialStamp[2];
@@ -915,11 +980,22 @@ export class CoreModel {
 			);
 		if (schema !== undefined) {
 			const expected = this.schemaAtVersion(data["version"] as number);
-			if (schema !== (expected ? schemaFingerprint(expected) : ""))
+			const identity =
+				this.migrationChain?.schemaIds[(data["version"] as number) - 1] ??
+				(expected ? schemaFingerprint(expected) : "");
+			if (schema !== identity) {
+				if (this.migrationChain)
+					throw this.migrationDrift(
+						schema,
+						data["version"] as number,
+						"Root schema does not match its stored version",
+						value,
+					);
 				throw new PulseError(
 					"INCOMPATIBLE_DOCUMENT",
 					"Root schema does not match its stored version",
 				);
+			}
 		}
 	}
 	apply(patch: CorePatch, hint?: number): void {
@@ -1078,6 +1154,7 @@ export class CoreModel {
 					for (const [key, value] of Object.entries(op.attributes))
 						if (newer(stamp, entry.marks.get(key)?.stamp))
 							entry.marks.set(key, { stamp, value });
+					if (Object.hasOwn(op.attributes, RT_NODE)) trackRichTextAnchor(node, entry);
 				}
 			}
 			if (node.kind === "text") this.syncText(node);
@@ -1120,7 +1197,7 @@ export class CoreModel {
 					);
 	}
 	private syncText(node: CoreNode) {
-		const text = node.data.join("");
+		const text = richTextContent(node);
 		const parent = node.parent,
 			key = node.parentKey;
 		if (!parent || key === undefined) return;

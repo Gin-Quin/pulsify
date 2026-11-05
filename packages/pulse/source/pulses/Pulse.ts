@@ -6,6 +6,7 @@ import type { Pulsify } from "../utilities/pulsify.js";
 import { type PulseMeta, PulseMetaSymbol } from "./PulseMeta.js";
 import { defaultPulseScope } from "./PulseOptions.js";
 import type { PulseProperties } from "./PulseProperties.js";
+import type { Tuple } from "../utilities/Tuple.js";
 
 export const pulses = defaultPulseScope.pulses;
 export type Pulse<
@@ -52,22 +53,30 @@ export function subscribePulse<P extends Pulse<any>>(
 	}
 	return () => meta.listeners.delete(wrapped);
 }
+type SnapshotTuple<Values extends readonly unknown[]> = {
+	-readonly [Key in keyof Values]: PulseSnapshot<Values[Key]>;
+};
+
 /** A detached snapshot of the public, materialized model. */
-export type PulseSnapshot<Value> = Value extends RichText
-	? string
-	: Value extends Uint8Array
-		? Uint8Array
-		: Value extends readonly (infer Item)[]
-			? number extends Value["length"]
-				? PulseSnapshot<Item>[]
-				: { -readonly [Key in keyof Value]: PulseSnapshot<Value[Key]> }
-			: Value extends object
-				? {
-						[Key in keyof Value as Key extends string | number
-							? Key
-							: never]: PulseSnapshot<Value[Key]>;
-					}
-				: Value;
+export type PulseSnapshot<Value> = unknown extends Value
+	? Value
+	: Value extends RichText
+		? string
+		: Value extends Uint8Array
+			? Uint8Array
+			: Value extends Tuple<infer Elements>
+				? SnapshotTuple<Elements>
+				: Value extends readonly (infer Item)[]
+					? number extends Value["length"]
+						? PulseSnapshot<Item>[]
+						: SnapshotTuple<Value>
+					: Value extends object
+						? {
+								[Key in keyof Value as Key extends string | number
+									? Key
+									: never]: PulseSnapshot<Value[Key]>;
+							}
+						: Value;
 const snapshotFieldCounts = new WeakMap<PulseLayout, number>();
 function snapshotFieldCount(layout: PulseLayout): number {
 	let count = snapshotFieldCounts.get(layout);

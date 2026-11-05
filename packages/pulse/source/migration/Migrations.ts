@@ -47,18 +47,18 @@ export type Migration<
 	Before extends object,
 	After extends object,
 	ExcludedKeys extends PropertyKey = never,
+	Input extends object = Before,
 > = {
-	name: string;
-	migrator: (before: Before) => MigrationResult<Before, After, ExcludedKeys>;
+	migrator: (before: Input) => MigrationResult<Before, After, ExcludedKeys>;
 	readonly [migrationVersions]?: After;
 };
 
-export type AnyMigration = Migration<any, any>;
+export type AnyMigration = Migration<any, any, any, any>;
 
 export type LastMigration<Migrations extends readonly AnyMigration[]> =
 	Migrations extends readonly [
 		...(readonly AnyMigration[]),
-		Migration<any, infer Last extends object, any>,
+		Migration<any, infer Last extends object, any, any>,
 	]
 		? Last
 		: never;

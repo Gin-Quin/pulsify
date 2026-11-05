@@ -58,6 +58,116 @@ const history = <P extends Pulse<PulseProperties<string>>>(pulse: P) =>
 	getPulseMeta(pulse).log.missing([]);
 
 describe("versioned typed document migrations", () => {
+	test("schema-first migrations infer each version and preserve typed replay and materialization", () => {
+		const v1 = object({ title: "string", count: "string" });
+		const v2 = object({ title: "string", count: "uint", published: "boolean" });
+		const v3 = object({
+			heading: "string",
+			count: "uint",
+			published: "boolean",
+		});
+		const builder = definePulse("InferredMigration", v1);
+		const oldDefinition = builder.materialize();
+		let calls = 0;
+		const second = builder.migrateTo(v2, (before) => {
+			calls++;
+			return { count: Number(before.count), published: false };
+		});
+		type Model = PulseProperties<"InferredMigration"> & {
+			title: string;
+			count: number;
+			published: boolean;
+		};
+		const latest = second
+			.migrateTo(v3, (before) => {
+				calls++;
+				expect(before.count).toBe(7);
+				expect(before.published).toBe(false);
+				return { heading: before.title };
+			})
+			.materialize<Model>(({ bind }) => ({ title: bind("heading") }));
+		const source = createPulse(
+			oldDefinition,
+			{ id: "inferred-migration", title: "Draft", count: "7" },
+			options(65536),
+		);
+		const current = emptyReplica(latest, source.id, 65537);
+		const restored = emptyReplica(latest, source.id, 65538);
+		const fresh = createPulse(
+			latest,
+			{ heading: "New", count: 1, published: true },
+			options(65539),
+		);
+		try {
+			expect(latest.schemas!.map((entry) => entry!.schema)).toEqual([
+				v1,
+				v2,
+				v3,
+			]);
+			expect(latest.schemas![0]).toBe(oldDefinition.compiledSchema);
+			expect(second.materialize().schema).toBe(v2);
+			expect(oldDefinition.schema).toBe(v1);
+			expect(fresh.version).toBe(3);
+			expect(fresh.title).toBe("New");
+			expect(calls).toBe(0);
+			apply(current, history(source));
+			expect(current.version).toBe(3);
+			expect(current.title).toBe("Draft");
+			expect(current.count).toBe(7);
+			expect(current.published).toBe(false);
+			expect(calls).toBe(2);
+			current.title = "Edited";
+			current.count = 8;
+			apply(restored, history(current));
+			expect(snapshotPulse(restored)).toEqual(snapshotPulse(current));
+			expect(calls).toBe(2);
+			const before = snapshotPulse(current);
+			expect(() => Reflect.set(current, "count", "invalid")).toThrow();
+			expect(snapshotPulse(current)).toEqual(before);
+		} finally {
+			for (const pulse of [source, current, restored, fresh])
+				destroyPulse(pulse);
+		}
+	});
+
+	test("schema-first migrations apply rich-text and constant options to the next version", () => {
+		const schema = object({ body: "string", origin: "string" });
+		const builder = definePulse("InferredAnnotations", schema);
+		const oldDefinition = builder.materialize();
+		const latest = builder
+			.migrateTo(
+				schema,
+				(before) => ({
+					body: `${before.body}!`,
+				}),
+				{
+					richTextPaths: [["body"]],
+					constantPaths: [["origin"]],
+				},
+			)
+			.materialize();
+		const source = createPulse(
+			oldDefinition,
+			{ id: "inferred-annotations", body: "Hello", origin: "import" },
+			options(65536),
+		);
+		const current = emptyReplica(latest, source.id, 65537);
+		const restored = emptyReplica(latest, source.id, 65538);
+		try {
+			apply(current, history(source));
+			expect(current.body.text).toBe("Hello!");
+			current.body.insert(6, " More");
+			current.body.format(0, 5, { bold: true });
+			expect(() => Reflect.set(current, "origin", "changed")).toThrow();
+			apply(restored, history(current));
+			expect(restored.body.toDelta()).toEqual(current.body.toDelta());
+			expect(restored.origin).toBe("import");
+			expect(() => Reflect.set(restored, "origin", "changed")).toThrow();
+		} finally {
+			for (const pulse of [source, current, restored]) destroyPulse(pulse);
+		}
+	});
+
 	test("loading typed v1 rows migrates to the registered v2 schema", () => {
 		const schema1 = object({ name: "string", score: "uint" });
 		const schema2 = object({ name: "string", score: "uint", email: "string" });
@@ -70,7 +180,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("TypedMigrationLoad", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<V2>("add email", (before) => {
+			.migrate<V2>((before) => {
 				migrations++;
 				return { email: `${before.name.toLowerCase()}@example.com` };
 			})
@@ -117,7 +227,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("TypedMigrationReplay", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<V2>("activate", () => {
+			.migrate<V2>(() => {
 				migrations++;
 				return { active: true };
 			})
@@ -171,7 +281,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("TypedMaterialized", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data2>("store current email", (before) => ({
+			.migrate<Data2>((before) => ({
 				emailV2: before.sourceEmail,
 			}))
 			.schema(schema2)
@@ -222,7 +332,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("ReorderedMigration", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<V2>("status", () => ({ status: "ready" }))
+			.migrate<V2>(() => ({ status: "ready" }))
 			.schema(schema2)
 			.materialize();
 		const oldClient = createPulse(
@@ -267,7 +377,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("ConstantMigration", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("freeze origin", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { constantPaths: [["origin"]] })
 			.materialize();
 		const source = createPulse(
@@ -306,11 +416,10 @@ describe("versioned typed document migrations", () => {
 
 	test("a same-shape migration preserves compatibility while old clients reject its future version", () => {
 		const schema = object({ name: "string" });
-		type Data = PulseProperties<"SameShapeMigration"> & { name: string };
 		const builder = definePulse("SameShapeMigration", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("uppercase", (before) => ({
+			.migrateTo(schema, (before) => ({
 				name: before.name.toUpperCase(),
 			}))
 			.materialize();
@@ -325,7 +434,7 @@ describe("versioned typed document migrations", () => {
 			apply(current, history(source));
 			expect(current.name).toBe("ADA");
 			expect(current.version).toBe(2);
-			expect(getPulseMeta(source).model.schemaId).toBe(
+			expect(getPulseMeta(source).model.schemaId).not.toBe(
 				getPulseMeta(current).model.schemaId,
 			);
 			const before = snapshotPulse(source);
@@ -350,7 +459,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("FutureSchemaMigration", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<V2>("activate", () => ({ active: true }))
+			.migrate<V2>(() => ({ active: true }))
 			.schema(schema2)
 			.materialize();
 		const source = createPulse(
@@ -375,17 +484,12 @@ describe("versioned typed document migrations", () => {
 	test("invalid typed migration output cannot append a local patch or advance its actor clock", () => {
 		const schema1 = object({ name: "string" });
 		const schema2 = object({ name: "string", count: "uint" });
-		type V2 = PulseProperties<"InvalidTypedMigration"> & {
-			name: string;
-			count: number;
-		};
 		const builder = definePulse("InvalidTypedMigration", schema1);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<V2>("invalid count", () => ({
+			.migrateTo(schema2, () => ({
 				count: "invalid" as unknown as number,
 			}))
-			.schema(schema2)
 			.materialize();
 		const source = createPulse(
 			oldDefinition,
@@ -425,12 +529,12 @@ describe("versioned typed document migrations", () => {
 		const oldDefinition = builder.materialize();
 		let calls = 0;
 		const latest = builder
-			.migrate<V2>("active", () => {
+			.migrate<V2>(() => {
 				calls++;
 				return { active: true };
 			})
 			.schema(schema2)
-			.migrate<V3>("fails", () => {
+			.migrate<V3>(() => {
 				calls++;
 				throw new Error("Migration fixture failed");
 			})
@@ -475,7 +579,7 @@ describe("versioned typed document migrations", () => {
 		});
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("illegal rewrite", () => ({
+			.migrate<Data>(() => ({
 				origin: { source: "changed" },
 			}))
 			.materialize();
@@ -513,7 +617,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("ConcurrentConstantMigration", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("freeze", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { constantPaths: [["origin"]] })
 			.materialize();
 		const source = createPulse(
@@ -557,7 +661,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("LateConstantMigration", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("freeze", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { constantPaths: [["origin"]] })
 			.materialize();
 		const source = createPulse(
@@ -602,7 +706,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("DifferentConstantCaptures", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("freeze", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { constantPaths: [["origin"]] })
 			.materialize();
 		const source = createPulse(
@@ -635,7 +739,7 @@ describe("versioned typed document migrations", () => {
 		const builder = definePulse("RichAnnotationMigration", schema);
 		const oldDefinition = builder.materialize();
 		const latest = builder
-			.migrate<Data>("rich body", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { richTextPaths: [["body"]] })
 			.materialize();
 		const source = createPulse(
@@ -703,7 +807,7 @@ describe("versioned typed document migrations", () => {
 		const oldDefinition = builder.materialize();
 		type Data = DataFromDefinition<typeof oldDefinition>;
 		const latest = builder
-			.migrate<Data>("annotate nested values", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, {
 				constantPaths: [
 					["profile", "origin"],
@@ -761,7 +865,7 @@ describe("versioned typed document migrations", () => {
 		const oldDefinition = builder.materialize();
 		type Data = DataFromDefinition<typeof oldDefinition>;
 		const latest = builder
-			.migrate<Data>("freeze origin", () => ({}))
+			.migrate<Data>(() => ({}))
 			.schema(schema, { constantPaths: [["profile", "origin"]] })
 			.materialize();
 		const source = createPulse(
@@ -808,7 +912,7 @@ describe("versioned typed document migrations", () => {
 			const oldDefinition = builder.materialize();
 			type Data = DataFromDefinition<typeof oldDefinition>;
 			const latest = builder
-				.migrate<Data>("invalid unfreeze", () => ({}))
+				.migrate<Data>(() => ({}))
 				.schema(schema)
 				.materialize();
 			const source = createPulse(
@@ -849,7 +953,7 @@ describe("versioned typed document migrations", () => {
 		const oldDefinition = builder.materialize();
 		type LatestData = PulseProperties<"RetiredConstant"> & { name: string };
 		const latest = builder
-			.migrate<LatestData>("retire origin", () => ({}))
+			.migrate<LatestData>(() => ({}))
 			.schema(latestSchema)
 			.materialize();
 		const source = createPulse(

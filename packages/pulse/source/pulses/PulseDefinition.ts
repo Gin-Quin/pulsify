@@ -12,7 +12,12 @@ import type {
 	MigrationResult,
 } from "../migration/Migrations.js";
 import type { Binding, Bindings } from "./Bindings.js";
+import {
+	compileMigrationChain,
+	type MigrationChain,
+} from "../migration/MigrationChain.js";
 import type { PulseProperties } from "./PulseProperties.js";
+import type { PulseSnapshot } from "./Pulse.js";
 
 type ManagedMigrationKeys = "generation" | "id" | "kind" | "version";
 type ManagedMigrationKeyPattern = `${ManagedMigrationKeys}${string}`;
@@ -40,6 +45,8 @@ export type PulseDefinition<
 	compiledSchema?: CompiledPulseSchema<Schema>;
 	/** A codec layout for each stored version, indexed by version - 1. */
 	schemas?: readonly (CompiledPulseSchema | undefined)[];
+	/** Cached recursive compatibility identities, shared by every document. */
+	migrationChain?: MigrationChain;
 };
 
 /**
@@ -94,6 +101,10 @@ export type SchemaPulseProperties<
 	O extends PulseSchemaOptions = {},
 > = PulseProperties<Kind> & ApplicationProperties<PulseSchemaValue<S, O>, Kind>;
 
+type SchemaMigrationData<Kind extends string, S extends Schema> = PulseSnapshot<
+	SchemaPulseProperties<Kind, S>
+>;
+
 export function definePulse<const Kind extends string>(
 	kind: Kind,
 ): PulseTypeBuilder<PulseProperties<Kind>, []>;
@@ -132,6 +143,7 @@ class PulseTypeBuilder<
 	private readonly schemaOptions: PulseSchemaOptions | undefined;
 	private readonly schemaHistory: readonly (CompiledPulseSchema | undefined)[];
 	private currentCompiled: CompiledPulseSchema | undefined;
+	private currentChain: MigrationChain | undefined;
 	public readonly kind: From["kind"];
 
 	constructor(
@@ -175,22 +187,72 @@ class PulseTypeBuilder<
 		);
 	}
 
+	/**
+	 * Infer the next version from its schema and retain the previous layout.
+	 * Once used, keep this migration unchanged and append new steps for fixes.
+	 */
+	migrateTo<S extends Schema, const O extends PulseSchemaOptions = {}>(
+		schema: S & SchemaForKind<S, From["kind"]>,
+		migrator: (
+			before: PulseSnapshot<From>,
+		) => PulseMigrationResult<
+			PulseSnapshot<From>,
+			SchemaMigrationData<From["kind"], NoInfer<S>>
+		>,
+		options?: O,
+	): PulseTypeBuilder<
+		SchemaPulseProperties<From["kind"], S, O>,
+		readonly [
+			...Migrations,
+			Migration<
+				PulseSnapshot<From>,
+				SchemaMigrationData<From["kind"], S>,
+				ManagedMigrationKeys
+			>,
+		]
+	> {
+		const migrations = [...this.migrations, { migrator }] as readonly [
+			...Migrations,
+			Migration<
+				PulseSnapshot<From>,
+				SchemaMigrationData<From["kind"], S>,
+				ManagedMigrationKeys
+			>,
+		];
+		return new PulseTypeBuilder<
+			SchemaPulseProperties<From["kind"], S, O>,
+			typeof migrations
+		>(
+			this.kind as SchemaPulseProperties<From["kind"], S, O>["kind"],
+			migrations,
+			schema,
+			options,
+			[...this.schemaHistory, this.compileCurrent()],
+		);
+	}
+
+	/** Append a typed migration. Published steps must never be replaced or reordered. */
 	migrate<To extends PulseProperties<From["kind"]>>(
-		name: string,
-		migrator: (before: From) => PulseMigrationResult<From, To>,
+		migrator: (before: PulseSnapshot<From>) => PulseMigrationResult<From, To>,
 	): PulseTypeBuilder<
 		To,
-		readonly [...Migrations, Migration<From, To, ManagedMigrationKeys>]
-	> {
-		const migrations = [...this.migrations, { name, migrator }] as readonly [
+		readonly [
 			...Migrations,
-			Migration<From, To, ManagedMigrationKeys>,
+			Migration<From, To, ManagedMigrationKeys, PulseSnapshot<From>>,
+		]
+	> {
+		const migrations = [...this.migrations, { migrator }] as readonly [
+			...Migrations,
+			Migration<From, To, ManagedMigrationKeys, PulseSnapshot<From>>,
 		];
 
 		const compiled = this.compileCurrent();
 		return new PulseTypeBuilder<
 			To,
-			readonly [...Migrations, Migration<From, To, ManagedMigrationKeys>]
+			readonly [
+				...Migrations,
+				Migration<From, To, ManagedMigrationKeys, PulseSnapshot<From>>,
+			]
 		>(
 			this.kind,
 			migrations,
@@ -219,10 +281,15 @@ class PulseTypeBuilder<
 	): PulseDefinition<Model, Migrations, From> {
 		const compiled = this.compileCurrent();
 		const schemas = Object.freeze([...this.schemaHistory, compiled]);
+		const migrationChain = (this.currentChain ??= compileMigrationChain(
+			this.kind,
+			schemas,
+		));
 		return {
 			kind: this.kind,
 			migrations: this.migrations,
 			materializer,
+			migrationChain,
 			...(this.valueSchema === undefined
 				? {}
 				: {

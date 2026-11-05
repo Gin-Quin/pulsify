@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { map, object, union } from "@gin-quin/codec";
 import {
 	createPulse,
@@ -9,7 +9,6 @@ import {
 	snapshotPulse,
 } from "../source/index.js";
 import { CorePatch } from "../source/core/operations.js";
-import { schemaFingerprint } from "../source/core/schema.js";
 import { prepareValue } from "../source/core/values.js";
 import { patchToRow } from "../source/connection/PulsePatch.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
@@ -29,7 +28,7 @@ test("versioned root unions retain their effective layout without repeated subtr
 	});
 	const builder = definePulse("UnionRetype", schema);
 	const oldDefinition = builder.materialize();
-	const latest = builder.migrate("keep shape", () => ({})).materialize();
+	const latest = builder.migrate(() => ({})).materialize();
 	const source = createPulse(
 		oldDefinition,
 		{ type: "note", nested: { count: 1 } },
@@ -64,17 +63,18 @@ test("root fingerprints must match the declared stored version before initializa
 	const builder = definePulse("VersionFingerprint", object({ count: "uint" }));
 	const legacy = builder.materialize();
 	const latest = builder
-		.migrate("add title", () => ({ title: "latest" }) as any)
+		.migrate(() => ({ title: "latest" }) as any)
 		.schema(object({ count: "uint", title: "string" }))
 		.materialize();
-	const oldSchema = schemaFingerprint(legacy.compiledSchema!),
-		currentSchema = schemaFingerprint(latest.compiledSchema!);
+	const oldSchema = legacy.migrationChain!.schemaIds[0]!,
+		currentSchema = latest.migrationChain!.schemaIds[1]!;
 	for (const [version, schema] of [
 		[1, currentSchema],
 		[2, oldSchema],
 	] as const) {
 		const target = createRuntime(latest, "version-fingerprint", options(65537)),
 			meta = getPulseMeta(target);
+		const warning = spyOn(console, "warn").mockImplementation(() => {});
 		try {
 			const value = prepareValue({
 				id: meta.id,
@@ -94,6 +94,7 @@ test("root fingerprints must match the declared stored version before initializa
 			expect(meta.log.vector).toEqual([]);
 			expect(meta.model.root).toBeUndefined();
 		} finally {
+			warning.mockRestore();
 			destroyPulse(target);
 		}
 	}
@@ -140,7 +141,7 @@ test("dynamic root map migrations normalize new keys and preserve concurrent con
 	const builder = definePulse("RootMapMigration", schema),
 		legacy = builder.materialize();
 	const latest = builder
-		.migrate("add and freeze entries", () => ({ added: { count: 2 } }) as any)
+		.migrate(() => ({ added: { count: 2 } }) as any)
 		.schema(schema, { constantPaths: [["*"]] })
 		.materialize();
 	const source = createPulse(legacy, { first: { count: 1 } }, options(65536));

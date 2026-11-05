@@ -67,7 +67,7 @@ test("migration keys cannot normalize into a different key on another replica", 
 		connectors: [connector],
 	});
 	const Migrated = definePulse<Document>("Document")
-		.migrate<Document>("invalid-key", () => ({ ["\ud800"]: 1, "�": 2 }) as any)
+		.migrate<Document>(() => ({ ["\ud800"]: 1, "�": 2 }) as any)
 		.materialize();
 	const config = options();
 	try {

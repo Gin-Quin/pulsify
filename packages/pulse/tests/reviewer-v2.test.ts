@@ -58,7 +58,7 @@ test("reviewer v2: nested constant upgrades converge across late v1 edits", () =
 	const builder = definePulse("NestedConstantMigrationReview", schema);
 	const old = builder.materialize();
 	const latest = builder
-		.migrate<any>("freeze", () => ({}))
+		.migrate<any>(() => ({}))
 		.schema(schema, { constantPaths: [["profile", "origin"]] })
 		.materialize();
 	const source = createPulse(
@@ -266,7 +266,7 @@ test("reviewer v2: a version write cannot authorize rewriting pre-existing const
 	const builder = definePulse("ConstantRewriteReview", schema, {
 		constantPaths: [["fixed"]],
 	});
-	const def = builder.migrate<any>("no-op", () => ({})).materialize();
+	const def = builder.migrate<any>(() => ({})).materialize();
 	const p = createPulse(
 		def,
 		{ id: "constant-rewrite-review", fixed: { value: 1 } },

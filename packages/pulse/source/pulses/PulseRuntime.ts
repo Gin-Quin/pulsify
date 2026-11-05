@@ -24,6 +24,7 @@ import type { PulseMeta } from "./PulseMeta.js";
 import { createObjectProxy } from "./PulseObject.js";
 import type { PulseOptions } from "./PulseOptions.js";
 import type { ProxyContext } from "./ProxyContext.js";
+import { warnMigrationDrift } from "./warnMigrationDrift.js";
 
 export function createRuntime(
 	definition: AnyPulseDefinition,
@@ -54,6 +55,7 @@ export function createRuntime(
 		definition.migrations.length + 1,
 		definition.compiledSchema,
 		definition.schemas,
+		definition.migrationChain,
 	);
 	const log = new PatchLog(id);
 	const notify = () => {
@@ -85,8 +87,14 @@ export function createRuntime(
 				throw new PulseError("CLOSED", "Pulse has been destroyed");
 		},
 	};
-	const decode = (row: PulsePatchRow) =>
-		rowToPatch(row, (schema) => model.decodeEncoding(schema));
+	const decode = (row: PulsePatchRow) => {
+		try {
+			return rowToPatch(row, (schema) => model.decodeEncoding(schema));
+		} catch (error) {
+			warnMigrationDrift(meta, error, row);
+			throw error;
+		}
+	};
 	const serialize = (
 		docId: string,
 		patch: CorePatch,
@@ -109,21 +117,28 @@ export function createRuntime(
 			log.appendLocalPatch(patch, serialize);
 			model.apply(patch, hint);
 		} else {
-			let patches: CorePatch[] = [patch];
-			const ready = log.appendLocalPatch(patch, serialize, (rows) => {
-				if (rows.length > 1) {
-					patches = rows.map((row) =>
-						row.sid === sid && row.clock === patch.clock ? patch : decode(row),
-					);
-					model.validate(
-						patches,
-						new Map(rows.map((row, i) => [patches[i]!, row.dependencies])),
-					);
-				}
-			});
-			for (const item of patches)
-				model.apply(item, item === patch ? hint : undefined);
-			if (ready.length > 1) migrate();
+			try {
+				let patches: CorePatch[] = [patch];
+				const ready = log.appendLocalPatch(patch, serialize, (rows) => {
+					if (rows.length > 1) {
+						patches = rows.map((row) =>
+							row.sid === sid && row.clock === patch.clock
+								? patch
+								: decode(row),
+						);
+						model.validate(
+							patches,
+							new Map(rows.map((row, i) => [patches[i]!, row.dependencies])),
+						);
+					}
+				});
+				for (const item of patches)
+					model.apply(item, item === patch ? hint : undefined);
+				if (ready.length > 1) migrate();
+			} catch (error) {
+				warnMigrationDrift(meta, error);
+				throw error;
+			}
 		}
 		meta.loaded = !!model.root;
 		if (meta.listeners.size || meta.rowListeners.size) notify();
@@ -412,118 +427,127 @@ export function createRuntime(
 			}
 		},
 		applyRows(rows) {
-			context.assertActive();
-			const delta = stateDeltaOf(rows);
-			if (delta) {
-				if (
-					delta.clock + delta.count <=
-					(new Map(log.vector).get(delta.sid) ?? 1)
-				) {
-					log.acceptState(delta, () => {});
-					return;
-				}
-				let value: CoreScalar;
-				try {
-					value = model.encoding.decode(delta.layout, delta.data) as CoreScalar;
-				} catch (cause) {
-					if (cause instanceof PulseError) throw cause;
-					throw new PulseError("INVALID_MESSAGE", "Invalid state value", {
-						cause,
-					});
-				}
-				model.validateScalarRun(delta, [value]);
-				const patch = new ScalarPatch(
-					delta.sid,
-					delta.clock + delta.count - 1,
-					delta.lamport + delta.count - 1,
-					delta.schema,
-					delta.target,
-					delta.field,
-					value,
-				);
-				let pending: CorePatch[] = [];
-				const result = log.acceptState(delta, (ready) => {
-					pending = ready.map(decode);
-					if (pending.length)
-						model.validate(
-							pending,
-							new Map(ready.map((row, i) => [pending[i]!, row.dependencies])),
-						);
-				});
-				if (result.changed) {
-					model.apply(patch);
-					for (const item of pending) model.apply(item);
-					meta.loaded = !!model.root;
-					migrate();
-					notify();
-				}
-				return;
-			}
-
-			const run = scalarRunOf(rows);
-			const column = run && model.scalarColumn(run.target, run.field);
-			if (
-				run &&
-				column &&
-				run.schema === model.schemaId &&
-				run.layout === column.id + 2
-			) {
-				let values: ReturnType<typeof readRunValues> | undefined;
-				if (
-					log.appendContiguousRun(rows, () => {
-						values = readRunValues(run, column.kind);
-						model.validateScalarRun(run, values);
-					})
-				) {
-					model.apply(
-						new ScalarPatch(
-							run.sid,
-							run.clock + run.count - 1,
-							run.lamport + run.count - 1,
-							run.schema,
-							run.target,
-							run.field,
-							values![run.count - 1]!,
-						),
+			try {
+				context.assertActive();
+				const delta = stateDeltaOf(rows);
+				if (delta) {
+					if (delta.schema !== model.schemaId) model.schemaFor(delta.schema);
+					if (
+						delta.clock + delta.count <=
+						(new Map(log.vector).get(delta.sid) ?? 1)
+					) {
+						log.acceptState(delta, () => {});
+						return;
+					}
+					let value: CoreScalar;
+					try {
+						value = model.encoding.decode(
+							delta.layout,
+							delta.data,
+						) as CoreScalar;
+					} catch (cause) {
+						if (cause instanceof PulseError) throw cause;
+						throw new PulseError("INVALID_MESSAGE", "Invalid state value", {
+							cause,
+						});
+					}
+					model.validateScalarRun(delta, [value]);
+					const patch = new ScalarPatch(
+						delta.sid,
+						delta.clock + delta.count - 1,
+						delta.lamport + delta.count - 1,
+						delta.schema,
+						delta.target,
+						delta.field,
+						value,
 					);
-					meta.loaded = !!model.root;
-					notify();
+					let pending: CorePatch[] = [];
+					const result = log.acceptState(delta, (ready) => {
+						pending = ready.map(decode);
+						if (pending.length)
+							model.validate(
+								pending,
+								new Map(ready.map((row, i) => [pending[i]!, row.dependencies])),
+							);
+					});
+					if (result.changed) {
+						model.apply(patch);
+						for (const item of pending) model.apply(item);
+						meta.loaded = !!model.root;
+						migrate();
+						notify();
+					}
 					return;
 				}
-			}
 
-			if (rows.length === 1 && !log.pendingCount) {
-				const patch = decode(rows[0]!);
+				const run = scalarRunOf(rows);
+				const column = run && model.scalarColumn(run.target, run.field);
+				if (
+					run &&
+					column &&
+					run.schema === model.schemaId &&
+					run.layout === column.id + 2
+				) {
+					let values: ReturnType<typeof readRunValues> | undefined;
+					if (
+						log.appendContiguousRun(rows, () => {
+							values = readRunValues(run, column.kind);
+							model.validateScalarRun(run, values);
+						})
+					) {
+						model.apply(
+							new ScalarPatch(
+								run.sid,
+								run.clock + run.count - 1,
+								run.lamport + run.count - 1,
+								run.schema,
+								run.target,
+								run.field,
+								values![run.count - 1]!,
+							),
+						);
+						meta.loaded = !!model.root;
+						notify();
+						return;
+					}
+				}
+
+				if (rows.length === 1 && !log.pendingCount) {
+					const patch = decode(rows[0]!);
+					const ready = log.appendRemoteRows(rows, (available) => {
+						if (available.length)
+							model.validateSingle(patch, available[0]!.dependencies);
+					});
+					if (ready.length) {
+						model.apply(patch);
+						meta.loaded = !!model.root;
+						migrate();
+						notify();
+					}
+					return;
+				}
+				const decoded = new Map(
+					rows.map((row) => [`${row.sid}:${row.clock}`, decode(row)]),
+				);
+				let patches: CorePatch[] = [];
 				const ready = log.appendRemoteRows(rows, (available) => {
-					if (available.length)
-						model.validateSingle(patch, available[0]!.dependencies);
+					patches = available.map(
+						(row) => decoded.get(`${row.sid}:${row.clock}`) ?? decode(row),
+					);
+					model.validate(
+						patches,
+						new Map(available.map((row, i) => [patches[i]!, row.dependencies])),
+					);
 				});
+				for (const patch of patches) model.apply(patch);
 				if (ready.length) {
-					model.apply(patch);
 					meta.loaded = !!model.root;
 					migrate();
 					notify();
 				}
-				return;
-			}
-			const decoded = new Map(
-				rows.map((row) => [`${row.sid}:${row.clock}`, decode(row)]),
-			);
-			let patches: CorePatch[] = [];
-			const ready = log.appendRemoteRows(rows, (available) => {
-				patches = available.map(
-					(row) => decoded.get(`${row.sid}:${row.clock}`) ?? decode(row),
-				);
-				model.validate(
-					patches,
-					new Map(available.map((row, i) => [patches[i]!, row.dependencies])),
-				);
-			});
-			for (const patch of patches) model.apply(patch);
-			if (ready.length) {
-				meta.loaded = !!model.root;
-				migrate();
-				notify();
+			} catch (error) {
+				warnMigrationDrift(meta, error);
+				throw error;
 			}
 		},
 	};

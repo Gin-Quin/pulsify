@@ -99,7 +99,7 @@ test("compiled snapshots retain stored nested fields retired by a schema migrati
 	const definition = builder
 		// Older migrators can leave retired storage fields in place. Exercise
 		// that runtime history even though the current type API asks for profile.
-		.migrate<Latest>("retire nested field", () => ({}) as never)
+		.migrate<Latest>(() => ({}) as never)
 		.schema(object({ profile: object({ retained: "string" }) }))
 		.materialize();
 	const old = createPulse(

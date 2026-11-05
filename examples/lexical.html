@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pulsify + Lexical</title>
+<style>
+body{font:18px system-ui;max-width:48rem;margin:3rem auto;padding:1rem;color:#1c2738}
+button{font:inherit;margin:0 .3rem .5rem 0;padding:.3rem .6rem}
+#editor{border:1px solid #b7c3d5;border-radius:.4rem;margin:1rem 0;min-height:14rem;padding:1rem;outline:none;white-space:pre-wrap;overflow-wrap:break-word}
+output{display:block;margin:1rem 0;color:#365}
+</style>
+<h1>Pulsify + Lexical</h1>
+<p>A vanilla JavaScript editor. Open two tabs to try formatting and offline editing.</p>
+<div role="toolbar" aria-label="Text formatting"><button id="bold">Bold</button><button id="italic">Italic</button><button id="list">List</button><button id="undo">Undo</button><button id="redo">Redo</button></div>
+<div id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Collaborative note"></div>
+<button id="disconnect">Disconnect</button><button id="connect">Reconnect</button><output id="status">Connecting…</output>
+<script type="module" src="/lexical.js"></script>
+</html>

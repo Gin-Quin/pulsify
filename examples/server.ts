@@ -3,7 +3,9 @@ import type { RelayPeer } from "../packages/pulse/source/protocol/PulseRelay";
 import { validateCoreRow } from "../packages/pulse/source/core/operations";
 const relay = new PulseRelay(validateCoreRow);
 const client = await Bun.build({
-	entrypoints: [new URL("./client.ts", import.meta.url).pathname],
+	entrypoints: ["./client.ts", "./prosemirror.ts", "./lexical-client.ts"].map(
+		(path) => new URL(path, import.meta.url).pathname,
+	),
 	target: "browser",
 	minify: true,
 });
@@ -35,14 +37,37 @@ const server = Bun.serve<{ peer?: RelayPeer; protocolVersion?: 1 | 2 | 3 }>({
 			)
 				return;
 		}
-		if (path === "/client.js")
-			return new Response(client.outputs[0], {
-				headers: { "content-type": "text/javascript" },
-			});
+		if (
+			path === "/client.js" ||
+			path === "/prosemirror.js" ||
+			path === "/lexical.js"
+		)
+			return new Response(
+				client.outputs.find((output) =>
+					output.path.endsWith(
+						path === "/lexical.js" ? "/lexical-client.js" : path,
+					),
+				),
+				{
+					headers: { "content-type": "text/javascript" },
+				},
+			);
 		if (path === "/")
 			return new Response(Bun.file(new URL("./index.html", import.meta.url)), {
 				headers: { "content-type": "text/html" },
 			});
+		if (path === "/prosemirror")
+			return new Response(
+				Bun.file(new URL("./prosemirror.html", import.meta.url)),
+				{
+					headers: { "content-type": "text/html" },
+				},
+			);
+		if (path === "/lexical")
+			return new Response(
+				Bun.file(new URL("./lexical.html", import.meta.url)),
+				{ headers: { "content-type": "text/html" } },
+			);
 		return new Response("Not found", { status: 404 });
 	},
 	websocket: {

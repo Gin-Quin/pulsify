@@ -16,6 +16,7 @@ export type {
 	PulseSchemaValue,
 } from "./core/schema.js";
 export { richText } from "./core/richText.js";
+export type { RichTextSchema } from "./core/richTextSchema.js";
 export type {
 	RichText,
 	RichTextAttributes,
@@ -63,7 +64,8 @@ export { struct, type Struct } from "./utilities/Struct.js";
 export { isPulseLoaded } from "./utilities/isPulseLoaded.js";
 export { hasPulseLatestVersion } from "./utilities/hasPulseLatestVersion.js";
 export { setOnlineMode, isOnlineMode, isOnline } from "./utilities/isOnline.js";
-export { PulseError } from "./protocol/errors.js";
+export { PulseError, MigrationDriftError } from "./protocol/errors.js";
+export type { MigrationDriftDetails } from "./protocol/errors.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
 export {
 	encodeMessage,

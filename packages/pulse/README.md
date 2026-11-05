@@ -83,18 +83,17 @@ application fields; Pulsify supplies `id`, `kind`, `version` and `generation`.
 
 ```ts
 import { array, createCodec, object } from "@gin-quin/codec";
-import { createPulse, definePulse, snapshotPulse } from "@pulsify/core";
+import { createPulse, definePulse, richText, snapshotPulse } from "@pulsify/core";
 
 const schema = object({
   title: "string",
-  body: "string",
+  body: richText(),
   origin: object({ source: "string" }),
   items: array(object({ label: "string", done: "boolean" })),
 });
 const documentCodec = createCodec(schema);
 const Article = definePulse("Article", schema, {
   constantPaths: [["origin"]],
-  richTextPaths: [["body"]],
 }).materialize();
 
 const article = createPulse(Article, {
@@ -123,6 +122,31 @@ and detached copies once. Mutation patches can refer to numeric field slots and
 use the field's compiled codec instead of repeating property names and types.
 `definePulse("Article").schema(schema, options)` is equivalent; the existing
 `definePulse<Data>("Article")` API remains available without a runtime schema.
+
+`richText()` without an argument declares a string schema with collaborative text
+semantics. Codec infers and encodes a plain string; Pulsify infers the public
+`RichText` view. It works inside nested objects, arrays, maps, tuples, optional
+fields and lazy recursive schemas, without a separate `richTextPaths` annotation:
+
+```ts
+const Comment = definePulse("Comment", object({
+  body: richText(),
+  author: object({ bio: richText() }),
+  paragraphs: array(richText()),
+})).materialize();
+const comment = createPulse(Comment, {
+  body: "Hello", author: { bio: "Ada" }, paragraphs: ["First"],
+});
+comment.author.bio.insert(3, "!");
+comment.paragraphs[0]!.format(0, 5, { bold: true });
+comment.paragraphs.push(richText("Next"));
+```
+
+Schema markers are normalized to codec strings once during compilation; edits
+and exports do not resolve the helper again. Existing `richTextPaths` annotations
+remain supported. Replacing an annotation with an equivalent inline declaration
+preserves codec bytes and schema fingerprints. Inline markers in union branches
+apply only to those branches.
 
 Constant fields and their descendants are readonly in TypeScript and reject
 replacement, deletion and nested edits at runtime. Codec `literal(value)` fields
@@ -153,8 +177,39 @@ operations remain in collaborative history and survive synchronization.
 
 For a definition without a runtime schema, declare a `RichText` field and
 initialize it with `richText("Hello")`. The marker must be attached to a pulse
-before its mutation methods can be called. Schema annotations also accept a
-plain string as the creation input.
+before its mutation methods can be called. Use `richText("")` for an empty initial
+value; `richText()` is reserved for schemas and cannot initialize document data.
+Inline schemas and path annotations both accept plain strings as creation input.
+
+## Editor bindings
+
+Declare the same `richText()` field for either editor. Bindings are separate
+packages; the core has no ProseMirror, Lexical or React dependency.
+
+```ts
+import { bindProseMirror } from "pulsify-prosemirror";
+import { bindLexical } from "pulsify-lexical";
+
+// Choose the binding that matches the editor used by this document.
+const binding = bindProseMirror(view, note.body);
+// Or: const binding = bindLexical(editor, note.body);
+
+binding.destroy();
+```
+
+- [ProseMirror API and example](../pulsify-prosemirror/README.md)
+- [Lexical API and example](../pulsify-lexical/README.md)
+
+Each document records its editor format. Both bindings use native character
+operations and hidden structural anchors, but ProseMirror and Lexical document
+models are distinct. An incompatible binding is rejected; custom nodes are not
+silently converted. Snapshots remain a plain text projection. Use
+`proseMirrorDocument(field, schema)` or `lexicalDocument(field)` for nodes and
+formatting, and Pulsify update frames for collaborative history.
+
+For code, syntax highlighting belongs to the editor and the content is plain
+text. Plain Pulsify strings are whole-value registers; concurrent character
+editing still requires a collaborative text field and an editor binding.
 
 ## Connect and load
 
@@ -214,14 +269,15 @@ first.author.name = "Grace"; // Automatically reaches second.
 ## Migrations and materialization
 
 ```ts
+import { object } from "@gin-quin/codec";
 import { createPulse, definePulse, type PulseProperties } from "@pulsify/core";
 
-type UserV1 = PulseProperties<"User"> & { name: string; email: string };
-type UserV2 = PulseProperties<"User"> & { name: string; emailV2: string };
-type User = UserV1;
+const userV1 = object({ name: "string", email: "string" });
+const userV2 = object({ name: "string", emailV2: "string" });
+type User = PulseProperties<"User"> & { name: string; email: string };
 
-const User = definePulse<UserV1>("User")
-  .migrate<UserV2>("v2", before => ({ emailV2: before.email }))
+const User = definePulse("User", userV1)
+  .migrateTo(userV2, before => ({ emailV2: before.email }))
   .materialize<User>(({ bind }) => ({ email: bind("emailV2") }));
 
 const user = createPulse(User, { name: "Ada", emailV2: "ada@example.com" });
@@ -230,23 +286,83 @@ user.email = "grace@example.com";
 
 Creation accepts the latest stored shape. Loading applies migrations in order, once per stored version, and synchronizes the resulting patch. A current document does not copy or traverse its view to check for migrations. Migration functions receive a detached copy only when they run, return partial updates, and must be deterministic and free of external side effects; unchanged stored fields remain. They cannot write managed properties. Future migration versions or another document kind are rejected.
 
-For schema-based definitions, register the schema for each stored version
-before defining its next migration. Select the new schema with `.schema(...)`
-after that migration:
+Migration inputs are typed as detached data: rich-text fields are strings,
+including inside arrays and nested objects. For example, use `before.body` or
+`before.body.toUpperCase()`, rather than `before.body.text` or collaborative
+editing methods. Schema-based migrations return plain text for rich-text fields;
+the target schema supplies the collaborative semantics.
+
+**Never rewrite an applied migration.** Once any client has used a migration,
+keep its target schema, transformation and position unchanged. Never go back
+and replace a published V1 → V2 migration with a different V1 → V2 migration.
+Do not remove or reorder published steps, or change historical schemas and
+helpers in ways that alter those steps' behavior. Append new migrations at the
+end of the chain to correct previous behavior.
+
+A document already at V2 does not rerun the V1 → V2 callback when its code
+changes. Replacing that callback can therefore give different data to two
+documents with the same version. Restore the original migration and append a
+V2 → V3 correction, even when V3 uses the same schema as V2. If both replacement
+variants have already run, the correction must handle their resulting data;
+recovering discarded information requires an earlier copy or history.
+
+For schema-based definitions, pass the next schema as the first argument to
+`.migrateTo(schema, migrator)`. The callback receives the previous version's
+type; the target type is inferred from the supplied schema. New required fields
+and fields whose types change must be returned; unchanged fields are preserved:
 
 ```ts
-import { object, type InferType } from "@gin-quin/codec";
-import { definePulse, type PulseProperties } from "@pulsify/core";
+import { object } from "@gin-quin/codec";
+import { definePulse } from "@pulsify/core";
 
 const personV1 = object({ name: "string" });
 const personV2 = object({ name: "string", displayName: "string" });
-type PersonV2 = PulseProperties<"Person"> & InferType<typeof personV2>;
 
 const Person = definePulse("Person", personV1)
-  .migrate<PersonV2>("display-name", before => ({ displayName: before.name }))
-  .schema(personV2)
+  // V1 → V2: keep this step unchanged once it has been used.
+  .migrateTo(personV2, before => ({ displayName: before.name }))
+  // V2 → V3: correct existing values in a new step, using the same schema.
+  .migrateTo(personV2, before => ({ displayName: before.displayName.trim() }))
   .materialize();
 ```
+
+An optional third argument supplies `constantPaths` and `richTextPaths` for
+the target version, just like the options passed to `definePulse`. Neither a
+target type argument nor a subsequent `.schema(...)` call is needed. The existing
+`.migrate<Next>(migrator)` method remains available for typed definitions
+without runtime schemas and for existing explicit `.schema(...)` chains.
+
+Steps are selected by their position in the version chain, not by a schema
+fingerprint. Different migrations may target the same schema, such as normalizing
+an existing string field. Use code comments to explain each transformation.
+Definitions cache a recursive fingerprint for every version:
+`F1 = H(kind, 1, schemaHash1)` and `Fn = H(Fn-1, n, schemaHashN)`. Schema hashes
+include codec layouts and constant/rich-text annotations. Changing an earlier
+schema changes every later fingerprint, even if the final schema stays the same.
+The arrays and lookup map are shared by all documents of a definition; ordinary
+edits perform no hashing, schema reconstruction or diagnostic snapshot copying.
+
+Incompatible histories reject the incoming update with `MigrationDriftError`
+(`code: "MIGRATION_DRIFT"`) before that update changes the document or journal.
+`loadPulse` rejects normally and connection failures reach `onError`. A prominent
+uppercase `console.warn` includes the document identity, detected version,
+expected/received identities, a detached raw document snapshot, the known local schemas
+and local transformation. Application materializer getters are not invoked. A
+best-effort incoming root snapshot is explicitly
+marked when decoded using a local schema. Unknown remote schemas cannot be
+reconstructed from a hash. Identical warnings are deduplicated per pulse instance.
+The mismatch may originate before the reported version; restore the published
+chain and append a corrective migration instead of forcing an incompatible update.
+
+These fingerprints cover schema history, not callback code: changing only a
+transformation with identical schemas is not detectable. Definitions without
+runtime schemas cannot detect changes to TypeScript-only data shapes either.
+Version 1 keeps its previous wire identity. Versions 2+ use a chain-qualified
+identity in the existing patch schema field; old migrated histories without that
+identity are not a verified chain and require an explicit application upgrade.
+A peer that merely lacks newer versions is reported as incompatible/newer, not
+as migration drift. The operation payload and transport envelope versions stay
+unchanged; old clients cannot consume the new migrated identities.
 
 The definition retains previous compiled layouts so old operation rows can be
 decoded before migration. Fingerprints include schema layout and collaborative
@@ -262,7 +378,7 @@ history use string field keys in new patches to preserve old layout identities.
 A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration. See the [protocol specification](../../docs/PROTOCOL.md).
 
 Durable operation stores are available from `@pulsify/core/storage` for
-PostgreSQL, SQLite and FoundationDB. They append binary rows and query missing
+PostgreSQL and SQLite. They append binary rows and query missing
 operations by version vector without loading a document. PostgreSQL's append
 is one database call; connect storage to your relay and commit before
 acknowledging writes. See the [storage adapter guide](../../docs/STORAGE.md).

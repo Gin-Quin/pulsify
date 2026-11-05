@@ -8,7 +8,13 @@ import {
 	type Schema,
 } from "@gin-quin/codec";
 import type { DeepReadonly } from "../utilities/DeepReadonly.js";
+import { fingerprintBytes } from "../utilities/fingerprint.js";
 import type { RichText } from "./richText.js";
+import {
+	codecSchemas,
+	isRichTextSchema,
+	type PublicRichTextSchema,
+} from "./richTextSchema.js";
 import {
 	prepareValue,
 	validatePrepared,
@@ -167,11 +173,18 @@ type ApplyRichTextPaths<Value, Paths> = [Paths] extends [never]
 				: Value;
 
 /** Infer codec values while exposing declared constants as readonly properties. */
+type SchemaPublicValue<S extends Schema> =
+	PublicRichTextSchema<S> extends infer Public
+		? Public extends Schema
+			? InferType<Public>
+			: never
+		: never;
+
 export type PulseSchemaValue<
 	S extends Schema,
 	O extends PulseSchemaOptions = {},
 > = ApplyConstantPaths<
-	ApplyRichTextPaths<InferType<S>, RichTextPaths<O>>,
+	ApplyRichTextPaths<SchemaPublicValue<S>, RichTextPaths<O>>,
 	AnnotationPaths<O> | LiteralPaths<S>
 >;
 
@@ -214,6 +227,10 @@ export interface PulseLayout {
 
 export interface CompiledPulseSchema<S extends Schema = Schema> {
 	readonly schema: S;
+	/** Inline rich-text fields normalized to strings for compiled codec hot paths. */
+	readonly codecSchema?: Schema;
+	/** Inline declarations, separate from explicit path annotations. */
+	readonly inferredRichTextPaths?: readonly PulseSchemaPath[];
 	readonly options: PulseSchemaOptions;
 	readonly codec: Codec<InferType<S>>;
 	readonly root: PulseLayout;
@@ -261,6 +278,8 @@ export function compilePulseSchema<S extends Schema>(
 	schema: S,
 	options: PulseSchemaOptions = {},
 ): CompiledPulseSchema<S> {
+	const wireSchemas = codecSchemas(schema);
+	const inferredRichTextPaths: PulseSchemaPath[] = [];
 	const layouts: MutableLayout[] = [];
 	const codecs = new Map<Schema, Codec<unknown>>();
 	const active = new Map<Schema, Map<string, MutableLayout>>();
@@ -311,24 +330,26 @@ export function compilePulseSchema<S extends Schema>(
 	const codecFor = (descriptor: Schema): Codec<unknown> => {
 		let codec = codecs.get(descriptor);
 		if (!codec) {
-			codec = createCodec(descriptor);
+			codec = createCodec(wireSchemas.resolve(descriptor));
 			codecs.set(descriptor, codec);
 		}
 		return codec;
 	};
 	const build = (descriptor: Schema, path: PulseSchemaPath): MutableLayout => {
 		const resolved = resolveSchema(descriptor);
+		const inlineRichText = isRichTextSchema(descriptor);
 		const constant =
 			(typeof resolved === "object" && resolved._type === "literal") ||
 			constantPaths.some((candidate) => matchesPrefix(candidate, path));
-		const richText = richTextPaths.some((candidate) =>
-			pathsMatch(candidate, path),
-		);
+		const richText =
+			inlineRichText ||
+			richTextPaths.some((candidate) => pathsMatch(candidate, path));
 		const state = annotationState(path, constant, richText);
 		const existing = active.get(descriptor)?.get(state);
 		if (existing) return existing;
 		const resolvedExisting = active.get(resolved)?.get(state);
 		if (resolvedExisting) return resolvedExisting;
+		if (inlineRichText) inferredRichTextPaths.push(path);
 		const kind = typeof resolved === "string" ? resolved : resolved._type;
 		const layout: MutableLayout = {
 			id: layouts.length,
@@ -533,6 +554,8 @@ export function compilePulseSchema<S extends Schema>(
 	};
 	return {
 		schema,
+		codecSchema: wireSchemas.resolve(schema),
+		inferredRichTextPaths,
 		options,
 		codec: root.codec as Codec<InferType<S>>,
 		root,
@@ -1331,7 +1354,10 @@ export function schemaFingerprint<S extends Schema>(
 		version: 2,
 		root: compiled.root.id,
 		constants: paths(compiled.options.constantPaths),
-		texts: paths(compiled.options.richTextPaths),
+		texts: paths([
+			...(compiled.options.richTextPaths ?? []),
+			...(compiled.inferredRichTextPaths ?? []),
+		]),
 		layouts: compiled.layouts.map((layout) => {
 			const descriptor = resolveSchema(layout.schema);
 			return {
@@ -1368,19 +1394,7 @@ export function schemaFingerprint<S extends Schema>(
 	});
 	// Four independent 32-bit streams keep the wire key fixed at 32 ASCII bytes.
 	// This detects schema mismatches; it is not an authentication mechanism.
-	let a = 0x811c9dc5,
-		b = 0x9e3779b9,
-		c = 0x85ebca6b,
-		d = 0xc2b2ae35;
-	for (const byte of bytes) {
-		a = Math.imul(a ^ byte, 16777619);
-		b = Math.imul(b ^ byte, 2246822519);
-		c = Math.imul(c ^ byte, 3266489917);
-		d = Math.imul(d ^ byte, 668265263);
-	}
-	const fingerprint = [a, b, c, d]
-		.map((part) => (part >>> 0).toString(16).padStart(8, "0"))
-		.join("");
+	const fingerprint = fingerprintBytes(bytes);
 	fingerprints.set(compiled, fingerprint);
 	return fingerprint;
 }

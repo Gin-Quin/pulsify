@@ -50,6 +50,14 @@ export function pulsify(
 			node,
 			context.meta.model,
 			context.assertActive,
+			{
+				subscribe(listener) {
+					context.meta.listeners.add(listener);
+					return () => {
+						context.meta.listeners.delete(listener);
+					};
+				},
+			},
 		);
 	else if (node.kind === "array") node.proxy = createArrayProxy(node, context);
 	else node.proxy = createObjectProxy(() => node, context);

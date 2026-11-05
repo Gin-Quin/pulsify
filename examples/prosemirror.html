@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pulsify + ProseMirror</title>
+<style>
+body{font:18px system-ui;max-width:48rem;margin:3rem auto;padding:1rem;color:#1c2738}
+button{font:inherit;margin:0 .3rem .5rem 0;padding:.3rem .6rem}
+#editor{border:1px solid #b7c3d5;border-radius:.4rem;margin:1rem 0}
+.ProseMirror{position:relative;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces;font-variant-ligatures:none;min-height:14rem;padding:1rem;outline:none}
+.ProseMirror pre{white-space:pre-wrap}.ProseMirror li{position:relative}
+.ProseMirror-selectednode{outline:2px solid #68c}
+output{display:block;margin:1rem 0;color:#365}
+</style>
+<h1>Pulsify + ProseMirror</h1>
+<p>Open two tabs. Type, format text, add paragraphs or edit offline.</p>
+<div role="toolbar" aria-label="Text formatting"><button id="bold">Bold</button><button id="italic">Italic</button><button id="list">List</button><button id="undo">Undo</button><button id="redo">Redo</button></div>
+<div id="editor" aria-label="Collaborative note"></div>
+<button id="disconnect">Disconnect</button><button id="connect">Reconnect</button>
+<output id="status">Connecting…</output>
+<script type="module" src="/prosemirror.js"></script>
+</html>

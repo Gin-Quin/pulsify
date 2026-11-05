@@ -8,7 +8,7 @@
 	"scripts": {
 		"dev": "bun examples/server.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"test": "bun test packages/pulse/tests",
+		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests",
 		"check": "bun run typecheck && bun run test && bun run test:crdt",
 		"build": "bun scripts/build.ts",
 		"bench": "bun benchmarks/index.ts",
@@ -18,6 +18,8 @@
 		"test:runtimes": "bun scripts/test-runtimes.ts",
 		"test:codec-local": "bun scripts/test-codec-local.ts",
 		"test:example": "bun scripts/test-example.ts",
+		"test:prosemirror": "bun scripts/test-prosemirror.ts",
+		"test:lexical": "EDITOR_DEMO=lexical bun scripts/test-prosemirror.ts",
 		"test:package": "bun scripts/test-package.ts",
 		"bench:crdt": "bun benchmarks/crdt-comparison.ts",
 		"test:crdt": "bun test benchmarks/crdt-adapters.test.ts",
@@ -28,7 +30,28 @@
 		"@biomejs/biome": "^1.9.2"
 	},
 	"devDependencies": {
+		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
+		"@lexical/headless": "^0.53.0",
+		"@lexical/history": "^0.53.0",
+		"@lexical/link": "^0.53.0",
+		"@lexical/list": "^0.53.0",
+		"@lexical/rich-text": "^0.53.0",
+		"@lexical/selection": "^0.53.0",
+		"@playwright/test": "^1.56.1",
+		"@types/jsdom": "^30.0.0",
+		"jsdom": "^30.1.3",
+		"lexical": "^0.53.0",
+		"prosemirror-commands": "^1.7.2",
+		"prosemirror-history": "^1.5.1",
+		"prosemirror-keymap": "^1.2.3",
+		"prosemirror-model": "^1.25.12",
+		"prosemirror-schema-basic": "^1.2.5",
+		"prosemirror-schema-list": "^1.6.0",
+		"prosemirror-state": "^1.4.4",
+		"prosemirror-transform": "^1.12.5",
+		"prosemirror-view": "^1.42.9",
 		"typescript": "^5.9.3",
-		"@playwright/test": "^1.56.1"
+		"pulsify-prosemirror": "workspace:*",
+		"pulsify-lexical": "workspace:*"
 	}
 }

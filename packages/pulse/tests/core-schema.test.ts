@@ -294,9 +294,9 @@ describe("compiled pulse schemas", () => {
 		const builder = definePulse("Versioned", v1, { constantPaths: [["name"]] });
 		const first = builder.materialize();
 		const latest = builder
-			.migrate<V2>("add email", () => ({ email: "ada@example.com" }))
+			.migrate<V2>(() => ({ email: "ada@example.com" }))
 			.schema(v2, { richTextPaths: [["name"]] })
-			.migrate<V3>("add active", (before) => ({
+			.migrate<V3>((before) => ({
 				active: true,
 				name: before.name.toString(),
 			}))
@@ -315,17 +315,16 @@ describe("compiled pulse schemas", () => {
 		type Legacy = PulseProperties<"LegacyTyped"> & { name: string };
 		type Current = Legacy & { email: string };
 		const migrated = definePulse<Legacy>("LegacyTyped")
-			.migrate<Current>("typed", () => ({ email: "a@b.test" }))
+			.migrate<Current>(() => ({ email: "a@b.test" }))
 			.schema(object({ name: "string", email: "string" }))
 			.materialize();
 		expect(migrated.schemas).toHaveLength(2);
 		expect(migrated.schemas![0]).toBeUndefined();
 		expect(migrated.schemas![1]).toBe(migrated.compiledSchema);
 		const sameShape = definePulse("SameShape", object({ name: "string" }))
-			.migrate<PulseProperties<"SameShape"> & { name: string }>(
-				"rename",
-				() => ({ name: "New" }),
-			)
+			.migrate<PulseProperties<"SameShape"> & { name: string }>(() => ({
+				name: "New",
+			}))
 			.materialize();
 		expect(sameShape.schemas![0]).toBe(sameShape.schemas![1]);
 		expect(

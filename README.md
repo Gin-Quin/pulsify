@@ -8,8 +8,7 @@ or Yjs. `@gin-quin/codec` **2.1.0** compiles the shared application schema and
 binary codecs; Pulsify also compiles field slots, value checks and copies.
 Normal-looking object and array proxies address stable collaborative nodes.
 
-Connectors exchange binary frames and version vectors. PostgreSQL, SQLite and
-FoundationDB stores accept encoded patches and query missing actor ranges
+Connectors exchange binary frames and version vectors. PostgreSQL and SQLite stores accept encoded patches and query missing actor ranges
 without loading the document. A dependency-free Rust crate implements the
 envelope and opaque causal journal independently.
 
@@ -22,23 +21,35 @@ bun run build                 # Browser-compatible ESM + declarations
 bun run test:package          # Packed tarball: strict NodeNext types and Node runtime
 bun x --no-install playwright install chromium
 bun run test:example          # Two real browser tabs, offline edits and reconnection
+bun run test:prosemirror      # ProseMirror: formatting, two tabs, offline merge and undo
+bun run test:lexical          # Lexical: vanilla editor, two tabs, offline merge and undo
 bun run test:runtimes         # Built package: Bun, Node 22+, Deno 2, Chromium
 bun run test:codec-local      # Isolated build against ../codec, without changing either repository
-bun scripts/test-storage.ts  # Actual PostgreSQL, SQLite and FoundationDB integration checks
+bun scripts/test-storage.ts  # Actual PostgreSQL and SQLite integration checks
 bun run bench                 # Reproducible performance report
 bun run bench:crdt            # Pulsify / native json-joy / Yjs / Loro, including proxy overhead
+bun run bench:database        # Native Rust load: PostgreSQL / SQLite + compatible engines, host + Docker
 bun run dev                   # Two-tab WebSocket example at http://127.0.0.1:3000
 ```
 
 The runtime script uses an installed `deno`, or the npm Deno launcher through Bun if unavailable. The example relay keeps data in memory and binds to localhost. Refreshing clients reloads from that relay; restarting it clears its documents.
+The ProseMirror demo is at `http://127.0.0.1:3000/prosemirror`; bind an editor to
+a `richText()` field with `bindProseMirror(view, note.body)` from
+`pulsify-prosemirror` ([usage](packages/pulsify-prosemirror/README.md)).
 
+The vanilla Lexical demo is at `http://127.0.0.1:3000/lexical`. Both editor
+bindings use `richText()` and ship independently of the core.
+
+- [ProseMirror binding](packages/pulsify-prosemirror/README.md)
+- [Lexical binding](packages/pulsify-lexical/README.md)
 - [API and examples](packages/pulse/README.md)
 - [Binary format and connector contract](docs/PROTOCOL.md)
 - [Benchmarks, methodology and measured baseline](benchmarks/README.md)
+- [Database benchmark: setup, architecture and compaction](benchmarks/database/README.md)
 - [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
 - [Native core results and remaining performance limits](benchmarks/HYBRID-TRANSPORT.md)
 - [Rust protocol crate](crates/pulsify-protocol/README.md)
-- [PostgreSQL, SQLite and FoundationDB storage](docs/STORAGE.md)
+- [PostgreSQL and SQLite storage](docs/STORAGE.md)
 - [Storage requirements and design notes](DATABASES.md)
 
 ## Scope

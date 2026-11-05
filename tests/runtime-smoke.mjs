@@ -1,4 +1,4 @@
-import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, getPulseVersions, PulseRelay, snapshotPulse, PulseError as CoreError } from "../packages/pulse/dist/index.js";
+import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, getPulseVersions, PulseRelay, snapshotPulse, richText, PulseError as CoreError } from "../packages/pulse/dist/index.js";
 import { encodeMessage, decodeMessage, PulseError as ProtocolError, PulseRelay as ProtocolRelay } from "../packages/pulse/dist/protocol.js";
 function assert(condition, message) { if (!condition) throw new Error(message); }
 export async function smoke() {
@@ -47,6 +47,22 @@ export async function smoke() {
 		assert(JSON.stringify(getPulseVersions(y).state)===JSON.stringify(getPulseVersions(y).history),"State history backfill failed");
 
 	}finally{destroyPulse(x);if(y)destroyPulse(y);}
+	const Inline = definePulse("RuntimeInlineRich", { _type: "object", fields: {
+		body: richText(), items: { _type: "array", element: { _type: "object", fields: { text: richText() } } },
+	} }).materialize();
+	const richA = createPulse(Inline, { body: "Hello", items: [{ text: "Nested" }] }, { scope: createPulseScope(), connectors: [connector] });
+	let richB;
+	try {
+		await connectPulse(richA).synced;
+		richB = await loadPulse(Inline, richA.id, { scope: createPulseScope(), connectors: [connector], waitFor: "all" });
+		disconnectPulse(richA); disconnectPulse(richB);
+		richA.body.insert(5, "!"); richA.body.format(0, 5, { bold: true });
+		richA.items[0].text.insert(6, "!");
+		applyPulseUpdates(richB, exportPulseUpdates(richA, getPulseMeta(richB).log.vector));
+		assert(richB.body.text === "Hello!" && richB.items[0].text.text === "Nested!", "Inline rich text did not synchronize");
+		assert(richB.body.toDelta()[0].attributes.bold === true, "Inline rich text lost formatting");
+		assert(snapshotPulse(richB).body === "Hello!", "Inline rich text snapshot must contain a string");
+	} finally { destroyPulse(richA); if (richB) destroyPulse(richB); }
 	return { ok: true, runtime: typeof navigator !== "undefined" ? navigator.userAgent : globalThis.process?.version ?? "unknown" };
 }
 if (typeof window === "undefined") console.log(JSON.stringify(await smoke()));

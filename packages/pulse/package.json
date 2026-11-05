@@ -17,12 +17,13 @@
 		"./storage": {
 			"types": "./dist/storage.d.ts",
 			"default": "./dist/storage.js"
+		},
+		"./bindings": {
+			"types": "./dist/bindings.d.ts",
+			"default": "./dist/bindings.js"
 		}
 	},
-	"files": [
-		"dist",
-		"README.md"
-	],
+	"files": ["dist", "README.md"],
 	"scripts": {
 		"test": "bun test"
 	},

@@ -255,7 +255,7 @@ test("single-row root-map migration captures match general migration bytes and l
 	const builder = definePulse("SingleRowMapMigration", schema),
 		oldDefinition = builder.materialize();
 	const latest = builder
-		.migrate("add and freeze", () => ({ added: { count: 2 } }) as any)
+		.migrate(() => ({ added: { count: 2 } }) as any)
 		.schema(schema, { constantPaths: [["*"]] })
 		.materialize();
 	const source = createPulse(

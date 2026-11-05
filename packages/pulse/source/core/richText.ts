@@ -1,6 +1,18 @@
 import type { CoreOperation } from "./operations.js";
 import type { CoreEntry, CoreModel, CoreNode } from "./model.js";
 import { RichTextSymbol, prepareValue } from "./values.js";
+import { richTextSchema, type RichTextSchema } from "./richTextSchema.js";
+import {
+	isRichTextNode,
+	RT_NODE,
+	RT_PARENT,
+	RT_PREFIX,
+	RT_TEXTBLOCK,
+	richTextContent,
+	richTextEntries,
+	richTextContexts,
+	type RichTextContext,
+} from "./richTextBinding.js";
 
 export type RichTextAttributes = Readonly<Record<string, unknown>>;
 export type RichTextDelta = {
@@ -23,8 +35,13 @@ export interface RichText extends Iterable<string> {
 	[Symbol.toPrimitive](hint: string): string;
 }
 
-/** Create the initial value marker; attach it to a pulse before editing. */
-export function richText(text = ""): RichText {
+/** Declare a collaborative string field in a codec schema. */
+export function richText(): RichTextSchema;
+/** Create an initial value marker; attach it to a pulse before editing. */
+export function richText(text: string): RichText;
+export function richText(text?: string): RichTextSchema | RichText {
+	if (arguments.length === 0) return richTextSchema;
+	// An explicit undefined is invalid, rather than silently declaring a schema.
 	assertText(text);
 	const unattached = () => {
 		throw new TypeError("Attach rich text to a pulse before editing it");
@@ -49,6 +66,7 @@ export function createTextProxy(
 	node: CoreNode,
 	model: CoreModel,
 	assertActive: () => void,
+	binding: Pick<RichTextContext, "subscribe">,
 ): RichText {
 	const attached = () => {
 		assertActive();
@@ -57,36 +75,49 @@ export function createTextProxy(
 	};
 	const text = () => {
 		attached();
-		return node.visible.map((entry) => entry.value as string).join("");
+		return richTextContent(node);
 	};
+	const visible = () => richTextEntries(node);
 	const format = (index: number, count: number, input: RichTextAttributes) => {
 		attached();
-		assertIndex(index, node.visible.length);
+		assertIndex(index, visible().length);
 		assertCount(count);
 		const attributes = prepareAttributes(input);
-		const entries = node.visible
+		const entries = visible()
 			.slice(index, index + count)
 			.map((entry) => entry.id);
 		if (entries.length && Object.keys(attributes).length)
 			model.commit([{ kind: 5, target: node.id, entries, attributes }]);
 	};
-	return Object.freeze({
+	const proxy: RichText = Object.freeze({
 		[RichTextSymbol]: true as const,
 		get text() {
 			return text();
 		},
 		get length() {
 			attached();
-			return node.visible.length;
+			return visible().length;
 		},
 		insert(index: number, value: string, attributes?: RichTextAttributes) {
 			attached();
-			assertIndex(index, node.visible.length);
+			const content = visible();
+			assertIndex(index, content.length);
 			assertText(value);
 			// Validate attributes before inserting any text, so a rejected input
 			// cannot leave a partial edit or advance the document clock.
 			const prepared =
-				attributes === undefined ? undefined : prepareAttributes(attributes);
+				attributes === undefined ? {} : prepareAttributes(attributes);
+			const neighbor = content[index - 1] ?? content[index];
+			const parent =
+				neighbor?.marks.get(RT_PARENT)?.value ??
+				node.visible
+					.findLast((entry) => entry.marks.get(RT_TEXTBLOCK)?.value === true)
+					?.marks.get(RT_NODE)?.value;
+			if (parent !== undefined) prepared[RT_PARENT] = parent;
+			else if (value.length && node.visible.some(isRichTextNode))
+				throw new TypeError(
+					"Create a text block with an editor transaction before inserting into this field",
+				);
 			const chars = Array.from(value);
 			if (!chars.length) return;
 			const clock = model.nextClock;
@@ -94,7 +125,11 @@ export function createTextProxy(
 				{
 					kind: 3,
 					target: node.id,
-					after: index ? node.visible[index - 1]!.id : "",
+					after: index
+						? content[index - 1]!.id
+						: neighbor
+							? (node.visible[node.visible.indexOf(neighbor) - 1]?.id ?? "")
+							: (node.visible.at(-1)?.id ?? ""),
 					deletes: [],
 					values: chars.map((char) => ({
 						value: char,
@@ -115,13 +150,13 @@ export function createTextProxy(
 					attributes: prepared,
 				});
 			}
-			model.commit(operations, index);
+			model.commit(operations, content === node.visible ? index : undefined);
 		},
 		delete(index: number, count = 1) {
 			attached();
-			assertIndex(index, node.visible.length);
+			assertIndex(index, visible().length);
 			assertCount(count);
-			const deletes = node.visible
+			const deletes = visible()
 				.slice(index, index + count)
 				.map((entry) => entry.id);
 			if (deletes.length)
@@ -134,16 +169,18 @@ export function createTextProxy(
 		toJSON: text,
 		toDelta() {
 			attached();
-			return entriesToDelta(node.visible);
+			return entriesToDelta(visible());
 		},
 		[Symbol.toPrimitive]: text,
 		[Symbol.iterator]() {
 			return text()[Symbol.iterator]();
 		},
 	});
+	richTextContexts.set(proxy, { node, model, assertActive, ...binding });
+	return proxy;
 }
 
-function assertText(text: string): void {
+function assertText(text: unknown): asserts text is string {
 	if (typeof text !== "string" || !text.isWellFormed())
 		throw new TypeError("Rich text must be a well-formed Unicode string");
 }
@@ -161,6 +198,10 @@ function assertCount(count: number): void {
 function prepareAttributes(input: RichTextAttributes): Record<string, unknown> {
 	if (input === null || typeof input !== "object" || Array.isArray(input))
 		throw new TypeError("Rich text attributes must be an object");
+	if (Object.keys(input).some((key) => key.startsWith(RT_PREFIX)))
+		throw new TypeError(
+			"The $pulsify:pm: attribute prefix is reserved for editor bindings",
+		);
 	return prepareValue(input).value as Record<string, unknown>;
 }
 
@@ -168,8 +209,10 @@ function entriesToDelta(entries: readonly CoreEntry[]): RichTextDelta[] {
 	const result: RichTextDelta[] = [];
 	let previousAttributes: Record<string, unknown> | undefined;
 	for (const entry of entries) {
+		if (isRichTextNode(entry)) continue;
 		const attributes: Record<string, unknown> = {};
 		for (const key of [...entry.marks.keys()].sort()) {
+			if (key.startsWith(RT_PREFIX)) continue;
 			const value = entry.marks.get(key)!.value;
 			if (value !== null && value !== undefined)
 				attributes[key] = structuredClone(value);

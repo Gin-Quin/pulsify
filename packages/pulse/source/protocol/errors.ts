@@ -4,6 +4,7 @@ export type PulseErrorCode =
 	| "UNSUPPORTED_VERSION"
 	| "NOT_FOUND"
 	| "INCOMPATIBLE_DOCUMENT"
+	| "MIGRATION_DRIFT"
 	| "CLOSED"
 	| "TIMEOUT"
 	| "CONNECTION_FAILED"
@@ -17,6 +18,7 @@ export function remoteError(code: string, message: string): PulseError {
 		case "UNSUPPORTED_VERSION":
 		case "NOT_FOUND":
 		case "INCOMPATIBLE_DOCUMENT":
+		case "MIGRATION_DRIFT":
 		case "CLOSED":
 		case "TIMEOUT":
 		case "CONNECTION_FAILED":
@@ -36,6 +38,25 @@ export class PulseError extends Error {
 	) {
 		super(message, options);
 		this.name = "PulseError";
+	}
+}
+
+export type MigrationDriftDetails = {
+	docId: string;
+	kind: string;
+	version: number | undefined;
+	expected: string | undefined;
+	received: string;
+	reason: string;
+};
+
+export class MigrationDriftError extends PulseError {
+	constructor(
+		public readonly details: MigrationDriftDetails,
+		public readonly incomingSnapshot?: unknown,
+	) {
+		super("MIGRATION_DRIFT", `MIGRATION DRIFT DETECTED: ${details.reason}`);
+		this.name = "MigrationDriftError";
 	}
 }
 

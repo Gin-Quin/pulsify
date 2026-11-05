@@ -5,11 +5,17 @@
 		"typeRoots": [
 			"./packages/pulse/node_modules/@types",
 			"./node_modules/@types"
-		]
+		],
+		"paths": {
+			"@pulsify/core": ["./packages/pulse/source/index.ts"],
+			"@pulsify/core/bindings": ["./packages/pulse/source/bindings.ts"],
+			"pulsify-prosemirror": ["./packages/pulsify-prosemirror/source/index.ts"],
+			"pulsify-lexical": ["./packages/pulsify-lexical/source/index.ts"]
+		}
 	},
 	"include": [
-		"packages/pulse/source/**/*.ts",
-		"packages/pulse/tests/**/*.ts",
+		"packages/*/source/**/*.ts",
+		"packages/*/tests/**/*.ts",
 		"scripts/**/*.ts",
 		"benchmarks/**/*.ts",
 		"examples/**/*.ts",
