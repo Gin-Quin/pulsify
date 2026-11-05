@@ -1,0 +1,13 @@
+**
+!crates/
+!crates/pulsify-protocol/
+!crates/pulsify-protocol/Cargo.toml
+!crates/pulsify-protocol/src/
+!crates/pulsify-protocol/src/**
+!crates/pulsify-db-bench/
+!crates/pulsify-db-bench/Cargo.toml
+!crates/pulsify-db-bench/Cargo.lock
+!crates/pulsify-db-bench/src/
+!crates/pulsify-db-bench/src/**
+**/target
+**/target/**

@@ -7,6 +7,16 @@ sizes, scenario descriptions and direct/public API comparisons. Its raw native
 reference is [core-hybrid-20261104.json](baselines/core-hybrid-20261104.json).
 Competitor dependencies belong only to this private benchmark workspace.
 
+The [native Rust database benchmark](database/README.md) runs PostgreSQL, AlloyDB Omni, OrioleDB, pgrust (row/columnar)
+and file-backed SQLite on the host and in Docker. It exercises
+concurrent full writes/reads, patch appends, lossless compaction, vector reads
+and the 45/25/10/10/10 mix, with burst queues and contention measurements:
+
+```sh
+bun run bench:database --quick
+bun run bench:database
+```
+
 ```sh
 bun run test:crdt
 bun run bench:crdt --output benchmarks/results/crdt-new.json --markdown benchmarks/results/crdt-new.md
@@ -70,9 +80,10 @@ JavaScript heap alone cannot rank total memory against WASM.
 
 The suite does not time rich-text editing, schema migrations, materializers,
 constants, database ingestion or database queries. Those features have separate
-correctness/integration checks. PostgreSQL measurements are documented in
-[STORAGE-BENCHMARKS.md](../docs/STORAGE-BENCHMARKS.md); SQLite and FoundationDB
-receive functional checks, not optimization campaigns.
+correctness/integration checks. Historical PostgreSQL measurements are in
+[STORAGE-BENCHMARKS.md](../docs/STORAGE-BENCHMARKS.md). The separate
+[database suite](database/README.md) measures all three reference storage
+implementations and their transports; it is not a backend optimization campaign.
 
 ## Supplementary protocol and connector suite
 

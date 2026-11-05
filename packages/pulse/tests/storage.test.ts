@@ -12,7 +12,6 @@ import { Database } from "bun:sqlite";
 import { SQL } from "bun";
 import { PostgresPatchStore } from "../source/storage/postgres.js";
 import { SqlitePatchStore } from "../source/storage/sqlite.js";
-import { FoundationDBPatchStore } from "../source/storage/foundationdb.js";
 import {
 	encodeStoredRow,
 	decodeStoredRow,
@@ -21,7 +20,6 @@ import {
 } from "../source/storage/rows.js";
 import { encodeMessage } from "../source/connection/PulseMessage.js";
 import { MAX_VECTOR_ENTRIES } from "../source/protocol/limits.js";
-import { DockerFoundationDB } from "./storage-fdb-helper.js";
 
 const actor = 70001,
 	other = 70002;
@@ -289,7 +287,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			}
 		});
 
-		test("handles payloads larger than the FoundationDB single-value limit", async () => {
+		test("handles large binary payloads", async () => {
 			const store = await create(),
 				docId = crypto.randomUUID(),
 				first = row(docId);
@@ -375,22 +373,6 @@ test("encoded storage requests reject document IDs that cannot round-trip throug
 	}
 	const valid = row("replacement/\ufffd/🌍");
 	expect(decodeStoredRow(encodeStoredRow(valid))).toEqual(valid);
-});
-
-test("FoundationDB budgets UTF-8 document keys and conflict ranges before starting a transaction", async () => {
-	let transactions = 0;
-	const store = new FoundationDBPatchStore({
-		transact: async () => {
-			transactions++;
-			throw new Error("Unexpected transaction");
-		},
-	});
-	const docId = "界".repeat(1024);
-	const rows = Array.from({ length: 512 }, (_, i) => row(docId, i + 1));
-	await expect(store.append(rows)).rejects.toMatchObject({
-		code: "LIMIT_EXCEEDED",
-	});
-	expect(transactions).toBe(0);
 });
 
 const sqlite = new Database(":memory:");
@@ -488,59 +470,3 @@ if (postgresUrl) {
 	});
 	afterAll(() => sql.close());
 } else test.skip("PostgreSQL integration: set PULSIFY_POSTGRES_URL", () => {});
-
-const fdbContainer = process.env["PULSIFY_FDB_DOCKER"];
-if (fdbContainer) {
-	const db = new DockerFoundationDB(fdbContainer);
-	const store = new FoundationDBPatchStore(
-		db,
-		`pulsify-test-${crypto.randomUUID()}/`,
-	);
-	conformance("FoundationDB actual database", async () => store);
-	test("FoundationDB namespaces cannot alias payload and pending metadata prefixes", async () => {
-		const prefix = `namespace-${crypto.randomUUID()}/`;
-		const first = new FoundationDBPatchStore(db, prefix);
-		const second = new FoundationDBPatchStore(db, `${prefix}p/6`);
-		const sid = Number.parseInt("01010101010101", 16);
-		// The collision needs a large clock in its physical key. Represent its
-		// preceding range explicitly so the fixture also respects contiguous frontiers.
-		const prefixRow = { ...row("m", 1, sid), span: sid - 1 };
-		const firstRow = {
-			...row("m", sid, sid, [[sid, sid]]),
-			operations: new Uint8Array(65537).fill(239),
-		};
-		const secondRow = row("\x01".repeat(7), 1, sid);
-		await first.append([prefixRow, firstRow]);
-		await second.append([secondRow]);
-		expect(await first.missing(firstRow.docId, [[sid, sid]])).toEqual([
-			firstRow,
-		]);
-		expect(await second.missing(secondRow.docId, [])).toEqual([secondRow]);
-		expect(() => new FoundationDBPatchStore(db, "\ud800")).toThrow(
-			"Invalid FoundationDB namespace",
-		);
-	});
-	test("FoundationDB retries conflicting transactions from independent connections", async () => {
-		const clients = Array.from(
-			{ length: 4 },
-			() => new DockerFoundationDB(fdbContainer),
-		);
-		const namespace = `concurrent-${crypto.randomUUID()}/`,
-			docId = crypto.randomUUID();
-		const stores = clients.map(
-			(client) => new FoundationDBPatchStore(client, namespace),
-		);
-		try {
-			await Promise.all(
-				stores.map((concurrent, i) => concurrent.append([row(docId, i + 1)])),
-			);
-			expect(await stores[0]!.vector(docId)).toEqual([[actor, 5]]);
-			expect(
-				(await stores[0]!.missing(docId, [])).map((item) => item.clock),
-			).toEqual([1, 2, 3, 4]);
-		} finally {
-			await Promise.all(clients.map((client) => client.close()));
-		}
-	});
-	afterAll(() => db.close());
-} else test.skip("FoundationDB integration: set PULSIFY_FDB_DOCKER", () => {});

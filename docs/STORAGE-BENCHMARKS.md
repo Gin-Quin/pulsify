@@ -1,5 +1,11 @@
 # PostgreSQL storage measurements
 
+For the newer native Rust load suite with real Pulsify documents, all three
+databases on the host and in Docker, vector reads and compaction, see the
+[database benchmark results](../benchmarks/database/RESULTS.md). The historical
+measurements below exercise the public PostgreSQL adapter with opaque bytes;
+the new suite uses separate reference adapters and is not directly comparable.
+
 Measured locally on 2026-11-04 with Bun 1.4.4, PostgreSQL 16.15 in an isolated
 Docker container on macOS/ARM64. Logged tables, ordinary durable commits and
 128-byte opaque operation payloads were used. The script performs two warmups

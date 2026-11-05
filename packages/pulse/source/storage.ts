@@ -9,11 +9,6 @@ export {
 	type SqliteConnection,
 } from "./storage/sqlite.js";
 export {
-	FoundationDBPatchStore,
-	type OrderedKeyValueDatabase,
-	type OrderedKeyValueTransaction,
-} from "./storage/foundationdb.js";
-export {
 	encodeStoredRow,
 	decodeStoredRow,
 	type PatchStore,

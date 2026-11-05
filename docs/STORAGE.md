@@ -1,7 +1,7 @@
 # Operation storage
 
 `@pulsify/core/storage` stores immutable `PulsePatchRow` segments. PostgreSQL is
-the first optimization target. SQLite and FoundationDB expose the same
+the first optimization target. SQLite exposes the same
 `append`, `appendEncoded`, `vector` and `missing` methods.
 
 The envelope is `{docId, sid, clock, span, dependencies, operations}`. `clock`
@@ -85,63 +85,34 @@ recommended for its larger default bound-parameter limit when vectors contain
 hundreds of actors. Configure WAL/durability on the connection according to the
 application's requirements.
 
-## FoundationDB
-
-Pass an `OrderedKeyValueDatabase` adapter to `FoundationDBPatchStore`. Its
-`transact` method must create a real read/write transaction, expose ordered
-range reads with normal conflict tracking, commit atomically, and retry the
-**whole callback** on retryable FoundationDB errors. The store has no native
-binding dependency and can share an application's existing binding.
+## Document identifiers
 
 Document IDs must be well-formed Unicode, contain no NUL and have at most 1024
-UTF-16 code units. All three stores validate IDs on both writes and reads, so
-UTF-8 conversion cannot alias distinct documents.
-
-Keys are prefixed by namespace and UTF-8 document ID, each encoded as a separate
-hex component, followed by
-fixed-width hexadecimal actor/clock numbers. Separate prefixes hold immutable
-row metadata, dangling metadata, causal clocks, payload chunks and ready rows.
-Ready rows are indexed by exclusive end, so a vector query seeks directly past
-the remote frontier and does not load old payloads. Payloads are split into
-64 KiB values to stay below FoundationDB's 100 KiB value limit. There is an
-8 MiB estimated transaction budget per append, including encoded keys, payload
-chunks, metadata and conflict ranges, to leave margin below the 10 MiB
-transaction limit. Large gap-repair fan-outs and very large delta responses still need
-application-level bounded scheduling/pagination before a production deployment.
+UTF-16 code units. Both stores validate IDs on writes and reads.
 
 ## Integration checks and measurements
 
-Run `bun scripts/test-storage.ts` with Docker available. It starts uniquely
-named disposable PostgreSQL 16 and FoundationDB 7.3.77 containers, runs the same
-suite against both and actual SQLite, then removes only those containers. The
-FoundationDB Python test binding is downloaded from PyPI with a pinned SHA-256;
-a test-only pipe exposes a real transaction to the TypeScript adapter. Patch
-logic stays in TypeScript; there is no fake database in the integration suite.
+Run `bun scripts/test-storage.ts` with Docker available. It starts a uniquely
+named disposable PostgreSQL 16 container, runs the suite against PostgreSQL and
+actual SQLite, then removes that container. For an existing disposable database,
+set `PULSIFY_POSTGRES_URL` and run
+`bun test packages/pulse/tests/storage.test.ts`. Without this variable, SQLite
+runs and the PostgreSQL integration suite is explicitly skipped.
 
-For existing disposable services, set `PULSIFY_POSTGRES_URL` and
-`PULSIFY_FDB_DOCKER` and run
-`bun test packages/pulse/tests/storage.test.ts`. Without these variables, the
-ordinary test command runs SQLite and explicitly skips the two external
-integration suites. `scripts/fdb-test-bridge.py` must be copied to
-`/tmp/pulsify-fdb-test-bridge.py` in the FDB container, with the Python binding
-under `/tmp/fdb-python`.
-
-The common suite checks exact duplicate handling, conflicting payloads,
-transactional rollback, overlapping ranges, actor forks, gaps, cross-actor
-dependencies, partial-frontier queries, opaque frame ingestion, concurrent
-appends and payloads larger than a single FDB value.
+The common suite checks duplicate handling, conflicts, transactional rollback,
+overlapping ranges, actor forks, gaps, cross-actor dependencies, partial-frontier
+queries, opaque frame ingestion, concurrent appends and large binary payloads.
 
 `PULSIFY_POSTGRES_URL=… bun scripts/bench-storage-postgres.ts` measures append
-batches and ten-row delta reads on PostgreSQL only. It uses two warmups and six
-measured runs, 128-byte opaque payloads and batches of 1/100/1000 rows. SQLite
-and FoundationDB receive functional checks, not optimization campaigns.
-The JSON reports the upper middle measured sample; see
-[the measured before/after results](STORAGE-BENCHMARKS.md).
+batches and ten-row delta reads on PostgreSQL only. See the
+[measured optimization results](STORAGE-BENCHMARKS.md) and the separate
+[native Rust load benchmark](../benchmarks/database/README.md).
 
-Database constraints and transaction semantics follow the primary references:
-[PostgreSQL advisory locks](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS),
-[FoundationDB Python transactions](https://apple.github.io/foundationdb/api-python.html),
-and [FoundationDB known limits](https://apple.github.io/foundationdb/known-limitations.html).
+Transaction locking follows [PostgreSQL advisory locks](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS).
+
+FoundationDB support and installation tooling were removed at the user's request.
+Its [historical measurements](../benchmarks/database/archive/FOUNDATIONDB-RESULTS.md)
+and raw results remain archived.
 
 ### Grouped transport ingress
 
@@ -152,7 +123,7 @@ headers into the same immutable rows as v1; no application schema or document re
 is needed, and no database schema migration is required. PostgreSQL still performs
 one append function call. Version-vector queries, exact duplicates and actor forks
 have the same behavior for either incoming representation. The real-database
-conformance suite covers grouped ingress and partial queries on all three stores.
+conformance suite covers grouped ingress and partial queries on both stores.
 
 
 ### State transport and exact persistence
@@ -160,9 +131,9 @@ conformance suite covers grouped ingress and partial queries on all three stores
 Envelope-3 state deltas are a download/peer optimization, not durable operations.
 Every `appendEncoded` adapter rejects them with `HISTORY_UNAVAILABLE` before any
 database append. Native connections upload full original rows in envelopes 1/2;
-no schema or row-format change is required in PostgreSQL, SQLite or FoundationDB.
+no schema or row-format change is required in PostgreSQL or SQLite.
 The shared conformance suite verifies rejection and exact 101-row persistence on
-all three actual databases.
+both actual databases.
 
 A client's state vector may cover operations whose bytes it does not retain.
 Use that vector for incremental state synchronization, and its physical history

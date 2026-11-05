@@ -235,25 +235,6 @@ The largest throughput lever is compaction: keep recent operations for sync,
 but periodically materialize snapshots and trim old operation ranges once
 relevant replicas have advanced past them.
 
-## Distributed High Throughput: FoundationDB
-
-FoundationDB is a strong fit when the system needs very high distributed write
-throughput with ordered range scans and transactions.
-
-Possible key layout:
-
-```text
-ops/{doc_id}/{sid}/{time_start}        -> encoded op row
-clocks/{doc_id}/{sid}                  -> contiguous clock
-dangling/{doc_id}/{sid}/{time_start}   -> encoded dangling row
-```
-
-This maps naturally to the access pattern, but it requires more application-side
-data modeling and operational knowledge than PostgreSQL.
-
-Use FoundationDB when the workload is beyond a single PostgreSQL deployment or
-when distributed transactional ordered keys are a primary requirement.
-
 ## Huge Append-Only Workloads: ScyllaDB or Cassandra
 
 ScyllaDB or Cassandra-style wide-column storage can work well for very large
@@ -293,7 +274,7 @@ application owns more of the consistency and query logic.
 MongoDB or a general document database is not the best starting point for this
 problem. The hard requirements are ordered composite keys, vector-clock queries,
 contiguous frontier tracking, and gap handling. These fit PostgreSQL,
-FoundationDB, SQLite, RocksDB, or ScyllaDB more directly.
+SQLite, RocksDB, or ScyllaDB more directly.
 
 ## Practical Recommendation
 
@@ -302,7 +283,16 @@ Use PostgreSQL first for a product backend. Design the schema around
 separate contiguous clock table, and keep dangling operations in a separate
 table until gaps are filled.
 
-Move to FoundationDB when the system needs distributed transactional ordered
-keys at very high throughput. Use ScyllaDB for very large append-only workloads
+Use ScyllaDB for very large append-only workloads
 where transactional gap repair can live mostly in application code. Use SQLite
 or RocksDB for local embedded storage.
+
+## Reproducible Database Benchmark
+
+Run `bun run bench:database` to exercise real Pulsify documents against
+PostgreSQL and file-backed SQLite on the host and inside Docker, plus AlloyDB
+Omni, OrioleDB and pgrust 0.4-beta (row and columnar tables).
+The Rust suite uses native clients and covers concurrent full writes/reads,
+patch appends, lossless compaction, vector reads and a weighted mixed workload.
+See the [benchmark guide](benchmarks/database/README.md) for architecture,
+arrival modes, timing boundaries and storage policy.

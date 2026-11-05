@@ -1,0 +1,14 @@
+**
+!package.json
+!bun.lock
+!packages/
+!packages/pulse/
+!packages/pulse/package.json
+!packages/pulse/source/
+!packages/pulse/source/**
+!benchmarks/
+!benchmarks/package.json
+!benchmarks/database/
+!benchmarks/database/**
+**/target
+**/target/**
