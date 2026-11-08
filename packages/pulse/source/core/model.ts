@@ -1,5 +1,9 @@
 import { createCodec, object, type Codec } from "@gin-quin/codec";
-import { RT_NODE, richTextContent, trackRichTextAnchor } from "./richTextBinding.js";
+import {
+	RT_NODE,
+	richTextContent,
+	trackRichTextAnchor,
+} from "./richTextBinding.js";
 import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
 import { MigrationDriftError, PulseError } from "../protocol/errors.js";
 import {
@@ -30,6 +34,8 @@ import {
 export type Stamp = readonly [lamport: number, sid: number, clock: number];
 export type CoreEntry = {
 	id: string;
+	/** Relocation tokens reference an original entry without copying its value. */
+	origin?: string;
 	after: string;
 	stamp: Stamp;
 	write: Stamp;
@@ -46,6 +52,13 @@ const emptyEntryArray: CoreEntry[] = [];
 const emptyMarks = new Map<string, { stamp: Stamp; value: unknown }>();
 const emptyPathSet: ReadonlySet<string> = new Set();
 export class CoreNode {
+	private moveMap: Map<string, CoreEntry> | undefined;
+	get moves(): ReadonlyMap<string, CoreEntry> {
+		return this.moveMap ?? emptyEntryMap;
+	}
+	setMove(id: string, position: CoreEntry): void {
+		(this.moveMap ??= new Map()).set(id, position);
+	}
 	private childMap: Map<string, CoreNode> | undefined;
 	readonly stamps: Map<string, Stamp>;
 	readonly entries: Map<string, CoreEntry>;
@@ -116,22 +129,7 @@ export class CoreModel {
 		public readonly schemas: readonly (CompiledPulseSchema | undefined)[] = [],
 		public readonly migrationChain?: MigrationChain,
 	) {
-		let cached = compiled ? schemaCache.get(compiled) : undefined;
-		if (!cached && compiled) {
-			const schema = compiled.codecSchema ?? compiled.schema;
-			cached = { id: schemaFingerprint(compiled) };
-			if (typeof schema === "object" && schema._type === "object")
-				cached.codec = createCodec(
-					object({
-						...schema.fields,
-						id: "string",
-						kind: "string",
-						version: "uint",
-						generation: "uint",
-					}),
-				) as Codec<unknown>;
-			schemaCache.set(compiled, cached);
-		}
+		const cached = compiled ? prepareCoreSchema(compiled) : undefined;
 		this.schemaId =
 			migrationChain?.schemaIds[maxVersion - 1] ?? cached?.id ?? "";
 		this.rootCodec = cached?.codec;
@@ -236,22 +234,7 @@ export class CoreModel {
 						"Patch requires a schema",
 					);
 				if (layout === 1) {
-					let cache = schemaCache.get(compiled);
-					if (!cache) {
-						const schema = compiled.codecSchema ?? compiled.schema;
-						cache = { id: schemaFingerprint(compiled) };
-						if (typeof schema === "object" && schema._type === "object")
-							cache.codec = createCodec(
-								object({
-									...schema.fields,
-									id: "string",
-									kind: "string",
-									version: "uint",
-									generation: "uint",
-								}),
-							) as Codec<unknown>;
-						schemaCache.set(compiled, cache);
-					}
+					const cache = prepareCoreSchema(compiled);
 					if (!cache.codec)
 						throw new PulseError(
 							"INCOMPATIBLE_DOCUMENT",
@@ -302,6 +285,7 @@ export class CoreModel {
 	}
 	set(node: CoreNode, key: string, input: unknown): void {
 		const field = this.writableField(node, key);
+		this.assertTreeMutation(node, key, false, input);
 		const layout =
 			field?.layout ??
 			(node.layout?.kind === "map" ? node.layout.element : undefined);
@@ -342,6 +326,7 @@ export class CoreModel {
 	}
 	delete(node: CoreNode, key: string): void {
 		this.assertWritable(node, key);
+		this.assertTreeMutation(node, key, true);
 		if (Object.hasOwn(node.data, key)) {
 			if (node.layout?.kind !== "map")
 				this.validateValue(this.layoutField(node, key), undefined);
@@ -395,7 +380,9 @@ export class CoreModel {
 					{
 						kind: 3,
 						target: node.id,
-						after: start ? node.visible[start - 1]!.id : "",
+						after: start
+							? this.position(node, node.visible[start - 1]!).id
+							: "",
 						deletes: node.visible
 							.slice(start, start + count)
 							.map((entry) => entry.id),
@@ -407,8 +394,58 @@ export class CoreModel {
 		}
 		return removed;
 	}
+	private position(node: CoreNode, entry: CoreEntry): CoreEntry {
+		return node.moves.get(entry.id) ?? entry;
+	}
+	/** `to` is the block's first index in the final array. */
+	move(node: CoreNode, from: number, to: number, count = 1): void {
+		if (node.kind !== "array" || node.layout?.kind === "tuple")
+			throw new TypeError("Moves require a variable-length pulse array");
+		if (!this.isAttached(node))
+			throw new TypeError("This pulse array has been replaced or removed");
+		const size = node.visible.length;
+		if (
+			![from, to, count].every(Number.isSafeInteger) ||
+			from < 0 ||
+			count < 0 ||
+			from + count > size ||
+			to < 0 ||
+			to > size - count
+		)
+			throw new RangeError("Invalid array move range");
+		if (!count || from === to) return;
+		const entries = node.visible.slice(from, from + count);
+		const remaining = node.visible.filter(
+			(_, i) => i < from || i >= from + count,
+		);
+		this.commit([
+			{
+				kind: 6,
+				target: node.id,
+				entries: entries.map((entry) => entry.id),
+				after: to ? this.position(node, remaining[to - 1]!).id : "",
+			},
+		]);
+	}
 	assertWritable(node: CoreNode, key: string): void {
 		this.writableField(node, key);
+	}
+	private assertTreeMutation(
+		node: CoreNode,
+		key: string,
+		remove: boolean,
+		value?: unknown,
+	): void {
+		const role = node.layout?.treeRole;
+		if (
+			role === "location" ||
+			(role === "tree" && (remove || !key || Object.hasOwn(node.data, key))) ||
+			(role === "node" && (remove || (key === "deleted" && value !== true)))
+		)
+			throw new PulseError(
+				"INVALID_MESSAGE",
+				"Tree locations are atomic and tree deletion is permanent",
+			);
 	}
 	private writableField(node: CoreNode, key: string) {
 		if (node.kind !== "object") throw new TypeError("Expected a pulse object");
@@ -532,6 +569,8 @@ export class CoreModel {
 			return;
 		const known = new Map<string, CoreNode>();
 		const sequences = new Map<string, Set<string>>();
+		const treeKeys = new Map<string, Set<string>>();
+		const positions = new Set<string>();
 		const versions = new Map<string, { value: number; stamp: Stamp }>();
 		let root = this.root;
 		let rootStamp = this.rootStamp;
@@ -539,6 +578,7 @@ export class CoreModel {
 			const patchSchema = this.schemaFor(patch.schema);
 			const deps = new Map(dependencies.get(patch));
 			const stamp: Stamp = [patch.lamport, patch.sid, patch.clock];
+			const treePositions = new Set<string>();
 			for (const [actor, clock] of deps) {
 				void actor;
 				if (clock < 1)
@@ -623,6 +663,69 @@ export class CoreModel {
 					if (target.kind !== "object")
 						throw new PulseError("INVALID_MESSAGE", "Expected object target");
 					const key = this.fieldKey(target, op.field);
+					this.assertTreeMutation(
+						target,
+						key,
+						op.kind === 2,
+						op.kind === 1 ? op.value.value : undefined,
+					);
+					if (target.layout?.tree) {
+						let keys = treeKeys.get(target.id);
+						if (!keys)
+							treeKeys.set(
+								target.id,
+								(keys = new Set(Object.keys(target.data))),
+							);
+						if (keys.has(key))
+							throw new PulseError(
+								"INVALID_MESSAGE",
+								"Tree node IDs cannot be replaced",
+							);
+						const prefix = `n${patch.sid}:${patch.clock}`;
+						if (
+							key !== prefix &&
+							(!key.startsWith(`${prefix}:`) ||
+								!/^[1-9][0-9]*$/.test(key.slice(prefix.length + 1)))
+						)
+							throw new PulseError(
+								"INVALID_MESSAGE",
+								"Tree node IDs must identify their creating transaction",
+							);
+						keys.add(key);
+					}
+					if (
+						op.kind === 1 &&
+						(target.layout?.tree ||
+							(target.layout?.treeRole === "node" && key === "location"))
+					) {
+						const record = op.value.value as {
+							location?: { position: string };
+							position?: string;
+						};
+						const position = target.layout?.tree
+							? record?.location?.position
+							: record?.position;
+						const suffix =
+							patch.sid.toString(16).padStart(14, "0") +
+							patch.clock.toString(16).padStart(14, "0") +
+							"0001";
+						const tree = target.layout?.tree ? target : target.parent;
+						if (
+							typeof position !== "string" ||
+							!position.endsWith(suffix) ||
+							treePositions.has(position) ||
+							Object.values(tree?.data ?? {}).some(
+								(value) =>
+									(value as { location: { position: string } }).location
+										.position === position,
+							)
+						)
+							throw new PulseError(
+								"INVALID_MESSAGE",
+								"Tree positions must identify their creating transaction",
+							);
+						treePositions.add(position);
+					}
 					if (target === root && managedFields.has(key)) {
 						if (
 							key !== "version" ||
@@ -730,13 +833,17 @@ export class CoreModel {
 					if (!sequence) {
 						sequence = new Set(target.entries.keys());
 						sequences.set(target.id, sequence);
+						for (const entry of target.order)
+							if (entry.origin) positions.add(entry.id);
 					}
 					const entries =
 						op.kind === 3
 							? [...(op.after ? [op.after] : []), ...op.deletes]
 							: op.kind === 4
 								? [op.entry]
-								: op.entries;
+								: op.kind === 6
+									? [...op.entries, ...(op.after ? [op.after] : [])]
+									: op.entries;
 					for (const entry of entries) {
 						reference(entry);
 						if (!sequence.has(entry))
@@ -746,6 +853,28 @@ export class CoreModel {
 						throw new PulseError(
 							"INVALID_MESSAGE",
 							"Tuple cardinality is fixed",
+						);
+					if (op.kind === 6) {
+						if (
+							target.kind !== "array" ||
+							target.layout?.kind === "tuple" ||
+							!op.entries.length ||
+							new Set(op.entries).size !== op.entries.length ||
+							op.entries.some((entry) => positions.has(entry))
+						)
+							throw new PulseError("INVALID_MESSAGE", "Invalid array move");
+						for (const _entry of op.entries) {
+							const position = id();
+							sequence.add(position);
+							positions.add(position);
+						}
+					} else if (
+						(op.kind === 4 && positions.has(op.entry)) ||
+						(op.kind === 3 && op.deletes.some((entry) => positions.has(entry)))
+					)
+						throw new PulseError(
+							"INVALID_MESSAGE",
+							"Cannot mutate a relocation token",
 						);
 					if (op.kind === 3)
 						for (const value of op.values) {
@@ -824,6 +953,7 @@ export class CoreModel {
 		if (this.maxVersion !== 1) return;
 		const node = this.index.get(target);
 		if (!node || node.kind !== "object") return;
+		if (node.layout?.treeRole) return;
 		const key = this.fieldKey(node, field);
 		if (managedFields.has(key)) return;
 		const entry = node.layout?.fieldsByKey.get(key),
@@ -928,6 +1058,7 @@ export class CoreModel {
 				"Operation reference is not causally covered",
 			);
 		const key = this.fieldKey(node, op.field);
+		this.assertTreeMutation(node, key, false, op.value.value);
 		const field = node.layout?.fieldsByKey.get(key);
 		if (
 			node === this.root &&
@@ -1148,16 +1279,39 @@ export class CoreModel {
 					if (!entry.deleted)
 						node.data[node.visible.indexOf(entry)] = built.value;
 				}
+			} else if (op.kind === 6) {
+				let after = op.after;
+				for (const entryId of op.entries) {
+					const position: CoreEntry = {
+						id: id(),
+						origin: entryId,
+						after,
+						stamp,
+						write: stamp,
+						value: undefined,
+						child: undefined,
+						deleted: false,
+						children: [],
+						marks: emptyMarks,
+					};
+					const prior = node.moves.get(entryId);
+					if (!prior || newer(stamp, prior.stamp) || stamp === prior.stamp)
+						node.setMove(entryId, position);
+					this.insert(node, position, undefined, true);
+					after = position.id;
+				}
 			} else {
 				for (const entryId of op.entries) {
 					const entry = node.entries.get(entryId)!;
 					for (const [key, value] of Object.entries(op.attributes))
 						if (newer(stamp, entry.marks.get(key)?.stamp))
 							entry.marks.set(key, { stamp, value });
-					if (Object.hasOwn(op.attributes, RT_NODE)) trackRichTextAnchor(node, entry);
+					if (Object.hasOwn(op.attributes, RT_NODE))
+						trackRichTextAnchor(node, entry);
 				}
 			}
 			if (node.kind === "text") this.syncText(node);
+			else if (node.kind === "array" && node.moves.size) this.syncArray(node);
 		}
 		this.planned.delete(patch);
 		if (this.maxVersion > 1 && this.root) {
@@ -1166,6 +1320,17 @@ export class CoreModel {
 				const compiled = this.schemaAtVersion(version);
 				if (compiled) this.retype(this.root, compiled.root);
 				this.rootSchemaVersion = version;
+			}
+		}
+	}
+	private syncArray(node: CoreNode): void {
+		node.visible.length = 0;
+		node.data.length = 0;
+		for (const position of node.order) {
+			const entry = node.entries.get(position.origin ?? position.id)!;
+			if (!entry.deleted && this.position(node, entry) === position) {
+				node.visible.push(entry);
+				node.data.push(entry.value);
 			}
 		}
 	}
@@ -1457,7 +1622,12 @@ export class CoreModel {
 			});
 		return built;
 	}
-	private insert(node: CoreNode, entry: CoreEntry, hint?: number): void {
+	private insert(
+		node: CoreNode,
+		entry: CoreEntry,
+		hint?: number,
+		deferView = false,
+	): void {
 		const parent = entry.after ? node.entries.get(entry.after)! : undefined;
 		const siblings = parent?.children ?? node.heads;
 		let sibling = 0;
@@ -1485,6 +1655,11 @@ export class CoreModel {
 		siblings.splice(sibling, 0, entry);
 		node.entries.set(entry.id, entry);
 		node.order.splice(orderIndex, 0, entry);
+		if (node.kind === "array" && node.moves.size) {
+			if (!entry.origin) this.adopt(node, entry.id, entry.child);
+			if (!deferView) this.syncArray(node);
+			return;
+		}
 		let visibleIndex = hint;
 		if (visibleIndex === undefined) {
 			if (orderIndex === node.order.length - 1)
@@ -1548,6 +1723,28 @@ const schemaCache = new WeakMap<
 	CompiledPulseSchema,
 	{ id: string; codec?: Codec<unknown> }
 >();
+/** Compile the metadata-bearing root codec while definitions are materialized. */
+export function prepareCoreSchema(compiled: CompiledPulseSchema): {
+	id: string;
+	codec?: Codec<unknown>;
+} {
+	let cached = schemaCache.get(compiled);
+	if (cached) return cached;
+	const schema = compiled.codecSchema ?? compiled.schema;
+	cached = { id: schemaFingerprint(compiled) };
+	if (typeof schema === "object" && schema._type === "object")
+		cached.codec = createCodec(
+			object({
+				...schema.fields,
+				id: "string",
+				kind: "string",
+				version: "uint",
+				generation: "uint",
+			}),
+		) as Codec<unknown>;
+	schemaCache.set(compiled, cached);
+	return cached;
+}
 const unknownCodec = createCodec("unknown");
 import { createDecoder } from "@gin-quin/codec";
 function decodeWhole(codec: Codec<unknown>, bytes: Uint8Array): unknown {

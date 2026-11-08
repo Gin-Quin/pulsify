@@ -2,7 +2,7 @@
 
 A TypeScript API for collaborative object documents, using Pulsify's own LWW
 register and RGA engine. The runtime depends on codec and does not import
-json-joy or Yjs. Built ESM runs in Bun, Node 22+, Deno 2 and browsers. Build
+json-joy or Yjs. Built ESM runs in Bun, Node 22+, Deno 2, browsers and Cloudflare Workers. Build
 with `bun run build`; package exports and declarations are in `dist/`. The
 declarations support strict NodeNext consumers. Keep shared JavaScript chunks
 together with the entry files when copying a build.
@@ -64,7 +64,7 @@ Object fields are inline LWW registers; containers and sequence entries have
 stable IDs. Plain strings are atomic values. Replacing a string assigns its
 whole register; use an explicit rich-text field for character operations.
 
-Nested views retain identity while their CRDT node exists, including across remote edits. References to replaced or removed nodes become invalid; read the replacement from its parent. Array removal methods return detached values. Array holes, extending `length` and deleting an array index are rejected; use `splice`. Reordering/replacing a collection rebuilds its elements and can invalidate previous element references.
+Nested views retain identity while their CRDT node exists, including across remote edits. References to replaced or removed nodes become invalid; read the replacement from its parent. Array removal methods return detached values. Array holes, extending `length` and deleting an array index are rejected; use `splice`. `sort`, `reverse` and `replaceAll` rebuild elements and can invalidate previous references. Explicit moves preserve references and concurrent edits.
 
 Arrays use ordinary TypeScript array types, so assigning a plain array or an
 object containing arrays works naturally. Use
@@ -75,6 +75,129 @@ length; `arrayOperations(pulse.pair).replaceAll([value0, value1])` checks the
 complete tuple shape. Operations that change tuple cardinality reject at
 runtime, including native `push` and `pop`. Snapshots contain plain arrays and
 tuples without helper members.
+
+## Array moves
+
+```ts
+import { arrayOperations } from "@pulsify/core";
+
+// [A, B, C, D] -> [A, C, D, B]
+arrayOperations(doc.items).move(1, 3);
+// Move a contiguous block; `to` is its first index in the final array.
+arrayOperations(doc.items).move(0, 2, 2);
+```
+
+Indices and count must be nonnegative safe integers; the source block and final
+destination must fit. Count defaults to one. Empty moves and unchanged positions
+are no-ops. Tuples cannot move because their slots have different types.
+
+A move creates RGA position tokens referencing the original elements. Their
+objects, nested arrays and rich text keep their identity. Concurrent moves of
+the same element choose one position by the existing LWW order (Lamport time,
+actor ID, then actor clock); a later observed move wins. Concurrent value edits
+still target the original element. Deletion wins over every move of that element.
+Block moves are one operation, but each element resolves competing moves
+independently: a concurrent overlapping move can split the block.
+
+Insertions address a specific position token. If a peer inserts after an older
+position while offline, that insertion stays at the old position when the
+element moves; it does not follow the moved element. Tokens remain as anchors
+even when their element is deleted or another move wins. Concurrent moves of
+different elements use the deterministic RGA order, which can differ from either
+peer's isolated result. These rules hold regardless of delivery order or duplicates.
+
+## Generic ordered trees
+
+```ts
+import { object, createCodec } from "@gin-quin/codec";
+import { createPulse, definePulse, richText, tree } from "@pulsify/core";
+
+const outlineSchema = tree(object({ title: "string", body: richText() }));
+const Outline = definePulse("Outline", object({ outline: outlineSchema })).materialize();
+const doc = createPulse(Outline, { outline: {} });
+const chapter = doc.outline.createNode({ title: "Chapter", body: "Hello" });
+const section = chapter.createNode({ title: "Section", body: "Text" });
+const appendix = doc.outline.createNode({ title: "Appendix", body: "" });
+
+section.move(appendix, 0);
+section.data.body.insert(4, "!");
+section.move();                 // Append as a root.
+section.moveBefore(chapter);    // Also adopts the sibling's parent.
+section.moveAfter(appendix);
+const roots = doc.outline.roots();
+const children = chapter.children();
+const sameNode = doc.outline.getNode(section.id);
+const hierarchy = doc.outline.toJSON();
+const stored = doc.outline.snapshot();
+createCodec(outlineSchema).encode(stored);
+```
+
+`tree(elementSchema)` is a generic codec-compatible schema, including primitive,
+object, array, rich-text and nested-tree payloads. `Tree<T>` exposes node methods;
+each node's `data` is a normal typed collaborative value. `createNode(data,
+parent?, index?)` and `parent.createNode(data, index?)` accept initial values,
+including strings for rich text and `{}` for nested trees. Indices refer to the
+final sibling list, after removing the moved node. Omitting index appends.
+`nodes()` returns visible nodes without a traversal-order guarantee; `parent()`,
+`children()` and `index()` describe the projected hierarchy. Cross-tree moves,
+invalid indices and local moves into a node's own subtree throw before committing.
+Tree containers cannot be annotated constant; their payloads may contain constants.
+
+Storage is a flat ID map. Each record contains `data`, an atomic `location`
+(`parent`, `position`) register and a permanent `deleted` flag. Empty parent means
+root. `snapshotPulse` and `tree.snapshot()` return this detached codec format,
+including tombstones and raw parent links. `toJSON()` returns the visible ordered
+hierarchy as `{ id, data, children }[]`, with detached payload snapshots. Initialize
+with `{}` or a previous snapshot; position keys are engine metadata and should
+be preserved rather than edited manually.
+
+Reparenting preserves the node, its entire subtree and payload proxies. Parent and
+position resolve together by LWW, so concurrent edits to payloads survive moves.
+Sibling order uses dense fractional keys with actor/clock suffixes, so concurrent
+insertions at the same index remain independently addressable and can be followed
+by another insertion between them.
+
+Concurrent individually valid moves can form a cycle. The view deterministically
+cuts the parent edge of the lexicographically smallest node ID in each cycle,
+making that node a root. Raw location registers remain intact; later moves
+recompute the projection. Explicitly moving that projected root to roots clears
+its raw parent even when the view already shows it as a root. This is a
+cycle-breaking LWW projection, rather than an implementation of Loro's tree
+algorithm; a conflict can introduce a root that neither peer explicitly requested.
+
+`node.delete()` permanently hides that node. Descendants whose resolved ancestry
+passes through it are hidden too, including concurrent insertions or moves into
+the deleted subtree. An offline move of a descendant out of that subtree survives
+if its winning location has no deleted ancestor. Moving the deleted node itself
+cannot restore it. Retained node handles and mutable payload proxies reject use while their
+node is hidden or deleted. A whole-tree field replacement creates a new container.
+
+## Automatic connector batching
+
+Connector batching is automatic and was already implemented. Local writes commit
+immediately, and each connection schedules a sync using standard `queueMicrotask`:
+
+```ts
+doc.object.x = 12;
+doc.array.push(13);
+// One scheduled upload per connection contains both changes.
+```
+
+Each write retains its own causal history row. This is transport batching, not a
+public rollback transaction: local subscribers can observe each intermediate
+state, and a failed later write leaves earlier writes committed. Writes after an
+`await` may start another batch. Large batches split at protocol limits, and
+separate documents or connectors have separate uploads. `connection.syncBack()`
+explicitly waits for an upload and acknowledgement.
+
+The scheduler works in browsers, Node, Bun and Workers. On Cloudflare Workers,
+materialize schema definitions at module startup: Codec and Pulsify compile
+functions then, while request handling reuses them. Use a compatibility date of
+2025-06-01 or later (or `allow_eval_during_startup` on older dates). Await the
+connection's `syncBack()` before returning a response, or attach that promise to
+`ctx.waitUntil()`, when delivery must outlive the request. `bun run test:workers`
+checks batching, tree/array moves and offline merges in workerd with Node
+compatibility disabled.
 
 ## Codec schemas, constants and rich text
 

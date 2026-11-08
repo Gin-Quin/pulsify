@@ -13,6 +13,7 @@
 		"test:rust": "cargo test --manifest-path crates/pulsify-protocol/Cargo.toml",
 		"test:interop": "bun test tests/interop.test.ts",
 		"test:runtimes": "bun scripts/test-runtimes.ts",
+		"test:workers": "bun scripts/test-workers.ts",
 		"test:codec-local": "bun scripts/test-codec-local.ts",
 		"test:example": "bun scripts/test-example.ts",
 		"test:prosemirror": "bun scripts/test-prosemirror.ts",

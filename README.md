@@ -24,6 +24,7 @@ bun run test:example          # Two real browser tabs, offline edits and reconne
 bun run test:prosemirror      # ProseMirror: formatting, two tabs, offline merge and undo
 bun run test:lexical          # Lexical: vanilla editor, two tabs, offline merge and undo
 bun run test:runtimes         # Built package: Bun, Node 22+, Deno 2, Chromium
+bun run test:workers          # Cloudflare workerd: automatic batching, array/tree moves, offline merge
 bun run test:codec-local      # Isolated build against ../codec, without changing either repository
 bun scripts/test-storage.ts  # Actual PostgreSQL and SQLite integration checks
 bun run bench                 # Reproducible performance report
@@ -55,7 +56,7 @@ bindings use `richText()` and ship independently of the core.
 ## Scope
 
 The native core supports nested objects, dense arrays, primitives, binary
-values, Unicode rich text, immutable schema fields, migrations, two-way
+values, Unicode rich text, generic ordered trees, identity-preserving array moves, immutable schema fields, migrations, two-way
 materialization, subscriptions and offline synchronization. Plain strings are
 atomic registers; rich text is selected explicitly with a schema annotation or
 `richText()` initializer. Its positions count Unicode code points and its
@@ -68,7 +69,8 @@ Constant fields are initialized once and reject later replacement or nested
 edits. Local history is encoded lazily when requested for export.
 
 Exact envelope versions 1/2 and the optional negotiated scalar-state envelope 3
-carry operation payload version 2. Authoritative journals retain every original
+use operations version 3 throughout. Earlier operation versions are unsupported.
+Authoritative journals retain every original
 transaction; state-only receivers expose separate state/history vectors and can
 recover omitted rows. Connection uploads and database persistence stay exact.
 Every transaction

@@ -16,6 +16,7 @@ import {
 	type Decoder,
 	type Encoder,
 } from "@gin-quin/codec";
+import { OPERATIONS_VERSION } from "../protocol/versions.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import { PulseError } from "../protocol/errors.js";
 import { MAX_PATCH_BYTES } from "../protocol/limits.js";
@@ -39,6 +40,7 @@ export type CoreOperation =
 			values: PreparedValue[];
 	  }
 	| { kind: 4; target: string; entry: string; value: PreparedValue }
+	| { kind: 6; target: string; entries: string[]; after: string }
 	| {
 			kind: 5;
 			target: string;
@@ -112,6 +114,7 @@ const operationSchema = union({
 		},
 		4: { target: "string", entry: "string", value: valueSchema },
 		5: { target: "string", entries: array("string"), attributes: "unknown" },
+		6: { target: "string", entries: array("string"), after: "string" },
 	},
 });
 const codec = createCodec(
@@ -204,7 +207,7 @@ function encodeSingleSet(
 	const encoded = encoding.encode(op.value, op);
 	const encoder = patchEncoder;
 	encoder.pos = 0;
-	writeVarUint(encoder, 2);
+	writeVarUint(encoder, OPERATIONS_VERSION);
 	writeVarUint(encoder, patch.lamport);
 	writePatchString(encoder, patch.schema, 0);
 	writeVarUint(encoder, 1);
@@ -303,7 +306,7 @@ export function encodeCorePatch(
 		return op;
 	});
 	const bytes = codec.encode({
-		version: 2,
+		version: OPERATIONS_VERSION,
 		lamport: patch.lamport,
 		schema: patch.schema,
 		ops,
@@ -324,7 +327,7 @@ export function decodeCorePatch(
 		const decoded = decodePatch(decoder);
 		if (
 			decoder.pos !== row.operations.length ||
-			decoded.version !== 2 ||
+			decoded.version !== OPERATIONS_VERSION ||
 			row.span !== 1 ||
 			!decoded.ops.length ||
 			!Number.isSafeInteger(decoded.lamport) ||
@@ -400,7 +403,7 @@ export function validateCoreRow(row: PulsePatchRow): void {
 	const decoded = codec.decode(decoder);
 	if (
 		decoder.pos !== row.operations.length ||
-		decoded.version !== 2 ||
+		decoded.version !== OPERATIONS_VERSION ||
 		row.span !== 1 ||
 		!decoded.ops.length ||
 		!Number.isSafeInteger(decoded.lamport) ||

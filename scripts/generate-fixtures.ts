@@ -123,8 +123,9 @@ const operations: CoreOperation[] = [
 		entries: ["65536:1:5"],
 		attributes: { bold: true, color: "red" },
 	},
+	{ kind: 6, target: "65536:1:1", entries: ["65536:1:2"], after: "65536:1:3" },
 ];
 await Bun.write(
 	"fixtures/protocol.json",
-	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 2, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }] }, null, 2)}\n`,
+	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 3, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }] }, null, 2)}\n`,
 );

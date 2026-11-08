@@ -16,6 +16,9 @@ export type {
 	PulseSchemaValue,
 } from "./core/schema.js";
 export { richText } from "./core/richText.js";
+export { tree } from "./core/treeSchema.js";
+export type { TreeSchema, TreeData } from "./core/treeSchema.js";
+export type { Tree, TreeNode, TreeJSONNode } from "./core/tree.js";
 export type { RichTextSchema } from "./core/richTextSchema.js";
 export type {
 	RichText,

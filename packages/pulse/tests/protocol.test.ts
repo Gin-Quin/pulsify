@@ -143,6 +143,23 @@ describe("binary protocol", () => {
 		const decoded = decodeOperations(encodeOperations(operations));
 		expect(decoded).toEqual(operations);
 	});
+	test("envelopes and payloads require operations version 3", () => {
+		const message = { kind: 5 as const, docId: "legacy", requestId: 1, vv: [] };
+		const legacy = encodeMessage(message);
+		legacy[1] = 2;
+		expect(() => decodeMessage(legacy)).toThrow("Unsupported");
+		const move: CoreOperation = {
+			kind: 6,
+			target: "65536:1:1",
+			entries: ["65536:1:2"],
+			after: "",
+		};
+		const bytes = encodeOperations([move]);
+		expect(bytes[0]).toBe(3);
+		expect(decodeOperations(bytes)).toEqual([move]);
+		bytes[0] = 2;
+		expect(() => decodeOperations(bytes)).toThrow("Invalid core patch");
+	});
 	test("random frames either round-trip or report decoding errors", () => {
 		let seed = 911;
 		for (let n = 0; n < 1000; n++) {

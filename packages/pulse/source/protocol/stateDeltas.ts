@@ -1,4 +1,5 @@
 import { array, object, tuple, union } from "@gin-quin/codec";
+import { OPERATIONS_VERSION } from "./versions.js";
 import { wireCodec } from "./wireCodec.js";
 import type { PulseMessage } from "../connection/PulseMessage.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
@@ -100,7 +101,10 @@ export function validateDelta(delta: StateDelta): void {
 export function decodeStateMessage(bytes: Uint8Array): PulseMessage {
 	const owned = new Uint8Array(bytes),
 		decoded = codec.decode(owned);
-	if (decoded.protocolVersion !== 3 || decoded.operationsVersion !== 2)
+	if (
+		decoded.protocolVersion !== 3 ||
+		decoded.operationsVersion !== OPERATIONS_VERSION
+	)
 		throw new PulseError("UNSUPPORTED_VERSION", "Unsupported state version");
 	const canonical = codec.encode(decoded);
 	if (
@@ -211,7 +215,7 @@ export function encodeStateMessage(
 			: { ...common, kind: 4 as const };
 	return codec.encode({
 		protocolVersion: 3,
-		operationsVersion: 2,
+		operationsVersion: OPERATIONS_VERSION,
 		message: body,
 	});
 }
@@ -225,7 +229,7 @@ export function encodeHistoryRequest(
 		throw new PulseError("INVALID_MESSAGE", "Invalid request ID");
 	return codec.encode({
 		protocolVersion: 3,
-		operationsVersion: 2,
+		operationsVersion: OPERATIONS_VERSION,
 		message: { ...message, historyOnly },
 	});
 }

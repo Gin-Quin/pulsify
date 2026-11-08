@@ -1,4 +1,5 @@
 import type { InferType, Schema } from "@gin-quin/codec";
+import { prepareCoreSchema } from "../core/model.js";
 import {
 	compilePulseSchema,
 	type CompiledPulseSchema,
@@ -281,6 +282,7 @@ class PulseTypeBuilder<
 	): PulseDefinition<Model, Migrations, From> {
 		const compiled = this.compileCurrent();
 		const schemas = Object.freeze([...this.schemaHistory, compiled]);
+		for (const schema of schemas) if (schema) prepareCoreSchema(schema);
 		const migrationChain = (this.currentChain ??= compileMigrationChain(
 			this.kind,
 			schemas,

@@ -99,6 +99,13 @@ try {
 		.replaceAll("../packages/pulse/dist/index.js", "@pulsify/core")
 		.replaceAll("../packages/pulse/dist/protocol.js", "@pulsify/core/protocol");
 	await Bun.write(join(directory, "runtime.mjs"), smoke);
+	await Bun.write(
+		join(directory, "move-runtime-smoke.mjs"),
+		(await Bun.file(`${root}tests/move-runtime-smoke.mjs`).text()).replaceAll(
+			"../packages/pulse/dist/index.js",
+			"@pulsify/core",
+		),
+	);
 	await run(["node", "runtime.mjs"], directory);
 	await Bun.write(
 		join(directory, "editor.mjs"),

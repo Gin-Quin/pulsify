@@ -44,7 +44,7 @@
     },
     "packages/pulse": {
       "name": "@pulsify/core",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
       },
@@ -55,20 +55,20 @@
     },
     "packages/pulsify-lexical": {
       "name": "pulsify-lexical",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "fast-diff": "^1.3.0",
       },
       "peerDependencies": {
-        "@pulsify/core": "^1.0.0",
+        "@pulsify/core": "^3.0.0",
         "lexical": "^0.53.0",
       },
     },
     "packages/pulsify-prosemirror": {
       "name": "pulsify-prosemirror",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "peerDependencies": {
-        "@pulsify/core": "^1.0.0",
+        "@pulsify/core": "^3.0.0",
         "prosemirror-model": "^1.25.12",
         "prosemirror-state": "^1.4.4",
         "prosemirror-transform": "^1.12.5",

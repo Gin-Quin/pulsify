@@ -2,6 +2,9 @@
 
 An independent Rust implementation of the Pulsify v1 envelope and v2 grouped input, version vectors, immutable causal patch journal and single-peer reference relay. The library has no runtime dependencies; `serde_json` is used only by fixture tests.
 
+All supported envelopes use operations version 3. Earlier operation versions are
+rejected. Inner operation payloads stay opaque to this relay.
+
 ```rust
 use pulsify_protocol::{encode, decode, Body, Message};
 

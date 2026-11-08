@@ -17,6 +17,8 @@ export type PulseArrayOperations<Values extends unknown[]> = {
 	? {
 			insert(start: number, items: Values): PulseSnapshot<Values>;
 			delete(start: number, count?: number): PulseSnapshot<Values>;
+			/** Move a block to its final index, preserving element identity. */
+			move(from: number, to: number, count?: number): void;
 		}
 	: {});
 
@@ -37,6 +39,7 @@ export function arrayOperations<Values extends unknown[]>(
 	return {
 		insert,
 		delete: remove,
+		move: Reflect.get(array, "move"),
 		replaceAll,
 	} as unknown as PulseArrayOperations<Values>;
 }
@@ -116,6 +119,10 @@ export function createArrayProxy(
 		},
 		insert: (start: number, items: unknown[]) => splice(start, [0, ...items]),
 		delete: (start: number, count = 1) => splice(start, [count]),
+		move: (from: number, to: number, count = 1) => {
+			length();
+			context.meta.model.move(node, from, to, count);
+		},
 		replaceAll,
 	};
 	proxy = new Proxy([], {

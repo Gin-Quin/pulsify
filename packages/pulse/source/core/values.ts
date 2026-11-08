@@ -1,5 +1,6 @@
 import { isStruct } from "../utilities/Struct.js";
 import { isTuple } from "../utilities/Tuple.js";
+import { TreeSymbol } from "./treeSchema.js";
 
 export const RichTextSymbol: unique symbol = Symbol("RichText");
 export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
@@ -64,6 +65,8 @@ export function prepareValue(input: unknown): PreparedValue {
 		ancestors.add(value);
 		try {
 			if (value instanceof Uint8Array) return new Uint8Array(value);
+			if ((value as { [TreeSymbol]?: boolean })[TreeSymbol])
+				return clone((value as { snapshot(): unknown }).snapshot(), path, depth);
 			if (isStruct(value) || isTuple(value)) constants.push(path);
 			if ((value as { [RichTextSymbol]?: boolean })[RichTextSymbol]) {
 				texts.push(path);

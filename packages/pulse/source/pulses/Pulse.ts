@@ -1,6 +1,8 @@
 import { PulseError } from "../protocol/errors.js";
 import { RichTextSymbol } from "../core/values.js";
 import type { RichText } from "../core/richText.js";
+import type { Tree } from "../core/tree.js";
+import { TreeSymbol, type TreeData } from "../core/treeSchema.js";
 import type { PulseLayout } from "../core/schema.js";
 import type { Pulsify } from "../utilities/pulsify.js";
 import { type PulseMeta, PulseMetaSymbol } from "./PulseMeta.js";
@@ -62,21 +64,23 @@ export type PulseSnapshot<Value> = unknown extends Value
 	? Value
 	: Value extends RichText
 		? string
-		: Value extends Uint8Array
-			? Uint8Array
-			: Value extends Tuple<infer Elements>
-				? SnapshotTuple<Elements>
-				: Value extends readonly (infer Item)[]
-					? number extends Value["length"]
-						? PulseSnapshot<Item>[]
-						: SnapshotTuple<Value>
-					: Value extends object
-						? {
-								[Key in keyof Value as Key extends string | number
-									? Key
-									: never]: PulseSnapshot<Value[Key]>;
-							}
-						: Value;
+		: Value extends Tree<infer Item>
+			? TreeData<PulseSnapshot<Item>>
+			: Value extends Uint8Array
+				? Uint8Array
+				: Value extends Tuple<infer Elements>
+					? SnapshotTuple<Elements>
+					: Value extends readonly (infer Item)[]
+						? number extends Value["length"]
+							? PulseSnapshot<Item>[]
+							: SnapshotTuple<Value>
+						: Value extends object
+							? {
+									[Key in keyof Value as Key extends string | number
+										? Key
+										: never]: PulseSnapshot<Value[Key]>;
+								}
+							: Value;
 const snapshotFieldCounts = new WeakMap<PulseLayout, number>();
 function snapshotFieldCount(layout: PulseLayout): number {
 	let count = snapshotFieldCounts.get(layout);
@@ -108,6 +112,8 @@ export function snapshotPulse<P extends Pulse<any>>(
 		return structuredClone(data) as PulseSnapshot<P>;
 	}
 	const clone = (value: any): any => {
+		if (value && typeof value === "object" && value[TreeSymbol])
+			return value.snapshot();
 		if (value && typeof value === "object" && value[RichTextSymbol])
 			return value.toString();
 		if (value instanceof Uint8Array) return new Uint8Array(value);

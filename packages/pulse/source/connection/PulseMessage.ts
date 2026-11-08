@@ -12,9 +12,10 @@ import { PulseError } from "../protocol/errors.js";
 import { MAX_MESSAGE_ROWS, MAX_PATCH_BYTES } from "../protocol/limits.js";
 import { validateVector } from "./PulseVersionVector.js";
 import { validateDocId } from "../protocol/validateDocId.js";
+import { OPERATIONS_VERSION } from "../protocol/versions.js";
 
 export const PROTOCOL_VERSION = 1;
-export const OPERATIONS_VERSION = 2;
+export { OPERATIONS_VERSION } from "../protocol/versions.js";
 export { MAX_MESSAGE_ROWS } from "../protocol/limits.js";
 export const PulseMessageKind = {
 	connect: 1,
@@ -137,7 +138,8 @@ export function encodeMessage(
 	});
 }
 export function decodeMessage(bytes: Uint8Array): PulseMessage {
-	if (bytes[0] === 3 && bytes[1] === 2) return decodeStateMessage(bytes);
+	if (bytes[0] === 3 && bytes[1] === OPERATIONS_VERSION)
+		return decodeStateMessage(bytes);
 	if (bytes[0] === 2 && bytes[1] === OPERATIONS_VERSION)
 		return decodeRunMessage(bytes);
 	// Check versions before interpreting a body which may belong to another format.

@@ -1,7 +1,9 @@
 import { connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse, destroyPulse, disconnectPulse, getPulseMeta, loadPulse, exportPulseUpdates, applyPulseUpdates, getPulseVersions, PulseRelay, snapshotPulse, richText, PulseError as CoreError } from "../packages/pulse/dist/index.js";
 import { encodeMessage, decodeMessage, PulseError as ProtocolError, PulseRelay as ProtocolRelay } from "../packages/pulse/dist/protocol.js";
+import { moveSmoke } from "./move-runtime-smoke.mjs";
 function assert(condition, message) { if (!condition) throw new Error(message); }
 export async function smoke() {
+	await moveSmoke();
 	assert(CoreError === ProtocolError && PulseRelay === ProtocolRelay, "Entry points duplicate shared classes");
 	try { decodeMessage(new Uint8Array([255])); throw new Error("Invalid frame was accepted"); } catch (error) { assert(error instanceof CoreError, "Protocol errors must match the core PulseError class"); }
 	const Doc = definePulse("Runtime").materialize();

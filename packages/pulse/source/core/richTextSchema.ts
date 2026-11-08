@@ -1,4 +1,7 @@
 import type { LiteralSchema, Schema } from "@gin-quin/codec";
+import type { PulseSchemaValue } from "./schema.js";
+import type { TreeSchema } from "./treeSchema.js";
+import type { Tree } from "./tree.js";
 import type { RichText } from "./richText.js";
 import { RichTextSchemaSymbol } from "./values.js";
 
@@ -25,42 +28,44 @@ export type PublicRichTextSchema<S extends Schema> = Schema extends S
 	? S
 	: S extends RichTextSchema
 		? LiteralSchema<RichText>
-		: S extends () => infer Inner
-			? Inner extends Schema
-				? () => PublicRichTextSchema<Inner>
-				: S
-			: S extends object
-				? {
-						[Key in keyof S]: Key extends "fields"
-							? S[Key] extends Record<string, Schema>
-								? PublicSchemaFields<S[Key]>
-								: S[Key]
-							: Key extends "element" | "schema"
-								? S[Key] extends Schema
-									? PublicRichTextSchema<S[Key]>
+		: S extends TreeSchema<infer Element>
+			? LiteralSchema<Tree<PulseSchemaValue<Element>>>
+			: S extends () => infer Inner
+				? Inner extends Schema
+					? () => PublicRichTextSchema<Inner>
+					: S
+				: S extends object
+					? {
+							[Key in keyof S]: Key extends "fields"
+								? S[Key] extends Record<string, Schema>
+									? PublicSchemaFields<S[Key]>
 									: S[Key]
-								: Key extends "elements"
-									? S[Key] extends readonly Schema[]
-										? PublicSchemaList<S[Key]>
+								: Key extends "element" | "schema"
+									? S[Key] extends Schema
+										? PublicRichTextSchema<S[Key]>
 										: S[Key]
-									: Key extends "variants"
+									: Key extends "elements"
 										? S[Key] extends readonly Schema[]
 											? PublicSchemaList<S[Key]>
-											: S[Key] extends Record<
-														string | number,
-														Record<string, Schema>
-													>
-												? {
-														[Tag in keyof S[Key]]: {
-															[Field in keyof S[Key][Tag]]: PublicRichTextSchema<
-																S[Key][Tag][Field]
-															>;
-														};
-													}
-												: S[Key]
-										: S[Key];
-					}
-				: S;
+											: S[Key]
+										: Key extends "variants"
+											? S[Key] extends readonly Schema[]
+												? PublicSchemaList<S[Key]>
+												: S[Key] extends Record<
+															string | number,
+															Record<string, Schema>
+														>
+													? {
+															[Tag in keyof S[Key]]: {
+																[Field in keyof S[Key][Tag]]: PublicRichTextSchema<
+																	S[Key][Tag][Field]
+																>;
+															};
+														}
+													: S[Key]
+											: S[Key];
+						}
+					: S;
 
 /** Recognize an occurrence through optional/lazy wrappers, at compile time only. */
 export function isRichTextSchema(schema: Schema): boolean {

@@ -375,7 +375,7 @@ impl Reader<'_> {
         }
         let mut rows = Vec::with_capacity(count);
         for (i, value) in values.into_iter().enumerate() {
-            let mut operations = Writer(vec![2]);
+            let mut operations = Writer(vec![3]);
             operations.uint(lamport + i as u64);
             operations.0.extend_from_slice(&prefix.0);
             operations.bytes(&value);
@@ -401,7 +401,7 @@ impl Reader<'_> {
 
 pub fn encode(message: &Message) -> Result<Vec<u8>> {
     message.validate()?;
-    let mut writer = Writer(vec![1, 2]);
+    let mut writer = Writer(vec![1, 3]);
     writer.uint(match message.body {
         Body::Connect { .. } => 1,
         Body::Sync { .. } => 2,
@@ -445,7 +445,8 @@ pub fn decode(bytes: &[u8]) -> Result<Message> {
     }
     let mut reader = Reader { bytes, pos: 0 };
     let protocol = reader.uint()?;
-    if !(protocol == 1 || protocol == 2) || reader.uint()? != 2 {
+    let operations = reader.uint()?;
+    if !((protocol == 1 || protocol == 2) && operations == 3) {
         return Err(Error::new(
             "UNSUPPORTED_VERSION",
             "Unsupported protocol or operation version",
@@ -735,7 +736,7 @@ mod tests {
             },
         };
         assert!(encode(&message).is_err());
-        let mut unchecked = Writer(vec![1, 2, 4]);
+        let mut unchecked = Writer(vec![1, 3, 4]);
         unchecked.text("dense");
         unchecked.uint(1);
         unchecked.vector(&vv);
@@ -780,16 +781,16 @@ mod tests {
     }
     #[test]
     fn malformed_values() {
-        assert!(decode(&[1, 2, 99]).is_err());
+        assert!(decode(&[1, 3, 99]).is_err());
         assert!(decode(&[2, 1]).is_err());
         // State-only envelopes are never accepted as durable exact history.
-        assert!(decode(&[3, 2, 4]).is_err());
-        assert!(decode(&[1, 2, 1, 128, 0]).is_err());
+        assert!(decode(&[3, 3, 4]).is_err());
+        assert!(decode(&[1, 3, 1, 128, 0]).is_err());
         assert!(validate_vector(&vec![(65536, 1), (65536, 2)]).is_err());
         assert!(validate_vector(&vec![(65536, MAX_SAFE_INTEGER + 1)]).is_err());
         let mut seed = 42_u32;
         for n in 0..1000 {
-            let mut bytes = vec![1, 2];
+            let mut bytes = vec![1, 3];
             for _ in 0..n % 64 {
                 seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
                 bytes.push(seed as u8);

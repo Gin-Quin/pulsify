@@ -3,6 +3,7 @@ import {
   destroyPulse, loadPulse, snapshotPulse, arrayOperations, exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory, SUPPORTED_PROTOCOL_VERSIONS, MigrationDriftError, richText, type RichText, type RichTextSchema, type MigrationDriftDetails, type PulseProperties,
 } from "@pulsify/core";
 import { decodeMessage, encodeMessage, type PulseMessage } from "@pulsify/core/protocol";
+import { tree, type Tree, type TreeSchema } from "@pulsify/core";
 import { bindProseMirror, proseMirrorDocument, type ProseMirrorBinding } from "pulsify-prosemirror";
 import type { EditorView } from "prosemirror-view";
 import type { Schema, Node as ProseMirrorNode } from "prosemirror-model";
@@ -159,3 +160,23 @@ preservedRich.body.format(0, 1, { bold: true });
 // @ts-expect-error New required fields remain mandatory when unchanged rich fields are omitted.
 PreservedRichBuilder.migrate<PreservedRichV2>(() => ({}));
 destroyPulse(preservedRich);
+
+const treeField: TreeSchema<"string"> = tree("string");
+const TreeConsumer = definePulse("TreeConsumer", object({
+  outline: tree(object({ title: "string", body: richText(), nested: treeField })),
+  items: array("uint"),
+})).materialize();
+const treeDoc = createPulse(TreeConsumer, { outline: {}, items: [1, 2] }, { scope: createPulseScope() });
+const root = treeDoc.outline.createNode({ title: "Root", body: "text", nested: {} });
+const nestedTree: Tree<string> = root.data.nested;
+nestedTree.createNode("Nested");
+root.data.body.insert(0, "!");
+root.move();
+arrayOperations(treeDoc.items).move(0, 1);
+const treeText: string = snapshotPulse(treeDoc).outline[root.id]!.data.body;
+void treeText;
+// @ts-expect-error Tree element schemas survive packaged declaration inference.
+treeDoc.outline.createNode({ title: 12, body: "text", nested: {} });
+// @ts-expect-error Nested tree element types are preserved.
+nestedTree.createNode(12);
+destroyPulse(treeDoc);

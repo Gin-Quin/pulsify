@@ -1,6 +1,9 @@
 # Pulsify binary protocol
 
-Default envelope version **1**, optional grouped envelope **2** and state envelope **3**, operation payload version **2**. The native core has no
+Default envelope version **1**, optional grouped envelope **2** and state envelope **3**.
+All envelopes and core payloads use operations version **3**. Earlier operation
+versions are unsupported.
+The native core has no
 runtime dependency on json-joy or Yjs. The TypeScript implementation uses
 `@gin-quin/codec` 2.1.0. The [Rust crate](../crates/pulsify-protocol) implements
 the envelope independently and keeps operation bytes opaque.
@@ -33,7 +36,7 @@ scalar checks and its collection limits.
 
 ```text
 protocolVersion:uint = 1
-operationsVersion:uint = 2
+operationsVersion:uint = 3
 kind:uint
 ...variant fields
 ```
@@ -112,13 +115,13 @@ causal promotion in one database call. SQLite provides the same
 logical interface. Database acceptance of an opaque row does not replace
 application authorization or client-side operation validation.
 
-## Operation payload version 2
+## Operation payload version 3
 
 The payload uses a fixed codec schema, not executable schemas from peers.
 Its schema is defined in [operations.ts](../packages/pulse/source/core/operations.ts).
 
 ```text
-version:uint = 2
+version:uint = 3
 lamport:uint
 schema:string
 ops:operation[]
@@ -127,7 +130,7 @@ ops:operation[]
 `lamport` is positive and advances beyond the highest applied Lamport time
 when a local transaction is generated. In document version 1, `schema` is empty
 without a runtime schema, or the 32-character compatibility fingerprint of its
-resolved codec layout graph and constant/rich-text annotations. Versions 2+
+resolved codec layout graph, constant/rich-text annotations and tree roles. Versions 2+
 produced by current definitions use `m<version>:<chainFingerprint>` instead.
 This reuses the existing string field; operation payload and envelope versions
 do not change. Historical V1 writes remain addressable by their original identity.
@@ -162,6 +165,64 @@ Each operation starts with its numeric `kind:uint`, followed by these fields:
 | 3 | Sequence insertion/deletion | target:string, after:string, deletes:string[], values:encodedValue[] |
 | 4 | Replace an array entry's value | target:string, entry:string, value:encodedValue |
 | 5 | Set or remove text attributes | target:string, entries:string[], attributes:codec-unknown |
+| 6 | Move array entries | target:string, entries:string[], after:string |
+
+All operation kinds use payload version 3. Encoders and decoders require this
+version for ordinary, grouped and state envelopes. The Rust relay uses operations
+version 3 in both its ordinary and grouped envelopes; inner rows remain opaque.
+
+An array move allocates one new RGA position token per source entry, in source
+order using the transaction's normal ordinal allocator. Each token references
+the original logical entry and is chained after the preceding new token; the
+first is anchored after `after`. Tokens participate in the immutable insertion
+tree but contain no copied values or child nodes. Visible order traverses that
+tree and emits an original entry only at its winning position, unless deleted.
+The winning move uses `(lamport, actor, clock)` order; repeated moves of one
+entry within one transaction use the last operation. Original entry IDs remain
+the targets of replacement, deletion and nested edits. Position-token IDs can
+be anchors but cannot be move sources or replacement/deletion targets. Move
+sources must be distinct original entries in the same variable-length array;
+tuples and text reject kind 6. Every source and anchor must be causally covered.
+
+Deletes tombstone the logical element, so no move can resurrect it. A losing
+position token remains a valid anchor, including for concurrent insertions made
+after that position. A block's elements resolve positions independently under
+overlapping concurrent moves. No sequence cycle can arise because every new
+position references an already causally known token or an earlier token in the
+same transaction; moves never rewrite an old token's insertion edge.
+
+### Tree representation
+
+`tree(elementSchema)` uses a codec map of records with `data:elementSchema`,
+`location:{parent:string,position:string}` and `deleted:boolean`. Tree/node/location
+roles participate in schema fingerprints; an ordinary map with the same fields
+does not have the same public mutation contract. Payload data stays under stable
+CRDT node IDs. A tree move replaces one complete location register using kind 1;
+its parent and sibling position cannot merge independently. Direct mutations of
+location fields, record removal/replacement and clearing a deletion flag are
+rejected before journal application, including scalar/grouped fast paths.
+
+Tree IDs created after initialization are `n<actor>:<clock>` with an optional
+positive decimal collision suffix when importing snapshots. New ID keys are
+immutable, and their prefix must match the creating transaction. Initialization
+can restore existing IDs and tombstones. Positions are lowercase hexadecimal
+strings made of four-character base-65536 digits, with a nonzero final digit.
+Generated keys append the actor and clock (each padded to 14 hex characters),
+then `0001`. Creation and move operations validate this suffix against their
+transaction and cannot reuse a minted key within the same patch or a retained
+key in the tree. Restoring snapshots also avoids collisions with existing ranks,
+including tombstones. Initializers reject duplicate positions across nodes. Comparison is lexicographic, with
+node ID as a deterministic fallback for ties.
+
+The public forest is a pure projection of all winning location registers. A
+missing parent becomes a root. Each parent cycle is broken by projecting its
+lexicographically smallest node ID as a root; stored edges are not mutated.
+Deleted nodes and descendants with deleted projected ancestors are hidden.
+Thus an offline descendant move out can survive deletion of its previous
+ancestor, while a move into a deleted subtree is hidden. Projection recomputes
+from raw registers, so receive order and duplicate delivery cannot change the
+final forest. This is a cycle-breaking LWW projection, not Loro/Kleppmann's
+move-history algorithm. The API documentation describes its conflict outcomes.
 
 `fieldRef` is an untagged codec union: variant index 0 followed by a string
 key, or variant index 1 followed by a numeric field slot. Slots are zero-based
@@ -292,13 +353,13 @@ generation. Applications must plan retention and compaction before reaching
 history bounds; silently dropping rows required by offline replicas is not
 supported.
 
-## Optional grouped transport (envelope 2, payload 2)
+## Optional grouped transport (envelope 2, payload 3)
 
-Envelope 1 remains the default and its fixtures are unchanged. Envelope 2 carries
+Envelope 1 remains the default. Envelope 2 carries
 one homogeneous, lossless run in a sync, syncBack or update message:
 
 ```text
-2, 2, kind, docId:string, requestId:uint,
+2, 3, kind, docId:string, requestId:uint,
 [found:boolean, complete:boolean only for kind 2], vv:vector,
 sid:uint, clockStart:uint, count:uint, lamportStart:uint,
 schema:string, target:string, fieldTag:uint, field:string|uint,
@@ -313,14 +374,14 @@ Lamport `lamportStart+i`, the same target/field/layout/schema and no value marke
 Its dependencies are the external vector plus `(sid, clockStart+i)` whenever that
 clock is greater than 1. The external vector cannot contain `sid`.
 
-Reconstruction writes the canonical payload-2 single-put header followed by the
+Reconstruction writes the canonical payload-3 single-put header followed by the
 original value bytes and the two empty marker arrays. It preserves every row
 identity, dependency vector and payload byte. A partial frontier can select a
 suffix; forwarding preserves the raw values, without decoding/re-encoding them.
 Rust expands runs into ordinary opaque rows without an application schema.
 Storage ingress uses the same decoder and persists the original rows; its schema
 and one-call append contract are unchanged. Expansion does add header construction
-at storage/legacy boundaries, without reading any document.
+at storage/envelope boundaries, without reading any document.
 
 The current native producer groups only string/float64 object-field writes in a
 single-version typed document. Managed fields, constants, rich text, migrations,
@@ -332,7 +393,7 @@ history use the general row path, including its atomic preflight.
 
 Frame, row, vector and expanded structure/byte limits apply before allocating
 individual rows. The journal charges expanded history plus its owned frame once;
-materializing legacy row bytes later does not charge again. Decoded run rows are
+materializing exact row bytes later does not charge again. Decoded run rows are
 immutable and expose detached operation bytes/dependency vectors to callers.
 
 ### Capability boundary
@@ -358,7 +419,7 @@ never infer application capability solely from such an automatic selection.
 ## Optional state deltas (envelope 3)
 
 Envelope 3 is an explicitly negotiated transport view; operation payload version
-remains 2. It does **not** replace the exact append-only database journal.
+remains 3. It does **not** replace the exact append-only database journal.
 `SUPPORTED_PROTOCOL_VERSIONS` is `[1, 2, 3]`. Unknown peers still receive envelope 1.
 A known upgraded WebSocket server may opt into `protocolVersion: 3` and select
 `pulsify-v3`; the client also offers v2/v1. Never infer this capability from a
@@ -377,7 +438,7 @@ All following fields use the scalar encodings above, in this exact order:
 
 ```text
 protocolVersion:uint = 3
-operationsVersion:uint = 2
+operationsVersion:uint = 3
 kind:uint = 1 | 2 | 4
 docId:string
 requestId:uint

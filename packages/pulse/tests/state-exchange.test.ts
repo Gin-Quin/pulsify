@@ -329,7 +329,7 @@ test("state framing rejects truncation, trailing bytes, noncanonical integers an
 			expect(() => decodeMessage(frame.slice(0, i))).toThrow();
 		expect(() => decodeMessage(new Uint8Array([...frame, 0]))).toThrow();
 		expect(() =>
-			decodeMessage(new Uint8Array([3, 2, 132, 0, ...frame.slice(3)])),
+			decodeMessage(new Uint8Array([3, 3, 132, 0, ...frame.slice(3)])),
 		).toThrow();
 		expect(() =>
 			decodeMessage(encodeStateMessage({ ...message, vv: [] }, delta)),

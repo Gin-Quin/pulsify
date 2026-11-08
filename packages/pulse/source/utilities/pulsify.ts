@@ -1,6 +1,7 @@
 import { constantView } from "../core/values.js";
 import type { CoreNode } from "../core/model.js";
 import { createTextProxy, type RichText } from "../core/richText.js";
+import { createTreeProxy, type Tree } from "../core/tree.js";
 import {
 	createArrayProxy,
 	type PulseArray,
@@ -21,19 +22,21 @@ type PulseBytes<Value extends Uint8Array> = IsSameType<
 
 export type Pulsify<Value> = Value extends RichText
 	? RichText
-	: Value extends Uint8Array
-		? PulseBytes<Value>
-		: Value extends Tuple<readonly unknown[]>
-			? Value
-			: Value extends Struct<Record<string, unknown>>
+	: Value extends Tree<infer Item>
+		? Tree<Item>
+		: Value extends Uint8Array
+			? PulseBytes<Value>
+			: Value extends Tuple<readonly unknown[]>
 				? Value
-				: Value extends Array<infer Item>
-					? number extends Value["length"]
-						? PulseArray<Pulsify<Item>>
-						: PulseTuple<Value>
-					: Value extends object
-						? { [Key in keyof Value]: Pulsify<Value[Key]> }
-						: Value;
+				: Value extends Struct<Record<string, unknown>>
+					? Value
+					: Value extends Array<infer Item>
+						? number extends Value["length"]
+							? PulseArray<Pulsify<Item>>
+							: PulseTuple<Value>
+						: Value extends object
+							? { [Key in keyof Value]: Pulsify<Value[Key]> }
+							: Value;
 
 export function pulsify(
 	value: unknown,
@@ -45,7 +48,8 @@ export function pulsify(
 			? new Uint8Array(value)
 			: constantView(value);
 	if (node.proxy) return node.proxy;
-	if (node.kind === "text")
+	if (node.layout?.tree) node.proxy = createTreeProxy(node, context);
+	else if (node.kind === "text")
 		node.proxy = createTextProxy(
 			node,
 			context.meta.model,

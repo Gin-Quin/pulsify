@@ -52,7 +52,7 @@ test("single register writes preserve schema-compiled bytes and strict decoding"
 			const op = { kind: 1 as const, target: "65536:1:0", field, value };
 			const patch = new CorePatch(65536, 128, 1024, "schema🌍", [op]);
 			const expected = reference.encode({
-				version: 2,
+				version: 3,
 				lamport: patch.lamport,
 				schema: patch.schema,
 				ops: [
@@ -113,7 +113,7 @@ test("repeated register headers remain byte-exact across cache hits, changes and
 		const op = { kind: 1 as const, target: header, field: header, value };
 		const patch = new CorePatch(65536, 1, 1, header, [op]);
 		const expected = reference.encode({
-			version: 2,
+			version: 3,
 			lamport: 1,
 			schema: header,
 			ops: [
@@ -215,7 +215,7 @@ test("warm register caches still reject truncated lengths and invalid field vari
 			expect(() =>
 				decodeCorePatch({
 					...row,
-					operations: new Uint8Array([2, 1, ...prefix]),
+					operations: new Uint8Array([3, 1, ...prefix]),
 				}),
 			).toThrow();
 	}

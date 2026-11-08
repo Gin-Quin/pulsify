@@ -29,6 +29,7 @@ const server = Bun.serve({
 			);
 		if (
 			path !== "/tests/runtime-smoke.mjs" &&
+			path !== "/tests/move-runtime-smoke.mjs" &&
 			!/^\/packages\/pulse\/dist\/[\w-]+\.js$/.test(path)
 		)
 			return new Response("Not found", { status: 404 });

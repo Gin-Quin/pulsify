@@ -10,6 +10,7 @@ import {
 	type Decoder,
 	type Encoder,
 } from "@gin-quin/codec";
+import { OPERATIONS_VERSION } from "./versions.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import type { PulseMessage } from "../connection/PulseMessage.js";
 import {
@@ -188,7 +189,7 @@ export function writeRunHeader(
 	run: ScalarColumn,
 ): void {
 	writeVarUint(e, 2);
-	writeVarUint(e, 2);
+	writeVarUint(e, OPERATIONS_VERSION);
 	writeVarUint(e, message.kind);
 	writeVarString(e, message.docId);
 	writeVarUint(e, message.requestId);
@@ -214,7 +215,7 @@ export function runOperation(
 	offset: number,
 ): Uint8Array<ArrayBuffer> {
 	const e = createEncoder();
-	writeVarUint(e, 2);
+	writeVarUint(e, OPERATIONS_VERSION);
 	writeVarUint(e, run.lamport + offset);
 	writeVarString(e, run.schema);
 	writeVarUint(e, 1);
@@ -277,7 +278,10 @@ export function decodeRunMessage(bytes: Uint8Array): PulseMessage {
 		requireRun(bytes.length <= MAX_FRAME_BYTES, "Run frame limit");
 		const owned = new Uint8Array(bytes),
 			d = createDecoder(owned);
-		requireRun(uint(d) === 2 && uint(d) === 2, "Unsupported run version");
+		requireRun(
+			uint(d) === 2 && uint(d) === OPERATIONS_VERSION,
+			"Unsupported run version",
+		);
 		const kind = uint(d);
 		requireRun(
 			kind === 2 || kind === 3 || kind === 4,
