@@ -1,5 +1,11 @@
 # Hybrid scalar state exchange
 
+Measurements of the 2026-11-04 campaign. Since envelope 4, a lone scalar write
+between two pulses is a compact frame, which changes the `edit+encode`,
+`delta-roundtrip` and map-conflict figures: the
+[current comparison](CRDT-COMPARISON.md) supersedes the numbers below. The
+architecture and limits described here still apply.
+
 The implementation is committed at `3bfc576b2504ee88453ebbbff6ea639fa4836565`.
 The final full campaign was measured with a clean worktree (`dirty: false`):
 95 cases, five warmup samples, 25 measured samples, seeded participant order,

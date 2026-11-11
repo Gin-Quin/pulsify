@@ -134,7 +134,7 @@ function pulseReplica(
 	const encode = (vv: PulseVersionVector) =>
 		packet(
 			exportPulseUpdates(pulse, vv, {
-				peerVersion: SUPPORTED_PROTOCOL_VERSIONS[2],
+				peerVersion: SUPPORTED_PROTOCOL_VERSIONS[3],
 			}),
 		);
 	const apply = (bytes: Packet) => applyPulseUpdates(pulse, bytes.frames);

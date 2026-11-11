@@ -120,13 +120,16 @@ export function renderComparison(report: ComparisonReport): string {
 			? `Sur la mutation scalaire sans historique préparé, l’API publique Pulsify prend ${number(proxyMutation / nativeMutation)} fois le temps de json-joy natif. L'écart proxy − pipeline est de ${number(proxyMutation - directMutation)} µs, soit ${number(((proxyMutation - directMutation) / directMutation) * 100)} % du pipeline sans proxy. Le moteur Pulsify sans proxy prend ${number(directMutation / nativeMutation)} fois le temps natif : ce scénario distingue le coût du chemin public et celui de la mutation interne. Cette décomposition concerne le champ scalaire mis en cache, pas toutes les opérations de listes ou la création des vues.`
 			: "";
 	const hybrid = report.parameters.pulsifyEngine?.includes("hybrid");
-	const baseline = hybrid
-		? "baselines/core-hybrid-20261104.json"
-		: report.parameters.pulsifyEngine?.includes("grouped")
-			? "baselines/core-grouped-20261104.json"
-			: report.parameters.pulsifyEngine
-				? "baselines/core-native-20261104.json"
-				: "baselines/crdt-comparison.json";
+	const compact = report.parameters.pulsifyEngine?.includes("compact");
+	const baseline = compact
+		? "baselines/core-compact-20261111.json"
+		: hybrid
+			? "baselines/core-hybrid-20261104.json"
+			: report.parameters.pulsifyEngine?.includes("grouped")
+				? "baselines/core-grouped-20261104.json"
+				: report.parameters.pulsifyEngine
+					? "baselines/core-native-20261104.json"
+					: "baselines/crdt-comparison.json";
 	return `# Pulsify, json-joy, Yjs et Loro : comparaison locale
 
 Ce fichier est généré par \`bun run bench:crdt\`. Les données brutes sont dans le JSON indiqué par \`--output\` (par défaut \`benchmarks/results/crdt-comparison.json\`). La référence complète conservée est [${baseline}](${baseline}).
@@ -156,7 +159,7 @@ Octets moyens par opération mesurée. Pour \`offline-merge\`, la valeur est la 
 
 ${sizes.join("\n")}
 
-Les représentations ne retiennent pas toutes le même historique : ${hybrid ? "Pulsify conserve le journal exact au producteur et peut transmettre un état scalaire condensé avec des vecteurs d’état et d’historique distincts" : "Pulsify transmet son journal de segments dans des messages validés avec identifiant et vecteurs"} ; json-joy natif utilise ses snapshots structurels et deltas ; Yjs utilise son état avec le GC activé par défaut ; Loro utilise un snapshot avec historique, puis des updates. Aucun snapshot superficiel Loro ni stockage supplémentaire pour restaurer les anciennes versions Yjs n'est ajouté.
+Les représentations ne retiennent pas toutes le même historique : ${hybrid ? `Pulsify conserve le journal exact au producteur et peut transmettre un état scalaire condensé avec des vecteurs d’état et d’historique distincts${compact ? ", ou une écriture scalaire isolée dans une trame compacte que le récepteur reconstruit à l’identique" : ""}` : "Pulsify transmet son journal de segments dans des messages validés avec identifiant et vecteurs"} ; json-joy natif utilise ses snapshots structurels et deltas ; Yjs utilise son état avec le GC activé par défaut ; Loro utilise un snapshot avec historique, puis des updates. Aucun snapshot superficiel Loro ni stockage supplémentaire pour restaurer les anciennes versions Yjs n'est ajouté.
 
 ## Isolation du coût des proxies
 
@@ -183,7 +186,7 @@ ${Object.entries(report.descriptions)
 - \`create\` et \`mutate\` mesurent le travail local sans export binaire, y compris pour Pulsify qui conserve ses patches natifs. \`create+encode\`, \`edit+encode\` et \`delta-roundtrip\` ajoutent explicitement la production de données binaires pour tous.
 - \`export-first\` mesure le premier export d'un document préparé ; \`export-repeat\` effectue un export préparatoire hors chrono puis mesure un export sans modification. Les bibliothèques sont déjà échauffées, les états sont neufs à chaque échantillon et les paquets sont vérifiés par import hors chrono. Chaque moteur utilise ses propres caches.
 - \`delta-roundtrip\` est un échange synchrone entre deux moteurs en mémoire ; le protocole réseau, l'acquittement, l'authentification et une base durable ne sont pas inclus. Les anciens benchmarks de connecteurs Pulsify mesurent un autre niveau.
-- L'adaptateur json-joy exporte un delta structurel via \`model.delta(vecteur)\` ; ${hybrid ? "Pulsify utilise son échange public v3, avec état condensé pour les longues séries scalaires et opérations exactes sinon." : "Pulsify exporte les opérations déjà conservées dans son journal."} Un bon résultat de Pulsify sur cet échange ne signifie donc pas que ses proxies exécutent les opérations natives plus vite. Le tableau des trois couches isole les écritures locales.
+- L'adaptateur json-joy exporte un delta structurel via \`model.delta(vecteur)\` ; ${hybrid ? `Pulsify utilise son échange public ${compact ? "v4, avec trame compacte pour une écriture scalaire isolée," : "v3, avec"} état condensé pour les longues séries scalaires et opérations exactes sinon.${compact ? " La trame compacte ne circule qu’entre deux pulses : les sessions de connecteurs, relais et bases conservent les lignes exactes." : ""}` : "Pulsify exporte les opérations déjà conservées dans son journal."} Un bon résultat de Pulsify sur cet échange ne signifie donc pas que ses proxies exécutent les opérations natives plus vite. Le tableau des trois couches isole les écritures locales.
 - \`initial-load+materialize\` inclut la création du récepteur et une vue JSON détachée. L'export initial, la validation des résultats et la destruction des répliques sont hors chronométrage.
 - Loro est la version WASM publiée pour Node, chargée une fois avant les mesures. Le coût de démarrage du processus, de chargement du module et de compilation WASM n'est pas inclus. Ce n'est pas un benchmark Rust natif.
 - La mémoire JS seule n'est pas comparée à la mémoire WASM : un classement fondé uniquement sur \`heapUsed\` serait trompeur. Les anciens chiffres mémoire de Pulsify restent dans [README.md](README.md).

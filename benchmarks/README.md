@@ -1,10 +1,13 @@
 # Performance benchmarks
 
-The [current native core results](HYBRID-TRANSPORT.md) summarize the current engine against
-native json-joy, Yjs 13.6.33 (V2 and V1) and Loro 1.17.1 (Node WASM). The
-[full comparison](CRDT-COMPARISON.md) contains all 95 measurements, payload
-sizes, scenario descriptions and direct/public API comparisons. Its raw native
-reference is [core-hybrid-20261104.json](baselines/core-hybrid-20261104.json).
+The [full comparison](CRDT-COMPARISON.md) measures the current engine against
+native json-joy, Yjs 13.6.33 (V2 and V1) and Loro 1.17.1 (Node WASM). It
+contains all 95 measurements, payload sizes, scenario descriptions and
+direct/public API comparisons. Its raw reference is
+[core-compact-20261111.json](baselines/core-compact-20261111.json), measured
+with the compact single-write frame (envelope 4). The
+[hybrid transport note](HYBRID-TRANSPORT.md) describes the architecture and its
+limits; its numbers are those of the previous campaign.
 Competitor dependencies belong only to this private benchmark workspace.
 
 The [native Rust database benchmark](database/README.md) runs PostgreSQL, AlloyDB Omni, OrioleDB, pgrust (row/columnar)
@@ -21,14 +24,14 @@ bun run bench:database
 bun run test:crdt
 bun run bench:crdt --output benchmarks/results/crdt-new.json --markdown benchmarks/results/crdt-new.md
 bun run bench:crdt --quick --output benchmarks/results/crdt-quick.json --markdown benchmarks/results/crdt-quick.md
-bun run bench:compare benchmarks/baselines/core-hybrid-20261104.json benchmarks/results/crdt-new.json --strict
+bun run bench:compare benchmarks/baselines/core-compact-20261111.json benchmarks/results/crdt-new.json --strict
 ```
 
 A quick or filtered run should always set `--markdown` to preserve the complete
 committed report. The deliberate release-reference command is:
 
 ```sh
-bun run bench:crdt --output benchmarks/baselines/core-hybrid-20261104.json --markdown benchmarks/CRDT-COMPARISON.md
+bun run bench:crdt --output benchmarks/baselines/core-compact-20261111.json --markdown benchmarks/CRDT-COMPARISON.md
 ```
 
 ## CRDT comparison method
@@ -71,7 +74,9 @@ round trips include vector capture, edit, encoding, peer import and a peer read,
 without network transport, acknowledgement or durable storage.
 
 The engines retain different histories. Pulsify transfers immutable operation
-rows with document IDs and causal vectors. Json-joy exports structural snapshots
+rows with document IDs and causal vectors. Between two pulses, a lone scalar
+write travels as a compact frame that the receiver expands into the same row;
+connector sessions, relays and stores keep exact rows. Json-joy exports structural snapshots
 and deltas, which can condense overwritten registers. Yjs uses its default GC;
 Loro uses snapshots with history and updates. Keep these differences and payload
 sizes next to offline-merge results. The Loro library is Node WASM, initialized
@@ -94,7 +99,7 @@ bun run bench --filter operations --output benchmarks/results/operations.json
 bun run bench --output benchmarks/results/core-new.json
 ```
 
-The supplementary 35-case suite measures outer frame codecs, operation codecs,
+The supplementary suite measures outer frame codecs, operation codecs,
 creation/mutation, connector synchronization, initial loading, offline reconnect
 and diagnostic retained heap. It uses the legacy typed-definition API without
 an application runtime schema; the primary CRDT comparison above supplies the
@@ -103,10 +108,7 @@ schema required for the optimized native path.
 Outer decoding leaves operation bytes opaque. Inner codec cases encode and
 decode native `CoreOperation` values separately. Application value checks and
 CRDT graph/reference validation are part of the engine's mutation/import path,
-not an extra recursive walk of the envelope schema. JSON variants use the same
-values, with binary leaves represented as base64, and do not perform Pulsify's
-protocol checks. They compare task-level wrappers rather than isolated raw
-serializer instructions.
+not an extra recursive walk of the envelope schema.
 
 Connector cases wait for acknowledgement and convergence, including a variant
 with a 5 ms delay in each direction. Initial loading confirms public data

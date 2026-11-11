@@ -121,19 +121,6 @@ const input = (size: number) => ({
 	})),
 });
 const scope = () => ({ scope: createPulseScope(), sessionId: 65536 });
-const serializeJSON = (value: unknown) =>
-	JSON.stringify(value, (_key, item) =>
-		item instanceof Uint8Array
-			? { $bytes: Buffer.from(item).toString("base64") }
-			: item,
-	);
-const parseJSON = (value: string) =>
-	JSON.parse(value, (_key, item) =>
-		item && typeof item === "object" && "$bytes" in item
-			? new Uint8Array(Buffer.from(item.$bytes, "base64"))
-			: item,
-	);
-
 await benchmark("protocol/compile-schema", quick ? 50 : 200, () => ({
 	run() {
 		createCodec(PulseMessageSchema);
@@ -152,7 +139,6 @@ for (const count of [0, 1, 100]) {
 					rows: getPulseMeta(pulse).log.missing([]),
 				};
 	const binary = encodeMessage(message);
-	const json = serializeJSON(message);
 	const iterations = count === 100 ? 200 : 1000;
 	await benchmark(`codec/encode/${count}`, iterations, () => ({
 		run() {
@@ -166,24 +152,11 @@ for (const count of [0, 1, 100]) {
 		},
 		metrics: { bytes: binary.length },
 	}));
-	await benchmark(`json/encode/${count}`, iterations, () => ({
-		run() {
-			serializeJSON(message);
-		},
-		metrics: { bytes: Buffer.byteLength(json) },
-	}));
-	await benchmark(`json/decode/${count}`, iterations, () => ({
-		run() {
-			parseJSON(json);
-		},
-		metrics: { bytes: Buffer.byteLength(json) },
-	}));
 	if (count) {
 		const operations = decodeOperations(
 			getPulseMeta(pulse).log.missing([])[0]!.operations,
 		);
 		const encoded = encodeOperations(operations);
-		const jsonOps = serializeJSON(operations);
 		await benchmark(
 			`operations/encode/${count}`,
 			count === 100 ? 100 : 500,
@@ -202,26 +175,6 @@ for (const count of [0, 1, 100]) {
 					decodeOperations(encoded);
 				},
 				metrics: { bytes: encoded.length },
-			}),
-		);
-		await benchmark(
-			`operations-json/encode/${count}`,
-			count === 100 ? 100 : 500,
-			() => ({
-				run() {
-					serializeJSON(operations);
-				},
-				metrics: { bytes: Buffer.byteLength(jsonOps) },
-			}),
-		);
-		await benchmark(
-			`operations-json/decode/${count}`,
-			count === 100 ? 100 : 500,
-			() => ({
-				run() {
-					parseJSON(jsonOps);
-				},
-				metrics: { bytes: Buffer.byteLength(jsonOps) },
 			}),
 		);
 	}

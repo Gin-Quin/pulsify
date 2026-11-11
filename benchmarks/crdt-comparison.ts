@@ -540,7 +540,7 @@ const report = {
 	dirty: !!git(["status", "--porcelain"]),
 	environment: {
 		runtime: `bun-${Bun.version}`,
-		codec: "2.1.0",
+		codec: await version("@gin-quin/codec"),
 		jsonJoy: await version("json-joy"),
 		yjs: await version("yjs"),
 		loro: await version("loro-crdt"),
@@ -561,7 +561,7 @@ const report = {
 		defaultYjsFormat: "V2",
 		gcBeforeSamples: true,
 		ordering: "seeded shuffled engine blocks",
-		pulsifyEngine: "native-core-v3-hybrid",
+		pulsifyEngine: "native-core-v4-hybrid-compact",
 		pulsifySchema:
 			"codec object: title string, nested count float64, items editable array of { value float64, label string }",
 	},
