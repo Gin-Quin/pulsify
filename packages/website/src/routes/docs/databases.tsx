@@ -3,7 +3,7 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { GITHUB_URL } from "~/components/links";
 
-const server = `import { PulseRelay, type RelayPeer } from "@pulsify/core";
+const server = `import { PulseRelay, type RelayPeer } from "pulsify-core";
 
 const relay = new PulseRelay();
 
@@ -29,7 +29,7 @@ Bun.serve<{ peer?: RelayPeer }>({
 });`;
 
 const postgres = `import { SQL } from "bun";
-import { PostgresPatchStore } from "@pulsify/core/storage";
+import { PostgresPatchStore } from "pulsify-core/storage";
 
 const sql = new SQL(process.env.DATABASE_URL!);
 const store = new PostgresPatchStore((query, params) => sql.unsafe(query, params as never[]));
@@ -43,13 +43,13 @@ const rows = await store.missing(docId, clientVersionVector);
 const vector = await store.vector(docId);`;
 
 const sqlite = `import { Database } from "bun:sqlite";
-import { SqlitePatchStore } from "@pulsify/core/storage";
+import { SqlitePatchStore } from "pulsify-core/storage";
 
 const store = new SqlitePatchStore(new Database("pulsify.db"));
 await store.initialize();
 await store.appendEncoded(frameBytes);`;
 
-const cloud = `import { createCloudConnector } from "@pulsify/cloud";
+const cloud = `import { createCloudConnector } from "pulsify-cloud";
 
 const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });
 const note = await loadPulse(Note, "alice/notes/n1", { connectors: [cloud] });`;

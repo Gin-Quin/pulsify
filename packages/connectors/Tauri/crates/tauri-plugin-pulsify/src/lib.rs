@@ -1,7 +1,7 @@
 //! Tauri 2 plugin persisting Pulsify documents in a local SQLite database.
 //!
 //! Register it with `.plugin(tauri_plugin_pulsify::init())` and connect documents
-//! with `createTauriConnector()` from `@pulsify/tauri`.
+//! with `createTauriConnector()` from `pulsify-tauri`.
 use pulsify_sqlite::{Hub, SqliteStore};
 use serde::Serialize;
 use std::path::PathBuf;

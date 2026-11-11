@@ -25,8 +25,8 @@ import {
 	type CoreEntry,
 	type Stamp,
 	type CoreOperation,
-} from "@pulsify/core/bindings";
-import { fingerprintBytes } from "@pulsify/core/bindings";
+} from "pulsify-core/bindings";
+import { fingerprintBytes } from "pulsify-core/bindings";
 
 type Attributes = Record<string, unknown>;
 export type Token = {

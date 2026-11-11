@@ -2,7 +2,7 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const install = `bun add @pulsify/core @pulsify/cloud pulsify-prosemirror \\
+const install = `bun add pulsify-core pulsify-cloud pulsify-prosemirror \\
   prosemirror-model prosemirror-state prosemirror-transform prosemirror-view \\
   prosemirror-schema-basic prosemirror-history`;
 
@@ -14,7 +14,7 @@ bob                    Bob's own notebook, another root`;
 const schema = `import {
   array, definePulse, object, richText, sub,
   type ModelFromDefinition, type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 export const Note = definePulse("Note", object({
   title: "string",
@@ -30,7 +30,7 @@ export const Notebook = definePulse("Notebook", object({
 export type NotePulse = Pulse<ModelFromDefinition<typeof Note>>;
 export type NotebookPulse = Pulse<ModelFromDefinition<typeof Notebook>>;`;
 
-const backend = `import { createCloudClient, signCloudToken } from "@pulsify/cloud";
+const backend = `import { createCloudClient, signCloudToken } from "pulsify-cloud";
 
 const cloud = createCloudClient({
   url: process.env.PULSIFY_URL!,            // your Worker or Unikraft instance
@@ -52,7 +52,7 @@ export async function pulsifyToken(user: { id: string }) {
   return new Response(token);
 }`;
 
-const connector = `import { createCloudConnector } from "@pulsify/cloud";
+const connector = `import { createCloudConnector } from "pulsify-cloud";
 
 export const PULSIFY_URL = "https://pulsify.example.com";
 export const fetchToken = () =>
@@ -61,7 +61,7 @@ export const fetchToken = () =>
 // One connector for the whole app. It opens one socket per root, on demand.
 export const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });`;
 
-const notebook = `import { connectPulse, createPulse, loadPulse, PulseError, subPulse } from "@pulsify/core";
+const notebook = `import { connectPulse, createPulse, loadPulse, PulseError, subPulse } from "pulsify-core";
 import { cloud } from "./cloud";
 import { Note, Notebook, type NotebookPulse, type NotePulse } from "./schema";
 
@@ -117,7 +117,7 @@ export function openEditor(note: NotePulse, element: HTMLElement) {
   };
 }`;
 
-const app = `import { subscribePulse } from "@pulsify/core";
+const app = `import { subscribePulse } from "pulsify-core";
 import { addNote, openNotebook } from "./notebook";
 import { openEditor } from "./editor";
 
@@ -154,7 +154,7 @@ document.querySelector("#add")!.addEventListener("click", async () => {
 });
 `;
 
-const share = `import { createCloudClient } from "@pulsify/cloud";
+const share = `import { createCloudClient } from "pulsify-cloud";
 import { fetchToken, PULSIFY_URL } from "./cloud";
 
 // Alice owns her root, so her own token can grant roles inside it.
@@ -166,7 +166,7 @@ export const shareNote = (noteId: string, userId: string, role: "reader" | "edit
 export const unshareNote = (noteId: string, userId: string) =>
   access.revoke({ subject: userId, prefix: noteId });`;
 
-const shared = `import { loadPulse } from "@pulsify/core";
+const shared = `import { loadPulse } from "pulsify-core";
 import { cloud } from "./cloud";
 import { openEditor } from "./editor";
 import { Note } from "./schema";
@@ -276,7 +276,7 @@ export default function CloudTutorial() {
 				<li>
 					<a href="/docs/local-persistence">Local persistence</a>: keep notes
 					across reloads and start the app without network, with{" "}
-					<code>@pulsify/indexeddb</code>.
+					<code>pulsify-indexeddb</code>.
 				</li>
 				<li>
 					<a href="/docs/cloud/authentication">Authentication</a>: roles, public

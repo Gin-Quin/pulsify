@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { encodeMessage } from "@pulsify/core";
+import { encodeMessage } from "pulsify-core";
 import {
 	CLOUD_SUBPROTOCOLS,
 	CLOUD_TOKEN_SUBPROTOCOL,
@@ -13,12 +13,12 @@ import {
 	rootOf,
 	signCloudToken,
 	verifyCloudToken,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import {
 	authenticateCloudRequest,
 	callerFromHeaders,
 	callerToHeaders,
-} from "@pulsify/cloud-server";
+} from "pulsify-cloud-server";
 
 const secret = "a test token secret of at least 32 characters";
 

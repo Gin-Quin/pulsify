@@ -10,7 +10,7 @@ import {
 	PulseError,
 	type Connector,
 	type ConnectorSession,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	createElectronConnector,
 	createPulsifyBridge,

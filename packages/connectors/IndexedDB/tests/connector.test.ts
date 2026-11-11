@@ -20,8 +20,8 @@ import {
 	sub,
 	subPulse,
 	type Pulse,
-} from "@pulsify/core";
-import type { ConnectorSession } from "@pulsify/core";
+} from "pulsify-core";
+import type { ConnectorSession } from "pulsify-core";
 import { forceCloseDatabase, IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import {
 	createIndexedDbConnector,

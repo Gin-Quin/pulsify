@@ -1,4 +1,4 @@
-//! Roots, grants and roles: the same rules as `@pulsify/cloud`.
+//! Roots, grants and roles: the same rules as `pulsify-cloud`.
 use serde::Serialize;
 use std::cmp::Ordering;
 

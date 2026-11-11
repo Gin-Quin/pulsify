@@ -1,4 +1,4 @@
-import { CloudError, readSubprotocols, verifyCloudToken } from "@pulsify/cloud";
+import { CloudError, readSubprotocols, verifyCloudToken } from "pulsify-cloud";
 
 /** Who is calling: your backend with the API key, or a user with a token. */
 export type CloudCaller = { kind: "admin" } | { kind: "user"; subject: string };

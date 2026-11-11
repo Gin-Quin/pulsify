@@ -2,12 +2,12 @@ import {
 	PulseError,
 	validateVector,
 	type PulseVersionVector,
-} from "@pulsify/core/protocol";
+} from "pulsify-core/protocol";
 import {
 	type AppendResult,
 	type PatchStore,
 	type StoredPatchRow,
-} from "@pulsify/core/storage";
+} from "pulsify-core/storage";
 import {
 	assertCompatible,
 	covered,

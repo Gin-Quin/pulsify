@@ -1,5 +1,5 @@
-import { encodeBroadcast, PulseError, relayStoreMessage } from "@pulsify/core";
-import type { PatchStore } from "@pulsify/core/storage";
+import { encodeBroadcast, PulseError, relayStoreMessage } from "pulsify-core";
+import type { PatchStore } from "pulsify-core/storage";
 import { TAURI_SESSION_HEADER, type TauriInvoke } from "../source/index";
 
 /** Stands in for a Tauri `Channel`: the fake plugins call `onMessage` directly. */

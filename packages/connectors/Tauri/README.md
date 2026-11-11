@@ -1,4 +1,4 @@
-# @pulsify/tauri
+# pulsify-tauri
 
 Local persistence for Pulsify documents in [Tauri 2](https://v2.tauri.app) apps:
 a **Rust SQLite store** in the app process and a `local` connector for the
@@ -11,7 +11,7 @@ webview.
 
 | Part | Contents |
 | --- | --- |
-| `@pulsify/tauri` | `createTauriConnector()` for the webview |
+| `pulsify-tauri` | `createTauriConnector()` for the webview |
 | [`crates/tauri-plugin-pulsify`](crates/tauri-plugin-pulsify) | Tauri plugin: `open`, `send` and `close` commands, one `Channel` per session |
 | [`crates/pulsify-sqlite`](crates/pulsify-sqlite) | Tauri-free library: `SqliteStore`, `relay_frame` and the session `Hub` |
 
@@ -48,8 +48,8 @@ grant them one by one. Without it, `open()` fails with `FORBIDDEN`.
 ## Usage
 
 ```ts
-import { createTauriConnector } from "@pulsify/tauri";
-import { createWebSocketConnector, loadPulse } from "@pulsify/core";
+import { createTauriConnector } from "pulsify-tauri";
+import { createWebSocketConnector, loadPulse } from "pulsify-core";
 
 const local = createTauriConnector();
 const remote = createWebSocketConnector("wss://sync.example.com/{docId}");
@@ -77,13 +77,13 @@ retries.
 
 ## Window presence
 
-Remote connectors such as `@pulsify/cloud` ping their sockets in the background
+Remote connectors such as `pulsify-cloud` ping their sockets in the background
 only while someone uses the app. WebView2 (Windows) never tells the page that
 its window is minimized, so forward the native window state:
 
 ```ts
-import { presence } from "@pulsify/cloud";
-import { watchTauriPresence } from "@pulsify/tauri";
+import { presence } from "pulsify-cloud";
+import { watchTauriPresence } from "pulsify-tauri";
 
 const stop = await watchTauriPresence(presence); // any { set(present) }
 ```
@@ -110,14 +110,14 @@ against the app data directory.
 ```
 
 The file uses `SQLITE_PATCH_SCHEMA` and the append rules of `SqlitePatchStore`
-(`@pulsify/core/storage`): immutable rows keyed by document, actor and clock,
+(`pulsify-core/storage`): immutable rows keyed by document, actor and clock,
 idempotent retransmissions, `CONFLICT` for changed bytes or forked histories,
 rows pending until their causal history is complete. Copy it to a server and
 serve it with `relayStoreMessage`, or read it from Bun with `bun:sqlite`:
 
 ```ts
 import { Database } from "bun:sqlite";
-import { SqlitePatchStore } from "@pulsify/core/storage";
+import { SqlitePatchStore } from "pulsify-core/storage";
 
 const store = new SqlitePatchStore(new Database("pulsify.sqlite"));
 const rows = await store.missing("notes/1", []);

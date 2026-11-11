@@ -7,8 +7,8 @@ import { Icon, type IconName } from "~/components/Icon";
 import { GITHUB_URL } from "~/components/links";
 import styles from "~/components/Cloud.module.css";
 
-const connect = `import { createCloudConnector } from "@pulsify/cloud";
-import { loadPulse } from "@pulsify/core";
+const connect = `import { createCloudConnector } from "pulsify-cloud";
+import { loadPulse } from "pulsify-core";
 import { Notebook } from "./schema";
 
 // One connector. No relay, no database, no migrations to run.

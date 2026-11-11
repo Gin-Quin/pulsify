@@ -79,10 +79,10 @@ for (const name of [
 		external: [
 			...Object.keys(manifest.peerDependencies),
 			...Object.keys(manifest.dependencies ?? {}),
-			"@pulsify/core/*",
-			"@pulsify/cloud",
-			"@pulsify/cloud-server",
-			"@pulsify/cloud-server/*",
+			"pulsify-core/*",
+			"pulsify-cloud",
+			"pulsify-cloud-server",
+			"pulsify-cloud-server/*",
 		],
 	});
 	if (!adapter.success)

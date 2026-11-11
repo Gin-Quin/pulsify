@@ -3,7 +3,7 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { Tabs } from "~/components/Tabs";
 
-const schema = `import { definePulse, object, richText } from "@pulsify/core";
+const schema = `import { definePulse, object, richText } from "pulsify-core";
 
 export const Note = definePulse("Note", object({
   title: "string",

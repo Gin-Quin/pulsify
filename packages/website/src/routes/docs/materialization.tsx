@@ -2,7 +2,7 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const basic = `import { createPulse, definePulse, object, type PulseProperties } from "@pulsify/core";
+const basic = `import { createPulse, definePulse, object, type PulseProperties } from "pulsify-core";
 
 const userV1 = object({ name: "string", email: "string" });
 const userV2 = object({ name: "string", emailV2: "string" });

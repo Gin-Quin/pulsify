@@ -25,7 +25,7 @@ import {
 	richText,
 	snapshotPulse,
 	type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import { bindProseMirror, proseMirrorDocument } from "../source/index.js";
 import { createRuntime } from "../../pulse/source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../../pulse/source/pulses/PulseOptions.js";

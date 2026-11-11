@@ -1,5 +1,5 @@
 {
-	"name": "@pulsify/cloud",
+	"name": "pulsify-cloud",
 	"version": "6.0.0",
 	"description": "Pulsify Cloud client: one multiplexed WebSocket per root, presence-aware heartbeat, management API client and identity tokens.",
 	"type": "module",
@@ -17,9 +17,14 @@
 	],
 	"license": "Apache-2.0",
 	"peerDependencies": {
-		"@pulsify/core": "^6.0.0"
+		"pulsify-core": "^6.0.0"
 	},
 	"dependencies": {
 		"jose": "^6.2.15"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Gin-Quin/pulsify.git",
+		"directory": "packages/cloud"
 	}
 }

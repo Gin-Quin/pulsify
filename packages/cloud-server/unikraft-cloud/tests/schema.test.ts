@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { UNIKRAFT_CLOUD_POSTGRES_SCHEMA } from "@pulsify/cloud-server/unikraft-cloud";
+import { UNIKRAFT_CLOUD_POSTGRES_SCHEMA } from "pulsify-cloud-server/unikraft-cloud";
 
 test("the Rust server embeds the current PostgreSQL schema", async () => {
 	const embedded = await Bun.file(

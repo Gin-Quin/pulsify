@@ -11,7 +11,7 @@ import {
 	loadPulse,
 	PulseRelay,
 	subPulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import { servePulsifyStore } from "../source/main";
 import {
 	createApp,

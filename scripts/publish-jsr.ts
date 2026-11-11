@@ -32,10 +32,7 @@ type Manifest = {
 	peerDependencies?: Record<string, string>;
 };
 /** Every JSR package needs a scope: `pulsify-lexical` becomes `@pulsify/lexical`. */
-const jsrName = (name: string) =>
-	name.startsWith("@pulsify/")
-		? name
-		: `@pulsify/${name.replace(/^pulsify-/, "")}`;
+const jsrName = (name: string) => `@pulsify/${name.replace(/^pulsify-/, "")}`;
 
 /** The TypeScript source of an export: the cloud server keeps one folder per entry. */
 function sourceOf(directory: string, key: string): string {
@@ -45,25 +42,24 @@ function sourceOf(directory: string, key: string): string {
 	return `./source/${entry}.ts`;
 }
 
-/** Workspace packages resolve through the workspace; everything else comes from npm. */
+/** Sibling packages map to their JSR names; everything else comes from npm. */
 function specifier(name: string, range: string): string | undefined {
-	if (name.startsWith("@pulsify/") || name.startsWith("pulsify-")) return;
-	const jsr = /^npm:@jsr\/([^_]+)__([^@]+)@(.+)$/.exec(range);
-	if (jsr) return `jsr:@${jsr[1]}/${jsr[2]}@${jsr[3]}`;
+	if (name.startsWith("pulsify-")) return `jsr:${jsrName(name)}@${range}`;
+	if (name === "@gin-quin/codec") return `jsr:${name}@${range}`;
 	// Specifiers take one simple range: `^18.0.0 || ^19.0.0` keeps the newest.
 	return `npm:${name}@${range.split("||").at(-1)!.trim()}`;
 }
 
-// Deno rewrites `import type … from "@pulsify/…"` to a path outside the
+// Deno rewrites `import type … from "pulsify-…"` to a path outside the
 // package instead of a jsr: specifier; `import { type … }` is rewritten right.
 for (const directory of directories)
 	for await (const file of new Bun.Glob("**/source/**/*.ts").scan(
 		`${root}${directory}`,
 	)) {
 		const text = await Bun.file(`${root}${directory}/${file}`).text();
-		if (/^import type [^;]* from "@pulsify\//m.test(text))
+		if (/^import type [^;]* from "pulsify-/m.test(text))
 			throw new Error(
-				`${directory}/${file}: use \`import { type … }\` for @pulsify packages`,
+				`${directory}/${file}: use \`import { type … }\` for pulsify packages`,
 			);
 	}
 
@@ -79,15 +75,17 @@ try {
 				sourceOf(directory, key),
 			]),
 		);
-		const imports = Object.fromEntries(
-			Object.entries({
+		const imports = Object.fromEntries([
+			...Object.entries({
 				...manifest.peerDependencies,
 				...manifest.dependencies,
 			}).flatMap(([name, range]) => {
 				const target = specifier(name, range);
 				return target ? [[name, target]] : [];
 			}),
-		);
+			// The cloud server's parts import its core by package name.
+			[manifest.name, exports["."]],
+		]);
 		const sources = [...new Set(Object.values(exports))].map((path) =>
 			path.replace(/[^/]+$/, "**/*.ts"),
 		);

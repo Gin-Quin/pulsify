@@ -85,12 +85,12 @@ and buffers gaps and missing dependencies. Operation format 1 from the previous
 json-joy implementation is incompatible with this payload format.
 
 The supplied relays keep bounded in-memory history. Durable adapters are
-available separately through `@pulsify/core/storage`; applications connect them
+available separately through `pulsify-core/storage`; applications connect them
 to their relay and acknowledge writes after committing storage. Arbitrary
 snapshots, durable journal pruning, restored generations and framework adapters
 are not negotiated by this protocol. The host application supplies authentication and
 authorization; relays accept read-only sessions that answer uploads with
-`FORBIDDEN`. `@pulsify/cloud-server` is the managed deployment: one isolated actor
+`FORBIDDEN`. `pulsify-cloud-server` is the managed deployment: one isolated actor
 per root pulse (a Durable Object on Cloudflare, an actor beside PostgreSQL on
 Unikraft Cloud), one multiplexed socket per user and root, and per-root grant
 tables applied live to open sockets. The benchmark reports describe measured workloads and retained

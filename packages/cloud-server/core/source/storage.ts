@@ -2,8 +2,8 @@ import {
 	SqlitePatchStore,
 	type PatchStore,
 	type SqliteConnection,
-} from "@pulsify/core/storage";
-import { isCloudRole, type CloudGrant, type CloudRole } from "@pulsify/cloud";
+} from "pulsify-core/storage";
+import { isCloudRole, type CloudGrant, type CloudRole } from "pulsify-cloud";
 
 /** A connection's subscription to one document, with the role it was told. */
 export type CloudSubscription = {

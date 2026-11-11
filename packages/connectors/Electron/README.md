@@ -1,4 +1,4 @@
-# @pulsify/electron
+# pulsify-electron
 
 Local persistence for Pulsify documents in Electron apps. One SQLite file
 lives in the main process (better-sqlite3); every renderer window talks to it
@@ -13,7 +13,7 @@ over IPC with binary Pulsify frames.
   listeners, never `ipcRenderer`.
 
 ```sh
-bun add @pulsify/core @pulsify/electron better-sqlite3
+bun add pulsify-core pulsify-electron better-sqlite3
 npx @electron/rebuild -f -w better-sqlite3   # or electron-builder's install-app-deps
 ```
 
@@ -28,7 +28,7 @@ and compiles it otherwise. Keep it unpacked from the asar archive
 ```ts
 import { app, ipcMain } from "electron";
 import { join } from "node:path";
-import { servePulsifyStore } from "@pulsify/electron/main";
+import { servePulsifyStore } from "pulsify-electron/main";
 
 const store = servePulsifyStore({
   ipcMain,
@@ -37,8 +37,8 @@ const store = servePulsifyStore({
 app.on("will-quit", () => void store.close());
 ```
 
-`@pulsify/electron/main` is the only entry that loads better-sqlite3. Renderer
-and preload code import `@pulsify/electron`, which bundles for the web without
+`pulsify-electron/main` is the only entry that loads better-sqlite3. Renderer
+and preload code import `pulsify-electron`, which bundles for the web without
 pulling in Node modules.
 
 Given a path, the store opens the file with WAL and a 5 s busy timeout, and
@@ -51,7 +51,7 @@ renderers then fail to connect with `CONNECTION_FAILED` and retry.
 
 ```ts
 import { contextBridge, ipcRenderer } from "electron";
-import { exposePulsifyBridge } from "@pulsify/electron";
+import { exposePulsifyBridge } from "pulsify-electron";
 
 exposePulsifyBridge({ contextBridge, ipcRenderer }); // window.pulsify
 ```
@@ -65,8 +65,8 @@ global and the IPC channels; the channel must match `servePulsifyStore`.
 ## Renderer
 
 ```ts
-import { createElectronConnector } from "@pulsify/electron";
-import { createWebSocketConnector, loadPulse } from "@pulsify/core";
+import { createElectronConnector } from "pulsify-electron";
+import { createWebSocketConnector, loadPulse } from "pulsify-core";
 
 const local = createElectronConnector(); // reads window.pulsify
 const remote = createWebSocketConnector("wss://sync.example.com/{docId}");

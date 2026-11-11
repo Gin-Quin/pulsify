@@ -5,14 +5,14 @@ JavaScript, React integrations and headless Lexical editors. React is not a
 dependency, and neither this package nor the core depends on ProseMirror.
 
 ```sh
-npm install @pulsify/core pulsify-lexical lexical
+npm install pulsify-core pulsify-lexical lexical
 ```
 
 For the browser example below, also install `@lexical/rich-text`. Keep all your
 Lexical packages on the same version (this binding supports Lexical 0.53.x).
 
 ```ts
-import { createPulse, definePulse, object, richText } from "@pulsify/core";
+import { createPulse, definePulse, object, richText } from "pulsify-core";
 import { bindLexical, lexicalDocument } from "pulsify-lexical";
 import { createEditor } from "lexical";
 import { registerRichText } from "@lexical/rich-text";

@@ -1,10 +1,10 @@
-# @pulsify/react
+# pulsify-react
 
 Fine-grained React rendering for Pulsify documents, with no dependency besides
-React and `@pulsify/core`.
+React and `pulsify-core`.
 
 ```tsx
-import { usePulse } from "@pulsify/react";
+import { usePulse } from "pulsify-react";
 import { memo } from "react";
 
 function Note({ note }: { note: typeof doc }) {

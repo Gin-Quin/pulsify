@@ -2,7 +2,7 @@ import {
 	encodeBroadcast,
 	encodeMessage,
 	relayStoreMessage,
-} from "@pulsify/core/protocol";
+} from "pulsify-core/protocol";
 import {
 	ANY_SUBJECT,
 	assertDocumentOf,
@@ -25,7 +25,7 @@ import {
 	type CloudRole,
 	type CloudRoleMessage,
 	type CloudRootUsage,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import type { CloudCaller } from "./auth.js";
 import { errorResponse, jsonResponse, readJson } from "./http.js";
 import type { CloudRootStorage } from "./storage.js";

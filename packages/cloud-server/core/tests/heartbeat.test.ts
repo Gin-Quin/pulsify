@@ -16,7 +16,7 @@ import {
 	loadPulse,
 	setOnlineMode,
 	type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	createCloudClient,
 	createCloudConnector,
@@ -24,7 +24,7 @@ import {
 	createPresence,
 	type CloudConnectorOptions,
 	type PresenceOptions,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import { eventually, Note, Workspace } from "./conformance.js";
 import { startCloudHost } from "./host.js";
 

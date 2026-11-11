@@ -8,9 +8,9 @@ import {
 	destroyPulse,
 	loadPulse,
 	type Connector,
-} from "@pulsify/core";
-import { PulseError, relayStoreMessage } from "@pulsify/core/protocol";
-import { SqlitePatchStore, type StoredPatchRow } from "@pulsify/core/storage";
+} from "pulsify-core";
+import { PulseError, relayStoreMessage } from "pulsify-core/protocol";
+import { SqlitePatchStore, type StoredPatchRow } from "pulsify-core/storage";
 import { betterSqliteConnection } from "../source/main";
 import { createApp, Note, persisted, temporaryFile } from "./helpers";
 

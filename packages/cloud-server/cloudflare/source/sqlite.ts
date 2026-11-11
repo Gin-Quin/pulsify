@@ -1,4 +1,4 @@
-import { type SqliteConnection } from "@pulsify/core/storage";
+import { type SqliteConnection } from "pulsify-core/storage";
 
 // Structural runtime types keep the workspace on one lib set instead of mixing
 // DOM with @cloudflare/workers-types.

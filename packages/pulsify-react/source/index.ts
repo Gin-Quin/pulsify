@@ -1,9 +1,9 @@
-import { subscribePulse, type Pulse } from "@pulsify/core";
+import { subscribePulse, type Pulse } from "pulsify-core";
 import {
 	RichTextSymbol,
 	SubPulseSymbol,
 	TreeSymbol,
-} from "@pulsify/core/bindings";
+} from "pulsify-core/bindings";
 import {
 	useCallback,
 	useLayoutEffect,

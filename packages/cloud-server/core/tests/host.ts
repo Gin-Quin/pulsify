@@ -4,7 +4,7 @@ import {
 	CLOUD_SUBPROTOCOLS,
 	type CloudEnvelope,
 	welcomeMessage,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import {
 	CloudRoot,
 	routeCloudRequest,

@@ -2,7 +2,7 @@ import {
 	PulseError,
 	type Connector,
 	type ConnectorSession,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	DEFAULT_KEY,
 	type PulsifyBridge,

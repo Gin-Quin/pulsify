@@ -1,4 +1,4 @@
-# @pulsify/core
+# pulsify-core
 
 A TypeScript API for collaborative object documents, using Pulsify's own LWW
 register and RGA engine. The runtime depends on codec and does not import
@@ -13,7 +13,7 @@ together with the entry files when copying a build.
 import {
   createPulse, definePulse, subscribePulse, snapshotPulse,
   destroyPulse, array, object,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const Note = definePulse("Note", object({
   title: "string",
@@ -69,7 +69,7 @@ Arrays use ordinary TypeScript array types, so assigning a plain array or an
 object containing arrays works naturally. Use
 `arrayOperations(pulse.items).insert(start, items)`, `.delete(start, count)`, or
 `.replaceAll(items)` for additional collection helpers. Import `arrayOperations`
-from `@pulsify/core`. Codec tuples retain their positional types and literal
+from `pulsify-core`. Codec tuples retain their positional types and literal
 length; `arrayOperations(pulse.pair).replaceAll([value0, value1])` checks the
 complete tuple shape. Operations that change tuple cardinality reject at
 runtime, including native `push` and `pop`. Snapshots contain plain arrays and
@@ -78,7 +78,7 @@ tuples without helper members.
 ## Array moves
 
 ```ts
-import { arrayOperations } from "@pulsify/core";
+import { arrayOperations } from "pulsify-core";
 
 // [A, B, C, D] -> [A, C, D, B]
 arrayOperations(doc.items).move(1, 3);
@@ -108,7 +108,7 @@ peer's isolated result. These rules hold regardless of delivery order or duplica
 ## Generic ordered trees
 
 ```ts
-import { createCodec, createPulse, definePulse, object, richText, tree } from "@pulsify/core";
+import { createCodec, createPulse, definePulse, object, richText, tree } from "pulsify-core";
 
 const outlineSchema = tree(object({ title: "string", body: richText() }));
 const Outline = definePulse("Outline", object({ outline: outlineSchema })).materialize();
@@ -206,7 +206,7 @@ application fields; Pulsify supplies `id`, `kind`, `version` and `generation`.
 import {
   array, constant, createCodec, createPulse, definePulse, frozen, object,
   richText, snapshotPulse, tuple,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const schema = object({
   title: "string",
@@ -343,7 +343,7 @@ editing still requires a collaborative text field and an editor binding.
 ```ts
 import {
   connectPulse, createWebSocketConnector, loadPulse, disconnectPulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const connector = createWebSocketConnector("ws://localhost:3000/sync");
 const remoteNote = await loadPulse(Note, "document-id", {
@@ -388,7 +388,7 @@ its own history and version vector, so it loads and synchronizes on its own;
 its ID is prefixed by the parent ID, which lets a server co-locate a whole tree.
 
 ```ts
-import { array, createPulse, definePulse, loadPulse, object, sub, subPulse } from "@pulsify/core";
+import { array, createPulse, definePulse, loadPulse, object, sub, subPulse } from "pulsify-core";
 
 const Document = definePulse("Document", object({ title: "string" })).materialize();
 const Project = definePulse("Project", object({
@@ -432,7 +432,7 @@ One scope contains one public instance per document ID and definition. Reusing a
 ```ts
 import {
   createMemoryConnector, createPulseScope, PulseRelay,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const relay = new PulseRelay();
 const connector = createMemoryConnector(relay);
@@ -453,7 +453,7 @@ first.author.name = "Grace"; // Automatically reaches second.
 ## Migrations and materialization
 
 ```ts
-import { createPulse, definePulse, object, type PulseProperties } from "@pulsify/core";
+import { createPulse, definePulse, object, type PulseProperties } from "pulsify-core";
 
 const userV1 = object({ name: "string", email: "string" });
 const userV2 = object({ name: "string", emailV2: "string" });
@@ -495,7 +495,7 @@ type; the target type is inferred from the supplied schema. New required fields
 and fields whose types change must be returned; unchanged fields are preserved:
 
 ```ts
-import { definePulse, object } from "@pulsify/core";
+import { definePulse, object } from "pulsify-core";
 
 const personV1 = object({ name: "string" });
 const personV2 = object({ name: "string", displayName: "string" });
@@ -559,9 +559,9 @@ history use string field keys in new patches to preserve old layout identities.
 
 A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
 
-Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `@pulsify/cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object or an actor of the Unikraft Cloud server), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
+Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `pulsify-cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object or an actor of the Unikraft Cloud server), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
 
-Durable operation stores are available from `@pulsify/core/storage` for
+Durable operation stores are available from `pulsify-core/storage` for
 PostgreSQL and SQLite. They append binary rows and query missing
 operations by version vector without loading a document. PostgreSQL's append
 is one database call; connect storage to your relay and commit before
@@ -574,7 +574,7 @@ The codecs compile trusted, fixed schemas with generated JavaScript functions. B
 For a peer known to support the current grouped transport:
 
 ```ts
-import { exportPulseUpdates, applyPulseUpdates } from "@pulsify/core";
+import { exportPulseUpdates, applyPulseUpdates } from "pulsify-core";
 const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 2 });
 applyPulseUpdates(otherArticle, frames);
 ```
@@ -597,7 +597,7 @@ scalar runs while keeping ordinary operations for small or structural changes:
 ```ts
 import {
   exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory,
-} from "@pulsify/core";
+} from "pulsify-core";
 const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 3 });
 applyPulseUpdates(otherArticle, frames);
 const { state, history } = getPulseVersions(otherArticle);

@@ -1,5 +1,5 @@
-import { onOnline, type Connector, type ConnectorSession } from "@pulsify/core";
-import { MAX_FRAME_BYTES, PulseError } from "@pulsify/core/protocol";
+import { onOnline, type Connector, type ConnectorSession } from "pulsify-core";
+import { MAX_FRAME_BYTES, PulseError } from "pulsify-core/protocol";
 import {
 	createEmitter,
 	type CloudConnection,

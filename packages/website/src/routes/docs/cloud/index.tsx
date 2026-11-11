@@ -12,8 +12,8 @@ const tree = `alice                     root: one namespace, one actor
 bob                       another root, isolated from alice
 acme                      a root does not have to be a user`;
 
-const connector = `import { createCloudConnector } from "@pulsify/cloud";
-import { loadPulse } from "@pulsify/core";
+const connector = `import { createCloudConnector } from "pulsify-cloud";
+import { loadPulse } from "pulsify-core";
 
 const cloud = createCloudConnector({
   url: "https://pulsify.example.com",                // Cloudflare or Unikraft: same URL scheme
@@ -41,7 +41,7 @@ await loadPulse(Notebook, "alice", { connectors: [cloud], include: { notes: true
 // Unsubscribe: the socket stays open for the other documents of the root
 destroyPulse(note); // or disconnectPulse(note)`;
 
-const heartbeat = `import { createCloudConnector, createPresence } from "@pulsify/cloud";
+const heartbeat = `import { createCloudConnector, createPresence } from "pulsify-cloud";
 
 const cloud = createCloudConnector({
   url,
@@ -59,8 +59,8 @@ const cloud = createCloudConnector({
 });`;
 
 const tauriPresence = `// Tauri, desktop and mobile: minimized or hidden means away, shown or focused means back.
-import { presence } from "@pulsify/cloud";
-import { watchTauriPresence } from "@pulsify/tauri";
+import { presence } from "pulsify-cloud";
+import { watchTauriPresence } from "pulsify-tauri";
 
 const stop = await watchTauriPresence(presence);`;
 
@@ -72,12 +72,12 @@ win.on("blur", update);
 win.on("focus", () => report(true));
 
 // Webview: hand it to the page presence, shared by every connector.
-import { presence } from "@pulsify/cloud";
+import { presence } from "pulsify-cloud";
 
 onPresenceMessage((present) => presence.set(present));`;
 
-const debug = `import { presence } from "@pulsify/cloud";
-import { subscribePulseStatus } from "@pulsify/core";
+const debug = `import { presence } from "pulsify-cloud";
+import { subscribePulseStatus } from "pulsify-core";
 
 // The window: called now, then on every change. It involves no server.
 presence.on("change", (p) => {
@@ -127,7 +127,7 @@ export default function CloudOverview() {
 			<p>
 				Pulsify Cloud is the managed, paid backend for your pulses: a CRDT
 				database you never operate. The client code is the one you already write
-				with <code>@pulsify/core</code>; only the connector changes.
+				with <code>pulsify-core</code>; only the connector changes.
 			</p>
 			<ul>
 				<li>
@@ -389,7 +389,7 @@ export default function CloudOverview() {
 				<tbody>
 					<tr>
 						<td>
-							<code>@pulsify/cloud</code>
+							<code>pulsify-cloud</code>
 						</td>
 						<td>
 							The client: connector, presence, management client, tokens, roles
@@ -399,7 +399,7 @@ export default function CloudOverview() {
 					</tr>
 					<tr>
 						<td>
-							<code>@pulsify/cloud-server</code>
+							<code>pulsify-cloud-server</code>
 						</td>
 						<td>
 							The gateway and <code>CloudRoot</code>, the runtime-independent
@@ -412,13 +412,13 @@ export default function CloudOverview() {
 					</tr>
 					<tr>
 						<td>
-							<code>@pulsify/cloud-server/cloudflare</code>
+							<code>pulsify-cloud-server/cloudflare</code>
 						</td>
 						<td>A Worker and one Durable Object per root.</td>
 					</tr>
 					<tr>
 						<td>
-							<code>@pulsify/cloud-server/unikraft-cloud</code>
+							<code>pulsify-cloud-server/unikraft-cloud</code>
 						</td>
 						<td>
 							A Rust server and PostgreSQL in one Unikraft Cloud image, plus its

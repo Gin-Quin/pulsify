@@ -4,7 +4,7 @@ import { Note } from "~/components/DocsLayout";
 import { ClientOnly, NoteDefinition } from "~/components/Frontend";
 
 const helper = `import { onScopeDispose, shallowRef } from "vue";
-import { subscribePulse, type Pulse } from "@pulsify/core";
+import { subscribePulse, type Pulse } from "pulsify-core";
 
 /** A view of the pulse whose reads Vue tracks. Writes go to the pulse. */
 export function usePulse<P extends Pulse<any>>(pulse: P): P {
@@ -50,7 +50,7 @@ const note = usePulse(props.pulse);
 
 const page = `<script setup lang="ts">
 import { onMounted, onUnmounted, shallowRef } from "vue";
-import { disconnectPulse, loadPulse } from "@pulsify/core";
+import { disconnectPulse, loadPulse } from "pulsify-core";
 import Editor from "./Editor.vue";
 import { Note, remote, type NotePulse } from "./note";
 

@@ -17,10 +17,15 @@
 	],
 	"license": "Apache-2.0",
 	"peerDependencies": {
-		"@pulsify/core": "^6.0.0",
+		"pulsify-core": "^6.0.0",
 		"prosemirror-model": "^1.25.12",
 		"prosemirror-state": "^1.4.4",
 		"prosemirror-transform": "^1.12.5",
 		"prosemirror-view": "^1.42.9"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Gin-Quin/pulsify.git",
+		"directory": "packages/pulsify-prosemirror"
 	}
 }

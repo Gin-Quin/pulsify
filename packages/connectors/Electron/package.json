@@ -1,5 +1,5 @@
 {
-	"name": "@pulsify/electron",
+	"name": "pulsify-electron",
 	"version": "6.0.0",
 	"description": "Local persistence for Pulsify documents in Electron, with better-sqlite3 in the main process.",
 	"type": "module",
@@ -21,7 +21,7 @@
 	],
 	"license": "Apache-2.0",
 	"peerDependencies": {
-		"@pulsify/core": "^6.0.0",
+		"pulsify-core": "^6.0.0",
 		"better-sqlite3": ">=11"
 	},
 	"peerDependenciesMeta": {
@@ -33,5 +33,10 @@
 		"@types/better-sqlite3": "^9.6.0",
 		"better-sqlite3": "^13.0.3"
 	},
-	"sideEffects": false
+	"sideEffects": false,
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Gin-Quin/pulsify.git",
+		"directory": "packages/connectors/Electron"
+	}
 }

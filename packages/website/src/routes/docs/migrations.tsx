@@ -2,7 +2,7 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const chain = `import { definePulse, object, optional } from "@pulsify/core";
+const chain = `import { definePulse, object, optional } from "pulsify-core";
 
 const userV1 = object({ name: "string", email: "string" });
 const userV2 = object({ name: "string", email: "string", displayName: "string" });
@@ -27,7 +27,7 @@ const fix = `export const Person = definePulse("Person", personV1)
   .migrateTo(personV2, (before) => ({ displayName: before.displayName.trim() }))
   .materialize();`;
 
-const drift = `import { MigrationDriftError } from "@pulsify/core";
+const drift = `import { MigrationDriftError } from "pulsify-core";
 
 try {
   await loadPulse(User, id, { connectors: [remote] });

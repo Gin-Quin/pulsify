@@ -34,7 +34,7 @@ import {
 	getPulseVersions,
 	snapshotPulse,
 	type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	bindLexical,
 	lexicalDocument,

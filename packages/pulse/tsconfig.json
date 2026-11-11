@@ -19,7 +19,7 @@
 		"skipLibCheck": false,
 		"rootDir": "../..",
 		"types": ["bun"],
-		"paths": { "@pulsify/core": ["./source/index.ts"] }
+		"paths": { "pulsify-core": ["./source/index.ts"] }
 	},
 	"include": ["./**/*", "./**/*.json"],
 	"exclude": ["./**/node_modules/**"]

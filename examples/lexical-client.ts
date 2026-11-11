@@ -24,7 +24,7 @@ import {
 	loadPulse,
 	PulseError,
 	richText,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const Note = definePulse(
 	"LexicalDemoNote",

@@ -4,7 +4,7 @@ import {
 	parseCloudPath,
 	readSubprotocols,
 	type CloudEnvelope,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import {
 	authenticateCloudRequest,
 	type CloudCaller,

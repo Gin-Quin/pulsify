@@ -1,4 +1,4 @@
-# @pulsify/cloud-server/unikraft-cloud
+# pulsify-cloud-server/unikraft-cloud
 
 Pulsify Cloud on [Unikraft Cloud](https://unikraft.com): one image with a
 **Rust server** (gateway and one actor per root, replacing the Worker and the

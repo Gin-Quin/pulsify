@@ -1,4 +1,4 @@
-import { POSTGRES_PATCH_SCHEMA } from "@pulsify/core/storage";
+import { POSTGRES_PATCH_SCHEMA } from "pulsify-core/storage";
 
 /**
  * PostgreSQL replaces the per-root SQLite of a Durable Object: one database

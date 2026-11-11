@@ -3,8 +3,8 @@ import {
 	MAX_FRAME_BYTES,
 	PulseError,
 	relayStoreMessage,
-} from "@pulsify/core/protocol";
-import { SqlitePatchStore, type SqliteConnection } from "@pulsify/core/storage";
+} from "pulsify-core/protocol";
+import { SqlitePatchStore, type SqliteConnection } from "pulsify-core/storage";
 import {
 	channelsOf,
 	DEFAULT_CHANNEL,

@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::time::Duration;
 
-/// Byte-for-byte `SQLITE_PATCH_SCHEMA` from `@pulsify/core/storage`.
+/// Byte-for-byte `SQLITE_PATCH_SCHEMA` from `pulsify-core/storage`.
 pub const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, time_start INTEGER NOT NULL,

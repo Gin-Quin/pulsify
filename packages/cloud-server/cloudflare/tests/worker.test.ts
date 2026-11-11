@@ -3,8 +3,8 @@ import {
 	CLOUD_SUBPROTOCOLS,
 	CLOUD_TOKEN_SUBPROTOCOL,
 	signCloudToken,
-} from "@pulsify/cloud";
-import { callerFromHeaders } from "@pulsify/cloud-server";
+} from "pulsify-cloud";
+import { callerFromHeaders } from "pulsify-cloud-server";
 import { handleCloudRequest, ROOT_HEADERS } from "../source/index.js";
 
 const secrets = {

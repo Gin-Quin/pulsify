@@ -8,7 +8,7 @@ import {
 	PulseError,
 	type Connector,
 	type ConnectorSession,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 type PulseErrorCode = PulseError["code"];
 export type TauriInvoke = (

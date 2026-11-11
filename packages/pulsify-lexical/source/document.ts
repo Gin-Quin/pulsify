@@ -30,7 +30,7 @@ import {
 	type Stamp,
 	type RichTextContext,
 	type CoreOperation,
-} from "@pulsify/core/bindings";
+} from "pulsify-core/bindings";
 
 export type JSONNode = SerializedLexicalNode & {
 	[key: string]: unknown;

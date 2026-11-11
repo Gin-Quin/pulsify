@@ -2,7 +2,7 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const primitives = `import { definePulse, literal, object, optional, union } from "@pulsify/core";
+const primitives = `import { definePulse, literal, object, optional, union } from "pulsify-core";
 
 const Settings = definePulse("Settings", object({
   name: "string",          // atomic: replacing it is one write
@@ -34,7 +34,7 @@ p.address = { city: "Nice", zip: "06000" }; // replaces the whole container
 p.prefs["dark"] = true;
 delete p.prefs["dark"];`;
 
-const arrays = `import { arrayOperations } from "@pulsify/core";
+const arrays = `import { arrayOperations } from "pulsify-core";
 
 const List = definePulse("List", object({
   items: array(object({ label: "string", done: "boolean" })),
@@ -81,7 +81,7 @@ const e = createPulse(Event, { payload: { kind: "created", title: "Hi" } });
 if (e.payload.kind === "created") e.payload.title = "Hello"; // narrowed
 e.payload = { kind: "deleted" };                              // switch variant`;
 
-const constants = `import { constant, frozen } from "@pulsify/core";
+const constants = `import { constant, frozen } from "pulsify-core";
 
 const Article = definePulse("Article", object({
   origin: constant(object({ source: "string" })),
@@ -94,7 +94,7 @@ article.cover = [800, 600];       // ok: replaced as a whole
 article.cover[0] = 800;           // TypeScript error and runtime rejection
 // literal(...) fields are constant too.`;
 
-const rich = `import { richText } from "@pulsify/core";
+const rich = `import { richText } from "pulsify-core";
 
 const Doc = definePulse("Doc", object({
   body: richText(),
@@ -112,7 +112,7 @@ doc.body.toDelta();   // [{ insert: "ello", attributes: { bold: true } }, { inse
 doc.comments.push({ text: "First" }); // plain strings initialize rich text
 doc.comments[0]!.text.insert(5, "!");`;
 
-const trees = `import { tree } from "@pulsify/core";
+const trees = `import { tree } from "pulsify-core";
 
 const Outline = definePulse("Outline", object({
   outline: tree(object({ title: "string", body: richText() })),

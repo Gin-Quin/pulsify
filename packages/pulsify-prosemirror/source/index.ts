@@ -14,8 +14,8 @@ import {
 } from "prosemirror-state";
 import { Mapping } from "prosemirror-transform";
 import type { EditorView } from "prosemirror-view";
-import { type RichText } from "@pulsify/core";
-import { richTextContext } from "@pulsify/core/bindings";
+import { type RichText } from "pulsify-core";
+import { richTextContext } from "pulsify-core/bindings";
 import {
 	matchTokens,
 	readDocument,

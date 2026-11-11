@@ -1,9 +1,9 @@
-import { type Connector } from "@pulsify/core";
+import { type Connector } from "pulsify-core";
 import {
 	encodeBroadcast,
 	PulseError,
 	relayStoreMessage,
-} from "@pulsify/core/protocol";
+} from "pulsify-core/protocol";
 import { IndexedDbPatchStore, type IndexedDbOptions } from "./store.js";
 
 export type IndexedDbConnector = Connector & {

@@ -1,9 +1,9 @@
 # tauri-plugin-pulsify
 
-Local persistence for [Pulsify](https://www.npmjs.com/package/@pulsify/core)
+Local persistence for [Pulsify](https://www.npmjs.com/package/pulsify-core)
 documents in Tauri 2 apps, desktop and mobile. The plugin keeps a SQLite
 database in the app process; the webview talks to it through the `local`
-connector of the [`@pulsify/tauri`](https://www.npmjs.com/package/@pulsify/tauri)
+connector of the [`pulsify-tauri`](https://www.npmjs.com/package/pulsify-tauri)
 npm package.
 
 - **Local first:** documents load from disk before the network answers, and edits made offline are stored immediately.
@@ -44,8 +44,8 @@ grant them one by one.
 In the webview:
 
 ```ts
-import { createTauriConnector } from "@pulsify/tauri";
-import { loadPulse } from "@pulsify/core";
+import { createTauriConnector } from "pulsify-tauri";
+import { loadPulse } from "pulsify-core";
 
 const notebook = await loadPulse(Notebook, userId, {
   connectors: [createTauriConnector(), remote],

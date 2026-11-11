@@ -19,12 +19,12 @@ import {
 	subPulse,
 	type Connector,
 	type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	SQLITE_PATCH_SCHEMA,
 	SqlitePatchStore,
 	type StoredPatchRow,
-} from "@pulsify/core/storage";
+} from "pulsify-core/storage";
 import { createTauriConnector } from "../source/index";
 import { createStorePlugin, RustPlugin, rustManifest } from "./plugins";
 
@@ -32,7 +32,7 @@ import { createStorePlugin, RustPlugin, rustManifest } from "./plugins";
 const cargo = Bun.which("cargo");
 if (!cargo)
 	console.warn(
-		"Skipping the @pulsify/tauri Rust interoperability tests: cargo is not installed.",
+		"Skipping the pulsify-tauri Rust interoperability tests: cargo is not installed.",
 	);
 else {
 	const build = Bun.spawnSync([

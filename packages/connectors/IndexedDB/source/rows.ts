@@ -4,8 +4,8 @@ import {
 	PulseError,
 	validateVector,
 	type PulseVersionVector,
-} from "@pulsify/core/protocol";
-import { type StoredPatchRow } from "@pulsify/core/storage";
+} from "pulsify-core/protocol";
+import { type StoredPatchRow } from "pulsify-core/storage";
 
 // Mirrors of the core storage limits and checks, which are not public exports.
 export const MAX_MESSAGE_ROWS = 4096;

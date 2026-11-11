@@ -7,9 +7,9 @@ import {
 	destroyPulse,
 	exportPulseUpdates,
 	getPulseMeta,
-} from "@pulsify/core";
-import { encodeMessage } from "@pulsify/core/protocol";
-import type { StoredPatchRow } from "@pulsify/core/storage";
+} from "pulsify-core";
+import { encodeMessage } from "pulsify-core/protocol";
+import type { StoredPatchRow } from "pulsify-core/storage";
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { IndexedDbPatchStore } from "../source/index";
 

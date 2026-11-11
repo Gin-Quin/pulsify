@@ -21,13 +21,13 @@ import {
 	subPulse,
 	type ModelFromDefinition,
 	type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	createCloudClient,
 	createCloudConnector,
 	signCloudToken,
 	type CloudConnector,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import { bindProseMirror, proseMirrorDocument } from "pulsify-prosemirror";
 import { eventually } from "./conformance.js";
 import { startCloudHost } from "./host.js";

@@ -1,5 +1,5 @@
 {
-	"name": "@pulsify/core",
+	"name": "pulsify-core",
 	"version": "6.0.0",
 	"description": "Typed, transport-independent collaborative documents with a portable binary protocol.",
 	"type": "module",
@@ -34,9 +34,14 @@
 	"author": "",
 	"license": "Apache-2.0",
 	"dependencies": {
-		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@^2.1.0"
+		"@gin-quin/codec": "^2.1.1"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.2.10"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Gin-Quin/pulsify.git",
+		"directory": "packages/pulse"
 	}
 }

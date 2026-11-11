@@ -1,10 +1,10 @@
-import { CloudError } from "@pulsify/cloud";
+import { CloudError } from "pulsify-cloud";
 import {
 	callerToHeaders,
 	errorResponse,
 	routeCloudRequest,
 	type CloudCaller,
-} from "@pulsify/cloud-server";
+} from "pulsify-cloud-server";
 import { ROOT_HEADERS } from "./PulsifyCloudRoot.js";
 
 type DurableObjectNamespaceLike = {

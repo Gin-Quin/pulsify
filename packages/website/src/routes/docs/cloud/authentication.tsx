@@ -6,7 +6,7 @@ import { SequenceDiagram } from "~/components/SequenceDiagram";
 const secrets = `PULSIFY_TOKEN_SECRET  shared by your backend and the cloud; signs user tokens (≥ 32 chars)
 PULSIFY_API_KEY       your backend only; manages grants and reads usage (≥ 32 chars)`;
 
-const sign = `import { signCloudToken } from "@pulsify/cloud";
+const sign = `import { signCloudToken } from "pulsify-cloud";
 
 // GET /api/pulsify-token, behind your own login (session cookie, OAuth, …)
 export async function pulsifyToken(user: User) {
@@ -31,7 +31,7 @@ alice/notes/n2       owner   —       —
 alice/public/cv      owner   reader  reader "*" is every authenticated user
 alice2               —       —       —      another root: prefixes stop at "/"`;
 
-const admin = `import { createCloudClient } from "@pulsify/cloud";
+const admin = `import { createCloudClient } from "pulsify-cloud";
 
 const cloud = createCloudClient({
   url: process.env.PULSIFY_URL!,
@@ -51,7 +51,7 @@ await cloud.grants("acme", { subject: "u2" });       // filtered
 await cloud.revoke({ subject: "u2", prefix: "acme" });
 await cloud.usage("acme"); // { root, documents, rows, bytes, connections }`;
 
-const share = `import { createCloudClient } from "@pulsify/cloud";
+const share = `import { createCloudClient } from "pulsify-cloud";
 
 // In the browser, with the user's own token: owners manage their subtree.
 const access = createCloudClient({

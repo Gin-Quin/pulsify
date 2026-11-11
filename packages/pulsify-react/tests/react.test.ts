@@ -15,7 +15,7 @@ import {
 	type Pulse,
 	type RichText,
 	type Tree,
-} from "@pulsify/core";
+} from "pulsify-core";
 import { JSDOM } from "jsdom";
 import {
 	createElement as h,

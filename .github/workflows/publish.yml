@@ -1,0 +1,33 @@
+name: Publish
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing (OIDC), no token needed
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      # Node 24 ships npm >= 11.5.1, required for trusted publishing.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # Versions already on npm are skipped, so packages can be bumped independently.
+      - run: |
+          for dir in packages/pulse packages/cloud packages/cloud-server packages/pulsify-react packages/pulsify-lexical packages/pulsify-prosemirror packages/connectors/IndexedDB packages/connectors/Tauri packages/connectors/Electron; do
+            name=$(jq -r .name "$dir/package.json")
+            version=$(jq -r .version "$dir/package.json")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version already published"
+            else
+              (cd "$dir" && npm publish --access public)
+            fi
+          done

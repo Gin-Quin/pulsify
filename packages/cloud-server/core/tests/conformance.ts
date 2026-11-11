@@ -16,7 +16,7 @@ import {
 	sub,
 	subPulse,
 	type PulseMessage,
-} from "@pulsify/core";
+} from "pulsify-core";
 import {
 	CLOUD_PING,
 	CLOUD_PONG,
@@ -28,7 +28,7 @@ import {
 	signCloudToken,
 	type CloudConnection,
 	type CloudConnectorOptions,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 
 export type CloudBackend = { url: string; tokenSecret: string; apiKey: string };
 

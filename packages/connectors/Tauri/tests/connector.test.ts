@@ -12,8 +12,8 @@ import {
 	PulseError,
 	richText,
 	snapshotPulse,
-} from "@pulsify/core";
-import { SqlitePatchStore } from "@pulsify/core/storage";
+} from "pulsify-core";
+import { SqlitePatchStore } from "pulsify-core/storage";
 import {
 	createTauriConnector,
 	TAURI_SESSION_HEADER,

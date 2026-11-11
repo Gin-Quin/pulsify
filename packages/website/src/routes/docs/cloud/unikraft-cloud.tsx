@@ -35,7 +35,7 @@ docker run --rm -p 8080:8080 \\
 
 curl http://localhost:8080/v1/health   # {"ok":true}`;
 
-const schema = `import { UNIKRAFT_CLOUD_POSTGRES_SCHEMA } from "@pulsify/cloud-server/unikraft-cloud";
+const schema = `import { UNIKRAFT_CLOUD_POSTGRES_SCHEMA } from "pulsify-cloud-server/unikraft-cloud";
 
 // pulsify_op_rows, pulsify_doc_clocks, pulsify_append(): the self-hosted patch schema
 // pulsify_cloud_grants(root, subject, prefix, role): the grant tables of every root`;

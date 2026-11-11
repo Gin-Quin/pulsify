@@ -5,14 +5,14 @@ import {
 	CloudError,
 	welcomeMessage,
 	type CloudEnvelope,
-} from "@pulsify/cloud";
+} from "pulsify-cloud";
 import {
 	callerFromHeaders,
 	CloudRoot,
 	errorResponse,
 	SqliteCloudStorage,
 	type CloudPeer,
-} from "@pulsify/cloud-server";
+} from "pulsify-cloud-server";
 import { durableSqlite, type DurableObjectStorageLike } from "./sqlite.js";
 
 export type DurableObjectStateLike = {

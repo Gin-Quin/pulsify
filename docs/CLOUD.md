@@ -3,7 +3,7 @@
 Cloud session protocol **1**. It carries the unchanged Pulsify frames described
 in [PROTOCOL.md](PROTOCOL.md) (envelopes 1 and 2, operations version 3) and
 adds routing, authentication, multiplexing and access control. Every backend
-(`@pulsify/cloud-server/cloudflare`, the Unikraft Cloud Rust server) implements this
+(`pulsify-cloud-server/cloudflare`, the Unikraft Cloud Rust server) implements this
 document; the conformance suite in
 [`packages/cloud-server/core/tests/conformance.ts`](../packages/cloud-server/core/tests/conformance.ts)
 is the executable authority. Run it with `bun run test:cloud --backend

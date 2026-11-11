@@ -2,10 +2,10 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const install = `bun add @pulsify/core
-# or: npm install @pulsify/core`;
+const install = `bun add pulsify-core
+# or: npm install pulsify-core`;
 
-const define = `import { array, definePulse, object } from "@pulsify/core";
+const define = `import { array, definePulse, object } from "pulsify-core";
 
 export const Note = definePulse("Note", object({
   title: "string",
@@ -13,7 +13,7 @@ export const Note = definePulse("Note", object({
   author: object({ name: "string" }),
 })).materialize();`;
 
-const create = `import { createPulse, subscribePulse, snapshotPulse } from "@pulsify/core";
+const create = `import { createPulse, subscribePulse, snapshotPulse } from "pulsify-core";
 import { Note } from "./note";
 
 const note = createPulse(Note, {
@@ -31,7 +31,7 @@ note.author.name = "Grace";
 
 snapshotPulse(note); // plain, detached copy`;
 
-const local = `import { createMemoryConnector, createPulse } from "@pulsify/core";
+const local = `import { createMemoryConnector, createPulse } from "pulsify-core";
 
 // Built-in local connector: in-process relay, kind "local".
 const local = createMemoryConnector();
@@ -43,7 +43,7 @@ const note = createPulse(Note, { title: "Draft", tags: [], author: { name: "Ada"
 
 const remote = `import {
   createMemoryConnector, createWebSocketConnector, loadPulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const local = createMemoryConnector();
 const remote = createWebSocketConnector("wss://sync.example.com/sync");
@@ -55,7 +55,7 @@ const note = await loadPulse(Note, "note-42", {
 
 note.title = "Edited on this device"; // uploaded in one batched frame`;
 
-const loadOrCreate = `import { connectPulse, createPulse, loadPulse, PulseError } from "@pulsify/core";
+const loadOrCreate = `import { connectPulse, createPulse, loadPulse, PulseError } from "pulsify-core";
 
 async function openNote(id: string) {
   try {
@@ -87,7 +87,7 @@ export default function GettingStarted() {
 				Pulsify runs in browsers, Bun, Node 22+, Deno 2 and Cloudflare Workers.
 				Schemas come from <code>@gin-quin/codec</code>, a small binary
 				serialization library that doubles as the type system. It ships with
-				Pulsify and its builders are re-exported from <code>@pulsify/core</code>.
+				Pulsify and its builders are re-exported from <code>pulsify-core</code>.
 			</p>
 
 			<h2>Define a pulse</h2>

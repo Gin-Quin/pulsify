@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-/** A presence to drive, such as `presence` from `@pulsify/cloud`. */
+/** A presence to drive, such as `presence` from `pulsify-cloud`. */
 export type PresenceTarget = { set(present: boolean): void };
 export type TauriPresenceWindow = Pick<
 	ReturnType<typeof getCurrentWindow>,

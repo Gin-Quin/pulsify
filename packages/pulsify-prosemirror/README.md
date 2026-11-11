@@ -3,17 +3,17 @@
 Use the `pulsify-prosemirror` package to bind an existing
 ProseMirror `EditorView` to a `richText()` field. Install `prosemirror-model`,
 `prosemirror-state`, `prosemirror-transform` and `prosemirror-view` in the editor
-application. They are peers of this package. `@pulsify/core` has no editor dependencies.
+application. They are peers of this package. `pulsify-core` has no editor dependencies.
 Install the binding and ProseMirror packages:
 
 ```sh
-npm install @pulsify/core pulsify-prosemirror prosemirror-model prosemirror-state prosemirror-transform prosemirror-view
+npm install pulsify-core pulsify-prosemirror prosemirror-model prosemirror-state prosemirror-transform prosemirror-view
 ```
 
 This example also uses `prosemirror-schema-basic` and `prosemirror-history`:
 
 ```ts
-import { createPulse, definePulse, object, richText } from "@pulsify/core";
+import { createPulse, definePulse, object, richText } from "pulsify-core";
 import { bindProseMirror, proseMirrorDocument } from "pulsify-prosemirror";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";

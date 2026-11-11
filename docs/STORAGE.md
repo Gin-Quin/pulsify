@@ -1,6 +1,6 @@
 # Operation storage
 
-`@pulsify/core/storage` stores immutable `PulsePatchRow` segments. PostgreSQL is
+`pulsify-core/storage` stores immutable `PulsePatchRow` segments. PostgreSQL is
 the first optimization target. SQLite exposes the same
 `append`, `appendEncoded`, `vector` and `missing` methods.
 
@@ -11,8 +11,8 @@ decodes operations, instantiates the document schema or reads a materialized
 document. `appendEncoded` accepts the existing encoded protocol update/sync
 frame directly; it decodes the envelope once and forwards its binary payload.
 The relay/application still owns authentication, authorization and semantic
-validation of operation contents. `relayStoreMessage` from `@pulsify/core/protocol`
-serves protocol frames directly from a store. `@pulsify/cloud-server/cloudflare` adapts
+validation of operation contents. `relayStoreMessage` from `pulsify-core/protocol`
+serves protocol frames directly from a store. `pulsify-cloud-server/cloudflare` adapts
 Durable Object SQLite to the `SqliteConnection` interface, and the Unikraft Cloud
 server calls `pulsify_append` from Rust with the same PostgreSQL schema.
 
@@ -46,7 +46,7 @@ Construct `PostgresPatchStore` with a parameterized query function and call
 
 ```ts
 import { SQL } from "bun";
-import { PostgresPatchStore } from "@pulsify/core/storage";
+import { PostgresPatchStore } from "pulsify-core/storage";
 
 const sql = new SQL(process.env.DATABASE_URL!);
 const store = new PostgresPatchStore((query, parameters) =>

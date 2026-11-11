@@ -1,4 +1,4 @@
-import { CloudError } from "@pulsify/cloud";
+import { CloudError } from "pulsify-cloud";
 
 /**
  * The management API uses bearer credentials, never cookies, so any origin may

@@ -1,7 +1,7 @@
-# @pulsify/cloud-server
+# pulsify-cloud-server
 
 The server of Pulsify Cloud, a managed CRDT database for Pulsify documents.
-Apps connect to it with the [`@pulsify/cloud`](../cloud/README.md) client.
+Apps connect to it with the [`pulsify-cloud`](../cloud/README.md) client.
 
 - **Automatic scaling:** one isolated actor per root document (namespace).
 - **Global distribution:** on Cloudflare, each root lives near its first user.
@@ -15,9 +15,9 @@ sub-document with its children.
 
 | Import | Contents |
 | --- | --- |
-| `@pulsify/cloud-server` | `routeCloudRequest` gateway, `CloudRoot` state machine, storage, credentials |
-| [`@pulsify/cloud-server/cloudflare`](cloudflare/README.md) | Worker + one Durable Object per root, SQLite storage |
-| [`@pulsify/cloud-server/unikraft-cloud`](unikraft-cloud/README.md) | Rust server + PostgreSQL in one Unikraft Cloud image |
+| `pulsify-cloud-server` | `routeCloudRequest` gateway, `CloudRoot` state machine, storage, credentials |
+| [`pulsify-cloud-server/cloudflare`](cloudflare/README.md) | Worker + one Durable Object per root, SQLite storage |
+| [`pulsify-cloud-server/unikraft-cloud`](unikraft-cloud/README.md) | Rust server + PostgreSQL in one Unikraft Cloud image |
 
 ## Building a backend
 

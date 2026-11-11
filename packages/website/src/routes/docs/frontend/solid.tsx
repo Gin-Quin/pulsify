@@ -5,7 +5,7 @@ import { ClientOnly, NoteDefinition } from "~/components/Frontend";
 
 const helper = `import { onCleanup } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
-import { snapshotPulse, subscribePulse, type Pulse } from "@pulsify/core";
+import { snapshotPulse, subscribePulse, type Pulse } from "pulsify-core";
 
 /** A read-only store that follows the pulse. Write to the pulse itself. */
 export function createPulseStore<P extends Pulse<any>>(pulse: P) {
@@ -35,7 +35,7 @@ export function Editor(props: { pulse: NotePulse }) {
 const page = `// src/components/NotePage.tsx: imported with clientOnly, so it never runs on the server.
 import { useParams } from "@solidjs/router";
 import { createResource, onCleanup, Show } from "solid-js";
-import { disconnectPulse, loadPulse } from "@pulsify/core";
+import { disconnectPulse, loadPulse } from "pulsify-core";
 import { Editor } from "./Editor";
 import { Note, remote } from "./note";
 

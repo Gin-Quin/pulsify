@@ -121,7 +121,7 @@ const steps = [
 		title: "Define",
 		text: "A codec schema is the single source of truth for types, validation and bytes.",
 		file: "note.ts",
-		code: `import { array, definePulse, object, richText } from "@pulsify/core";
+		code: `import { array, definePulse, object, richText } from "pulsify-core";
 
 export const Note = definePulse("Note", object({
   title: "string",

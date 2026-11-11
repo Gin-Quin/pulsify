@@ -1,9 +1,9 @@
 import {
   connectPulse, createMemoryConnector, createPulse, createPulseScope, definePulse,
   destroyPulse, loadPulse, snapshotPulse, arrayOperations, exportPulseUpdates, applyPulseUpdates, getPulseVersions, recoverPulseHistory, SUPPORTED_PROTOCOL_VERSIONS, MigrationDriftError, richText, type RichText, type RichTextSchema, type MigrationDriftDetails, type PulseProperties,
-} from "@pulsify/core";
-import { decodeMessage, encodeMessage, type PulseMessage } from "@pulsify/core/protocol";
-import { tree, type Tree, type TreeSchema } from "@pulsify/core";
+} from "pulsify-core";
+import { decodeMessage, encodeMessage, type PulseMessage } from "pulsify-core/protocol";
+import { tree, type Tree, type TreeSchema } from "pulsify-core";
 import { bindProseMirror, proseMirrorDocument, type ProseMirrorBinding } from "pulsify-prosemirror";
 import type { EditorView } from "prosemirror-view";
 import type { Schema, Node as ProseMirrorNode } from "prosemirror-model";
@@ -57,7 +57,7 @@ destroyPulse(first); destroyPulse(second);
 
 // The typed codec API and storage entry point also compile from the tarball.
 import { object, array, optional, createCodec, tuple as codecTuple } from "@gin-quin/codec";
-import { PostgresPatchStore, type PatchStore } from "@pulsify/core/storage";
+import { PostgresPatchStore, type PatchStore } from "pulsify-core/storage";
 const Typed = definePulse("TypedConsumer", object({
   body: "string", origin: object({ name: "string" }), values: array("uint"),
 }), { constantPaths: [["origin"]], richTextPaths: [["body"]] }).materialize();

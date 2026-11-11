@@ -1,7 +1,7 @@
 # pulsify-sqlite
 
 A SQLite patch store and frame relay for
-[Pulsify](https://www.npmjs.com/package/@pulsify/core) documents, without any
+[Pulsify](https://www.npmjs.com/package/pulsify-core) documents, without any
 UI framework. It is the engine of
 [`tauri-plugin-pulsify`](https://crates.io/crates/tauri-plugin-pulsify), and
 usable on its own in any Rust process that persists Pulsify documents locally.

@@ -1,4 +1,4 @@
-# @pulsify/cloud-server/cloudflare
+# pulsify-cloud-server/cloudflare
 
 Pulsify Cloud on Cloudflare: a Worker authenticates and routes, and **one
 Durable Object per root** stores the root's documents, grants and socket
@@ -6,7 +6,7 @@ subscriptions in its SQLite database. Sockets use the hibernation API.
 
 ```ts
 // worker.ts
-export { PulsifyCloudRoot, cloudWorker as default } from "@pulsify/cloud-server/cloudflare";
+export { PulsifyCloudRoot, cloudWorker as default } from "pulsify-cloud-server/cloudflare";
 ```
 
 ```jsonc

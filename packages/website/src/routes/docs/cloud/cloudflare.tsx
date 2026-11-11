@@ -3,15 +3,15 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
 
-const install = `bun add @pulsify/core @pulsify/cloud @pulsify/cloud-server
+const install = `bun add pulsify-core pulsify-cloud pulsify-cloud-server
 bun add -d wrangler`;
 
 const worker = `// worker.ts
-export { PulsifyCloudRoot, cloudWorker as default } from "@pulsify/cloud-server/cloudflare";`;
+export { PulsifyCloudRoot, cloudWorker as default } from "pulsify-cloud-server/cloudflare";`;
 
 const custom = `// worker.ts, when the Worker also serves other routes
-import { handleCloudRequest, type PulsifyCloudEnv } from "@pulsify/cloud-server/cloudflare";
-export { PulsifyCloudRoot } from "@pulsify/cloud-server/cloudflare";
+import { handleCloudRequest, type PulsifyCloudEnv } from "pulsify-cloud-server/cloudflare";
+export { PulsifyCloudRoot } from "pulsify-cloud-server/cloudflare";
 
 export default {
   async fetch(request: Request, env: PulsifyCloudEnv) {
@@ -59,7 +59,7 @@ export default function CloudflareBackend() {
 			<Title>Cloudflare backend · Docs</Title>
 			<h1>Cloudflare backend</h1>
 			<p>
-				<code>@pulsify/cloud-server/cloudflare</code> runs Pulsify Cloud on
+				<code>pulsify-cloud-server/cloudflare</code> runs Pulsify Cloud on
 				Cloudflare Workers. A stateless Worker authenticates every request;{" "}
 				<strong>one Durable Object per root</strong> holds the root's documents,
 				grants and sockets in its own SQLite database.
@@ -154,7 +154,7 @@ export default function CloudflareBackend() {
 						</td>
 						<td>
 							Wraps <code>CloudRoot</code> from{" "}
-							<code>@pulsify/cloud-server</code> over the object's SQLite: patch
+							<code>pulsify-cloud-server</code> over the object's SQLite: patch
 							rows, the grant table and the subscription table that survives
 							hibernation.
 						</td>

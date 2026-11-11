@@ -42,7 +42,7 @@ const groups: { title: string; items: [string, string][] }[] = [
 		title: "Server",
 		items: [
 			["new PulseRelay()", "In-memory relay; open(send, { protocolVersion }) returns a peer."],
-			["PostgresPatchStore / SqlitePatchStore", "@pulsify/core/storage: initialize, appendEncoded, missing, vector."],
+			["PostgresPatchStore / SqlitePatchStore", "pulsify-core/storage: initialize, appendEncoded, missing, vector."],
 			["exportPulseUpdates / applyPulseUpdates", "Manual frame exchange between two pulses."],
 		],
 	},
@@ -61,7 +61,7 @@ export default function Api() {
 			<Title>API cheat sheet · Docs</Title>
 			<h1>API cheat sheet</h1>
 			<p>
-				Everything exported from <code>@pulsify/core</code> that you will use
+				Everything exported from <code>pulsify-core</code> that you will use
 				day to day. The{" "}
 				<a href={`${GITHUB_URL}/blob/main/packages/pulse/README.md`}>
 					package README

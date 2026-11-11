@@ -22,7 +22,7 @@ import {
 	type LexicalNode,
 	type SerializedEditorState,
 } from "lexical";
-import { type RichText } from "@pulsify/core";
+import { type RichText } from "pulsify-core";
 import {
 	RT_NODE,
 	RT_PARENT,
@@ -31,7 +31,7 @@ import {
 	invertEditorChange,
 	type EditorChange,
 	type RichTextContext,
-} from "@pulsify/core/bindings";
+} from "pulsify-core/bindings";
 import {
 	captureDocument,
 	matchDocument,

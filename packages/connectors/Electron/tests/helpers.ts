@@ -9,8 +9,8 @@ import {
 	richText,
 	sub,
 	type Pulse,
-} from "@pulsify/core";
-import { vectorCovers } from "@pulsify/core/protocol";
+} from "pulsify-core";
+import { vectorCovers } from "pulsify-core/protocol";
 import {
 	createElectronConnector,
 	exposePulsifyBridge,

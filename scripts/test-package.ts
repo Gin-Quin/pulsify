@@ -39,17 +39,16 @@ try {
 		JSON.stringify({
 			private: true,
 			type: "module",
-			dependencies: { "@pulsify/core": `file:${archive}` },
+			dependencies: { "pulsify-core": `file:${archive}` },
 		}),
 	);
-	await Bun.write(join(coreOnly, ".npmrc"), Bun.file(`${root}.npmrc`));
 	await run(["bun", "install", "--ignore-scripts"], coreOnly);
 	await run(
 		[
 			"node",
 			"--input-type=module",
 			"-e",
-			'import {richText} from "@pulsify/core"; if (typeof richText !== "function") throw new Error("Core import failed"); for (const name of ["lexical", "prosemirror-model", "react"]) { let found = false; try { import.meta.resolve(name); found = true; } catch {} if (found) throw new Error(`Core installed editor dependency ${name}`); }',
+			'import {richText} from "pulsify-core"; if (typeof richText !== "function") throw new Error("Core import failed"); for (const name of ["lexical", "prosemirror-model", "react"]) { let found = false; try { import.meta.resolve(name); found = true; } catch {} if (found) throw new Error(`Core installed editor dependency ${name}`); }',
 		],
 		coreOnly,
 	);
@@ -60,8 +59,8 @@ try {
 			private: true,
 			type: "module",
 			dependencies: {
-				"@pulsify/core": `file:${archive}`,
-				"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
+				"pulsify-core": `file:${archive}`,
+				"@gin-quin/codec": "2.1.1",
 				"pulsify-prosemirror": `file:${join(directory, "pulsify-prosemirror.tgz")}`,
 				"pulsify-lexical": `file:${join(directory, "pulsify-lexical.tgz")}`,
 				lexical: "^0.53.0",
@@ -72,7 +71,6 @@ try {
 			},
 		}),
 	);
-	await Bun.write(join(directory, ".npmrc"), Bun.file(`${root}.npmrc`));
 	await run(["bun", "install", "--ignore-scripts"], directory);
 	await Bun.write(
 		join(directory, "consumer.mts"),
@@ -96,14 +94,14 @@ try {
 	);
 	await run([`${root}node_modules/.bin/tsc`, "-p", "tsconfig.json"], directory);
 	const smoke = (await Bun.file(`${root}tests/runtime-smoke.mjs`).text())
-		.replaceAll("../packages/pulse/dist/index.js", "@pulsify/core")
-		.replaceAll("../packages/pulse/dist/protocol.js", "@pulsify/core/protocol");
+		.replaceAll("../packages/pulse/dist/index.js", "pulsify-core")
+		.replaceAll("../packages/pulse/dist/protocol.js", "pulsify-core/protocol");
 	await Bun.write(join(directory, "runtime.mjs"), smoke);
 	await Bun.write(
 		join(directory, "move-runtime-smoke.mjs"),
 		(await Bun.file(`${root}tests/move-runtime-smoke.mjs`).text()).replaceAll(
 			"../packages/pulse/dist/index.js",
-			"@pulsify/core",
+			"pulsify-core",
 		),
 	);
 	await run(["node", "runtime.mjs"], directory);
@@ -112,7 +110,7 @@ try {
 		`
 import assert from "node:assert/strict";
 import { object } from "@gin-quin/codec";
-import { createPulse, definePulse, richText } from "@pulsify/core";
+import { createPulse, definePulse, richText } from "pulsify-core";
 import { proseMirrorDocument } from "pulsify-prosemirror";
 import { bindLexical, lexicalDocument } from "pulsify-lexical";
 import { createEditor, $getRoot, $isTextNode } from "lexical";

@@ -2,7 +2,7 @@ import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
-const promises = `import { connectPulse, createPulse } from "@pulsify/core";
+const promises = `import { connectPulse, createPulse } from "pulsify-core";
 
 const note = createPulse(Note, data, { connectors: [local, remote] });
 const { ready, connected, synced } = connectPulse(note);
@@ -11,7 +11,7 @@ await ready;      // usable data (local connectors first)
 await connected;  // every connector finished its initial download
 await synced;     // every connector acknowledged our local history`;
 
-const offline = `import { connectPulse, createPulse, getPulseMeta } from "@pulsify/core";
+const offline = `import { connectPulse, createPulse, getPulseMeta } from "pulsify-core";
 
 const note = createPulse(Note, data, {
   connectors: [local, remote],
@@ -32,7 +32,7 @@ synced    every connector acknowledged the complete local history
 offline   a connector is unreachable and being retried; edits continue
 error     a connector stopped on an error a retry cannot fix`;
 
-const statusListener = `import { subscribePulseStatus } from "@pulsify/core";
+const statusListener = `import { subscribePulseStatus } from "pulsify-core";
 
 const stop = subscribePulseStatus(note, (status) => {
   banner.hidden = status !== "offline"; // called now, then on every change
@@ -46,7 +46,7 @@ const options = `createPulse(Note, data, {
 
 // reconnect: false gives up after the first failure, like a one-shot sync.`;
 
-const events = `import { getPulseMeta, setOnlineMode } from "@pulsify/core";
+const events = `import { getPulseMeta, setOnlineMode } from "pulsify-core";
 
 const [connection] = getPulseMeta(note).connections;
 connection.on("reconnecting", (error, delayMs, attempt) => {
@@ -59,7 +59,7 @@ connection.lastError; // the last failure
 setOnlineMode(false); // pause every attempt (airplane mode in your app)
 setOnlineMode(true);  // retry now and probe live sessions`;
 
-const manual = `import { connectPulse, disconnectPulse } from "@pulsify/core";
+const manual = `import { connectPulse, disconnectPulse } from "pulsify-core";
 
 disconnectPulse(note);           // stop: no session, no retry, edits continue
 note.title = "Offline on purpose";
@@ -76,7 +76,7 @@ note.author.name = "C";
 
 const scopes = `import {
   createMemoryConnector, createPulseScope, loadPulse, PulseRelay,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 const relay = new PulseRelay();                 // in-memory server
 const connector = createMemoryConnector(relay);
@@ -93,7 +93,7 @@ const bob = await loadPulse(Note, "shared", {
 alice.title = "From Alice";
 bob.title; // "From Alice" after a microtask`;
 
-const custom = `import type { Connector } from "@pulsify/core";
+const custom = `import type { Connector } from "pulsify-core";
 
 const connector: Connector = {
   kind: "remote",

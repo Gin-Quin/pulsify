@@ -4,7 +4,7 @@ import { Note } from "~/components/DocsLayout";
 import { ClientOnly, NoteDefinition } from "~/components/Frontend";
 
 const helper = `import { createSubscriber } from "svelte/reactivity";
-import { subscribePulse, type Pulse } from "@pulsify/core";
+import { subscribePulse, type Pulse } from "pulsify-core";
 
 /** A view of the pulse whose reads Svelte tracks. Writes go to the pulse. */
 export function pulseState<P extends Pulse<any>>(pulse: P): P {
@@ -44,7 +44,7 @@ const editor = `<script lang="ts">
 
 const page = `<script lang="ts">
   import { onMount } from "svelte";
-  import { disconnectPulse, loadPulse } from "@pulsify/core";
+  import { disconnectPulse, loadPulse } from "pulsify-core";
   import { page } from "$app/state";
   import { Note, remote, type NotePulse } from "$lib/note";
   import { pulseState } from "$lib/pulseState";

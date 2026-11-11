@@ -3,7 +3,7 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
 
-const refresh = `import { createWebSocketConnector } from "@pulsify/core";
+const refresh = `import { createWebSocketConnector } from "pulsify-core";
 
 let token = await fetchToken();
 setInterval(async () => (token = await fetchToken()), 10 * 60_000);
@@ -15,7 +15,7 @@ const relay = createWebSocketConnector(
   { protocolVersion: 2 },
 );`;
 
-const selfHost = `import { PulseRelay, type RelayPeer } from "@pulsify/core";
+const selfHost = `import { PulseRelay, type RelayPeer } from "pulsify-core";
 
 const relay = new PulseRelay();
 type Session = { docId: string; readOnly: boolean; peer?: RelayPeer };
@@ -43,7 +43,7 @@ Bun.serve<Session>({
   },
 });`;
 
-const store = `import { relayStoreMessage } from "@pulsify/core/protocol";
+const store = `import { relayStoreMessage } from "pulsify-core/protocol";
 
 const { responses } = await relayStoreMessage(store, bytes, { docId, readOnly });`;
 

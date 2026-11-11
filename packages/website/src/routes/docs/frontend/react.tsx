@@ -3,10 +3,10 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { ClientOnly, NoteDefinition } from "~/components/Frontend";
 
-const install = `bun add @pulsify/react`;
+const install = `bun add pulsify-react`;
 
 const editor = `import { memo } from "react";
-import { usePulse } from "@pulsify/react";
+import { usePulse } from "pulsify-react";
 import type { NotePulse } from "./note";
 
 export function Editor({ pulse }: { pulse: NotePulse }) {
@@ -28,7 +28,7 @@ const Author = memo(({ author }: { author: NotePulse["author"] }) => (
 
 const page = `"use client";
 import { useEffect, useState } from "react";
-import { disconnectPulse, loadPulse } from "@pulsify/core";
+import { disconnectPulse, loadPulse } from "pulsify-core";
 import { Editor } from "./Editor";
 import { Note, remote, type NotePulse } from "./note";
 
@@ -64,7 +64,7 @@ export default function React() {
 			<Title>React · Docs</Title>
 			<h1>React</h1>
 			<p>
-				<code>@pulsify/react</code> exports one hook, <code>usePulse</code>. A
+				<code>pulsify-react</code> exports one hook, <code>usePulse</code>. A
 				component re-renders only when a value it read changes, and objects
 				keep their identity so <code>memo</code> children skip.
 			</p>
@@ -72,7 +72,7 @@ export default function React() {
 			<h2>Install</h2>
 			<CodeBlock title="terminal" code={install} />
 			<p>
-				It needs React 18 or 19 and <code>@pulsify/core</code>, nothing else.
+				It needs React 18 or 19 and <code>pulsify-core</code>, nothing else.
 			</p>
 
 			<h2>The definition</h2>

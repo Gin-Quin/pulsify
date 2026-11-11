@@ -1,13 +1,13 @@
-# @pulsify/cloud
+# pulsify-cloud
 
-The client of [Pulsify Cloud](https://www.npmjs.com/package/@pulsify/cloud-server):
+The client of [Pulsify Cloud](https://www.npmjs.com/package/pulsify-cloud-server):
 a connector with one WebSocket per root, the page presence, the management API
 client and identity tokens for your backend.
 
 ## Client
 
 ```ts
-import { createCloudConnector, createCloudClient, presence } from "@pulsify/cloud";
+import { createCloudConnector, createCloudClient, presence } from "pulsify-cloud";
 
 // One socket per root, multiplexing every loaded document of that root.
 const cloud = createCloudConnector({
@@ -43,7 +43,7 @@ await access.usage("alice");             // { root, documents, rows, bytes, conn
 ## Backend
 
 ```ts
-import { signCloudToken } from "@pulsify/cloud";
+import { signCloudToken } from "pulsify-cloud";
 
 const token = await signCloudToken({ subject: user.id }, process.env.PULSIFY_TOKEN_SECRET!, {
   expiresIn: "15m",

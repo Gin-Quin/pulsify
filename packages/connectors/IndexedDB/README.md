@@ -1,19 +1,19 @@
-# @pulsify/indexeddb
+# pulsify-indexeddb
 
 Local persistence for Pulsify documents in the browser's IndexedDB. Documents
 open from disk without a network, edits made offline survive reloads, and they
 upload once a remote connector is reachable.
 
 ```sh
-npm install @pulsify/core @pulsify/indexeddb
+npm install pulsify-core pulsify-indexeddb
 ```
 
 Use it as a `local` connector next to a remote one. Pulsify connects local
 connectors first, so a document is ready as soon as IndexedDB has it:
 
 ```ts
-import { createWebSocketConnector, loadPulse } from "@pulsify/core";
-import { createIndexedDbConnector } from "@pulsify/indexeddb";
+import { createWebSocketConnector, loadPulse } from "pulsify-core";
+import { createIndexedDbConnector } from "pulsify-indexeddb";
 
 const local = createIndexedDbConnector({ name: "my-app" });
 const remote = createWebSocketConnector("wss://example.com/pulsify");
@@ -30,7 +30,7 @@ origin (through a `BroadcastChannel` named after the database).
 ## What is stored
 
 The connector stores the operation history, not snapshots, with the same rules
-as `SqlitePatchStore` from `@pulsify/core/storage`:
+as `SqlitePatchStore` from `pulsify-core/storage`:
 
 - `rows`: immutable segments keyed by `[docId, sid, clock]`, with their
   dependencies and operation bytes as a `Uint8Array`. Exact duplicates are

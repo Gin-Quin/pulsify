@@ -7,9 +7,9 @@ const pattern = `const note = await loadPulse(Note, id, {
   connectors: [local, remote], // local first: ready from disk, then synced with the server
 });`;
 
-const indexeddb = `// bun add @pulsify/indexeddb
-import { createWebSocketConnector, loadPulse } from "@pulsify/core";
-import { createIndexedDbConnector } from "@pulsify/indexeddb";
+const indexeddb = `// bun add pulsify-indexeddb
+import { createWebSocketConnector, loadPulse } from "pulsify-core";
+import { createIndexedDbConnector } from "pulsify-indexeddb";
 
 const local = createIndexedDbConnector({ name: \`my-app:\${user.id}\` }); // one database per account
 const remote = createWebSocketConnector("wss://example.com/sync?doc={docId}");
@@ -21,10 +21,10 @@ destroyPulse(note);
 await local.clear();
 local.close(); // pulses using it stop instead of reconnecting`;
 
-const electronMain = `// main.ts (bun add @pulsify/electron better-sqlite3, then rebuild it for Electron)
+const electronMain = `// main.ts (bun add pulsify-electron better-sqlite3, then rebuild it for Electron)
 import { app, ipcMain } from "electron";
 import { join } from "node:path";
-import { servePulsifyStore } from "@pulsify/electron/main";
+import { servePulsifyStore } from "pulsify-electron/main";
 
 const store = servePulsifyStore({
   ipcMain,
@@ -34,11 +34,11 @@ app.on("will-quit", () => void store.close());
 
 // preload.ts
 import { contextBridge, ipcRenderer } from "electron";
-import { exposePulsifyBridge } from "@pulsify/electron";
+import { exposePulsifyBridge } from "pulsify-electron";
 exposePulsifyBridge({ contextBridge, ipcRenderer }); // window.pulsify, frames only`;
 
 const electronRenderer = `// renderer.ts
-import { createElectronConnector } from "@pulsify/electron";
+import { createElectronConnector } from "pulsify-electron";
 
 const local = createElectronConnector();
 const notebook = await loadPulse(Notebook, "notebook", {
@@ -59,8 +59,8 @@ tauri::Builder::default()
 // src-tauri/capabilities/default.json
 { "identifier": "default", "windows": ["main"], "permissions": ["core:default", "pulsify:default"] }`;
 
-const tauriWebview = `// bun add @pulsify/tauri @tauri-apps/api
-import { createTauriConnector } from "@pulsify/tauri";
+const tauriWebview = `// bun add pulsify-tauri @tauri-apps/api
+import { createTauriConnector } from "pulsify-tauri";
 
 const local = createTauriConnector();
 const notebook = await loadPulse(Notebook, userId, {
@@ -68,8 +68,8 @@ const notebook = await loadPulse(Notebook, userId, {
   include: true,
 });`;
 
-const cloud = `import { createCloudConnector } from "@pulsify/cloud";
-import { createIndexedDbConnector } from "@pulsify/indexeddb";
+const cloud = `import { createCloudConnector } from "pulsify-cloud";
+import { createIndexedDbConnector } from "pulsify-indexeddb";
 
 const local = createIndexedDbConnector({ name: \`notes:\${user.id}\` });
 const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });
@@ -127,7 +127,7 @@ export default function LocalPersistence() {
 				<tbody>
 					<tr>
 						<td>
-							<code>@pulsify/indexeddb</code>
+							<code>pulsify-indexeddb</code>
 						</td>
 						<td>Browsers, PWAs</td>
 						<td>IndexedDB, one database per name</td>
@@ -135,7 +135,7 @@ export default function LocalPersistence() {
 					</tr>
 					<tr>
 						<td>
-							<code>@pulsify/electron</code>
+							<code>pulsify-electron</code>
 						</td>
 						<td>Electron</td>
 						<td>SQLite (better-sqlite3) in the main process</td>
@@ -143,7 +143,7 @@ export default function LocalPersistence() {
 					</tr>
 					<tr>
 						<td>
-							<code>@pulsify/tauri</code>
+							<code>pulsify-tauri</code>
 						</td>
 						<td>Tauri 2</td>
 						<td>SQLite (rusqlite) in the Rust core</td>

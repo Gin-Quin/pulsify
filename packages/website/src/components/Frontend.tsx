@@ -4,7 +4,7 @@ import { Note } from "./DocsLayout";
 const note = `import {
   array, createWebSocketConnector, definePulse, object,
   type ModelFromDefinition, type Pulse,
-} from "@pulsify/core";
+} from "pulsify-core";
 
 export const Note = definePulse("Note", object({
   title: "string",

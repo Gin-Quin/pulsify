@@ -43,7 +43,7 @@
 		"better-sqlite3"
 	],
 	"devDependencies": {
-		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0",
+		"@gin-quin/codec": "2.1.1",
 		"@lexical/headless": "^0.53.0",
 		"@lexical/history": "^0.53.0",
 		"@lexical/link": "^0.53.0",
