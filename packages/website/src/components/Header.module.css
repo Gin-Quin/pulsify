@@ -21,17 +21,51 @@
 
 .nav {
 	display: flex;
-	gap: var(--space-7);
+	align-items: center;
+	gap: var(--space-4);
 	font-size: var(--font-size-sm);
 }
 
 .nav a {
+	position: relative;
+	padding: var(--space-2) var(--space-4);
+	border-radius: var(--radius-pill);
 	color: var(--color-text);
+	transition:
+		color var(--duration-fast) var(--easing),
+		background var(--duration-fast) var(--easing);
 }
 
-.nav a:hover,
-.nav a[aria-current="page"] {
+.nav a:hover {
 	color: var(--color-accent);
+	background: rgb(61 245 224 / 0.06);
+}
+
+.nav a[aria-current="page"] {
+	background: var(--color-surface-strong);
+}
+
+.nav a[aria-current="page"] span {
+	background: var(--gradient-accent);
+	background-clip: text;
+	-webkit-background-clip: text;
+	color: transparent;
+}
+
+/* Glowing bar on the header's bottom edge. */
+.nav a[aria-current="page"]::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	bottom: calc((var(--header-height) - 100%) / -2);
+	width: 60%;
+	height: 2px;
+	translate: -50% 0;
+	border-radius: var(--radius-pill);
+	background: var(--gradient-accent);
+	box-shadow:
+		0 0 12px var(--color-glow),
+		0 0 4px var(--color-accent);
 }
 
 .actions {

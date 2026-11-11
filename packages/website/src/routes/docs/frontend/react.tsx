@@ -65,8 +65,8 @@ export default function React() {
 			<h1>React</h1>
 			<p>
 				<code>pulsify-react</code> exports one hook, <code>usePulse</code>. A
-				component re-renders only when a value it read changes, and objects
-				keep their identity so <code>memo</code> children skip.
+				component re-renders only when a value it read changes, and objects keep
+				their identity so <code>memo</code> children skip.
 			</p>
 
 			<h2>Install</h2>
@@ -82,19 +82,19 @@ export default function React() {
 			<CodeBlock title="Editor.tsx" code={editor} />
 			<p>
 				<code>usePulse</code> returns a proxy of the live pulse that records
-				what the component, and the children it passes values to, read
-				during render. Local and remote changes re-render it only when one of
-				those values changed. Writes go straight to the pulse.
+				what the component, and the children it passes values to, read during
+				render. Local and remote changes re-render it only when one of those
+				values changed. Writes go straight to the pulse.
 			</p>
 			<ul>
 				<li>
-					Objects, arrays, rich text and trees keep their identity while
-					nothing read below them changes, including after an array move.
+					Objects, arrays, rich text and trees keep their identity while nothing
+					read below them changes, including after an array move.
 				</li>
 				<li>
-					The pulse itself is renewed on every render. Pass{" "}
-					<code>memo</code> children the part they show, or let them call{" "}
-					<code>usePulse</code> on what they received.
+					The pulse itself is renewed on every render. Pass <code>memo</code>{" "}
+					children the part they show, or let them call <code>usePulse</code> on
+					what they received.
 				</li>
 				<li>
 					Rich text and trees are compared as a whole. Bind editors with the{" "}
@@ -104,18 +104,21 @@ export default function React() {
 			</ul>
 
 			<h2>Load on the client</h2>
-			<ClientOnly how={'In React, load the pulse in an effect. In Next.js, that component needs "use client".'} />
+			<ClientOnly
+				how={
+					'In React, load the pulse in an effect. In Next.js, that component needs "use client".'
+				}
+			/>
 			<CodeBlock title="NotePage.tsx" code={page} />
 			<p>
-				<code>usePulse</code> refuses to render on the server. When a
-				component using it can be reached during server rendering, put it
-				under a <code>&lt;Suspense&gt;</code> boundary:
+				<code>usePulse</code> refuses to render on the server. When a component
+				using it can be reached during server rendering, put it under a{" "}
+				<code>&lt;Suspense&gt;</code> boundary:
 			</p>
 			<CodeBlock title="Page.tsx" code={suspense} />
 			<Note>
 				React reports the switch to client rendering through{" "}
-				<code>onRecoverableError</code>. It is expected for client-only
-				content.
+				<code>onRecoverableError</code>. It is expected for client-only content.
 			</Note>
 		</>
 	);

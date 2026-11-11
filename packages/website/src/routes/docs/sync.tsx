@@ -233,11 +233,52 @@ export default function Sync() {
 			</p>
 			<CodeBlock title="two-clients.test.ts" code={scopes} />
 
+			<h2>Actor IDs</h2>
+			<p>
+				Every write is recorded under an actor ID, one per writing replica, and
+				a document accepts up to 1,024 of them. So that reloads do not use them
+				up, a page reuses the IDs of pages that are gone. Each scope leases one
+				ID for the life of its page: the IDs are listed in{" "}
+				<code>localStorage</code>, and the page using one holds a{" "}
+				<a href="https://developer.mozilla.org/docs/Web/API/Web_Locks_API">
+					Web Lock
+				</a>{" "}
+				that the browser releases when the tab or window goes away, crashes
+				included. This works in browsers and in webviews such as Electron, Tauri
+				or Electrobun, wherever the page has both APIs.
+			</p>
+			<ul>
+				<li>
+					<strong>When an ID is reused.</strong> A pulse writes under the leased
+					ID once it has every row that ID already wrote to the document: at
+					once for a document created under a generated ID, and after every
+					connector has answered a complete download for a loaded one.
+				</li>
+				<li>
+					<strong>When it is not.</strong> A pulse that writes earlier (offline,
+					or before a slow remote answers) uses a random actor until it is
+					destroyed. So does <code>createPulse</code> with your own{" "}
+					<code>id</code>, and every pulse where Web Locks or{" "}
+					<code>localStorage</code> are missing (workers, Bun, Node).
+				</li>
+				<li>
+					<strong>One list per store.</strong> Local connectors keep their own
+					list, named by <code>actorPool</code>; pulses without a local
+					connector share one list per origin. Open a document with the same
+					connectors each time.
+				</li>
+				<li>
+					<strong>One process per profile.</strong> Two instances of a desktop
+					app over the same profile directory do not see each other's locks.
+				</li>
+			</ul>
+
 			<h2>Custom transports</h2>
 			<p>
 				A connector is a tiny interface. Anything that moves complete binary
 				frames works: WebSocket, WebTransport, BroadcastChannel, a native
-				bridge.
+				bridge. A local connector can add <code>actorPool</code>, a name for its
+				store, so that its pulses reuse actor IDs.
 			</p>
 			<CodeBlock title="connector.ts" code={custom} />
 

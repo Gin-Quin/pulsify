@@ -78,13 +78,6 @@
 	margin-top: var(--space-6);
 }
 
-.diagram {
-	position: relative;
-	display: block;
-	width: 100%;
-	filter: drop-shadow(0 0 40px rgb(61 245 224 / 0.15));
-}
-
 .visual {
 	position: relative;
 	width: 100%;
@@ -105,19 +98,18 @@
 	}
 }
 
-.orbit {
-	position: absolute;
-	left: -4px;
-	top: 83%;
-	width: 100%;
-	pointer-events: none;
-}
-
 @media (min-width: 1280px) {
 	.inner {
 		max-width: 80rem;
 	}
 	.visual {
 		max-width: 42rem;
+	}
+}
+
+/* The heading is centred against the diagram: offset the taller scenario picker below it. */
+@media (min-width: 861px) {
+	.copy {
+		padding-bottom: 0.8rem;
 	}
 }

@@ -1,0 +1,246 @@
+.diagram {
+	display: flex;
+	flex-direction: column;
+}
+
+/* Scenario picker */
+.scenarios {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--space-2);
+	margin-top: 2.4rem;
+}
+.scenario {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-surface);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-md);
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	line-height: 1.3;
+	text-align: left;
+	white-space: nowrap;
+	cursor: pointer;
+	transition:
+		color var(--duration-fast) var(--easing),
+		border-color var(--duration-fast) var(--easing),
+		background-color var(--duration-fast) var(--easing);
+}
+.scenario:hover {
+	border-color: var(--color-border-strong);
+}
+.scenario[aria-selected="true"] {
+	background: var(--color-surface-strong);
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+.number {
+	opacity: 0.7;
+	font-size: var(--font-size-xs);
+}
+.detail {
+	/* Room for two lines, so the page below never moves. */
+	min-height: calc(2em * var(--line-height-base));
+	margin-top: var(--space-3);
+	color: #fff;
+	font-size: var(--font-size-md);
+}
+@media (max-width: 40rem) {
+	.scenarios {
+		grid-template-columns: 1fr;
+	}
+}
+
+.canvas {
+	position: relative;
+	aspect-ratio: 720 / 725;
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	font-family: var(--font-sans);
+	user-select: none;
+}
+
+/* Its own compositor layer: repainting pulses never re-runs the blur below. */
+.motion {
+	will-change: transform;
+	pointer-events: none;
+}
+
+/* Who is who. */
+.crdt {
+	color: var(--color-secondary);
+}
+.app {
+	color: var(--color-accent);
+}
+.local {
+	color: var(--color-accent-2);
+}
+.remote {
+	color: var(--color-violet);
+}
+
+/* What is moving. */
+.patch {
+	--tone: var(--color-code-string);
+}
+.sync {
+	--tone: var(--color-sky);
+}
+
+/* Shapes */
+.glow {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 7;
+	opacity: 0.8;
+}
+.glow.small {
+	stroke-width: 4;
+	opacity: 0.7;
+}
+.solid .glass {
+	fill: var(--color-bg-raised);
+}
+.sheen {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 16;
+	opacity: 0.45;
+}
+.solid .sheen {
+	stroke-width: 40;
+	opacity: 0.5;
+}
+.small .sheen {
+	stroke-width: 12;
+}
+.rim {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+}
+.small .rim {
+	stroke-width: 1.5;
+}
+.auraCore {
+	stop-color: var(--color-accent);
+	stop-opacity: 0.26;
+}
+.auraEdge {
+	stop-color: var(--color-accent);
+	stop-opacity: 0;
+}
+.face {
+	fill: currentColor;
+	fill-opacity: 0.14;
+	stroke: currentColor;
+	stroke-width: 2;
+}
+.detail {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	opacity: 0.4;
+}
+.glassTop {
+	stop-color: var(--color-bg-raised);
+	stop-opacity: 0.78;
+}
+.glassBottom {
+	stop-color: var(--color-bg);
+	stop-opacity: 0.94;
+}
+.wire {
+	fill: none;
+	stroke: var(--color-accent);
+	stroke-width: 2.5;
+	stroke-opacity: 0.55;
+	stroke-linecap: round;
+	stroke-dasharray: 0.01 9;
+}
+
+/* Text */
+.label {
+	fill: var(--color-text);
+	font-size: 20px;
+	font-weight: 600;
+}
+.title {
+	fill: var(--color-text);
+	font-size: 31px;
+	font-weight: var(--font-weight-bold);
+	letter-spacing: -0.02em;
+}
+.name {
+	fill: var(--color-text);
+	font-size: 27px;
+	font-weight: var(--font-weight-bold);
+	letter-spacing: -0.01em;
+}
+.subtitle {
+	fill: currentColor;
+	font-size: 17px;
+	font-weight: var(--font-weight-medium);
+}
+.badge {
+	color: var(--color-text);
+}
+
+/* Pulses */
+.trail,
+.halo,
+.head,
+.ping {
+	fill: none;
+	stroke: var(--tone);
+	stroke-linecap: round;
+}
+.trail {
+	stroke-width: 3.5;
+}
+.halo {
+	stroke-width: 22;
+	opacity: 0.32;
+}
+.head {
+	stroke: var(--color-text);
+	stroke-width: 8;
+}
+.ping {
+	stroke-width: 2.5;
+}
+
+/* Nodes lighting up */
+/* A white glaze, so every color brightens instead of turning muddy. */
+.surge {
+	fill: var(--color-text);
+	fill-opacity: 0.24;
+	stroke: var(--tone);
+	stroke-width: 3;
+}
+.lit {
+	fill: color-mix(in srgb, var(--tone) 45%, var(--color-bg-raised));
+	stroke: var(--tone);
+	stroke-width: 2;
+}
+.stored {
+	fill: none;
+	stroke: var(--tone);
+	stroke-width: 2.5;
+}
+.stored ellipse {
+	fill: var(--tone);
+	fill-opacity: 0.4;
+}

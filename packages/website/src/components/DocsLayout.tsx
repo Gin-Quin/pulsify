@@ -8,6 +8,7 @@ import {
 	type JSX,
 } from "solid-js";
 import { docsNav } from "./docsNav";
+import { Icon } from "./Icon";
 import styles from "./Docs.module.css";
 
 export function DocsLayout(props: { children: JSX.Element }) {
@@ -30,7 +31,10 @@ export function DocsLayout(props: { children: JSX.Element }) {
 			document.documentElement.scrollHeight - 2;
 		let current: string | undefined;
 		for (const heading of headings)
-			if (bottom || heading.getBoundingClientRect().top <= window.innerHeight / 3)
+			if (
+				bottom ||
+				heading.getBoundingClientRect().top <= window.innerHeight / 3
+			)
 				current = heading.id;
 		setActive(current);
 	};
@@ -61,17 +65,25 @@ export function DocsLayout(props: { children: JSX.Element }) {
 				<For each={docsNav}>
 					{(page, i) => (
 						<>
-							<Show when={page.section !== docsNav[i() - 1]?.section && page.section}>
+							<Show
+								when={
+									page.section !== docsNav[i() - 1]?.section && page.section
+								}
+							>
 								{(section) => <span class={styles.section}>{section()}</span>}
 							</Show>
-							<a href={page.href} aria-current={path() === page.href ? "page" : undefined}>
+							<a
+								href={page.href}
+								aria-current={path() === page.href ? "page" : undefined}
+							>
 								{page.title}
 							</a>
 							<Show when={path() === page.href && sections().length}>
 								<div class={styles.sections}>
 									<For each={sections()}>
-										{(section) => (
+										{(section, i) => (
 											<a
+												style={{ "--i": i() }}
 												href={`#${section.id}`}
 												aria-current={
 													active() === section.id ? "location" : undefined
@@ -93,7 +105,10 @@ export function DocsLayout(props: { children: JSX.Element }) {
 					<Show when={previous()} fallback={<span />}>
 						{(page) => (
 							<a href={page().href}>
-								<small>Previous</small>
+								<small>
+									<Icon name="arrow" size="1em" class={styles.flipped} />
+									Previous
+								</small>
 								{page().title}
 							</a>
 						)}
@@ -101,7 +116,10 @@ export function DocsLayout(props: { children: JSX.Element }) {
 					<Show when={next()}>
 						{(page) => (
 							<a href={page().href} class={styles.next}>
-								<small>Next</small>
+								<small>
+									Next
+									<Icon name="arrow" size="1em" />
+								</small>
 								{page().title}
 							</a>
 						)}

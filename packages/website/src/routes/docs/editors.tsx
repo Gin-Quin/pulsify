@@ -78,17 +78,36 @@ export default function Editors() {
 			<h2>Bind</h2>
 			<Tabs
 				tabs={[
-					{ label: "ProseMirror", content: <CodeBlock title="editor.ts" code={prosemirror} /> },
-					{ label: "Lexical", content: <CodeBlock title="editor.ts" code={lexical} /> },
+					{
+						label: "ProseMirror",
+						content: <CodeBlock title="editor.ts" code={prosemirror} />,
+					},
+					{
+						label: "Lexical",
+						content: <CodeBlock title="editor.ts" code={lexical} />,
+					},
 				]}
 			/>
 
 			<h2>Rules of the road</h2>
 			<ul>
-				<li>Do not add the editor's own collaboration or history plugin to a bound editor. Lexical's binding provides undo and redo; ProseMirror keeps its local history plugin and remote changes bypass it.</li>
-				<li>Use the same editor schema and registered node classes on every peer.</li>
-				<li><code>field.text</code> and snapshots are a plain-text projection. Read nodes with <code>proseMirrorDocument</code> or <code>lexicalDocument</code>.</li>
-				<li>Always call <code>binding.destroy()</code> on unmount. Switching documents needs a fresh editor state.</li>
+				<li>
+					Do not add the editor's own collaboration or history plugin to a bound
+					editor. Lexical's binding provides undo and redo; ProseMirror keeps
+					its local history plugin and remote changes bypass it.
+				</li>
+				<li>
+					Use the same editor schema and registered node classes on every peer.
+				</li>
+				<li>
+					<code>field.text</code> and snapshots are a plain-text projection.
+					Read nodes with <code>proseMirrorDocument</code> or{" "}
+					<code>lexicalDocument</code>.
+				</li>
+				<li>
+					Always call <code>binding.destroy()</code> on unmount. Switching
+					documents needs a fresh editor state.
+				</li>
 			</ul>
 
 			<Note>

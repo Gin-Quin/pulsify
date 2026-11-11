@@ -81,19 +81,6 @@ const e = createPulse(Event, { payload: { kind: "created", title: "Hi" } });
 if (e.payload.kind === "created") e.payload.title = "Hello"; // narrowed
 e.payload = { kind: "deleted" };                              // switch variant`;
 
-const constants = `import { constant, frozen } from "pulsify-core";
-
-const Article = definePulse("Article", object({
-  origin: constant(object({ source: "string" })),
-  cover: frozen(tuple("uint", "uint")),
-  items: array(object({ id: constant("string"), label: "string" })),
-})).materialize();
-
-article.origin = { source: "x" }; // TypeScript error and runtime rejection
-article.cover = [800, 600];       // ok: replaced as a whole
-article.cover[0] = 800;           // TypeScript error and runtime rejection
-// literal(...) fields are constant too.`;
-
 const rich = `import { richText } from "pulsify-core";
 
 const Doc = definePulse("Doc", object({
@@ -171,8 +158,14 @@ export default function Values() {
 			<CodeBlock title="list.ts" code={arrays} />
 			<ul>
 				<li>Removal methods return detached values.</li>
-				<li>Holes, extending <code>length</code> and <code>delete arr[i]</code> are rejected; use <code>splice</code>.</li>
-				<li><code>sort</code>, <code>reverse</code> and <code>replaceAll</code> rebuild elements. Prefer <code>move</code> for reordering.</li>
+				<li>
+					Holes, extending <code>length</code> and <code>delete arr[i]</code>{" "}
+					are rejected; use <code>splice</code>.
+				</li>
+				<li>
+					<code>sort</code>, <code>reverse</code> and <code>replaceAll</code>{" "}
+					rebuild elements. Prefer <code>move</code> for reordering.
+				</li>
 				<li>Deletion wins over any concurrent move of the same element.</li>
 			</ul>
 
@@ -186,19 +179,16 @@ export default function Values() {
 			</p>
 			<CodeBlock title="event.ts" code={unions} />
 
-			<h2>Constants and frozen values</h2>
 			<p>
-				<code>constant(schema)</code> marks a value that never changes after
-				creation. <code>frozen(schema)</code> marks a value that can only be
-				replaced as a whole: its contents are deeply readonly, and concurrent
-				replacements never interleave them. Both are readonly in TypeScript.
+				To restrict how a value can be written, see{" "}
+				<a href="/docs/modifiers">value modifiers</a>: <code>constant</code>,{" "}
+				<code>frozen</code> and friends.
 			</p>
-			<CodeBlock title="article.ts" code={constants} />
 
 			<h2>Rich text</h2>
 			<p>
-				<code>richText()</code> is a string on the wire and a collaborative
-				text in memory. Indices count Unicode code points. Formatting is per
+				<code>richText()</code> is a string on the wire and a collaborative text
+				in memory. Indices count Unicode code points. Formatting is per
 				character; concurrent edits to different attributes merge.
 			</p>
 			<CodeBlock title="doc.ts" code={rich} />
@@ -216,8 +206,14 @@ export default function Values() {
 			</p>
 			<CodeBlock title="outline.ts" code={trees} />
 			<ul>
-				<li>Indices refer to the final sibling list, after the moved node is removed. Omit the index to append.</li>
-				<li><code>snapshot()</code> returns the flat stored form, including tombstones. <code>toJSON()</code> returns the visible hierarchy.</li>
+				<li>
+					Indices refer to the final sibling list, after the moved node is
+					removed. Omit the index to append.
+				</li>
+				<li>
+					<code>snapshot()</code> returns the flat stored form, including
+					tombstones. <code>toJSON()</code> returns the visible hierarchy.
+				</li>
 				<li>Moving a node into its own subtree throws before committing.</li>
 			</ul>
 

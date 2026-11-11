@@ -76,9 +76,9 @@ export default function Solid() {
 			<h2>The helper</h2>
 			<CodeBlock title="createPulseStore.ts" code={helper} />
 			<p>
-				Each local or remote change takes a snapshot and reconciles it into
-				the store. Rich text reads as its plain text, a sub-pulse as its ID.
-				The cost is one snapshot per change; split very large documents into
+				Each local or remote change takes a snapshot and reconciles it into the
+				store. Rich text reads as its plain text, a sub-pulse as its ID. The
+				cost is one snapshot per change; split very large documents into
 				sub-pulses.
 			</p>
 
@@ -89,9 +89,9 @@ export default function Solid() {
 				store synchronously and syncs to every peer.
 			</p>
 			<Note>
-				<code>createPulseStore</code> reads <code>props.pulse</code> once. Use
-				a keyed <code>&lt;Show&gt;</code>, as below, so a new pulse mounts a
-				new editor.
+				<code>createPulseStore</code> reads <code>props.pulse</code> once. Use a
+				keyed <code>&lt;Show&gt;</code>, as below, so a new pulse mounts a new
+				editor.
 			</Note>
 
 			<h2>Load on the client</h2>

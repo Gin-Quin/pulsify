@@ -1,4 +1,5 @@
 import { useLocation } from "@solidjs/router";
+import { For } from "solid-js";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -12,10 +13,27 @@ export function Header() {
 			<div class={styles.inner}>
 				<Logo />
 				<nav class={styles.nav} aria-label="Main">
-					<a href="/#why">Why</a>
-					<a href="/benchmarks" aria-current={location.pathname === "/benchmarks" ? "page" : undefined}>Benchmarks</a>
-					<a href="/cloud">Cloud</a>
-					<a href="/docs">Docs</a>
+					<For
+						each={[
+							["/benchmarks", "Benchmarks"],
+							["/cloud", "Cloud"],
+							["/docs", "Docs"],
+						]}
+					>
+						{([href, label]) => (
+							<a
+								href={href}
+								aria-current={
+									location.pathname === href ||
+									location.pathname.startsWith(`${href}/`)
+										? "page"
+										: undefined
+								}
+							>
+								<span>{label}</span>
+							</a>
+						)}
+					</For>
 				</nav>
 				<div class={styles.actions}>
 					<a

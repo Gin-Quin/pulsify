@@ -41,8 +41,8 @@ export default function Materialization() {
 			<Title>Materialization · Docs</Title>
 			<h1>Materialization</h1>
 			<p>
-				A materializer turns the latest stored schema into the public type of
-				a pulse. It is where you rename, hide and derive, so the rest of the
+				A materializer turns the latest stored schema into the public type of a
+				pulse. It is where you rename, hide and derive, so the rest of the
 				codebase never sees migration scars.
 			</p>
 
@@ -57,9 +57,9 @@ export default function Materialization() {
 			<h2>Aliases with bind</h2>
 			<p>
 				<code>bind("storedField")</code> creates a typed two-way alias. The
-				stored field disappears from enumeration, snapshots and the public
-				type. Reads and writes go straight to the CRDT register, so aliases
-				cost nothing.
+				stored field disappears from enumeration, snapshots and the public type.
+				Reads and writes go straight to the CRDT register, so aliases cost
+				nothing.
 			</p>
 			<CodeBlock title="user.ts" code={basic} />
 
@@ -81,8 +81,8 @@ export default function Materialization() {
 			</p>
 
 			<Note>
-				Materializers are local TypeScript. They are never sent to a relay,
-				and two clients may materialize the same stored data differently.
+				Materializers are local TypeScript. They are never sent to a relay, and
+				two clients may materialize the same stored data differently.
 			</Note>
 		</>
 	);

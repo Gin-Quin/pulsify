@@ -1,89 +1,55 @@
 import type { JSX } from "solid-js";
 
-export type TimingMetric = "median" | "p95" | "min" | "max";
-
 export interface TimingResult {
 	name: string;
 	scenario?: string;
 	participant?: string;
-	iterations: number;
-	sampleMeanUs: Record<TimingMetric, number>;
-	opsPerSecond: number;
+	sampleMeanUs: { median: number };
 	metrics?: Record<string, number>;
 }
 
 export interface TimingRun {
-	id: string;
-	label: string;
 	path: string;
-	historical: boolean;
 	generatedAt: string;
-	commit: string;
-	dirty: boolean;
 	environment: {
 		cpu: string;
-		cores: number;
 		runtime: string;
-		platform: string;
-		arch: string;
 		jsonJoy: string;
 		yjs?: string;
 		loro?: string;
-		codec: string;
 	};
-	parameters: { samples: number; warmup: number; pulsifyEngine?: string };
-	descriptions?: Record<string, string>;
+	parameters: { samples: number; warmup: number };
 	results: TimingResult[];
-	memory: Record<string, number>;
 }
 
 export interface DatabaseSummary {
-	requests: number;
 	success: number;
 	errors: number;
 	throughput_per_sec: number;
-	service: Record<"p50_ms" | "p95_ms" | "p99_ms" | "max_ms", number>;
-	queue: Record<"p50_ms" | "p95_ms" | "p99_ms" | "max_ms", number>;
-	latency: Record<"p50_ms" | "p95_ms" | "p99_ms" | "max_ms", number>;
-	retries: number;
-	useful_compactions: number;
-	noop_compactions: number;
-	removed_segments: number;
-	useful_compactions_per_sec: number;
-}
-
-export interface DatabaseCell {
-	scenario: string;
-	mode: string;
-	topology: string;
-	concurrency: number;
-	maximum_active: number;
-	summary: DatabaseSummary;
-	operations: Record<string, DatabaseSummary>;
+	service: Record<"p50_ms" | "p99_ms", number>;
 }
 
 export interface DatabaseRun {
-	path: string;
 	backend: string;
 	environment: string;
 	profile: string;
-	version: string;
-	plannedCells: number;
-	cells: DatabaseCell[];
-}
-
-export interface DatabaseCampaign {
-	id: string;
-	label: string;
-	path: string;
-	note: string;
-	runs: DatabaseRun[];
+	/** strict: flushed to disk before the acknowledgement. relaxed: acknowledged first. */
+	durability: string;
+	/** Date of the campaign that measured this run. Campaigns differ in scenario order. */
+	campaign: string;
+	/** Measured in a later session than the rest of its table. */
+	separateSession: boolean;
+	/** The series stopped on a backend failure before every planned cell ran. */
+	incomplete: boolean;
+	cells: { scenario: string; concurrency: number; summary: DatabaseSummary }[];
 }
 
 export interface ComparisonColumn {
 	id: string;
 	label: string;
 	detail?: string;
+	/** Shown in an info bubble next to the label: what biases this column. */
+	help?: string;
 }
 
 export interface ComparisonValue {
@@ -97,7 +63,8 @@ export interface ComparisonRow {
 	id: string;
 	label: string;
 	detail?: string;
-	description?: string;
+	/** Shown in an info bubble next to the label. */
+	help?: string;
 	values: Record<string, ComparisonValue>;
 }
 
@@ -107,8 +74,11 @@ export function rankScore(
 	values: (number | undefined)[],
 	direction: "lower" | "higher" = "lower",
 ): "best" | "worst" | undefined {
-	const finite = values.filter((v): v is number => v !== undefined && Number.isFinite(v));
-	if (value === undefined || !Number.isFinite(value) || finite.length < 2) return;
+	const finite = values.filter(
+		(v): v is number => v !== undefined && Number.isFinite(v),
+	);
+	if (value === undefined || !Number.isFinite(value) || finite.length < 2)
+		return;
 	const min = Math.min(...finite);
 	const max = Math.max(...finite);
 	if (min === max) return;
@@ -123,7 +93,8 @@ export function formatScore(value: number): string {
 	});
 }
 
-export const formatCount = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+export const formatCount = (value: number) =>
+	value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
 export const engineNames: Record<string, string> = {
 	pulsify: "Pulsify",
@@ -131,16 +102,16 @@ export const engineNames: Record<string, string> = {
 	"yjs-v2": "Yjs V2",
 	loro: "Loro",
 	"yjs-v1": "Yjs V1",
-	"native-json-joy": "json-joy",
-	"pulsify-direct": "Pulsify direct",
-	"pulsify-proxy": "Pulsify public",
 	postgres: "PostgreSQL",
 	sqlite: "SQLite",
 	alloydb: "AlloyDB Omni",
 	orioledb: "OrioleDB",
 	"pgrust-row": "pgrust row",
 	"pgrust-columnar": "pgrust columnar",
-	foundationdb: "FoundationDB",
+	rocksdb: "RocksDB",
+	"rocksdb-mutex": "RocksDB · mutex",
+	leveldb: "LevelDB",
+	lmdb: "LMDB",
 };
 
 export const scenarioNames: Record<string, string> = {
@@ -162,24 +133,49 @@ export const scenarioNames: Record<string, string> = {
 	compact: "Lossless compaction",
 	read_delta: "Read from version vector",
 	mixed: "Mixed workload",
-	load_materialize: "Load + materialize",
-	read_delta_materialize: "Read delta + materialize",
-	read_full_compacted: "Read compacted history",
-	read_delta_compacted: "Read compacted delta",
+};
+
+/** Plain-language help for the scenarios whose name does not speak for itself. */
+export const scenarioHelp: Record<string, string> = {
+	"create+encode":
+		"Creates the document, then serializes its whole state to bytes, ready to send to another peer.",
+	"export-first":
+		"Serializes an existing document to bytes for the first time, with nothing cached.",
+	"export-repeat":
+		"Serializes the same document again without any edit in between. Shows whether an engine reuses its previous encoding.",
+	"read-count":
+		"Reads one nested number through each library’s API. At a few nanoseconds per read, the differences are mostly noise.",
+	mutate:
+		"Changes one number and commits it locally, on a document that already carries this many edits in its history. Nothing is encoded or sent.",
+	"edit+encode":
+		"Commits one edit, then encodes only that change as an update to send to other peers.",
+	"delta-roundtrip":
+		"One edit travels to a second peer: encode the change, import it on the other side and read the new value. In memory, without a network.",
+	"initial-load+materialize":
+		"A new peer imports a full document and turns it into a plain JSON value. This is what opening a document costs.",
+	"offline-merge":
+		"Two peers each make 100 edits while disconnected, then exchange their changes and merge them.",
+	"upstream-map-conflict":
+		"16 peers change the same key at the same time. One peer imports all 16 updates and resolves the conflict.",
+	compact:
+		"Rewrites a document’s stored history into fewer segments, without losing any edit.",
+	read_delta:
+		"Reads only the edits a client is missing, given the versions it already has.",
+	mixed:
+		"45% patch appends, 25% reads from a version vector, 10% full writes, 10% full reads and 10% compactions.",
 };
 
 export function scenarioLabel(scenario: string) {
-	const [name, size] = scenario.replace(/^proxy-overhead\//, "").split("/");
+	const [name, size] = scenario.split("/");
 	return {
-		label: scenarioNames[name] ?? (name.startsWith("mutate-history") ? "Commit scalar edit" : name),
-		detail: size?.startsWith("history-")
+		label: scenarioNames[name] ?? name,
+		detail: size.startsWith("history-")
 			? `${formatCount(Number(size.slice(8)))} prior edits`
-			: name.startsWith("mutate-history-")
-				? `${formatCount(Number(name.slice(15)))} prior edits`
-				: size === "100-per-peer"
-					? "100 offline edits per peer"
-					: size === "16-peers"
-						? "16 concurrent peers"
-						: size ? `${formatCount(Number(size))} editable items` : "Cached nested field",
+			: size === "100-per-peer"
+				? "100 offline edits per peer"
+				: size === "16-peers"
+					? "16 concurrent peers"
+					: `${formatCount(Number(size))} editable items`,
+		help: scenarioHelp[name],
 	};
 }

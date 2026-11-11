@@ -44,9 +44,9 @@ export default function Migrations() {
 			<Title>Migrations · Docs</Title>
 			<h1>Migrations</h1>
 			<p>
-				Schemas change. Documents already exist on thousands of devices, some
-				of them offline. Pulsify is the only CRDT framework that handles this
-				for you.
+				Schemas change. Documents already exist on thousands of devices, some of
+				them offline. Pulsify is the only CRDT framework that handles this for
+				you.
 			</p>
 
 			<h2>Why migrations matter</h2>
@@ -60,8 +60,8 @@ export default function Migrations() {
 
 			<h2>Lazy migration</h2>
 			<p>
-				Pulsify migrates <strong>pulse by pulse, when a pulse is loaded</strong>.
-				A document records its version. When newer code opens it, the missing
+				Pulsify migrates <strong>pulse by pulse, when a pulse is loaded</strong>
+				. A document records its version. When newer code opens it, the missing
 				steps run in order, each producing an ordinary patch that synchronizes
 				like any other edit. Peers already on the new version simply apply it.
 				Documents that are never opened are never touched.
@@ -70,13 +70,13 @@ export default function Migrations() {
 			<ul>
 				<li>
 					<code>migrateTo(schema, fn)</code> appends a version. The callback
-					receives a detached copy of the previous version and returns only
-					the fields that are new or whose type changed.
+					receives a detached copy of the previous version and returns only the
+					fields that are new or whose type changed.
 				</li>
 				<li>Migration callbacks must be deterministic and side-effect free.</li>
 				<li>
-					Rich text arrives as a plain string in <code>before</code>; the
-					target schema restores collaborative semantics.
+					Rich text arrives as a plain string in <code>before</code>; the target
+					schema restores collaborative semantics.
 				</li>
 				<li>A document already at the latest version does no extra work.</li>
 			</ul>
@@ -84,27 +84,26 @@ export default function Migrations() {
 			<h2>Never edit a step</h2>
 			<p>
 				A document that already reached V2 will not rerun the V1 → V2 callback.
-				Changing that callback gives two documents of the same version
-				different data. Append a new step instead, even when the schema stays
-				the same.
+				Changing that callback gives two documents of the same version different
+				data. Append a new step instead, even when the schema stays the same.
 			</p>
 			<CodeBlock title="person.ts" code={fix} />
 
 			<h2>Drift detection</h2>
 			<p>
 				Each version has a fingerprint chained from the previous one:{" "}
-				<code>Fn = H(Fn-1, n, schemaHash)</code>. When a peer's chain
-				disagrees, the incoming update is rejected with{" "}
-				<code>MigrationDriftError</code> <strong>before</strong> it touches the
-				document, and a loud warning describes both chains. A peer that merely
-				lacks newer versions is reported as outdated, not as drift.
+				<code>Fn = H(Fn-1, n, schemaHash)</code>. When a peer's chain disagrees,
+				the incoming update is rejected with <code>MigrationDriftError</code>{" "}
+				<strong>before</strong> it touches the document, and a loud warning
+				describes both chains. A peer that merely lacks newer versions is
+				reported as outdated, not as drift.
 			</p>
 			<CodeBlock title="load.ts" code={drift} />
 
 			<Note kind="warn">
-				Fingerprints cover schemas, not callback code. Changing only the body
-				of a migration cannot be detected. Treat published steps as immutable
-				and fix forward.
+				Fingerprints cover schemas, not callback code. Changing only the body of
+				a migration cannot be detected. Treat published steps as immutable and
+				fix forward.
 			</Note>
 
 			<h2>Removing fields</h2>

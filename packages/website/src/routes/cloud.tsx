@@ -54,6 +54,25 @@ const features: { icon: IconName; title: string; text: string }[] = [
 	},
 ];
 
+// Draft prices: benchmarked against Pusher, Ably and Liveblocks, not final.
+const plans = [
+	{
+		name: "Free",
+		price: "$0",
+		text: "100 concurrent connections, 1M messages a month, 1 GB stored. Community support.",
+	},
+	{
+		name: "Pro",
+		price: "$29/month",
+		text: "1,000 concurrent connections, 50M messages a month, 10 GB stored. Extra messages at $1 per million.",
+	},
+	{
+		name: "Scale",
+		price: "$149/month",
+		text: "10,000 concurrent connections, 1B messages a month, 100 GB stored, custom domain and a 99.9% SLA.",
+	},
+];
+
 const steps = [
 	"Deploy a backend: Cloudflare or Unikraft Cloud.",
 	"Grant roles and sign tokens from your backend.",
@@ -81,7 +100,12 @@ export default function Cloud() {
 						<Button href="/docs/cloud" variant="outline" icon="arrow">
 							Read the docs
 						</Button>
-						<Button href={GITHUB_URL} icon="github" iconPosition="start" external>
+						<Button
+							href={GITHUB_URL}
+							icon="github"
+							iconPosition="start"
+							external
+						>
 							Follow progress on GitHub
 						</Button>
 					</div>
@@ -131,11 +155,35 @@ export default function Cloud() {
 			</section>
 
 			<section class={styles.section}>
+				<p class={styles.eyebrow}>Pricing</p>
+				<h2 class={styles.heading}>Pay for activity, not fan-out</h2>
+				<p class={styles.lead}>
+					Storage and relay are included. Only messages sent by clients count:
+					delivering one change to fifty peers is still one message.
+				</p>
+				<div class={styles.grid}>
+					<For each={plans}>
+						{(plan) => (
+							<Card class={styles.feature}>
+								<h3 class={styles.featureTitle}>{plan.name}</h3>
+								<p class={styles.heading}>{plan.price}</p>
+								<p class={styles.text}>{plan.text}</p>
+							</Card>
+						)}
+					</For>
+				</div>
+				<p class={styles.footnote}>
+					Need more, a dedicated deployment or SSO? Enterprise is custom.
+				</p>
+			</section>
+
+			<section class={styles.section}>
 				<Card class={styles.compare}>
 					<div>
 						<h2 class={styles.heading}>Cloud or self-hosted?</h2>
 						<p class={styles.text}>
-							Both use the open-source core and the same connector on the client.
+							Both use the open-source core and the same connector on the
+							client.
 						</p>
 					</div>
 					<table class={styles.table}>
@@ -150,7 +198,12 @@ export default function Cloud() {
 							<tr>
 								<th scope="row">Storage</th>
 								<td>Managed, per root</td>
-								<td>Your PostgreSQL or SQLite</td>
+								<td>Your own database</td>
+							</tr>
+							<tr>
+								<th scope="row">Relay</th>
+								<td>Managed: changes reach other clients live</td>
+								<td>You run the relay server</td>
 							</tr>
 							<tr>
 								<th scope="row">Scaling</th>
@@ -163,18 +216,13 @@ export default function Cloud() {
 								<td>Your upgrade handler</td>
 							</tr>
 							<tr>
-								<th scope="row">Latency</th>
-								<td>Nearest Cloudflare location or Unikraft metro</td>
-								<td>Your region</td>
-							</tr>
-							<tr>
-								<th scope="row">Data residency</th>
-								<td>Jurisdiction hints</td>
+								<th scope="row">Location</th>
+								<td>Closest to your users, with jurisdiction hints</td>
 								<td>Anywhere you deploy</td>
 							</tr>
 							<tr>
 								<th scope="row">Setup</th>
-								<td>A Worker or an image, then a URL</td>
+								<td>No setup: just a URL</td>
 								<td>Relay + store, about 40 lines</td>
 							</tr>
 						</tbody>

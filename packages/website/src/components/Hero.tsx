@@ -1,4 +1,5 @@
 import { Button } from "./Button";
+import { HeroDiagram } from "./HeroDiagram";
 import { GITHUB_URL } from "./links";
 import styles from "./Hero.module.css";
 
@@ -15,7 +16,7 @@ export function Hero() {
 					</h1>
 					<p class={styles.lead}>
 						The typed CRDT framework. Collaborative documents that look like
-						plain objects, migrate themselves and live in PostgreSQL.
+						plain objects, migrate themselves and live in your database.
 					</p>
 					<div class={styles.actions}>
 						<Button
@@ -33,12 +34,7 @@ export function Hero() {
 					</div>
 				</div>
 				<div class={styles.visual}>
-					<img class={styles.orbit} src="/images/orbit.svg" alt="" />
-					<img
-						class={styles.diagram}
-						src="/images/diagram-local.png"
-						alt="Web, mobile and desktop clients synchronized through Pulsify with local and remote databases"
-					/>
+					<HeroDiagram />
 				</div>
 			</div>
 		</section>

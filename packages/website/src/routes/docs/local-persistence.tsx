@@ -103,9 +103,8 @@ export default function LocalPersistence() {
 				</li>
 				<li>
 					<strong>Same rules as the server.</strong> Each store keeps immutable
-					operation rows with the semantics of the PostgreSQL and SQLite stores:
-					duplicates are idempotent, conflicts roll back, rows wait for their
-					dependencies.
+					operation rows with the semantics of a server store: duplicates are
+					idempotent, conflicts roll back, rows wait for their dependencies.
 				</li>
 				<li>
 					<strong>Self-healing.</strong> A local store that fails (blocked

@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { For, type JSX } from "solid-js";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { CodeBlock } from "./CodeBlock";
@@ -14,8 +14,60 @@ type Pillar = {
 	title: string;
 	text: string;
 	code?: { file: string; source: string };
-	chips?: string[];
+	visual?: () => JSX.Element;
+	tiles?: { icon: IconName; label: string }[];
 };
+
+/* Offline: three states, one line. */
+const offlineSteps: { icon: IconName; title: string; text: string }[] = [
+	{ icon: "cloud", title: "Online", text: "Edits sync" },
+	{ icon: "cross", title: "Offline", text: "Edits queue locally" },
+	{ icon: "check", title: "Back online", text: "Everything merges" },
+];
+
+function OfflineVisual() {
+	return (
+		<ol class={`${styles.visual} ${styles.steps3}`}>
+			<For each={offlineSteps}>
+				{(step, index) => (
+					<li data-step={index()}>
+						<span class={styles.node}>
+							<Icon name={step.icon} size="1.1rem" />
+						</span>
+						<strong>{step.title}</strong>
+						<span>{step.text}</span>
+					</li>
+				)}
+			</For>
+		</ol>
+	);
+}
+
+/* Typed: a schema gate in front of the document. */
+const writes = [
+	{ ok: true, field: 'title: "Shipped"' },
+	{ ok: true, field: 'tags: ["launch"]' },
+	{ ok: false, field: "tags: [42]" },
+];
+
+function TypedVisual() {
+	return (
+		<ul
+			class={styles.visual}
+			aria-label="Valid writes are merged, invalid ones rejected"
+		>
+			<For each={writes}>
+				{(write) => (
+					<li class={styles.write} data-ok={write.ok}>
+						<Icon name={write.ok ? "check" : "cross"} size="1rem" />
+						<code>{write.field}</code>
+						<span>{write.ok ? "merged" : "rejected"}</span>
+					</li>
+				)}
+			</For>
+		</ul>
+	);
+}
 
 const pillars: Pillar[] = [
 	{
@@ -26,10 +78,9 @@ const pillars: Pillar[] = [
 		code: {
 			file: "editor.ts",
 			source: `const note = await loadPulse(Note, "note-42");
-subscribePulse(note, render);
 
-note.title = "Shipped";      // rendered now
-note.tags.push("launch");    // synced later`,
+note.title = "Shipped";      // rendered and synced
+note.tags.push("launch");    // in one batch`,
 		},
 	},
 	{
@@ -37,38 +88,27 @@ note.tags.push("launch");    // synced later`,
 		tag: "Offline",
 		title: "Offline is the default, not a feature",
 		text: "Writes never wait for the network. A tab that lost its connection keeps working, and when it comes back every edit merges without a conflict handler.",
-		code: {
-			file: "offline.ts",
-			source: `disconnectPulse(note);        // airplane mode
-note.body.insert(0, "Draft: ");
-
-await connectPulse(note).synced;
-// merged with everything your team did meanwhile`,
-		},
+		visual: OfflineVisual,
 	},
 	{
 		icon: "shield",
 		tag: "Typed · Validated",
 		title: "A CRDT that cannot be corrupted",
 		text: "One schema gives you the TypeScript type, runtime validation of every local and remote write, and the wire format. A bad payload from a peer is rejected, not merged.",
-		code: {
-			file: "typed.ts",
-			source: `note.tags.push(42);
-// Type 'number' is not assignable to type 'string'`,
-		},
+		visual: TypedVisual,
 	},
 	{
 		icon: "layers",
 		tag: "Batteries included",
 		title: "Everything around the CRDT, shipped",
 		text: "The parts you would otherwise glue together yourself come in the box, and all speak the same protocol.",
-		chips: [
-			"Token auth",
-			"Lazy migrations",
-			"Sub-documents",
-			"PostgreSQL · SQLite",
-			"Rich text editors",
-			"Hosted cloud",
+		tiles: [
+			{ icon: "shield", label: "Token auth" },
+			{ icon: "branch", label: "Lazy migrations" },
+			{ icon: "cube", label: "Sub-documents" },
+			{ icon: "database", label: "Your database" },
+			{ icon: "window", label: "Rich text editors" },
+			{ icon: "cloud", label: "Hosted cloud" },
 		],
 	},
 ];
@@ -77,9 +117,7 @@ export function Pillars() {
 	return (
 		<section id="why" class={styles.section}>
 			<p class={styles.eyebrow}>Why Pulsify</p>
-			<h2 class={styles.heading}>
-				Local-first apps, without the hard parts
-			</h2>
+			<h2 class={styles.heading}>Local-first apps, without the hard parts</h2>
 			<p class={styles.lead}>
 				Write to an object. Pulsify renders it instantly, keeps it on the
 				device, syncs it when it can and never lets a bad write in.
@@ -101,9 +139,21 @@ export function Pillars() {
 									class={styles.pillarCode}
 								/>
 							)}
-							{pillar.chips && (
-								<ul class={styles.chips}>
-									<For each={pillar.chips}>{(chip) => <li>{chip}</li>}</For>
+							{pillar.visual?.()}
+							{pillar.tiles && (
+								<ul class={styles.tiles}>
+									<For each={pillar.tiles}>
+										{(tile) => (
+											<li>
+												<Icon
+													name={tile.icon}
+													size="1.1rem"
+													class={styles.icon}
+												/>
+												{tile.label}
+											</li>
+										)}
+									</For>
 								</ul>
 							)}
 						</Card>
@@ -270,7 +320,7 @@ export function Benchmarks() {
 	return (
 		<section id="benchmarks" class={styles.section}>
 			<p class={styles.eyebrow}>Benchmarks</p>
-			<h2 class={styles.heading}>Faster than Yjs. Much faster than Loro.</h2>
+			<h2 class={styles.heading}>Fastest CRDT engine.</h2>
 			<p class={styles.lead}>
 				Same document, same edits, same machine. Pulsify's native engine skips
 				binary encoding on local writes and compiles the schema into
@@ -308,14 +358,49 @@ export function Benchmarks() {
 
 type Mark = true | false | string;
 const rows: { feature: string; pulsify: Mark; yjs: Mark; loro: Mark }[] = [
-	{ feature: "Schema with inferred types and runtime validation", pulsify: true, yjs: false, loro: false },
-	{ feature: "Lazy, per-document migrations", pulsify: true, yjs: false, loro: false },
-	{ feature: "Materialized public type over stored fields", pulsify: true, yjs: false, loro: false },
-	{ feature: "Official PostgreSQL and SQLite storage", pulsify: true, yjs: "Community", loro: false },
-	{ feature: "Sync queries without loading the document", pulsify: true, yjs: false, loro: false },
-	{ feature: "Array move with preserved identity", pulsify: true, yjs: false, loro: true },
+	{
+		feature: "Schema with inferred types and runtime validation",
+		pulsify: true,
+		yjs: false,
+		loro: false,
+	},
+	{
+		feature: "Lazy, per-document migrations",
+		pulsify: true,
+		yjs: false,
+		loro: false,
+	},
+	{
+		feature: "Materialized public type over stored fields",
+		pulsify: true,
+		yjs: false,
+		loro: false,
+	},
+	{
+		feature: "Official PostgreSQL and SQLite storage",
+		pulsify: true,
+		yjs: "Community",
+		loro: false,
+	},
+	{
+		feature: "Sync queries without loading the document",
+		pulsify: true,
+		yjs: false,
+		loro: false,
+	},
+	{
+		feature: "Array move with preserved identity",
+		pulsify: true,
+		yjs: false,
+		loro: true,
+	},
 	{ feature: "Movable tree", pulsify: true, yjs: false, loro: true },
-	{ feature: "Rich text with ProseMirror and Lexical bindings", pulsify: true, yjs: true, loro: "ProseMirror" },
+	{
+		feature: "Rich text with ProseMirror and Lexical bindings",
+		pulsify: true,
+		yjs: true,
+		loro: "ProseMirror",
+	},
 ];
 
 function MarkCell(props: { value: Mark }) {
@@ -367,7 +452,13 @@ export function Compare() {
 
 /* ------------------------------------------------------------- Everywhere */
 
-const runtimes = ["Browsers", "Bun", "Node 22+", "Deno 2", "Cloudflare Workers"];
+const runtimes = [
+	"Browsers",
+	"Bun",
+	"Node 22+",
+	"Deno 2",
+	"Cloudflare Workers",
+];
 
 export function Everywhere() {
 	return (
@@ -375,11 +466,11 @@ export function Everywhere() {
 			<div class={styles.split}>
 				<div>
 					<p class={styles.eyebrow}>One protocol</p>
-					<h2 class={styles.heading}>From the browser to PostgreSQL</h2>
+					<h2 class={styles.heading}>From the browser to the database</h2>
 					<p class={styles.text}>
-						A versioned binary envelope carries every change. The same frames
-						go over WebSocket, in memory between tests, into a PostgreSQL row
-						and through the Rust implementation of the protocol. Pick a local
+						A versioned binary envelope carries every change. The same frames go
+						over WebSocket, in memory between tests, into a database row and
+						through the Rust implementation of the protocol. Pick a local
 						connector for instant rendering and a remote one for durability.
 					</p>
 					<ul class={styles.chips}>

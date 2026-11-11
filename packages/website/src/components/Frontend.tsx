@@ -24,8 +24,8 @@ export function NoteDefinition() {
 export function ClientOnly(props: { how: string }) {
 	return (
 		<Note kind="warn">
-			Create and load pulses on the client only. A server relays patches; it
-			has no local database to load a pulse from, so never call{" "}
+			Create and load pulses on the client only. A server relays patches; it has
+			no local database to load a pulse from, so never call{" "}
 			<code>createPulse</code> or <code>loadPulse</code> during server
 			rendering. {props.how}
 		</Note>

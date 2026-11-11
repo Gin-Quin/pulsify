@@ -92,15 +92,15 @@ export default function Vue() {
 			<h2>The composable</h2>
 			<CodeBlock title="usePulse.ts" code={helper} />
 			<p>
-				Every component that reads the pulse, directly or through an object
-				it received as a prop, re-renders after a change of that pulse. Vue
-				then patches only the DOM that changed. Split very large documents
-				into sub-pulses.
+				Every component that reads the pulse, directly or through an object it
+				received as a prop, re-renders after a change of that pulse. Vue then
+				patches only the DOM that changed. Split very large documents into
+				sub-pulses.
 			</p>
 			<Note>
-				Do not use <code>reactive(pulse)</code> or <code>ref(pulse)</code>:
-				Vue does not proxy pulse objects, so it returns the pulse unchanged
-				and nothing re-renders, not even after a local write.
+				Do not use <code>reactive(pulse)</code> or <code>ref(pulse)</code>: Vue
+				does not proxy pulse objects, so it returns the pulse unchanged and
+				nothing re-renders, not even after a local write.
 			</Note>
 
 			<h2>Render and edit</h2>

@@ -1,4 +1,5 @@
 import { Hero } from "~/components/Hero";
+import { Sky } from "~/components/Sky";
 import {
 	Benchmarks,
 	Compare,
@@ -11,11 +12,13 @@ export default function Home() {
 	return (
 		<main>
 			<Hero />
-			<Pillars />
-			<Showcase />
-			<Benchmarks />
-			<Compare />
-			<Everywhere />
+			<Sky>
+				<Pillars />
+				<Showcase />
+				<Benchmarks />
+				<Compare />
+				<Everywhere />
+			</Sky>
 		</main>
 	);
 }

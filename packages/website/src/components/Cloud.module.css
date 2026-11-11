@@ -130,43 +130,77 @@
 }
 
 .compare {
-	display: grid;
-	grid-template-columns: 1fr 1.6fr;
-	gap: var(--space-6);
-	align-items: start;
+	padding: var(--space-7);
+}
+
+.compare .text {
+	margin-top: var(--space-2);
 }
 
 .table {
 	width: 100%;
+	margin-top: var(--space-6);
+	table-layout: fixed;
 	border-collapse: collapse;
 	font-size: var(--font-size-sm);
+	line-height: 1.4;
 }
 
 .table th,
 .table td {
-	padding: var(--space-3) var(--space-3);
+	padding: var(--space-4) var(--space-5);
 	border-bottom: var(--border-width) solid var(--color-divider);
 	text-align: left;
+	vertical-align: middle;
 	color: var(--color-text-muted);
+	font-weight: var(--font-weight-regular);
+}
+
+.table th:first-child {
+	width: 22%;
+	padding-left: 0;
+}
+
+.table tbody tr:last-child > * {
+	border-bottom: 0;
 }
 
 .table thead th {
+	font-family: var(--font-mono);
+	font-size: var(--font-size-eyebrow);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+/* The Cloud column reads as one highlighted panel. */
+.table :is(th, td):nth-child(2) {
+	background: rgb(61 245 224 / 0.06);
 	color: var(--color-text);
 }
 
-.table tbody th {
-	color: var(--color-text);
-	font-weight: var(--font-weight-medium);
-}
-
-.table tbody td:first-of-type {
+.table thead th:nth-child(2) {
+	border-radius: var(--radius-md) var(--radius-md) 0 0;
 	color: var(--color-accent);
+}
+
+.table tbody tr:last-child td:nth-child(2) {
+	border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 @media (max-width: 900px) {
 	.split,
-	.grid,
-	.compare {
+	.grid {
 		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+@media (max-width: 600px) {
+	.compare {
+		padding: var(--space-5);
+	}
+
+	.table th,
+	.table td {
+		padding: var(--space-3);
 	}
 }

@@ -14,7 +14,9 @@
 	align-self: start;
 	/* Fits between the sticky offset and the layout's bottom padding, so the
 	   end of the page never pushes it up. */
-	max-height: calc(100vh - var(--header-height) - var(--space-7) - var(--space-8));
+	max-height: calc(
+		100vh - var(--header-height) - var(--space-7) - var(--space-8)
+	);
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
@@ -59,6 +61,24 @@
 	text-overflow: ellipsis;
 }
 
+/* Each section flies in from the left, one after the other. */
+@keyframes fly {
+	from {
+		opacity: 0;
+		transform: translateX(calc(-1 * var(--space-3)));
+	}
+}
+
+.sidebar .sections a {
+	animation: fly 300ms ease-out calc(var(--i) * 40ms) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sidebar .sections a {
+		animation: none;
+	}
+}
+
 .sidebar .sections a[aria-current="location"] {
 	color: var(--color-secondary);
 }
@@ -72,11 +92,6 @@
 
 .content h1 {
 	font-size: var(--font-size-xl);
-}
-
-.content h1 + p {
-	font-size: var(--font-size-lg);
-	line-height: 1.4;
 }
 
 .content h2 {
@@ -167,18 +182,46 @@
 
 .pager a {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
+	gap: var(--space-1);
+	padding: var(--space-4) var(--space-5);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-md);
 	font-weight: var(--font-weight-medium);
+	text-decoration: none;
+	transition:
+		border-color var(--duration-fast) var(--easing),
+		background var(--duration-fast) var(--easing),
+		box-shadow var(--duration-fast) var(--easing);
+}
+
+.pager a:hover {
+	border-color: var(--color-accent);
+	box-shadow: var(--shadow-glow);
+	background: var(--color-surface);
+}
+
+.pager > span {
+	flex: 1;
 }
 
 .pager small {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
 	color: var(--color-text-muted);
 	font-size: var(--font-size-xs);
 	font-weight: var(--font-weight-regular);
 }
 
 .next {
+	align-items: flex-end;
 	text-align: right;
+}
+
+.flipped {
+	transform: scaleX(-1);
 }
 
 @media (max-width: 860px) {

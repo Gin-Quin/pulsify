@@ -49,6 +49,15 @@ const store = new SqlitePatchStore(new Database("pulsify.db"));
 await store.initialize();
 await store.appendEncoded(frameBytes);`;
 
+const custom = `import type { PatchStore } from "pulsify-core/storage";
+
+class MyPatchStore implements PatchStore {
+  append(rows) { /* insert a batch atomically */ }
+  appendEncoded(frame) { /* same, from an update frame */ }
+  vector(docId) { /* contiguous frontier per actor */ }
+  missing(docId, remoteVector) { /* rows the client lacks */ }
+}`;
+
 const cloud = `import { createCloudConnector } from "pulsify-cloud";
 
 const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });
@@ -61,15 +70,17 @@ export default function Databases() {
 			<h1>Self-host: databases</h1>
 			<p>
 				A Pulsify server is a relay plus a store. Run both yourself in front of
-				PostgreSQL or SQLite, or let Pulsify Cloud do it.
+				your own database, or let Pulsify Cloud do it. Stores for PostgreSQL and
+				SQLite are included; any other database can implement the same
+				interface.
 			</p>
 
 			<h2>How storage works</h2>
 			<p>
 				Every committed change is an immutable row:{" "}
-				<code>(docId, actor, clock, span, dependencies, bytes)</code>. The
-				store never decodes operations or instantiates a schema. Two queries
-				do all the work:
+				<code>(docId, actor, clock, span, dependencies, bytes)</code>. The store
+				never decodes operations or instantiates a schema. Two queries do all
+				the work:
 			</p>
 			<ul>
 				<li>
@@ -82,8 +93,8 @@ export default function Databases() {
 				</li>
 			</ul>
 			<p>
-				Rows arriving out of order stay dangling until their predecessors
-				land, so a partially uploaded history can never be served as complete.
+				Rows arriving out of order stay dangling until their predecessors land,
+				so a partially uploaded history can never be served as complete.
 				Duplicates are idempotent; forks of one actor's history roll back the
 				whole batch.
 			</p>
@@ -101,8 +112,8 @@ export default function Databases() {
 				PostgreSQL is the primary target. An append is one call to{" "}
 				<code>pulsify_append</code>, which takes a per-document advisory lock,
 				checks only neighboring segments, inserts the batch and promotes rows
-				whose dependencies are now met. Payloads are <code>bytea[]</code>,
-				never base64.
+				whose dependencies are now met. Payloads are <code>bytea[]</code>, never
+				base64.
 			</p>
 			<CodeBlock title="store.ts" code={postgres} />
 			<p>
@@ -121,6 +132,17 @@ export default function Databases() {
 				Measurements and the conformance suite for both stores are in the{" "}
 				<a href={`${GITHUB_URL}/blob/main/docs/STORAGE.md`}>storage guide</a>.
 			</p>
+
+			<h2>Self-host: another database</h2>
+			<p>
+				Nothing in the protocol depends on SQL. A store is any object that
+				implements <code>PatchStore</code>, and <code>relayStoreMessage</code>{" "}
+				serves frames from any of them. Keep the rules above (immutable rows,
+				idempotent duplicates, atomic batches, dangling rows until their
+				dependencies land) and any database with ordered keys and atomic writes
+				can hold pulses.
+			</p>
+			<CodeBlock title="store.ts" code={custom} />
 
 			<h2>Or use Pulsify Cloud</h2>
 			<p>

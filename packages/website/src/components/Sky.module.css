@@ -1,0 +1,39 @@
+.sky {
+	position: relative;
+	isolation: isolate;
+}
+
+.stars {
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	/* Same sky as the hero, tiled and faded in below the top of the page. */
+	background: url("/images/stars.png") center top / 100% auto repeat-y;
+	opacity: 0.5;
+	mask-image: linear-gradient(transparent, #000 8%);
+}
+
+.stars img {
+	position: absolute;
+	user-select: none;
+	-webkit-user-drag: none;
+	animation: twinkle 5s ease-in-out infinite;
+}
+
+.stars img:nth-child(even) {
+	animation-delay: -2.5s;
+}
+
+@keyframes twinkle {
+	50% {
+		opacity: 0.45;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.stars img {
+		animation: none;
+	}
+}

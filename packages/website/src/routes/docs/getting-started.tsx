@@ -109,29 +109,31 @@ export default function GettingStarted() {
 			<h2>Persist locally</h2>
 			<p>
 				Connectors are either <code>local</code> or <code>remote</code>. Local
-				ones are tried first so the UI never waits for the network. The
-				built-in local connector is an in-memory relay, which is also what you
-				use in tests.
+				ones are tried first so the UI never waits for the network. Remote
+				connectors only start once local ones have answered, and they send the
+				version they already have, so servers return only what is missing
+				locally instead of the whole pulse. The built-in local connector is an
+				in-memory relay, which is also what you use in tests.
 			</p>
 			<CodeBlock title="app.ts" code={local} />
 
 			<h2>Bind it to your UI</h2>
 			<p>
-				Pulsify has no framework dependency. Pick your framework in the
-				Frontend section: <a href="/docs/frontend/svelte">Svelte</a>,{" "}
+				Pulsify has no framework dependency. Pick your framework in the Frontend
+				section: <a href="/docs/frontend/svelte">Svelte</a>,{" "}
 				<a href="/docs/frontend/solid">Solid</a>,{" "}
 				<a href="/docs/frontend/react">React</a> or{" "}
 				<a href="/docs/frontend/vue">Vue</a>. Each page shows how to render,
-				edit and load a pulse on the client: pulses are never created or
-				loaded during server rendering.
+				edit and load a pulse on the client: pulses are never created or loaded
+				during server rendering.
 			</p>
 
 			<h2>Sync to a server</h2>
 			<p>
 				Add a second connector. The WebSocket connector talks to any Pulsify
-				relay: your own server in front of PostgreSQL, or{" "}
-				<a href="/cloud">Pulsify Cloud</a>. Writes are batched per microtask
-				and uploaded as one frame.
+				relay: your own server in front of your database, or{" "}
+				<a href="/cloud">Pulsify Cloud</a>. Writes are batched per microtask and
+				uploaded as one frame.
 			</p>
 			<CodeBlock title="app.ts" code={remote} />
 			<p>
@@ -150,8 +152,7 @@ export default function GettingStarted() {
 			<Note>
 				Going offline is a function call: <code>disconnectPulse(note)</code>.
 				Keep editing, then <code>connectPulse(note)</code>. Concurrent edits
-				merge deterministically. See{" "}
-				<a href="/docs/sync">Sync and offline</a>.
+				merge deterministically. See <a href="/docs/sync">Sync and offline</a>.
 			</Note>
 		</>
 	);

@@ -85,23 +85,23 @@ export default function Svelte() {
 			<h2>The helper</h2>
 			<CodeBlock title="src/lib/pulseState.ts" code={helper} />
 			<p>
-				Every template expression that reads the pulse re-runs after a change
-				of that pulse, and Svelte only touches the DOM nodes whose value
-				changed. Nested objects and arrays are wrapped too, so components
-				receiving <code>note.author</code> or an item of{" "}
-				<code>note.tags</code> stay up to date.
+				Every template expression that reads the pulse re-runs after a change of
+				that pulse, and Svelte only touches the DOM nodes whose value changed.
+				Nested objects and arrays are wrapped too, so components receiving{" "}
+				<code>note.author</code> or an item of <code>note.tags</code> stay up to
+				date.
 			</p>
 			<Note>
-				Do not use <code>$state(pulse)</code>: Svelte copies the object into
-				its own state, so remote changes never show and writes never reach
-				the pulse.
+				Do not use <code>$state(pulse)</code>: Svelte copies the object into its
+				own state, so remote changes never show and writes never reach the
+				pulse.
 			</Note>
 
 			<h2>Render and edit</h2>
 			<CodeBlock title="Editor.svelte" code={editor} />
 			<p>
-				<code>bind:value</code>, assignments and array methods write straight
-				to the pulse, which syncs them to every peer.
+				<code>bind:value</code>, assignments and array methods write straight to
+				the pulse, which syncs them to every peer.
 			</p>
 
 			<h2>Load on the client</h2>

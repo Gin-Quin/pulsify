@@ -8,7 +8,10 @@ export default defineConfig({
 		solidStart(),
 		nitro({
 			preset: "static",
-			prerender: { routes: ["/", "/docs", "/cloud", "/benchmarks"], crawlLinks: true },
+			prerender: {
+				routes: ["/", "/docs", "/cloud", "/benchmarks"],
+				crawlLinks: true,
+			},
 		}),
 	],
 });

@@ -53,9 +53,9 @@ export default function Auth() {
 			<Title>Self-host: authentication · Docs</Title>
 			<h1>Self-host: authentication</h1>
 			<p>
-				Pulsify stores no users and no access lists. Your server decides who
-				may open which document, once, before the WebSocket upgrade. After
-				that, a session is pinned to one document with one role.
+				Pulsify stores no users and no access lists. Your server decides who may
+				open which document, once, before the WebSocket upgrade. After that, a
+				session is pinned to one document with one role.
 			</p>
 
 			<SequenceDiagram
@@ -110,9 +110,9 @@ export default function Auth() {
 			</Note>
 
 			<Note>
-				On <a href="/docs/cloud">Pulsify Cloud</a>, authentication is built
-				in: tokens carry an identity, each root stores its grants, and one
-				socket serves every document of a root. See{" "}
+				On <a href="/docs/cloud">Pulsify Cloud</a>, authentication is built in:
+				tokens carry an identity, each root stores its grants, and one socket
+				serves every document of a root. See{" "}
 				<a href="/docs/cloud/authentication">Cloud authentication</a>.
 			</Note>
 
@@ -130,8 +130,8 @@ export default function Auth() {
 			</p>
 			<CodeBlock title="server.ts" code={selfHost} />
 			<Note kind="warn">
-				Always pass <code>docId</code>. Without it, a socket authorized for
-				one document can send frames for any other.
+				Always pass <code>docId</code>. Without it, a socket authorized for one
+				document can send frames for any other.
 			</Note>
 			<p>
 				Serving from a database? <code>relayStoreMessage</code> takes the same

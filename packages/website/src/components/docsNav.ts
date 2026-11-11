@@ -6,6 +6,7 @@ export const docsNav: readonly {
 	{ href: "/docs", title: "Why Pulsify" },
 	{ href: "/docs/getting-started", title: "Getting started" },
 	{ href: "/docs/values", title: "Values" },
+	{ href: "/docs/modifiers", title: "Value modifiers" },
 	{ href: "/docs/migrations", title: "Migrations" },
 	{ href: "/docs/materialization", title: "Materialization" },
 	{ href: "/docs/sync", title: "Sync and offline" },
