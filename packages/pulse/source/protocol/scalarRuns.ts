@@ -55,7 +55,13 @@ export interface ScalarColumn {
 	count: number;
 }
 const groups = new WeakMap<PulsePatchRow[], ScalarRun>();
-export const scalarRunOf = (rows: PulsePatchRow[]) => groups.get(rows);
+/** A one-row run is recognized by its row alone, without a registered array. */
+export function scalarRunOf(rows: PulsePatchRow[]): ScalarRun | undefined {
+	const run = groups.get(rows);
+	if (run || rows.length !== 1) return run;
+	const entry = RunRow.entry(rows[0]!);
+	return entry?.run.count === 1 ? entry.run : undefined;
+}
 export const scalarEntryOf = (row: PulsePatchRow) => RunRow.entry(row);
 export function requireRun(
 	condition: unknown,
@@ -94,6 +100,13 @@ const textSize = (s: string) => {
 	const n = utf8Length(s);
 	return uintSize(n) + n;
 };
+// A document repeats one schema identity in every row: measure it once.
+let sizedSchema = "",
+	schemaBytes = 1;
+const schemaSize = (schema: string) =>
+	schema === sizedSchema
+		? schemaBytes
+		: (schemaBytes = textSize((sizedSchema = schema)));
 export function writeVector(e: Encoder, vv: PulseVersionVector): void {
 	writeVarUint(e, vv.length);
 	for (const [sid, clock] of vv) {
@@ -109,7 +122,7 @@ export function runOperationSize(
 	return (
 		1 +
 		uintSize(run.lamport + offset) +
-		textSize(run.schema) +
+		schemaSize(run.schema) +
 		2 +
 		textSize(run.target) +
 		1 +
@@ -122,7 +135,7 @@ export function runOperationSize(
 		2
 	);
 }
-function uint(d: Decoder): number {
+export function uint(d: Decoder): number {
 	const start = d.pos,
 		n = readVarUint(d);
 	requireRun(
@@ -132,7 +145,7 @@ function uint(d: Decoder): number {
 	return n;
 }
 const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-function text(d: Decoder): string {
+export function text(d: Decoder): string {
 	const length = uint(d),
 		end = d.pos + length;
 	requireRun(end <= d.arr.length, "Truncated run string");
@@ -140,7 +153,7 @@ function text(d: Decoder): string {
 	d.pos = end;
 	return value;
 }
-function vector(d: Decoder): PulseVersionVector {
+export function vector(d: Decoder): PulseVersionVector {
 	const n = uint(d);
 	requireRun(n <= MAX_VECTOR_ENTRIES, "Run vector limit");
 	const result: PulseVersionVector = [];
@@ -271,6 +284,15 @@ class RunRow implements PulsePatchRow {
 	}
 }
 Object.freeze(RunRow.prototype);
+/** Immutable rows that rebuild their exact original bytes from the run on demand. */
+export function runRows(run: ScalarRun): PulsePatchRow[] {
+	const rows: PulsePatchRow[] = [];
+	for (let i = 0; i < run.count; i++) rows.push(new RunRow(run, i));
+	if (run.count === 1) return rows;
+	Object.freeze(rows);
+	groups.set(rows, run);
+	return rows;
+}
 
 /** Owns the frame and validates expanded bounds before allocating individual rows. */
 export function decodeRunMessage(bytes: Uint8Array): PulseMessage {
@@ -379,12 +401,7 @@ export function decodeRunMessage(bytes: Uint8Array): PulseMessage {
 			spans,
 			expandedBytes,
 		};
-		const rows: PulsePatchRow[] = Array.from(
-			{ length: count },
-			(_, i) => new RunRow(run, i),
-		);
-		Object.freeze(rows);
-		groups.set(rows, run);
+		const rows = runRows(run);
 		return kind === 2
 			? { kind, docId, requestId, vv, found, complete, rows }
 			: { kind, docId, requestId, vv, rows };

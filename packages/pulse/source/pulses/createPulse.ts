@@ -61,6 +61,8 @@ export function createPulse<Definition extends AnyPulseDefinition>(
 		...overrides,
 	};
 	let id = input.id;
+	// A caller-chosen ID may name an existing document.
+	const generated = id === undefined;
 	if (parent) {
 		const prefix = `${parent.id}/`;
 		if (id === undefined) id = prefix + options.createId();
@@ -80,13 +82,19 @@ export function createPulse<Definition extends AnyPulseDefinition>(
 	for (const key of ["kind", "version", "generation"])
 		if (Object.hasOwn(input, key))
 			throw new TypeError(`${key} is managed by Pulsify`);
-	const pulse = createRuntime(definition, id, options, {
-		...input,
+	const pulse = createRuntime(
+		definition,
 		id,
-		kind: definition.kind,
-		version: definition.migrations.length + 1,
-		generation: 0,
-	});
+		options,
+		{
+			...input,
+			id,
+			kind: definition.kind,
+			version: definition.migrations.length + 1,
+			generation: 0,
+		},
+		generated,
+	);
 	if (options.connect) connectPulse(pulse);
 	return pulse as Pulse<ModelFromDefinition<Definition>>;
 }

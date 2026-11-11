@@ -882,7 +882,8 @@ export class PatchLog {
 		return { changed: true, ready };
 	}
 
-	private find(sid: number, clock: number): PulsePatchRow | undefined {
+	/** Internal borrowed row; callers must neither mutate nor expose it. */
+	find(sid: number, clock: number): PulsePatchRow | undefined {
 		const history = this.byActor.get(sid);
 		if (!history?.length || clock > history[history.length - 1]!.clock)
 			return undefined;

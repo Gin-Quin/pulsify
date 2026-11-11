@@ -109,7 +109,11 @@ export class CoreModel {
 	readonly index: Map<string, CoreNode> = new Map();
 	root: CoreNode | undefined;
 	lamport = 0;
-	nextClock = 1;
+	/** The local actor; 0 until `chooseActor` picks it, at the first local write. */
+	private actor: number;
+	private localClock = 1;
+	/** Set by a runtime that decides its actor late; it also sets `nextClock`. */
+	chooseActor: (() => number) | undefined;
 	readonly schemaId: string;
 	readonly encoding: ValueEncoding;
 	private readonly rootCodec: Codec<unknown> | undefined;
@@ -121,7 +125,7 @@ export class CoreModel {
 		value: CoreScalar,
 	) => void;
 	constructor(
-		public readonly sid: number,
+		sid: number,
 		public readonly docId: string,
 		public readonly kind: string,
 		public readonly maxVersion: number,
@@ -129,6 +133,7 @@ export class CoreModel {
 		public readonly schemas: readonly (CompiledPulseSchema | undefined)[] = [],
 		public readonly migrationChain?: MigrationChain,
 	) {
+		this.actor = sid;
 		const cached = compiled ? prepareCoreSchema(compiled) : undefined;
 		this.schemaId =
 			migrationChain?.schemaIds[maxVersion - 1] ?? cached?.id ?? "";
@@ -251,6 +256,18 @@ export class CoreModel {
 	}
 	view(): any {
 		return this.root?.data;
+	}
+	/** Reading the actor or its next clock announces a local write: both choose it. */
+	get sid(): number {
+		if (!this.actor && this.chooseActor) this.actor = this.chooseActor();
+		return this.actor;
+	}
+	get nextClock(): number {
+		if (!this.actor) void this.sid;
+		return this.localClock;
+	}
+	set nextClock(value: number) {
+		this.localClock = value;
 	}
 	get clock(): { sid: number; time: number } {
 		return { sid: this.sid, time: this.nextClock };
@@ -1132,8 +1149,9 @@ export class CoreModel {
 	apply(patch: CorePatch, hint?: number): void {
 		const patchSchema = this.schemaFor(patch.schema);
 		this.lamport = Math.max(this.lamport, patch.lamport);
-		if (patch.sid === this.sid)
-			this.nextClock = Math.max(this.nextClock, patch.clock + 1);
+		// The raw fields: applying remote rows must not choose the actor.
+		if (patch.sid === this.actor)
+			this.localClock = Math.max(this.localClock, patch.clock + 1);
 		const stamp: Stamp = [patch.lamport, patch.sid, patch.clock];
 		const single = patch.ops.length === 1 ? patch.ops[0] : undefined;
 		if (

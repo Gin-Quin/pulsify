@@ -450,6 +450,24 @@ first.author.name = "Grace"; // Automatically reaches second.
 
 `destroyPulse` closes sessions, cancels unfinished initialization, removes subscriptions and releases the identity-map entry. Writes to destroyed instances fail. Destroying a client does not delete the relay's stored history.
 
+## Actor IDs
+
+Every write is recorded under an actor ID, one per writing replica, and a document accepts up to 1024 of them. So that reloads do not use them up, a page reuses the IDs of pages that are gone.
+
+Wherever a page has [Web Locks](https://developer.mozilla.org/docs/Web/API/Web_Locks_API) and `localStorage` (browsers, and webviews such as Electron, Tauri or Electrobun), each scope leases one actor ID for the life of its page. The IDs a browser profile has used are listed in `localStorage`. The page using one holds a Web Lock on it, which the browser releases when the tab or window goes away, crashes included, and the next page takes the first free ID. A profile therefore uses as many IDs as it ever had pages open at once, and no native code is involved.
+
+An actor's history must stay a single sequence, so a pulse writes under the leased ID only when it has every row that ID already wrote to the document:
+
+- a document that `createPulse` creates under a generated ID has none;
+- a loaded document has them once every one of its connectors has answered a complete download.
+
+A pulse that writes earlier, while offline or before a slow remote answers, uses a random actor until it is destroyed. So does `createPulse` with a caller-chosen `id`, which may name an existing document. Without Web Locks or `localStorage` (insecure origins, workers, Bun, Node), every pulse uses a random actor.
+
+- **One list per store.** A local connector names its list with `actorPool`; the IndexedDB, Electron and Tauri connectors do. Pulses without a local connector share one list per origin, and a local connector without `actorPool` gets random actors. Open a document with the same connectors each time.
+- **One process per profile.** Two instances of a desktop app over the same profile directory do not see each other's locks; allow a single instance.
+- **Back/forward cache.** Chromium and Firefox currently reload a page that holds a Web Lock instead of restoring it from the back/forward cache.
+- **`sessionId`** sets the actor yourself and skips the lease: a safe integer >= 65536, unique among the writers of a document.
+
 ## Migrations and materialization
 
 ```ts
@@ -555,14 +573,15 @@ history use string field keys in new patches to preserve old layout identities.
 
 ## Options and custom transports
 
-`setDefaultPulseOptions` changes defaults; individual calls can override `createId`, `connect`, `connectors`, `scope`, `timeoutMs`, `onError` and an optional numeric `sessionId`. Usually leave session IDs random; explicit IDs must be safe integers >= 65536 and unique among writers of a document.
+`setDefaultPulseOptions` changes defaults; individual calls can override `createId`, `connect`, `connectors`, `scope`, `timeoutMs`, `onError` and an optional numeric `sessionId`. Usually leave it unset, so that [actor IDs](#actor-ids) are leased and reused; explicit IDs must be safe integers >= 65536 and unique among writers of a document.
 
-A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
+A `Connector` supplies `kind: "local" | "remote"`, for a local store an optional `actorPool` name (see [Actor IDs](#actor-ids)), and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
 
 Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `pulsify-cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object or an actor of the Unikraft Cloud server), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
 
 Durable operation stores are available from `pulsify-core/storage` for
-PostgreSQL and SQLite. They append binary rows and query missing
+PostgreSQL and SQLite; any other database can implement the exported
+`PatchStore` interface. Stores append binary rows and query missing
 operations by version vector without loading a document. PostgreSQL's append
 is one database call; connect storage to your relay and commit before
 acknowledging writes. See the [storage adapter guide](../../docs/STORAGE.md).
@@ -617,3 +636,20 @@ Memory connections negotiate this automatically. WebSocket stays legacy by
 default; use `createWebSocketConnector(url, undefined, {protocolVersion: 3})`
 only with an upgraded endpoint that explicitly selects `pulsify-v3`.
 See [state delta semantics](../../docs/PROTOCOL.md#optional-state-deltas-envelope-3).
+
+### Compact single writes
+
+Between two pulses of the same document, `{peerVersion: 4}` also sends a lone
+string or number field write as a compact frame, about a quarter of the size of
+the exact one. The receiving pulse rebuilds the exact original operation, so its
+journal and storage are unchanged:
+
+```ts
+const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 4 });
+applyPulseUpdates(otherArticle, frames);
+```
+
+Only `applyPulseUpdates` reads this frame: relays, stores and `decodeMessage`
+reject it, and connector sessions keep the earlier formats. Everything other
+than a single scalar write behaves as `peerVersion: 3`. See
+[compact writes](../../docs/PROTOCOL.md#optional-compact-writes-envelope-4).

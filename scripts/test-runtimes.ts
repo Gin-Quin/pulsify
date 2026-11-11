@@ -24,12 +24,15 @@ const server = Bun.serve({
 		const path = new URL(request.url).pathname;
 		if (path === "/")
 			return new Response(
-				'<script type="module">import {smoke} from "/tests/runtime-smoke.mjs"; globalThis.result=smoke();</script>',
+				// The bundle keeps codec external; a browser needs it mapped.
+				'<script type="importmap">{"imports":{"@gin-quin/codec":"/node_modules/@gin-quin/codec/dist/index.js"}}</script>' +
+					'<script type="module">import {smoke} from "/tests/runtime-smoke.mjs"; globalThis.result=smoke();</script>',
 				{ headers: { "content-type": "text/html" } },
 			);
 		if (
 			path !== "/tests/runtime-smoke.mjs" &&
 			path !== "/tests/move-runtime-smoke.mjs" &&
+			path !== "/node_modules/@gin-quin/codec/dist/index.js" &&
 			!/^\/packages\/pulse\/dist\/[\w-]+\.js$/.test(path)
 		)
 			return new Response("Not found", { status: 404 });

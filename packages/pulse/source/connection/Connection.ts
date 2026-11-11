@@ -62,6 +62,8 @@ export class Connection {
 	lastError: Error | undefined;
 	/** Consecutive failed attempts since the last successful connection. */
 	attempt = 0;
+	/** The connector has answered a complete download at least once. */
+	downloaded = false;
 	private session: ConnectorSession | undefined;
 	private controller: AbortController | undefined;
 	private readonly listeners = new Map<
@@ -321,6 +323,7 @@ export class Connection {
 			if (response.kind !== 2)
 				throw new PulseError("INVALID_MESSAGE", "Expected sync response");
 			this.status = "connected";
+			this.downloaded = true;
 			this.attempt = 0;
 			this.retryRequested = false;
 			this.demanded = false;

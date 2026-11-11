@@ -1,6 +1,7 @@
 import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import { stateDeltaOf } from "../protocol/stateDeltas.js";
 import { scalarRunOf, readRunValues } from "../protocol/scalarRuns.js";
+import { sameScalarWrite } from "../protocol/stateExchange.js";
 import { Connection } from "../connection/Connection.js";
 import {
 	patchToRow,
@@ -18,6 +19,7 @@ import {
 import { prepareValue, type PreparedValue } from "../core/values.js";
 import { PulseError, asPulseError } from "../protocol/errors.js";
 import { PatchLog } from "../protocol/PatchLog.js";
+import { actorPoolOf, leaseActor, leasedActor, randomActor } from "./actors.js";
 import { bind as bindPulse, type Binding } from "./Bindings.js";
 import type { Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
@@ -32,6 +34,8 @@ export function createRuntime(
 	id: string,
 	options: PulseOptions,
 	data?: Record<string, unknown>,
+	/** `data` creates a document under an ID that was generated just now. */
+	generated = false,
 ): Pulse<any> {
 	if (
 		typeof id !== "string" ||
@@ -46,11 +50,19 @@ export function createRuntime(
 		throw new TypeError("Invalid pulse kind");
 	if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)
 		throw new TypeError("timeoutMs must be positive");
-	const sid = options.sessionId ?? randomActor();
-	if (!Number.isSafeInteger(sid) || sid < 65536)
+	const explicit = options.sessionId;
+	if (
+		explicit !== undefined &&
+		(!Number.isSafeInteger(explicit) || explicit < 65536)
+	)
 		throw new TypeError("sessionId must be a safe integer >= 65536");
+	const pool =
+		explicit === undefined ? actorPoolOf(options.connectors) : undefined;
+	void leaseActor(options.scope, pool); // Ready for the scope's later pulses.
+	const leased = leasedActor(options.scope, pool);
 	const model = new CoreModel(
-		sid,
+		// With a lease, the actor is chosen at the first local write.
+		explicit ?? (leased === undefined ? randomActor() : 0),
 		id,
 		kind,
 		definition.migrations.length + 1,
@@ -59,6 +71,33 @@ export function createRuntime(
 		definition.migrationChain,
 	);
 	const log = new PatchLog(id);
+	if (explicit === undefined && leased !== undefined)
+		model.chooseActor = () => {
+			// The leased actor may have written this document from an earlier
+			// page, and its sequence must continue without a fork. That takes
+			// every row it wrote here: none for a document created under a fresh
+			// ID, and otherwise whatever each connector holds, so each of them
+			// must have answered a complete download, and none may claim a clock
+			// of the actor that is not here. Anything less (a write while
+			// offline, a caller-chosen ID) gets a one-off random actor.
+			// ponytail: a frame still in flight from a page that just closed can
+			// reach a store after this check; the write that collides with it is
+			// refused with CONFLICT. Have servers drop the older session of an
+			// actor if that ever shows up.
+			const next = new Map(log.vector).get(leased) ?? 1;
+			const reuse =
+				generated ||
+				(meta.connections.length > 0 &&
+					!log.pendingCount &&
+					meta.connections.every(
+						(connection) =>
+							connection.downloaded &&
+							(new Map(connection.clockVector).get(leased) ?? 0) <= next,
+					));
+			if (!reuse) return randomActor();
+			model.nextClock = next;
+			return leased;
+		};
 	const notify = () => {
 		if (meta.loaded && meta.connections.length && meta.status === "synced")
 			meta.status = "ready";
@@ -108,7 +147,7 @@ export function createRuntime(
 		if (!Number.isSafeInteger(time))
 			throw new PulseError("LIMIT_EXCEEDED", "Lamport clock exhausted");
 		const patch = new CorePatch(
-			sid,
+			model.sid,
 			model.nextClock,
 			time,
 			model.schemaId,
@@ -123,7 +162,7 @@ export function createRuntime(
 				const ready = log.appendLocalPatch(patch, serialize, (rows) => {
 					if (rows.length > 1) {
 						patches = rows.map((row) =>
-							row.sid === sid && row.clock === patch.clock
+							row.sid === patch.sid && row.clock === patch.clock
 								? patch
 								: decode(row),
 						);
@@ -160,6 +199,7 @@ export function createRuntime(
 		const time = model.lamport + 1;
 		if (!Number.isSafeInteger(time))
 			throw new PulseError("LIMIT_EXCEEDED", "Lamport clock exhausted");
+		const sid = model.sid;
 		const clock = model.nextClock;
 		const patch = new ScalarPatch(
 			sid,
@@ -527,6 +567,9 @@ export function createRuntime(
 						notify();
 						return;
 					}
+					// A retransmitted lone write is already applied.
+					const held = log.find(run.sid, run.clock);
+					if (held && sameScalarWrite(held, run, meta)) return;
 				}
 
 				if (rows.length === 1 && !log.pendingCount) {
@@ -595,8 +638,4 @@ export function createRuntime(
 	}
 	options.scope.pulses.set(id, pulse);
 	return pulse;
-}
-function randomActor(): number {
-	const bytes = crypto.getRandomValues(new Uint32Array(2));
-	return 65536 + bytes[0]! * 1048576 + (bytes[1]! & 0xfffff);
 }

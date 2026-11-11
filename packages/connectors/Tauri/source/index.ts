@@ -84,6 +84,8 @@ export function createTauriConnector(
 		`plugin:${options.plugin ?? "pulsify"}|${name}`;
 	return {
 		kind: "local",
+		// One pool of reusable actor IDs per plugin, and so per database.
+		actorPool: `tauri:${options.plugin ?? "pulsify"}`,
 		async open({ docId, signal, onMessage, onClose }) {
 			if (signal.aborted) throw new PulseError("CLOSED", "Connection aborted");
 			let closed = false;

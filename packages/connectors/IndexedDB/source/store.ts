@@ -100,6 +100,8 @@ function storageError(error: unknown): PulseError {
 export class IndexedDbPatchStore implements PatchStore {
 	readonly name: string;
 	private opening: Promise<IDBDatabase> | undefined;
+	/** The open connection, until it is lost or the store is closed. */
+	private connection: IDBDatabase | undefined;
 	private closed = false;
 	private readonly lost = new Set<(error: PulseError) => void>();
 	constructor(private readonly options: IndexedDbOptions = {}) {
@@ -128,6 +130,7 @@ export class IndexedDbPatchStore implements PatchStore {
 	close(): void {
 		if (this.closed) return;
 		this.closed = true;
+		this.connection = undefined;
 		void this.opening?.then(
 			(db) => db.close(),
 			() => {},
@@ -240,18 +243,31 @@ export class IndexedDbPatchStore implements PatchStore {
 					);
 					return;
 				}
-				const lose = (reason: string) => {
-					db.close();
-					if (this.opening === opening) this.opening = undefined;
-					const error = new PulseError("CONNECTION_FAILED", reason);
-					for (const listener of [...this.lost]) listener(error);
-				};
-				const opening = this.opening;
-				db.onversionchange = () => lose("IndexedDB upgraded elsewhere");
-				db.onclose = () => lose("IndexedDB connection lost");
+				this.connection = db;
+				db.onversionchange = () =>
+					this.lose(db, "IndexedDB upgraded elsewhere");
+				db.onclose = () => this.lose(db, "IndexedDB connection lost");
 				resolve(db);
 			};
 		});
+	}
+	/** Drops a dead connection so the next call reopens, and fails its sessions. */
+	private lose(db: IDBDatabase, reason: string): void {
+		if (this.connection !== db) return;
+		this.connection = undefined;
+		this.opening = undefined;
+		db.close();
+		const error = new PulseError("CONNECTION_FAILED", reason);
+		for (const listener of [...this.lost]) listener(error);
+	}
+	/**
+	 * Some browsers (WebKit) lose the connection without a `close` event: it
+	 * then surfaces as an `InvalidStateError` or `UnknownError` on transactions.
+	 */
+	private checkLost(db: IDBDatabase, error: unknown): void {
+		const name = (error as { name?: unknown } | null)?.name;
+		if (name === "InvalidStateError" || name === "UnknownError")
+			this.lose(db, "IndexedDB connection lost");
 	}
 	/** Runs `work` in one transaction and resolves once it has committed. */
 	private async transaction<T>(
@@ -270,6 +286,7 @@ export class IndexedDbPatchStore implements PatchStore {
 						: undefined,
 				);
 			} catch (error) {
+				this.checkLost(db, error);
 				reject(storageError(error));
 				return;
 			}
@@ -280,8 +297,10 @@ export class IndexedDbPatchStore implements PatchStore {
 					: reject(
 							storageError(failure ?? "Transaction completed without a result"),
 						);
-			tx.onabort = () =>
+			tx.onabort = () => {
+				this.checkLost(db, tx.error);
 				reject(storageError(failure ?? tx.error ?? "Transaction aborted"));
+			};
 			work(tx.objectStore(ROWS), tx.objectStore(CLOCKS)).then(
 				(value) => {
 					result = { value };

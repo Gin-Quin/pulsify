@@ -11,6 +11,7 @@ import type {
 	ModelFromDefinition,
 } from "./PulseDefinition.js";
 import { getPulseMeta } from "./PulseMeta.js";
+import { actorPoolOf, leaseActor } from "./actors.js";
 import { defaultPulseOptions, type PulseOptions } from "./PulseOptions.js";
 import { createRuntime } from "./PulseRuntime.js";
 
@@ -45,6 +46,12 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 	input: Omit<LoadPulseOptions, "include">,
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
 	const options = { ...defaultPulseOptions, ...input };
+	// A runtime reuses the scope's leased actor only if the lease came first,
+	// so that every download it relies on happened under the lease.
+	if (options.sessionId === undefined && !options.scope.pulses.has(id)) {
+		const lease = leaseActor(options.scope, actorPoolOf(options.connectors));
+		if (lease) await lease;
+	}
 	const existing = options.scope.pulses.get(id);
 	if (existing && getPulseMeta(existing).definition !== definition)
 		throw new PulseError(

@@ -6,6 +6,7 @@ webview.
 
 - **Local first:** documents load from disk before the network answers, and edits made offline are stored immediately.
 - **One writer:** every window shares one SQLite connection; rows saved by one window reach the others live.
+- **Reused actor IDs:** a window takes over the [actor ID](../../pulse/README.md#actor-ids) of a closed one (`actorPool: "tauri:<plugin>"`), so restarts do not add actors to a document.
 - **Same file format** as the TypeScript `SqlitePatchStore`: either side can open a database written by the other.
 - **Binary IPC:** frames travel as raw bytes (`tauri::ipc::Request`/`Channel`), never as JSON arrays.
 

@@ -7,7 +7,7 @@
 	"routes": [{ "pattern": "cloudflare.pulsify.cloud", "custom_domain": true }],
 	"observability": { "enabled": true },
 	"durable_objects": {
-		"bindings": [{ "name": "PULSIFY_ROOTS", "class_name": "PulsifyCloudRoot" }]
+		"bindings": [{ "name": "PULSIFY_ROOTS", "class_name": "PulsifyCloudRoot" }],
 	},
-	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["PulsifyCloudRoot"] }]
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["PulsifyCloudRoot"] }],
 }

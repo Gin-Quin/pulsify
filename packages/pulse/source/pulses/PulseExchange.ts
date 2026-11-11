@@ -34,15 +34,18 @@ import {
 	MAX_PATCH_BYTES,
 } from "../protocol/limits.js";
 import { PulseError } from "../protocol/errors.js";
-export const SUPPORTED_PROTOCOL_VERSIONS = [1, 2, 3] as const;
+import { COMPACT_VERSION, decodeCompactSet } from "../protocol/compactSet.js";
+import { OPERATIONS_VERSION } from "../protocol/versions.js";
+export const SUPPORTED_PROTOCOL_VERSIONS = [1, 2, 3, 4] as const;
 export type PulseExchangeOptions = {
-	peerVersion?: 1 | 2 | 3;
+	/** 4 is for a peer pulse of the same document; relays and stores stop at 3. */
+	peerVersion?: 1 | 2 | 3 | 4;
 	/** Exact operations for durable storage or history backfill. */
 	mode?: "auto" | "history";
 	kind?: 3 | 4;
 	requestId?: number;
 };
-/** Explicit peer capability selects exact grouped or hybrid state transport. */
+/** Explicit peer capability selects exact, grouped, state or compact transport. */
 export function exportPulseUpdates(
 	pulse: Pulse<any>,
 	vv: PulseVersionVector,
@@ -58,7 +61,10 @@ export function applyPulseUpdates(
 	if (meta.destroyed)
 		throw new PulseError("CLOSED", "Pulse has been destroyed");
 	for (const bytes of frames) {
-		const message = decodeMessage(bytes);
+		const message =
+			bytes[0] === COMPACT_VERSION && bytes[1] === OPERATIONS_VERSION
+				? decodeCompactSet(bytes, meta.model)
+				: decodeMessage(bytes);
 		if (message.docId !== meta.id || !("rows" in message))
 			throw new PulseError("INVALID_MESSAGE", "Expected document update");
 		meta.applyRows(message.rows);
@@ -80,9 +86,7 @@ export function encodePulseUpdates(
 		throw new TypeError("Invalid request ID");
 	if (
 		options.peerVersion !== undefined &&
-		options.peerVersion !== 1 &&
-		options.peerVersion !== 2 &&
-		options.peerVersion !== 3
+		!SUPPORTED_PROTOCOL_VERSIONS.includes(options.peerVersion)
 	)
 		throw new TypeError("Invalid peer protocol version");
 	if (
@@ -91,8 +95,10 @@ export function encodePulseUpdates(
 		options.mode !== "history"
 	)
 		throw new TypeError("Invalid exchange mode");
+	// Exact rows only exist in envelopes 1 and 2.
+	const exact = Math.min(options.peerVersion ?? 1, 2) as 1 | 2;
 	if (
-		options.peerVersion === 3 &&
+		(options.peerVersion ?? 1) >= 3 &&
 		options.mode !== "history" &&
 		(options.kind ?? 4) === 4
 	)
@@ -107,6 +113,7 @@ export function encodePulseUpdates(
 				rows: [],
 			},
 			meta,
+			options.peerVersion === COMPACT_VERSION,
 		);
 	const rows = meta.log.borrowMissing(vv),
 		message = {
@@ -116,14 +123,14 @@ export function encodePulseUpdates(
 			vv: meta.log.vector,
 			rows,
 		} as Extract<PulseMessage, { kind: 3 | 4 }>;
-	if ((options.peerVersion ?? 1) >= 2) {
+	if (exact === 2) {
 		const grouped = encodeNativeRun(meta, message) ?? encodeOwnedRun(message);
 		if (grouped) return [grouped];
 	}
 	return chunkRows(rows).map((chunk, i) =>
 		encodeMessage(
 			{ ...message, requestId: message.requestId + i, rows: chunk },
-			{ peerVersion: options.peerVersion ?? 1 },
+			{ peerVersion: exact },
 		),
 	);
 }

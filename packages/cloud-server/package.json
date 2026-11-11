@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-cloud-server",
-	"version": "6.0.0",
+	"version": "7.0.0",
 	"description": "Pulsify Cloud server: one isolated root per namespace, multiplexed WebSockets and built-in access control, on Cloudflare Durable Objects or Unikraft Cloud.",
 	"type": "module",
 	"exports": {
@@ -26,8 +26,8 @@
 	],
 	"license": "FSL-1.1-ALv2",
 	"peerDependencies": {
-		"pulsify-core": "^6.0.0",
-		"pulsify-cloud": "^6.0.0"
+		"pulsify-core": "^7.0.0",
+		"pulsify-cloud": "^7.0.0"
 	},
 	"repository": {
 		"type": "git",

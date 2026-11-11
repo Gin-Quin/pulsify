@@ -8,8 +8,9 @@ or Yjs. `@gin-quin/codec` **2.1.0** compiles the shared application schema and
 binary codecs; Pulsify also compiles field slots, value checks and copies.
 Normal-looking object and array proxies address stable collaborative nodes.
 
-Connectors exchange binary frames and version vectors. PostgreSQL and SQLite stores accept encoded patches and query missing actor ranges
-without loading the document. A dependency-free Rust crate implements the
+Connectors exchange binary frames and version vectors. Stores accept encoded patches and query missing actor ranges
+without loading the document: PostgreSQL and SQLite stores are included, and any
+other database can implement the same `PatchStore` interface. A dependency-free Rust crate implements the
 envelope and opaque causal journal independently.
 
 ```sh
@@ -55,7 +56,7 @@ bindings use `richText()` and ship independently of the core.
 - [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
 - [Native core results and remaining performance limits](benchmarks/HYBRID-TRANSPORT.md)
 - [Rust protocol crate](crates/pulsify-protocol/README.md)
-- [PostgreSQL and SQLite storage](docs/STORAGE.md)
+- [Operation storage: PostgreSQL, SQLite and other databases](docs/STORAGE.md)
 - [Storage requirements and design notes](DATABASES.md)
 
 ## Scope

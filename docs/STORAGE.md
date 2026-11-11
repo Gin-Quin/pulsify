@@ -1,8 +1,10 @@
 # Operation storage
 
-`pulsify-core/storage` stores immutable `PulsePatchRow` segments. PostgreSQL is
-the first optimization target. SQLite exposes the same
-`append`, `appendEncoded`, `vector` and `missing` methods.
+`pulsify-core/storage` stores immutable `PulsePatchRow` segments. Storage is not
+tied to one database: a store is any implementation of the `PatchStore`
+interface (`append`, `appendEncoded`, `vector` and `missing`). PostgreSQL and
+SQLite stores are included; PostgreSQL is the first optimization target.
+[Other databases](#other-databases) implement the same four methods.
 
 The envelope is `{docId, sid, clock, span, dependencies, operations}`. `clock`
 and `clock + span` delimit a half-open actor range. `dependencies` contains
@@ -87,6 +89,15 @@ inserts. Only pending metadata and actor neighbors are read. SQLite 3.32+ is
 recommended for its larger default bound-parameter limit when vectors contain
 hundreds of actors. Configure WAL/durability on the connection according to the
 application's requirements.
+
+## Other databases
+
+Implement `PatchStore` from `pulsify-core/storage` and pass the store to
+`relayStoreMessage`. The contract is the one described above: immutable rows,
+idempotent duplicates, conflicts that roll back the whole batch, and rows that
+stay dangling until their predecessors and dependencies are stored. Any database
+with ordered keys and atomic batches can provide it. `IndexedDbPatchStore` in
+`pulsify-indexeddb` is an example outside SQL.
 
 ## Document identifiers
 

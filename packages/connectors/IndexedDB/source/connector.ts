@@ -63,6 +63,8 @@ export function createIndexedDbConnector(
 
 	return {
 		kind: "local",
+		// One pool of reusable actor IDs per database: see "Actor IDs" in pulsify-core.
+		actorPool: `indexeddb:${store.name}`,
 		store,
 		forget: (docId) => store.forget(docId),
 		clear: () => store.clear(),

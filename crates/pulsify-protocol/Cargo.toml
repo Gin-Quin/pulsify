@@ -1,6 +1,6 @@
 [package]
 name = "pulsify-protocol"
-version = "6.0.0"
+version = "7.0.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Pulsify binary protocol (envelopes 1 and 2), version vectors and an opaque patch relay"

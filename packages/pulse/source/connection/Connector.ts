@@ -7,6 +7,12 @@ export type ConnectorSession = {
 };
 export type Connector = {
 	kind: "remote" | "local";
+	/**
+	 * Local connectors: a name for the store behind this connector. Pulses reuse
+	 * actor IDs among the pages that share the store. A local connector without
+	 * it gives its pulses a random actor.
+	 */
+	actorPool?: string;
 	open(input: {
 		docId: string;
 		signal: AbortSignal;

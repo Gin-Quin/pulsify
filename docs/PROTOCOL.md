@@ -1,6 +1,7 @@
 # Pulsify binary protocol
 
-Default envelope version **1**, optional grouped envelope **2** and state envelope **3**.
+Default envelope version **1**, optional grouped envelope **2**, state envelope **3**
+and compact write envelope **4**.
 All envelopes and core payloads use operations version **3**. Earlier operation
 versions are unsupported.
 The native core has no
@@ -97,6 +98,13 @@ requires **span = 1**: each actor starts at sequence 1 and increments once per
 transaction, independently of the number of operations or characters it
 contains. Observing another actor never creates a gap in this sequence.
 Lamport time is a separate integer inside the payload.
+
+An actor ID belongs to one writing replica at a time. It may pass to a later
+replica, as when a browser tab closes and another one reuses its ID, only if
+the new holder first obtains every row the ID has written to the document and
+continues at the next sequence number: writing an older clock again forks the
+actor's history. `pulsify-core` leases and reuses IDs this way; see
+[Actor IDs](../packages/pulse/README.md#actor-ids).
 
 Dependencies capture the complete applied frontier observed before the
 transaction. A later transaction by the same actor declares its predecessor
@@ -435,7 +443,8 @@ never infer application capability solely from such an automatic selection.
 
 Envelope 3 is an explicitly negotiated transport view; operation payload version
 remains 3. It does **not** replace the exact append-only database journal.
-`SUPPORTED_PROTOCOL_VERSIONS` is `[1, 2, 3]`. Unknown peers still receive envelope 1.
+`SUPPORTED_PROTOCOL_VERSIONS` is `[1, 2, 3, 4]`; 4 adds the compact write below to
+the state behavior. Unknown peers still receive envelope 1.
 A known upgraded WebSocket server may opt into `protocolVersion: 3` and select
 `pulsify-v3`; the client also offers v2/v1. Never infer this capability from a
 successful socket opening. The Rust relay currently supports exact envelopes
@@ -509,3 +518,61 @@ server without first obtaining the missing exact history.
 `rows` array. Its empty row array represents state coverage, not an empty exact
 journal. Storage callers should use `rowsFromFrame`/`appendEncoded`, which reject
 this distinction safely. Database schemas and queries remain unchanged.
+
+## Optional compact writes (envelope 4)
+
+Envelope 4 carries **one** scalar register write between two pulses of the same
+document, for example a live edit exchanged with
+`exportPulseUpdates(pulse, vv, {peerVersion: 4})` and `applyPulseUpdates`. It is
+a transport view like envelope 3: the receiver rebuilds the exact original row,
+byte for byte, so journals, storage and later exports are unchanged. Relays,
+`decodeMessage`, database adapters and the Rust crate reject it as an unsupported
+version; connector sessions stay on envelopes 1 to 3.
+
+```text
+protocolVersion:uint = 4
+operationsVersion:uint = 3
+flags:uint                 // 1 request, 2 vector, 4 external, 8 named, 16 integer
+docId:string
+[requestId:uint]           // flag 1; zero otherwise
+sid:uint, clock:uint
+lamportOffset:uint         // lamport - clock
+[external:vector]          // flag 4; empty otherwise
+[vv:vector]                // flag 2
+targetActor:uint           // 0 = sid, i = external[i - 1].sid
+targetClock:uint, targetSerial:uint
+field:uint | string        // string with flag 8
+value                      // uint with flag 16, else the original value bytes to the end of the frame
+```
+
+The frame is always an update (kind 4) with one row of span 1. What it leaves
+out is derived:
+
+- **Dependencies** are `external` plus `(sid, clock)` when `clock > 1`, as in
+  envelope 2.
+- **The sender vector** is `external` plus `(sid, clock + 1)` unless flag 2
+  carries a different one.
+- **The target** is the node ID `actor:clock:serial`. Its creator is always the
+  writer or one of its external dependencies, since a write must causally cover
+  its target.
+- **Schema identity and value layout** are those of the row that created the
+  target. Only documents with a single schema version produce this envelope, and
+  every row of such a document carries the same identity, which a receiver
+  verified when it applied the creating row. The receiver therefore uses its own
+  identity and the layout of the addressed field.
+- **The value** with flag 16 is a non-negative safe integer whose original
+  bytes are its little-endian float64. This is a rule on bytes, not on types:
+  any eight value bytes that read as such an integer use it.
+
+Producers use it for a lone string or float64 object-field write, the same
+fields as envelopes 2 and 3, when exactly one row is missing and no state
+summary is pending. Everything else keeps the earlier envelopes, including
+`{mode: "history"}` exports. A receiver that does not hold the target fails with
+`HISTORY_UNAVAILABLE`; one whose definition has a migration history, or whose
+field is not a plain scalar, fails with `INCOMPATIBLE_DOCUMENT`. Re-export with
+`peerVersion: 3` for such a peer.
+
+Frames are canonical: integers are minimal varints, unknown flags, an empty
+flagged vector, a zero flagged request ID, a flagged vector equal to the derived
+one and an unflagged integer value are rejected, as are trailing bytes. The
+frame, vector and expanded payload bounds of envelope 2 apply.

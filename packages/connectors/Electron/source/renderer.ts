@@ -85,6 +85,8 @@ export function createElectronConnector(
 
 	return {
 		kind: "local",
+		// One pool of reusable actor IDs per bridge, and so per database.
+		actorPool: `electron:${typeof bridge === "string" ? bridge : DEFAULT_KEY}`,
 		open({ docId, signal, onMessage, onClose }): Promise<ConnectorSession> {
 			return new Promise((resolveSession, reject) => {
 				if (signal.aborted) {

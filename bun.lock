@@ -45,32 +45,32 @@
     },
     "packages/cloud": {
       "name": "pulsify-cloud",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "dependencies": {
         "jose": "^6.2.15",
       },
       "peerDependencies": {
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/cloud-server": {
       "name": "pulsify-cloud-server",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "peerDependencies": {
-        "pulsify-cloud": "^6.0.0",
-        "pulsify-core": "^6.0.0",
+        "pulsify-cloud": "^7.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/connectors/Electron": {
       "name": "pulsify-electron",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "devDependencies": {
         "@types/better-sqlite3": "^9.6.0",
         "better-sqlite3": "^13.0.3",
       },
       "peerDependencies": {
         "better-sqlite3": ">=11",
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
       "optionalPeers": [
         "better-sqlite3",
@@ -78,28 +78,28 @@
     },
     "packages/connectors/IndexedDB": {
       "name": "pulsify-indexeddb",
-      "version": "6.0.1",
+      "version": "7.0.0",
       "devDependencies": {
         "fake-indexeddb": "^6.2.8",
       },
       "peerDependencies": {
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/connectors/Tauri": {
       "name": "pulsify-tauri",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "devDependencies": {
         "@tauri-apps/api": "^2.12.4",
       },
       "peerDependencies": {
         "@tauri-apps/api": "^2.0.0",
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/pulse": {
       "name": "pulsify-core",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "dependencies": {
         "@gin-quin/codec": "^2.1.1",
       },
@@ -109,31 +109,31 @@
     },
     "packages/pulsify-lexical": {
       "name": "pulsify-lexical",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "dependencies": {
         "fast-diff": "^1.3.0",
       },
       "peerDependencies": {
         "lexical": "^0.53.0",
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/pulsify-prosemirror": {
       "name": "pulsify-prosemirror",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "peerDependencies": {
         "prosemirror-model": "^1.25.12",
         "prosemirror-state": "^1.4.4",
         "prosemirror-transform": "^1.12.5",
         "prosemirror-view": "^1.42.9",
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
       },
     },
     "packages/pulsify-react": {
       "name": "pulsify-react",
-      "version": "6.0.0",
+      "version": "7.0.0",
       "peerDependencies": {
-        "pulsify-core": "^6.0.0",
+        "pulsify-core": "^7.0.0",
         "react": "^18.0.0 || ^19.0.0",
       },
     },

@@ -1,6 +1,6 @@
 [package]
 name = "pulsify-cloud-server"
-version = "6.0.0"
+version = "7.0.0"
 edition = "2021"
 publish = false
 license = "FSL-1.1-ALv2"
@@ -8,15 +8,29 @@ description = "Pulsify Cloud server for Unikraft Cloud: authenticated WebSockets
 
 [dependencies]
 pulsify-protocol = { path = "../../../../crates/pulsify-protocol" }
-axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "ws"] }
+axum = { version = "0.8", default-features = false, features = [
+	"http1",
+	"tokio",
+	"ws",
+] }
 base64 = "0.22"
 deadpool-postgres = "0.14"
-futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+futures-util = { version = "0.3", default-features = false, features = [
+	"sink",
+	"std",
+] }
 hmac = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "signal", "time"] }
+tokio = { version = "1", features = [
+	"rt-multi-thread",
+	"macros",
+	"net",
+	"sync",
+	"signal",
+	"time",
+] }
 tokio-postgres = "0.7"
 
 [profile.release]

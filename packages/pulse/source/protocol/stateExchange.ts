@@ -23,6 +23,7 @@ import {
 	type StateDelta,
 } from "./stateDeltas.js";
 import { chunkRows } from "./chunkRows.js";
+import { encodeCompactSet } from "./compactSet.js";
 import { PulseError } from "./errors.js";
 import { MAX_PATCH_BYTES } from "./limits.js";
 
@@ -97,12 +98,32 @@ function matches(
 		sameRunDependencies(row, column, offset)
 	);
 }
+/**
+ * Whether a held scalar row is the single write of a one-row run. Equal fields
+ * encode to equal bytes, so a retransmission is recognized without building
+ * either row.
+ */
+export function sameScalarWrite(
+	held: PulsePatchRow,
+	run: ScalarColumn & { source: Uint8Array; spans: Uint32Array },
+	meta: PulseMeta,
+): boolean {
+	if (run.count !== 1 || !matches(held, run, 0)) return false;
+	const value = valueOf(held, meta),
+		start = run.spans[0]!;
+	if (value.length !== run.spans[1]! - start) return false;
+	for (let i = 0; i < value.length; i++)
+		if (value[i] !== run.source[start + i]) return false;
+	return true;
+}
 /** Condensation is a transport view. No rows are removed from the source journal. */
 export function encodeStateUpdates(
 	log: PatchLog,
 	vv: PulseVersionVector,
 	message: Update,
 	meta?: PulseMeta,
+	/** The peer accepts envelope 4 for a lone scalar write. */
+	compact = false,
 ): Uint8Array[] {
 	const tail = meta && log.borrowNativeTail(vv);
 	if (tail && tail.count >= STATE_THRESHOLD) {
@@ -122,6 +143,10 @@ export function encodeStateUpdates(
 	const available = log.borrowMissing(vv, true);
 	// The common single-edit path needs no state planning or dependency sort.
 	if (available.length < STATE_THRESHOLD && !log.borrowStates().length) {
+		if (compact && meta && message.kind === 4 && available.length === 1) {
+			const frame = encodeCompactSet(message, available[0]!, meta.model);
+			if (frame) return [frame];
+		}
 		const chunks = chunkRows(available);
 		if (!chunks.length) chunks.push([]);
 		return chunks.map((rows, i) =>

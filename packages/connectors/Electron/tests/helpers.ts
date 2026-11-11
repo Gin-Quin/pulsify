@@ -11,10 +11,7 @@ import {
 	type Pulse,
 } from "pulsify-core";
 import { vectorCovers } from "pulsify-core/protocol";
-import {
-	createElectronConnector,
-	exposePulsifyBridge,
-} from "../source/index";
+import { createElectronConnector, exposePulsifyBridge } from "../source/index";
 import {
 	servePulsifyStore,
 	type BetterSqliteDatabase,

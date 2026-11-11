@@ -8,6 +8,10 @@ over IPC with binary Pulsify frames.
   remote connector to sync when the network is there.
 - **Every window in sync:** an edit stored by one window is pushed to every
   other window that has the same document open.
+- **Reused actor IDs:** a window takes over the
+  [actor ID](../../pulse/README.md#actor-ids) of a closed one
+  (`actorPool: "electron:<bridge key>"`), so restarts do not add actors to a
+  document.
 - **Durable:** rows are committed (WAL) before they are acknowledged.
 - **Safe bridge:** the page only gets `open`, `send`, `close` and two
   listeners, never `ipcRenderer`.

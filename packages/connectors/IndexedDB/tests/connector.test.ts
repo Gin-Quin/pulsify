@@ -509,6 +509,38 @@ describe("IndexedDB connector", () => {
 		session.close();
 	});
 
+	test("a connection lost without a close event is dropped and reopened", async () => {
+		const connector = profile()();
+		const docId = crypto.randomUUID();
+		const closes: Array<Error | undefined> = [];
+		const input = {
+			docId,
+			signal: signal(),
+			onMessage() {},
+			onClose: (error?: Error) => void closes.push(error),
+		};
+		const session = await connector.open(input);
+		// WebKit can kill the connection silently: transactions then throw.
+		const dead = await connector.store.database();
+		dead.transaction = () => {
+			throw new DOMException("Connection lost", "InvalidStateError");
+		};
+		const request = encodeMessage({ kind: 1, docId, requestId: 1, vv: [] });
+		await session.send(request);
+		expect(closes).toHaveLength(1);
+		expect(closes[0]).toMatchObject({ code: "CONNECTION_FAILED" });
+		expect(await connector.store.database()).not.toBe(dead);
+
+		const frames: Uint8Array[] = [];
+		const next = await connector.open({
+			...input,
+			onMessage: (bytes) => frames.push(bytes),
+		});
+		await next.send(request);
+		expect(decodeMessage(frames[0]!)).toMatchObject({ kind: 2, found: false });
+		next.close();
+	});
+
 	test("connected pulses survive a lost database and stop for good on close()", async () => {
 		const open = profile();
 		const connector = open();

@@ -47,6 +47,10 @@ as `SqlitePatchStore` from `pulsify-core/storage`:
 
 - Up to 1024 actors per document, 4096 rows per frame and 1 MiB per segment,
   like every Pulsify store. A full disk fails with `LIMIT_EXCEEDED`.
+- Pages that share a database reuse each other's
+  [actor IDs](../../pulse/README.md#actor-ids) once they close, so reloads do
+  not add actors. The connector's `actorPool` is `indexeddb:<name>`: one list
+  of IDs per database.
 - If IndexedDB cannot be opened (private browsing, blocked storage) or the
   browser closes the database, sessions fail with `CONNECTION_FAILED` and
   Pulsify reconnects later; the document keeps working from memory and the

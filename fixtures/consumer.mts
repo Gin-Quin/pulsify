@@ -52,7 +52,7 @@ const stateFrames: Uint8Array[] = exportPulseUpdates(first,[],{peerVersion:3,mod
 const versions: {state:[number,number][];history:[number,number][]}=getPulseVersions(first);
 void versions; void stateFrames; const recover: Promise<void>=recoverPulseHistory(first); await recover;
 // @ts-expect-error Unsupported protocol versions are excluded from the public API.
-exportPulseUpdates(first,[],{peerVersion:4});
+exportPulseUpdates(first,[],{peerVersion:5});
 destroyPulse(first); destroyPulse(second);
 
 // The typed codec API and storage entry point also compile from the tarball.
