@@ -8,8 +8,6 @@ import {
 	getPulseMeta,
 	snapshotPulse,
 	subscribePulse,
-	struct,
-	tuple,
 	type PulseProperties,
 } from "../source/index";
 import { Document, data, options } from "./helpers";
@@ -176,24 +174,5 @@ describe("local document API", () => {
 			pulse.nested.count = 3;
 		}).toThrow();
 		expect(() => subscribePulse(pulse, () => {})).toThrow();
-	});
-	test("tuple and struct constants cannot be mutated through a view", () => {
-		type Constants = PulseProperties<"Constants"> & {
-			pair: ReturnType<typeof tuple<[number, string]>>;
-			fixed: ReturnType<typeof struct<{ x: number }>>;
-		};
-		const Definition = definePulse<Constants>("Constants").materialize();
-		const pulse = createPulse(
-			Definition,
-			{ pair: tuple([1, "x"]), fixed: struct({ x: 2 }) },
-			options(),
-		);
-		expect(() => {
-			(pulse.pair as any)[0] = 2;
-		}).toThrow();
-		expect(() => {
-			(pulse.fixed as any).x = 3;
-		}).toThrow();
-		expect(getPulseMeta(pulse).model.view()).toEqual(snapshotPulse(pulse));
 	});
 });

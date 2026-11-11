@@ -9,13 +9,34 @@
 		"paths": {
 			"@pulsify/core": ["./packages/pulse/source/index.ts"],
 			"@pulsify/core/bindings": ["./packages/pulse/source/bindings.ts"],
+			"@pulsify/core/protocol": ["./packages/pulse/source/protocol.ts"],
+			"@pulsify/core/storage": ["./packages/pulse/source/storage.ts"],
+			"@pulsify/cloud": ["./packages/cloud/source/index.ts"],
+			"@pulsify/cloud-server": ["./packages/cloud-server/core/source/index.ts"],
+			"@pulsify/cloud-server/cloudflare": [
+				"./packages/cloud-server/cloudflare/source/index.ts"
+			],
+			"@pulsify/cloud-server/unikraft-cloud": [
+				"./packages/cloud-server/unikraft-cloud/source/index.ts"
+			],
 			"pulsify-prosemirror": ["./packages/pulsify-prosemirror/source/index.ts"],
-			"pulsify-lexical": ["./packages/pulsify-lexical/source/index.ts"]
+			"pulsify-lexical": ["./packages/pulsify-lexical/source/index.ts"],
+			"@pulsify/react": ["./packages/pulsify-react/source/index.ts"],
+			"@pulsify/indexeddb": ["./packages/connectors/IndexedDB/source/index.ts"],
+			"@pulsify/electron": ["./packages/connectors/Electron/source/index.ts"],
+			"@pulsify/electron/main": [
+				"./packages/connectors/Electron/source/main.ts"
+			],
+			"@pulsify/tauri": ["./packages/connectors/Tauri/source/index.ts"]
 		}
 	},
 	"include": [
 		"packages/*/source/**/*.ts",
 		"packages/*/tests/**/*.ts",
+		"packages/cloud-server/*/source/**/*.ts",
+		"packages/cloud-server/*/tests/**/*.ts",
+		"packages/connectors/*/source/**/*.ts",
+		"packages/connectors/*/tests/**/*.ts",
 		"scripts/**/*.ts",
 		"benchmarks/**/*.ts",
 		"examples/**/*.ts",

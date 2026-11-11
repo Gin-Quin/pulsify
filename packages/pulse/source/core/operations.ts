@@ -61,7 +61,7 @@ export class CorePatch {
 	protected createOperations(): CoreOperation[] {
 		return [];
 	}
-	getId() {
+	getId(): { sid: number; time: number } {
 		return { sid: this.sid, time: this.clock };
 	}
 	span(): number {

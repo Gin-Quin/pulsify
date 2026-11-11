@@ -2,8 +2,6 @@
 import type { NodeBuilder } from "json-joy";
 import { s } from "json-joy/lib/json-crdt/index.js";
 import { assertProperty } from "../packages/pulse/source/pulses/PulseObject.js";
-import { isStruct } from "../packages/pulse/source/utilities/Struct.js";
-import { isTuple } from "../packages/pulse/source/utilities/Tuple.js";
 
 export function toNodeBuilder(
 	value: unknown,
@@ -30,10 +28,6 @@ export function toNodeBuilder(
 				throw new TypeError("Pulse values cannot contain cycles");
 			ancestors.add(value);
 			try {
-				if (isStruct(value) || isTuple(value)) {
-					const clone = JSONSafeClone(value);
-					return s.con(clone);
-				}
 				if (Array.isArray(value)) {
 					const items: NodeBuilder[] = [];
 					for (let i = 0; i < value.length; i++) {
@@ -60,42 +54,5 @@ export function toNodeBuilder(
 		}
 		default:
 			throw new TypeError(`Unsupported pulse value: ${typeof value}`);
-	}
-}
-// Copy constants through their enumerable values, excluding local marker symbols.
-function JSONSafeClone(
-	value: unknown,
-	ancestors = new Set<object>(),
-	depth = 0,
-): any {
-	if (depth > 32)
-		throw new TypeError("Pulse values may nest at most 32 levels");
-	if (!value || typeof value !== "object") {
-		toNodeBuilder(value);
-		return value;
-	}
-	if (ancestors.has(value))
-		throw new TypeError("Pulse values cannot contain cycles");
-	ancestors.add(value);
-	try {
-		if (Array.isArray(value)) {
-			for (let i = 0; i < value.length; i++)
-				if (!(i in value))
-					throw new TypeError("Pulse arrays cannot contain holes");
-			return value.map((item) => JSONSafeClone(item, ancestors, depth + 1));
-		}
-		if (
-			Object.getPrototypeOf(value) !== Object.prototype &&
-			Object.getPrototypeOf(value) !== null
-		)
-			throw new TypeError("Pulse values must be plain objects");
-		return Object.fromEntries(
-			Object.entries(value).map(([key, item]) => {
-				assertProperty(key);
-				return [key, JSONSafeClone(item, ancestors, depth + 1)];
-			}),
-		);
-	} finally {
-		ancestors.delete(value);
 	}
 }

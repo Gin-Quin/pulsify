@@ -1,9 +1,8 @@
-import { isStruct } from "../utilities/Struct.js";
-import { isTuple } from "../utilities/Tuple.js";
 import { TreeSymbol } from "./treeSchema.js";
 
 export const RichTextSymbol: unique symbol = Symbol("RichText");
 export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
+export const SubPulseSymbol: unique symbol = Symbol("SubPulse");
 export type PreparedValue = {
 	value: unknown;
 	constants: string[][];
@@ -35,7 +34,6 @@ export function prepareValue(input: unknown): PreparedValue {
 			constants: emptyPaths,
 			texts: emptyPaths,
 		};
-	const constants: string[][] = [];
 	const texts: string[][] = [];
 	const ancestors = new Set<object>();
 	function clone(value: unknown, path: string[], depth: number): unknown {
@@ -66,8 +64,11 @@ export function prepareValue(input: unknown): PreparedValue {
 		try {
 			if (value instanceof Uint8Array) return new Uint8Array(value);
 			if ((value as { [TreeSymbol]?: boolean })[TreeSymbol])
-				return clone((value as { snapshot(): unknown }).snapshot(), path, depth);
-			if (isStruct(value) || isTuple(value)) constants.push(path);
+				return clone(
+					(value as { snapshot(): unknown }).snapshot(),
+					path,
+					depth,
+				);
 			if ((value as { [RichTextSymbol]?: boolean })[RichTextSymbol]) {
 				texts.push(path);
 				return clone((value as { text: string }).text, path, depth + 1);
@@ -100,7 +101,7 @@ export function prepareValue(input: unknown): PreparedValue {
 			ancestors.delete(value);
 		}
 	}
-	return { value: clone(input, [], 0), constants, texts };
+	return { value: clone(input, [], 0), constants: [], texts };
 }
 const constantsWithBytes = new WeakSet<object>();
 export function freezeConstant(value: unknown): unknown {

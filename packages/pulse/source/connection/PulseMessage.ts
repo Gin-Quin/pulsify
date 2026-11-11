@@ -6,7 +6,17 @@ import {
 	encodeStateMessage,
 } from "../protocol/stateDeltas.js";
 import { decodeRunMessage, encodeOwnedRun } from "../protocol/scalarRuns.js";
-import { type InferType, array, object, tuple, union } from "@gin-quin/codec";
+import {
+	type ArraySchema,
+	type InferType,
+	type ObjectSchema,
+	type TupleSchema,
+	type UnionSchema,
+	array,
+	object,
+	tuple,
+	union,
+} from "@gin-quin/codec";
 import { wireCodec } from "../protocol/wireCodec.js";
 import { PulseError } from "../protocol/errors.js";
 import { MAX_MESSAGE_ROWS, MAX_PATCH_BYTES } from "../protocol/limits.js";
@@ -27,8 +37,45 @@ export const PulseMessageKind = {
 } as const;
 export type PulseMessageKinds = typeof PulseMessageKind;
 export type PulseMessageKind = PulseMessageKinds[keyof PulseMessageKinds];
-export const PulseVersionVectorSchema = array(tuple("uint", "uint"));
-export const PulsePatchRowSchema = object({
+type VersionVectorSchema = ArraySchema<TupleSchema<["uint", "uint"]>>;
+type PatchRowSchema = ObjectSchema<{
+	docId: "string";
+	sid: "uint";
+	clock: "uint";
+	span: "uint";
+	dependencies: VersionVectorSchema;
+	operations: "uint8Array";
+}>;
+type RowsSchema = ArraySchema<PatchRowSchema>;
+type MessageVariants = {
+	1: { docId: "string"; requestId: "uint"; vv: VersionVectorSchema };
+	2: {
+		docId: "string";
+		requestId: "uint";
+		found: "boolean";
+		complete: "boolean";
+		vv: VersionVectorSchema;
+		rows: RowsSchema;
+	};
+	3: {
+		docId: "string";
+		requestId: "uint";
+		vv: VersionVectorSchema;
+		rows: RowsSchema;
+	};
+	4: {
+		docId: "string";
+		requestId: "uint";
+		vv: VersionVectorSchema;
+		rows: RowsSchema;
+	};
+	5: { docId: "string"; requestId: "uint"; vv: VersionVectorSchema };
+	6: { docId: "string"; requestId: "uint"; code: "string"; message: "string" };
+};
+export const PulseVersionVectorSchema: VersionVectorSchema = array(
+	tuple("uint", "uint"),
+);
+export const PulsePatchRowSchema: PatchRowSchema = object({
 	docId: "string",
 	sid: "uint",
 	clock: "uint",
@@ -37,32 +84,33 @@ export const PulsePatchRowSchema = object({
 	operations: "uint8Array",
 });
 const common = { docId: "string", requestId: "uint" } as const;
-export const PulseMessageSchema = union({
-	tagName: "kind",
-	tagType: "uint",
-	variants: {
-		1: { ...common, vv: PulseVersionVectorSchema },
-		2: {
-			...common,
-			found: "boolean",
-			complete: "boolean",
-			vv: PulseVersionVectorSchema,
-			rows: array(PulsePatchRowSchema),
+export const PulseMessageSchema: UnionSchema<"uint", MessageVariants, "kind"> =
+	union({
+		tagName: "kind",
+		tagType: "uint",
+		variants: {
+			1: { ...common, vv: PulseVersionVectorSchema },
+			2: {
+				...common,
+				found: "boolean",
+				complete: "boolean",
+				vv: PulseVersionVectorSchema,
+				rows: array(PulsePatchRowSchema),
+			},
+			3: {
+				...common,
+				vv: PulseVersionVectorSchema,
+				rows: array(PulsePatchRowSchema),
+			},
+			4: {
+				...common,
+				vv: PulseVersionVectorSchema,
+				rows: array(PulsePatchRowSchema),
+			},
+			5: { ...common, vv: PulseVersionVectorSchema },
+			6: { ...common, code: "string", message: "string" },
 		},
-		3: {
-			...common,
-			vv: PulseVersionVectorSchema,
-			rows: array(PulsePatchRowSchema),
-		},
-		4: {
-			...common,
-			vv: PulseVersionVectorSchema,
-			rows: array(PulsePatchRowSchema),
-		},
-		5: { ...common, vv: PulseVersionVectorSchema },
-		6: { ...common, code: "string", message: "string" },
-	},
-});
+	});
 export type PulseMessage = InferType<typeof PulseMessageSchema>;
 export type PulseConnectMessage = Extract<PulseMessage, { kind: 1 }>;
 export type PulseSyncMessage = Extract<PulseMessage, { kind: 2 }>;

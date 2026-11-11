@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Lets the webview open, use and close sessions on local Pulsify documents."
+permissions = ["allow-open", "allow-send", "allow-close"]

@@ -1,0 +1,37 @@
+{
+	"name": "@pulsify/electron",
+	"version": "6.0.0",
+	"description": "Local persistence for Pulsify documents in Electron, with better-sqlite3 in the main process.",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./main": {
+			"types": "./dist/main.d.ts",
+			"default": "./dist/main.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"license": "Apache-2.0",
+	"peerDependencies": {
+		"@pulsify/core": "^6.0.0",
+		"better-sqlite3": ">=11"
+	},
+	"peerDependenciesMeta": {
+		"better-sqlite3": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@types/better-sqlite3": "^9.6.0",
+		"better-sqlite3": "^13.0.3"
+	},
+	"sideEffects": false
+}

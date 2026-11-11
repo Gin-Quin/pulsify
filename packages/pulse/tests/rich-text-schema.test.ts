@@ -23,8 +23,6 @@ import {
 	schemaFingerprint,
 	snapshotPulse,
 	type RichTextSchema,
-	struct,
-	type Struct,
 	type RichText,
 	type PulseProperties,
 } from "../source/index.js";
@@ -307,10 +305,10 @@ test("compiled inline fields do not invoke their schema helper during ordinary e
 	}
 });
 
-test("legacy migrations preserve omitted rich-text and struct fields with detached callback input", () => {
+test("legacy migrations preserve omitted rich-text and object fields with detached callback input", () => {
 	type V1 = PulseProperties<"PreservedMigrationFields"> & {
 		body: RichText;
-		metadata: Struct<{ key: string }>;
+		metadata: { key: string };
 	};
 	type V2 = V1 & { count: number };
 	const builder = definePulse<V1>("PreservedMigrationFields");
@@ -324,7 +322,7 @@ test("legacy migrations preserve omitted rich-text and struct fields with detach
 		.materialize();
 	const source = createPulse(
 		previous,
-		{ body: richText("Hello"), metadata: struct({ key: "K" }) },
+		{ body: richText("Hello"), metadata: { key: "K" } },
 		options(65536),
 	);
 	source.body.format(0, 5, { bold: true });
@@ -335,7 +333,6 @@ test("legacy migrations preserve omitted rich-text and struct fields with detach
 		expect(target["body"].toDelta()).toEqual(source.body.toDelta());
 		expect(target["metadata"].key).toBe("K");
 		expect(target["count"]).toBe(0);
-		expect(() => Reflect.set(target["metadata"], "key", "other")).toThrow();
 	} finally {
 		destroyPulse(source);
 		destroyPulse(target);

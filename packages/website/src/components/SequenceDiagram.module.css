@@ -1,0 +1,76 @@
+.figure {
+	margin: 0;
+	padding: var(--space-4);
+	overflow-x: auto;
+	background: var(--color-code-bg);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-md);
+}
+
+.svg {
+	display: block;
+	width: 100%;
+	min-width: 36rem;
+	height: auto;
+	font-family: var(--font-sans);
+}
+
+.actor {
+	fill: var(--color-surface-strong);
+	stroke: var(--color-border-strong);
+}
+
+.actorLabel {
+	fill: var(--color-text);
+	font-size: 14px;
+	font-weight: var(--font-weight-medium);
+	text-anchor: middle;
+}
+
+.lifeline {
+	stroke: var(--color-divider);
+	stroke-width: 2;
+	stroke-dasharray: 4 4;
+}
+
+.call,
+.reply {
+	stroke: var(--color-accent);
+	stroke-width: 1.5;
+}
+
+.reply {
+	stroke: var(--color-secondary);
+	stroke-dasharray: 5 4;
+}
+
+.head {
+	fill: context-stroke;
+}
+
+.label {
+	fill: var(--color-text-muted);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	text-anchor: middle;
+}
+
+.note {
+	fill: var(--color-surface);
+	stroke: var(--color-accent-2);
+	stroke-opacity: 0.5;
+}
+
+.noteLabel {
+	fill: var(--color-accent-2);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	text-anchor: middle;
+}
+
+.caption {
+	margin-top: var(--space-3);
+	color: var(--color-text-muted);
+	font-size: var(--font-size-xs);
+	text-align: center;
+}

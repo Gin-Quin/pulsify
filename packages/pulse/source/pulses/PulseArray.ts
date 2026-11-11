@@ -69,7 +69,14 @@ export function createArrayProxy(
 	};
 	const item = (i: number) => {
 		const entry = node.visible[i];
-		return entry ? pulsify(entry.value, entry.child, context) : undefined;
+		if (!entry) return undefined;
+		const layout = node.layout;
+		return pulsify(
+			entry.value,
+			entry.child,
+			context,
+			layout?.kind === "tuple" ? layout.elements?.[i] : layout?.element,
+		);
 	};
 	let proxy: PulseArray<unknown>;
 	const snapshot = () => Array.from({ length: length() }, (_, i) => item(i));

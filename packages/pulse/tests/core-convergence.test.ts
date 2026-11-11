@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { array, literal, object } from "@gin-quin/codec";
+import { array, literal, object, tuple } from "@gin-quin/codec";
+import { frozen } from "../source/index";
 import {
 	createPulse,
 	createPulseScope,
@@ -7,10 +8,7 @@ import {
 	destroyPulse,
 	getPulseMeta,
 	snapshotPulse,
-	struct,
-	tuple,
 	type Pulse,
-	type PulseProperties,
 } from "../source/index";
 import { createRuntime } from "../source/pulses/PulseRuntime";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions";
@@ -320,15 +318,17 @@ test("core: schema constants reject replacement and deep mutation on all replica
 });
 
 test("core: deep constant values survive binary transfer and rejected edits are atomic", () => {
-	type Constants = PulseProperties<"CoreConstants"> & {
-		fixed: ReturnType<typeof struct<{ nested: { values: number[] } }>>;
-		pair: ReturnType<typeof tuple<[number, { label: string }]>>;
-	};
-	const Definition = definePulse<Constants>("CoreConstants").materialize();
-	const fixed = struct({ nested: { values: [1, 2, 3] } });
-	const pair = tuple<[number, { label: string }]>([1, { label: "fixed" }]);
+	const Definition = definePulse(
+		"CoreConstants",
+		object({
+			fixed: frozen(object({ nested: object({ values: array("uint") }) })),
+			pair: frozen(tuple("uint", object({ label: "string" }))),
+		}),
+	).materialize();
+	const fixed = { nested: { values: [1, 2, 3] } };
+	const pair: [number, { label: string }] = [1, { label: "fixed" }];
 	const a = createPulse(Definition, { fixed, pair }, config(65536));
-	const b = createRuntime(Definition, a.id, config(65537)) as Pulse<Constants>;
+	const b = createRuntime(Definition, a.id, config(65537)) as typeof a;
 	try {
 		getPulseMeta(b).applyRows(wire(getPulseMeta(a).log.missing([])));
 		const initial = snapshotPulse(a);

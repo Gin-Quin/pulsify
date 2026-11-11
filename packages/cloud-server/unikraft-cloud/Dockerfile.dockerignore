@@ -1,0 +1,9 @@
+# The build only needs the protocol crate, the server and the entrypoint.
+*
+!crates/pulsify-protocol/Cargo.toml
+!crates/pulsify-protocol/src
+!packages/cloud-server/unikraft-cloud/server/Cargo.toml
+!packages/cloud-server/unikraft-cloud/server/Cargo.lock
+!packages/cloud-server/unikraft-cloud/server/src
+!packages/cloud-server/unikraft-cloud/server/sql
+!packages/cloud-server/unikraft-cloud/rootfs

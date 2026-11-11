@@ -1,6 +1,6 @@
 {
 	"name": "@pulsify/core",
-	"version": "3.0.0",
+	"version": "6.0.0",
 	"description": "Typed, transport-independent collaborative documents with a portable binary protocol.",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -23,18 +23,20 @@
 			"default": "./dist/bindings.js"
 		}
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"test": "bun test"
 	},
 	"keywords": [],
 	"author": "",
-	"license": "ISC",
+	"license": "Apache-2.0",
 	"dependencies": {
-		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@2.1.0"
+		"@gin-quin/codec": "npm:@jsr/gin-quin__codec@^2.1.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.2",
 		"@types/bun": "^1.2.10"
 	}
 }

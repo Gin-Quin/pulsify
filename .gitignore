@@ -4,3 +4,7 @@ dist/
 target/
 test-results/
 benchmarks/results/
+.output/
+.nitro/
+.vinxi/
+packages/cloud-server/unikraft-cloud/.build/

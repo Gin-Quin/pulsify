@@ -13,8 +13,7 @@ npm install @pulsify/core pulsify-prosemirror prosemirror-model prosemirror-stat
 This example also uses `prosemirror-schema-basic` and `prosemirror-history`:
 
 ```ts
-import { object } from "@gin-quin/codec";
-import { createPulse, definePulse, richText } from "@pulsify/core";
+import { createPulse, definePulse, object, richText } from "@pulsify/core";
 import { bindProseMirror, proseMirrorDocument } from "pulsify-prosemirror";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";

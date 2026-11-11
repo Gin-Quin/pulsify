@@ -25,6 +25,6 @@ The CLI accepts one hex frame per stdin line. `roundtrip` decodes and re-encodes
 
 The crate stores operation payloads as opaque bytes. It validates the envelope and causal metadata, buffers gaps and handles exact retransmissions. Applying CRDT operations, verifying their inner spans, authorizing document access, storing data durably and broadcasting across multiple peers belong to the embedding application. The TypeScript interoperability test verifies a real create/load/offline-edit cycle against the Rust relay.
 
-See [the protocol specification](../../docs/PROTOCOL.md) and [shared fixtures](../../fixtures/protocol.json).
+The protocol specification (`docs/PROTOCOL.md`) and the shared fixtures (`fixtures/protocol.json`) live in the Pulsify repository.
 
 Envelope-2 runs expand into exact v1 rows without decoding application values. The CLI and reference relay emit v1, preserving existing consumers; a host advertising v2 must ensure its transport capability contract matches this decoder.

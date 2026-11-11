@@ -1,0 +1,112 @@
+/*
+ * Design system. Every configurable part of the design lives here as a CSS
+ * variable; component stylesheets only reference these tokens.
+ */
+:root {
+	/* Color: surfaces */
+	--color-bg: #030d14;
+	--color-bg-raised: #06161f;
+	--color-surface: rgb(8 30 40 / 0.62);
+	--color-surface-strong: rgb(4 18 26 / 0.9);
+	--color-border: rgb(61 245 224 / 0.22);
+	--color-border-strong: rgb(61 245 224 / 0.5);
+	--color-divider: rgb(255 255 255 / 0.07);
+
+	/* Color: content */
+	--color-text: #e8f6f8;
+	--color-text-muted: #8fb2ba;
+	--color-text-on-accent: #032028;
+
+	/* Color: brand */
+	--color-accent: #3df5e0;
+	--color-accent-hover: #7dfaec;
+	--color-accent-2: #7cf5a8;
+	--color-secondary: #e879f9;
+	--color-glow: rgb(61 245 224 / 0.35);
+
+	/* Color: code */
+	--color-code-bg: rgb(2 12 18 / 0.85);
+	--color-code-keyword: #e879f9;
+	--color-code-string: #f5e27a;
+	--color-code-fn: #3df5e0;
+	--color-code-comment: #5f8791;
+
+	/* Gradients */
+	--gradient-accent: linear-gradient(
+		90deg,
+		var(--color-accent),
+		var(--color-accent-2)
+	);
+
+	/* Typography */
+	--font-sans:
+		"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono:
+		ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+	--font-size-xs: 0.8125rem;
+	--font-size-sm: 0.9375rem;
+	--font-size-md: 1.0625rem;
+	--font-size-lg: 1.375rem;
+	--font-size-xl: clamp(1.75rem, 3vw, 2.5rem);
+	--font-size-2xl: clamp(2.5rem, 5.5vw, 4rem);
+	--font-size-stat: clamp(2rem, 3.4vw, 2.75rem);
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-bold: 700;
+	--line-height-tight: 1.1;
+	--line-height-base: 1.6;
+
+	/* Spacing */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-7: 3rem;
+	--space-8: 5rem;
+	--space-9: 7.5rem;
+
+	/* Shape */
+	--radius-sm: 0.5rem;
+	--radius-md: 0.75rem;
+	--radius-lg: 1.25rem;
+	--radius-pill: 999px;
+	--border-width: 1px;
+
+	/* Effects */
+	--shadow-glow: 0 0 32px var(--color-glow);
+	--shadow-card: 0 12px 40px rgb(0 0 0 / 0.4);
+	--blur-glass: blur(14px);
+
+	/* Motion */
+	--duration-fast: 150ms;
+	--duration-slow: 600ms;
+	--easing: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+	/* Layout */
+	--container-width: 72rem;
+	--container-narrow: 50rem;
+	--header-height: 4.5rem;
+	--docs-sidebar-width: 14rem;
+	--hero-planet-width: min(48vw, 38rem);
+}
+
+@media (max-width: 860px) {
+	:root {
+		--hero-planet-width: 100vw;
+		--space-8: 3.5rem;
+		--space-9: 5rem;
+	}
+}
+
+/* Added for the comparison charts and marketing sections. */
+:root {
+	--color-series-pulsify: var(--color-accent);
+	--color-series-yjs: #e879f9;
+	--color-series-loro: #f5e27a;
+	--color-ok: #7cf5a8;
+	--color-no: #ff7a7a;
+	--font-size-eyebrow: 0.75rem;
+	--section-gap: var(--space-9);
+}

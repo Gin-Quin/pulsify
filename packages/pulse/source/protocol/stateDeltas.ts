@@ -65,11 +65,12 @@ export interface StateDelta {
 	readonly bytes: number;
 }
 const states = new WeakMap<PulsePatchRow[], StateDelta>();
-const requests = new WeakMap<PulseMessage, boolean>();
-export const stateDeltaOf = (rows: PulsePatchRow[]) => states.get(rows);
+const requests: WeakMap<PulseMessage, boolean> = new WeakMap();
+export const stateDeltaOf = (rows: PulsePatchRow[]): StateDelta | undefined =>
+	states.get(rows);
 export const isStateMessage = (message: PulseMessage): boolean =>
 	"rows" in message && states.has(message.rows);
-export const historyRequestOf = (message: PulseMessage) =>
+export const historyRequestOf = (message: PulseMessage): boolean | undefined =>
 	requests.get(message);
 const safe = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min;
 export function validateDelta(delta: StateDelta): void {

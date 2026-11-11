@@ -1,0 +1,23 @@
+{
+	"name": "@pulsify/react",
+	"version": "6.0.0",
+	"description": "Fine-grained React rendering for Pulsify documents.",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"license": "Apache-2.0",
+	"peerDependencies": {
+		"@pulsify/core": "^6.0.0",
+		"react": "^18.0.0 || ^19.0.0"
+	}
+}

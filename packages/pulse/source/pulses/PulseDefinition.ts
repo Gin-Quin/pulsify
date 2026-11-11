@@ -88,14 +88,12 @@ type ApplicationProperties<Value, Kind extends string> = Value extends unknown
 				: never
 			: Omit<Value, keyof PulseProperties<string>>
 	: never;
-type SchemaForKind<
-	S extends Schema,
-	Kind extends string,
-> = InferType<S> extends object
-	? [ApplicationProperties<InferType<S>, Kind>] extends [never]
-		? never
-		: unknown
-	: never;
+type SchemaForKind<S extends Schema, Kind extends string> =
+	InferType<S> extends object
+		? [ApplicationProperties<InferType<S>, Kind>] extends [never]
+			? never
+			: unknown
+		: never;
 export type SchemaPulseProperties<
 	Kind extends string,
 	S extends Schema,

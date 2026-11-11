@@ -1,3 +1,4 @@
+import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import { stateDeltaOf } from "../protocol/stateDeltas.js";
 import { scalarRunOf, readRunValues } from "../protocol/scalarRuns.js";
 import { Connection } from "../connection/Connection.js";
@@ -401,6 +402,7 @@ export function createRuntime(
 			migrating = false;
 		}
 	};
+	let status: SynchronizationStatus = "idle";
 	const meta: PulseMeta = {
 		id,
 		definition,
@@ -408,7 +410,22 @@ export function createRuntime(
 		log,
 		options,
 		pulse: undefined as unknown as Pulse<any>,
-		status: "idle",
+		// Every assignment goes through here, so status listeners see each change once.
+		get status() {
+			return status;
+		},
+		set status(next) {
+			if (next === status) return;
+			status = next;
+			for (const listener of [...meta.statusListeners]) {
+				try {
+					listener(next);
+				} catch (error) {
+					meta.report(asPulseError(error));
+				}
+			}
+		},
+		statusListeners: new Set(),
 		destroyed: false,
 		loaded: false,
 		lastError: undefined,

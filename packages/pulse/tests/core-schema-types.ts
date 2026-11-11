@@ -18,11 +18,6 @@ import { snapshotPulse, type PulseSnapshot } from "../source/pulses/Pulse.js";
 import { Buffer } from "node:buffer";
 import type { PulseProperties } from "../source/pulses/PulseProperties.js";
 import type { RichText } from "../source/core/richText.js";
-import { struct, type Struct } from "../source/utilities/Struct.js";
-import {
-	tuple as constantTuple,
-	type Tuple,
-} from "../source/utilities/Tuple.js";
 
 /** These assertions are checked by tsc and are intentionally not executed. */
 export function schemaTypeAssertions(): void {
@@ -481,14 +476,14 @@ export function inlineRichTextTypeAssertions(): void {
 
 /** Detached callback inputs must not turn unchanged public fields into changes. */
 export function unchangedMigrationFieldTypeAssertions(): void {
-	const empty: PulseSnapshot<Tuple<[]>> = [];
+	const empty: PulseSnapshot<readonly []> = [];
 	const exactEmpty: [] = empty;
-	const nested: PulseSnapshot<Tuple<[string, { body: RichText }]>> = [
+	const nested: PulseSnapshot<readonly [string, { body: RichText }]> = [
 		"A",
 		{ body: "B" },
 	];
 	const exactNested: [string, { body: string }] = nested;
-	const optional: PulseSnapshot<Tuple<[string, number?]>> = ["A"];
+	const optional: PulseSnapshot<readonly [string, number?]> = ["A"];
 	const exactOptional: [string, number?] = optional;
 	void exactEmpty;
 	void exactNested;
@@ -497,8 +492,8 @@ export function unchangedMigrationFieldTypeAssertions(): void {
 	nested[1].body = 42;
 	type V1 = PulseProperties<"UnchangedMigrationFields"> & {
 		body: RichText;
-		metadata: Struct<{ key: string }>;
-		pair: Tuple<[string, number]>;
+		metadata: { readonly key: string };
+		pair: readonly [string, number];
 	};
 	type V2 = V1 & { count: number };
 	const builder = definePulse<V1>("UnchangedMigrationFields");
@@ -517,8 +512,8 @@ export function unchangedMigrationFieldTypeAssertions(): void {
 		.materialize();
 	const pulse = createPulse(definition, {
 		body: richText("Hello"),
-		metadata: struct({ key: "K" }),
-		pair: constantTuple(["A", 1]),
+		metadata: { key: "K" },
+		pair: ["A", 1],
 		count: 0,
 	});
 	pulse.body.insert(0, "A");

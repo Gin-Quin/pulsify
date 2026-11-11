@@ -44,6 +44,7 @@ export function bind<Data extends object, Model extends object>(
 	}
 	return new Proxy(data, {
 		get(target, prop, receiver) {
+			if (prop === "then") return undefined;
 			if (Object.hasOwn(bindings, prop)) {
 				const binding = bindings[prop as keyof typeof bindings];
 				if (binding) {

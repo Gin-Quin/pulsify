@@ -25,6 +25,7 @@ bun run test:prosemirror      # ProseMirror: formatting, two tabs, offline merge
 bun run test:lexical          # Lexical: vanilla editor, two tabs, offline merge and undo
 bun run test:runtimes         # Built package: Bun, Node 22+, Deno 2, Chromium
 bun run test:workers          # Cloudflare workerd: automatic batching, array/tree moves, offline merge
+bun run test:cloudflare       # Cloudflare workerd: Durable Object relay, SQLite store, reader/editor roles
 bun run test:codec-local      # Isolated build against ../codec, without changing either repository
 bun scripts/test-storage.ts  # Actual PostgreSQL and SQLite integration checks
 bun run bench                 # Reproducible performance report
@@ -43,6 +44,10 @@ bindings use `richText()` and ship independently of the core.
 
 - [ProseMirror binding](packages/pulsify-prosemirror/README.md)
 - [Lexical binding](packages/pulsify-lexical/README.md)
+- [Pulsify Cloud client](packages/cloud/README.md) and [server: Cloudflare and Unikraft Cloud backends with built-in access control](packages/cloud-server/README.md)
+- [Cloud session protocol and management API](docs/CLOUD.md)
+- [React hook with fine-grained rendering](packages/pulsify-react/README.md)
+- Local persistence: [IndexedDB](packages/connectors/IndexedDB/README.md), [Electron (better-sqlite3)](packages/connectors/Electron/README.md), [Tauri (rusqlite)](packages/connectors/Tauri/README.md)
 - [API and examples](packages/pulse/README.md)
 - [Binary format and connector contract](docs/PROTOCOL.md)
 - [Benchmarks, methodology and measured baseline](benchmarks/README.md)
@@ -66,7 +71,7 @@ The same codec schema describes stored values and typed public fields. Numeric
 field slots and specialized codecs avoid repeating schema information in each
 mutation. Definitions retain previous layouts for versioned migrations.
 Constant fields are initialized once and reject later replacement or nested
-edits. Local history is encoded lazily when requested for export.
+edits; frozen fields are replaced only as a whole. Local history is encoded lazily when requested for export.
 
 Exact envelope versions 1/2 and the optional negotiated scalar-state envelope 3
 use operations version 3 throughout. Earlier operation versions are unsupported.
@@ -84,5 +89,16 @@ available separately through `@pulsify/core/storage`; applications connect them
 to their relay and acknowledge writes after committing storage. Arbitrary
 snapshots, durable journal pruning, restored generations and framework adapters
 are not negotiated by this protocol. The host application supplies authentication and
-authorization. The benchmark reports describe measured workloads and retained
+authorization; relays accept read-only sessions that answer uploads with
+`FORBIDDEN`. `@pulsify/cloud-server` is the managed deployment: one isolated actor
+per root pulse (a Durable Object on Cloudflare, an actor beside PostgreSQL on
+Unikraft Cloud), one multiplexed socket per user and root, and per-root grant
+tables applied live to open sockets. The benchmark reports describe measured workloads and retained
 history differences; they do not claim a universal performance ranking.
+
+## License
+
+[Apache-2.0](LICENSE), except `packages/cloud-server` (the Pulsify Cloud
+server), under the [Functional Source License](packages/cloud-server/LICENSE.md)
+(`FSL-1.1-ALv2`): any use except a competing service, and Apache-2.0 two years
+after each release.

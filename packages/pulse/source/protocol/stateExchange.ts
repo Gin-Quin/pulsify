@@ -172,7 +172,7 @@ export function encodeStateUpdates(
 		}
 		return !list[lo] || list[lo]!.clock > row.clock;
 	});
-	for (let i = 0; i < rows.length; ) {
+	for (let i = 0; i < rows.length;) {
 		const first = rows[i]!,
 			column = columnOf(first, meta);
 		let count = 1;

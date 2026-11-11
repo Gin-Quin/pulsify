@@ -7,12 +7,23 @@ export function createPulseScope(): PulseScope {
 	return { pulses: new Map() };
 }
 export const defaultPulseScope = createPulseScope();
+/** Backoff between attempts of a failing connector: `initialDelayMs × factor^n`, capped. */
+export type ReconnectOptions = {
+	initialDelayMs: number;
+	maxDelayMs: number;
+	factor: number;
+	/** Fraction of each delay removed at random, so clients do not retry in lockstep. */
+	jitter: number;
+};
 export type PulseOptions = {
 	createId: () => string;
 	connect: boolean;
 	connectors: Connector[];
 	scope: PulseScope;
+	/** Initial synchronization deadline, transport opening and request timeouts. */
 	timeoutMs: number;
+	/** Retry failing connectors until `disconnectPulse`; `false` gives up after the first failure. */
+	reconnect: ReconnectOptions | false;
 	sessionId?: number;
 	onError: (error: Error) => void;
 };
@@ -22,6 +33,12 @@ export const defaultPulseOptions: PulseOptions = {
 	connectors: [],
 	scope: defaultPulseScope,
 	timeoutMs: 10_000,
+	reconnect: {
+		initialDelayMs: 250,
+		maxDelayMs: 30_000,
+		factor: 2,
+		jitter: 0.25,
+	},
 	onError: () => {},
 };
 export function setDefaultPulseOptions(options: Partial<PulseOptions>): void {

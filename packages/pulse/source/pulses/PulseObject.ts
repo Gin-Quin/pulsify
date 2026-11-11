@@ -25,16 +25,26 @@ class ObjectHandler implements ProxyHandler<object> {
 	private data(): Record<string, unknown> {
 		return this.attached()?.data ?? empty;
 	}
+	private layoutOf(node: CoreNode, key: string) {
+		const layout = node.layout;
+		return layout?.kind === "map"
+			? layout.element
+			: layout?.fieldsByKey.get(key)?.layout;
+	}
 	get(_target: object, key: PropertyKey): unknown {
 		if (key === PulseMetaSymbol && this.root) return this.context.meta;
 		if (key === Symbol.toStringTag) return "PulseObject";
+		// Pulses resolve promises; never be a thenable, even once destroyed.
+		if (key === "then" && this.root) return undefined;
 		const node = this.attached();
 		if (typeof key !== "string" || !node || !Object.hasOwn(node.data, key))
 			return Reflect.get(Object.prototype, key);
 		const value: unknown = node.data[key];
 		const child = node.child(key);
 		return !child && (value === null || typeof value !== "object")
-			? value
+			? typeof value === "string"
+				? pulsify(value, undefined, this.context, this.layoutOf(node, key))
+				: value
 			: pulsify(value, child, this.context);
 	}
 	set(_target: object, key: PropertyKey, value: unknown): boolean {
@@ -66,6 +76,7 @@ class ObjectHandler implements ProxyHandler<object> {
 		key: PropertyKey,
 	): PropertyDescriptor | undefined {
 		if (typeof key === "symbol") return undefined;
+		if (key === "then" && this.root) return undefined;
 		const node = this.attached();
 		return node && Object.hasOwn(node.data, key)
 			? {
@@ -76,6 +87,7 @@ class ObjectHandler implements ProxyHandler<object> {
 						node.data[String(key)],
 						node.child(String(key)),
 						this.context,
+						this.layoutOf(node, String(key)),
 					),
 				}
 			: undefined;

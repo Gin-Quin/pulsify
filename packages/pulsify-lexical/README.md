@@ -12,8 +12,7 @@ For the browser example below, also install `@lexical/rich-text`. Keep all your
 Lexical packages on the same version (this binding supports Lexical 0.53.x).
 
 ```ts
-import { object } from "@gin-quin/codec";
-import { createPulse, definePulse, richText } from "@pulsify/core";
+import { createPulse, definePulse, object, richText } from "@pulsify/core";
 import { bindLexical, lexicalDocument } from "pulsify-lexical";
 import { createEditor } from "lexical";
 import { registerRichText } from "@lexical/rich-text";

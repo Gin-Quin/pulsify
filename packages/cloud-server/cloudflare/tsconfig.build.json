@@ -1,0 +1,10 @@
+{
+	"extends": "../../pulse/tsconfig.build.json",
+	"compilerOptions": {
+		"rootDir": "./source",
+		"outDir": "../dist/cloudflare",
+		"paths": {}
+	},
+	"include": ["source/**/*.ts"],
+	"exclude": ["tests", "node_modules"]
+}

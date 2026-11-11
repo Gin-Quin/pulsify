@@ -1,0 +1,201 @@
+.layout {
+	display: grid;
+	grid-template-columns: var(--docs-sidebar-width) minmax(0, 1fr);
+	gap: var(--space-7);
+	max-width: var(--container-width);
+	margin: 0 auto;
+	padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+.sidebar {
+	position: sticky;
+	/* Same offset as the layout padding, so the sidebar never shifts on scroll. */
+	top: calc(var(--header-height) + var(--space-7));
+	align-self: start;
+	/* Fits between the sticky offset and the layout's bottom padding, so the
+	   end of the page never pushes it up. */
+	max-height: calc(100vh - var(--header-height) - var(--space-7) - var(--space-8));
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	font-size: var(--font-size-sm);
+}
+
+.sidebar a {
+	padding: var(--space-2) var(--space-3);
+	border-left: 2px solid transparent;
+	color: var(--color-text-muted);
+}
+
+.section {
+	margin-top: var(--space-3);
+	padding: var(--space-2) var(--space-3) 0;
+	color: var(--color-text);
+	font-weight: var(--font-weight-medium);
+}
+
+.sidebar a:hover {
+	color: var(--color-text);
+}
+
+.sidebar a[aria-current="page"] {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+
+.sections {
+	display: flex;
+	flex-direction: column;
+	margin: 0 0 var(--space-2) var(--space-3);
+	font-size: var(--font-size-xs);
+}
+
+.sidebar .sections a {
+	padding: var(--space-1) var(--space-3);
+	border-left: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.sidebar .sections a[aria-current="location"] {
+	color: var(--color-secondary);
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	min-width: 0;
+}
+
+.content h1 {
+	font-size: var(--font-size-xl);
+}
+
+.content h1 + p {
+	font-size: var(--font-size-lg);
+	line-height: 1.4;
+}
+
+.content h2 {
+	margin-top: var(--space-7);
+	padding-top: var(--space-5);
+	border-top: var(--border-width) solid var(--color-divider);
+	font-size: var(--font-size-lg);
+}
+
+.content h3 {
+	margin-top: var(--space-4);
+	font-size: var(--font-size-md);
+}
+
+.content p,
+.content li {
+	color: var(--color-text-muted);
+}
+
+.content strong {
+	color: var(--color-text);
+}
+
+.content ul,
+.content ol {
+	margin: 0;
+	padding-left: 1.4rem;
+}
+
+.content li + li {
+	margin-top: var(--space-2);
+}
+
+.content li::marker {
+	color: var(--color-accent);
+}
+
+.content code:not(pre code) {
+	padding: 0.1em 0.4em;
+	background: var(--color-code-bg);
+	border-radius: var(--radius-sm);
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	color: var(--color-text);
+}
+
+.content table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-size-sm);
+}
+
+.content th,
+.content td {
+	padding: var(--space-3) var(--space-3);
+	border-bottom: var(--border-width) solid var(--color-divider);
+	text-align: left;
+	vertical-align: top;
+	color: var(--color-text-muted);
+}
+
+.content th {
+	color: var(--color-text);
+	font-weight: var(--font-weight-medium);
+}
+
+.note {
+	padding: var(--space-4) var(--space-5);
+	border-left: 3px solid var(--color-accent);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text-muted);
+	font-size: var(--font-size-sm);
+}
+
+.note[data-kind="warn"] {
+	border-color: var(--color-secondary);
+}
+
+.pager {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-4);
+	margin-top: var(--space-8);
+	padding-top: var(--space-5);
+	border-top: var(--border-width) solid var(--color-divider);
+}
+
+.pager a {
+	display: flex;
+	flex-direction: column;
+	font-weight: var(--font-weight-medium);
+}
+
+.pager small {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-regular);
+}
+
+.next {
+	text-align: right;
+}
+
+@media (max-width: 860px) {
+	.layout {
+		grid-template-columns: 1fr;
+	}
+	.sidebar {
+		position: static;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+	.sections {
+		display: none;
+	}
+	.sidebar a {
+		border-left: 0;
+		border-bottom: 2px solid transparent;
+	}
+}

@@ -1,0 +1,46 @@
+#!/bin/sh
+# One instance, two processes: PostgreSQL listens only on a Unix socket, the
+# Pulsify Cloud server is the only thing exposed. The instance stops when
+# either process exits, so the platform restarts both together.
+set -eu
+
+export PGDATA="${PGDATA:-/data/postgres}"
+socket=/var/run/postgresql
+# No TCP listener: only processes inside this instance can reach PostgreSQL.
+export POSTGRES_HOST_AUTH_METHOD=trust
+
+docker-entrypoint.sh postgres \
+	-c listen_addresses= \
+	-c "unix_socket_directories=$socket" \
+	-c max_connections=40 \
+	-c shared_buffers="${PULSIFY_SHARED_BUFFERS:-64MB}" &
+postgres_pid=$!
+
+# On a fresh volume the image first runs a temporary server for initdb; wait
+# for the final postmaster, which replaces our background process (exec).
+until [ "$(head -n 1 "$PGDATA/postmaster.pid" 2>/dev/null)" = "$postgres_pid" ] &&
+	pg_isready -q -U postgres -h "$socket"; do
+	if ! kill -0 "$postgres_pid" 2>/dev/null; then
+		echo "pulsify-cloud: PostgreSQL failed to start" >&2
+		exit 1
+	fi
+	sleep 0.1
+done
+
+export DATABASE_URL="${DATABASE_URL:-host=$socket user=postgres dbname=postgres}"
+pulsify-cloud-server &
+server_pid=$!
+
+stop() {
+	kill -TERM "$server_pid" 2>/dev/null || true
+	wait "$server_pid" 2>/dev/null || true
+	kill -INT "$postgres_pid" 2>/dev/null || true
+	wait "$postgres_pid" 2>/dev/null || true
+}
+trap 'stop; exit 0' TERM INT
+
+while kill -0 "$server_pid" 2>/dev/null && kill -0 "$postgres_pid" 2>/dev/null; do
+	sleep 1
+done
+stop
+exit 1

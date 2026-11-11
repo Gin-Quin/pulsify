@@ -1,0 +1,17 @@
+.card {
+	min-width: 0;
+	padding: var(--space-6);
+	background: var(--color-surface);
+	backdrop-filter: var(--blur-glass);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-card);
+	transition:
+		border-color var(--duration-fast) var(--easing),
+		box-shadow var(--duration-fast) var(--easing);
+}
+
+.card:hover {
+	border-color: var(--color-border-strong);
+	box-shadow: var(--shadow-card), var(--shadow-glow);
+}

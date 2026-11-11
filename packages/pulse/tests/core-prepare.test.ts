@@ -11,7 +11,6 @@ import {
 import { compilePulseSchema } from "../source/core/schema.js";
 import { prepareValue, validatePrepared } from "../source/core/values.js";
 import { richText } from "../source/core/richText.js";
-import { struct } from "../source/utilities/Struct.js";
 
 describe("single-pass compiled preparation", () => {
 	test("marker lists preserve input DFS order while object values use schema order", () => {
@@ -22,10 +21,10 @@ describe("single-pass compiled preparation", () => {
 			dynamic: "unknown",
 		});
 		const input = {
-			dynamic: { z: richText("Z"), a: struct({ value: 1 }) },
-			second: { text: richText("Second"), fixed: struct({ value: 2 }) },
+			dynamic: { z: richText("Z"), a: { value: 1 } },
+			second: { text: richText("Second"), fixed: { value: 2 } },
 			fallback: { body: richText("Fallback") },
-			first: { fixed: struct({ value: 1 }), text: richText("First") },
+			first: { fixed: { value: 1 }, text: richText("First") },
 		};
 		const compiled = compilePulseSchema(schema);
 		const original = prepareValue(input);
@@ -42,11 +41,7 @@ describe("single-pass compiled preparation", () => {
 		]);
 		expect(next.constants).toEqual(previous.constants);
 		expect(next.texts).toEqual(previous.texts);
-		expect(next.constants).toEqual([
-			["dynamic", "a"],
-			["second", "fixed"],
-			["first", "fixed"],
-		]);
+		expect(next.constants).toEqual([]);
 		expect(next.texts).toEqual([
 			["dynamic", "z"],
 			["second", "text"],
@@ -116,9 +111,6 @@ describe("single-pass compiled preparation", () => {
 	});
 
 	test("fallback root markers are emitted once and binary aliases detach independently", () => {
-		expect(
-			compilePulseSchema("unknown").prepare(struct({ value: 1 })).constants,
-		).toEqual([[]]);
 		expect(
 			compilePulseSchema("unknown").prepare(richText("Text")).texts,
 		).toEqual([[]]);

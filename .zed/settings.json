@@ -1,53 +1,44 @@
 {
-	"lsp": {
-		"biome": {
-			"settings": {
-				"require_config_file": true
-			}
-		}
-	},
 	"languages": {
 		"JavaScript": {
-			"language_servers": ["biome", "typescript-language-server"],
-			"formatter": { "language_server": { "name": "biome" } },
-			"code_actions_on_format": {
-				"source.fixAll.biome": true,
-				"source.organizeImports.biome": true
-			}
-		},
-		"JSX": {
-			"language_servers": ["biome", "typescript-language-server"],
-			"formatter": { "language_server": { "name": "biome" } },
-			"code_actions_on_format": {
-				"source.fixAll.biome": true,
-				"source.organizeImports.biome": true
+			"formatter": {
+				"external": {
+					"command": "bun",
+					"arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
+				}
 			}
 		},
 		"TypeScript": {
-			"language_servers": ["biome", "typescript-language-server"],
-			"formatter": { "language_server": { "name": "biome" } },
-			"code_actions_on_format": {
-				"source.fixAll.biome": true,
-				"source.organizeImports.biome": true
-			},
-			"prettier": { "allowed": false }
+			"formatter": {
+				"external": {
+					"command": "bun",
+					"arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
+				}
+			}
 		},
 		"TSX": {
-			"language_servers": ["biome", "typescript-language-server"],
-			"formatter": { "language_server": { "name": "biome" } },
-			"code_actions_on_format": {
-				"source.fixAll.biome": true,
-				"source.organizeImports.biome": true
-			},
-			"prettier": { "allowed": false }
+			"formatter": {
+				"external": {
+					"command": "bun",
+					"arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
+				}
+			}
+		},
+		"CSS": {
+			"formatter": {
+				"external": {
+					"command": "bun",
+					"arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
+				}
+			}
 		},
 		"JSON": {
-			"language_servers": ["biome", "json-language-server"],
-			"formatter": { "language_server": { "name": "biome" } }
-		},
-		"JSONC": {
-			"language_servers": ["biome", "json-language-server"],
-			"formatter": { "language_server": { "name": "biome" } }
+			"formatter": {
+				"external": {
+					"command": "bun",
+					"arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
+				}
+			}
 		}
 	}
 }

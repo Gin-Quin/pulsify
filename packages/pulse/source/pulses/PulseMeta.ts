@@ -18,6 +18,7 @@ export type PulseMeta = {
 	readonly options: PulseOptions;
 	pulse: Pulse<any>;
 	status: SynchronizationStatus;
+	statusListeners: Set<(status: SynchronizationStatus) => void>;
 	destroyed: boolean;
 	loaded: boolean;
 	lastError: Error | undefined;

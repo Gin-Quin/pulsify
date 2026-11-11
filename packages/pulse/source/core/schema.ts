@@ -29,13 +29,21 @@ import {
 	RichTextSymbol,
 	type PreparedValue,
 } from "./values.js";
-import { StructSymbol } from "../utilities/Struct.js";
-import { TupleSymbol } from "../utilities/Tuple.js";
+import {
+	ConstantSchemaSymbol,
+	FrozenSchemaSymbol,
+	hasSchemaMarker,
+} from "./constantSchema.js";
+import { subDefinitionOf } from "./subSchema.js";
+import { SubPulseSymbol } from "./values.js";
+import { PulseMetaSymbol } from "../pulses/PulseMeta.js";
+import type { AnyPulseDefinition } from "../pulses/PulseDefinition.js";
 
 export type PulseSchemaPath = readonly (string | number)[];
 
 /** Annotations do not alter the codec schema or its binary representation. */
 export interface PulseSchemaOptions {
+	/** @deprecated Wrap the field schema in `constant(...)` instead. */
 	readonly constantPaths?: readonly PulseSchemaPath[];
 	readonly richTextPaths?: readonly PulseSchemaPath[];
 }
@@ -54,8 +62,13 @@ type PrependPath<
 	Key extends string | number,
 	Paths,
 > = Paths extends PulseSchemaPath ? readonly [Key, ...Paths] : never;
-type LiteralPaths<
+type ConstantMarker = { readonly [ConstantSchemaSymbol]: true };
+type FrozenMarker = { readonly [FrozenSchemaSymbol]: true };
+/** Paths of occurrences matching `Match`; optional wrappers pass `Through` only. */
+type MarkerPaths<
 	S extends Schema,
+	Match,
+	Through,
 	Depth extends unknown[] = [],
 > = Depth["length"] extends 12
 	? never
@@ -63,40 +76,53 @@ type LiteralPaths<
 		? never
 		: S extends TreeSchema
 			? never
-			: S extends () => infer Inner
-				? Inner extends Schema
-					? LiteralPaths<Inner, [...Depth, 0]>
-					: never
-				: S extends { _type: "literal" }
-					? readonly []
+			: S extends Match
+				? readonly []
+				: S extends () => infer Inner
+					? Inner extends Schema
+						? MarkerPaths<Inner, Match, Through, [...Depth, 0]>
+						: never
 					: S extends {
 								_type: "object";
 								fields: infer Fields extends Record<string, Schema>;
-							}
+						  }
 						? {
 								[Key in keyof Fields]: PrependPath<
 									Key & string,
-									LiteralPaths<Fields[Key], [...Depth, 0]>
+									MarkerPaths<Fields[Key], Match, Through, [...Depth, 0]>
 								>;
 							}[keyof Fields]
 						: S extends {
 									_type: "optional";
 									schema: infer Inner extends Schema;
-								}
-							? Exclude<LiteralPaths<Inner, [...Depth, 0]>, readonly []>
+							  }
+							? Inner extends Through
+								? readonly []
+								: Exclude<
+										MarkerPaths<Inner, Match, Through, [...Depth, 0]>,
+										readonly []
+									>
 							: S extends {
 										_type: "array" | "map";
 										element: infer Inner extends Schema;
-									}
-								? PrependPath<"*", LiteralPaths<Inner, [...Depth, 0]>>
+								  }
+								? PrependPath<
+										"*",
+										MarkerPaths<Inner, Match, Through, [...Depth, 0]>
+									>
 								: S extends {
 											_type: "tuple";
 											elements: infer Elements extends Schema[];
-										}
+									  }
 									? {
 											[Key in keyof Elements]: PrependPath<
 												Key & string,
-												LiteralPaths<Elements[Key], [...Depth, 0]>
+												MarkerPaths<
+													Elements[Key],
+													Match,
+													Through,
+													[...Depth, 0]
+												>
 											>;
 										}[number]
 									: S extends {
@@ -106,21 +132,36 @@ type LiteralPaths<
 													string,
 													Record<string, Schema>
 												>;
-											}
-										?
-												| readonly [Tag]
-												| {
-														[Key in keyof Variants]: LiteralPaths<
-															{ _type: "object"; fields: Variants[Key] },
-															[...Depth, 0]
-														>;
-												  }[keyof Variants]
+										  }
+										? // A discriminant is a literal, hence constant.
+											| ({ _type: "literal" } extends Match
+													? readonly [Tag]
+													: never)
+											| {
+													[Key in keyof Variants]: MarkerPaths<
+														{ _type: "object"; fields: Variants[Key] },
+														Match,
+														Through,
+														[...Depth, 0]
+													>;
+											  }[keyof Variants]
 										: S extends {
 													_type: "untaggedUnion";
 													variants: infer Variants extends readonly Schema[];
-												}
-											? LiteralPaths<Variants[number], [...Depth, 0]>
+											  }
+											? MarkerPaths<
+													Variants[number],
+													Match,
+													Through,
+													[...Depth, 0]
+												>
 											: never;
+type LiteralPaths<S extends Schema> = MarkerPaths<
+	S,
+	{ _type: "literal" } | ConstantMarker,
+	ConstantMarker
+>;
+type FrozenPaths<S extends Schema> = MarkerPaths<S, FrozenMarker, FrozenMarker>;
 type ChildPaths<Paths, Key> = Paths extends readonly [infer Head, ...infer Tail]
 	? Head extends "*"
 		? Tail
@@ -158,20 +199,21 @@ type ApplyConstantPaths<Value, Paths> = [Paths] extends [never]
 						}
 					: Value extends object
 						? {
-								[Key in keyof Value as IsConstant<
-									ChildPaths<Paths, Key>
-								> extends true
-									? never
-									: Key]: ApplyConstantPaths<
-									Value[Key],
-									ChildPaths<Paths, Key>
-								>;
+								[
+									Key in keyof Value as IsConstant<
+										ChildPaths<Paths, Key>
+									> extends true
+										? never
+										: Key
+								]: ApplyConstantPaths<Value[Key], ChildPaths<Paths, Key>>;
 							} & {
-								readonly [Key in keyof Value as IsConstant<
-									ChildPaths<Paths, Key>
-								> extends true
-									? Key
-									: never]: DeepReadonly<Value[Key]>;
+								readonly [
+									Key in keyof Value as IsConstant<
+										ChildPaths<Paths, Key>
+									> extends true
+										? Key
+										: never
+								]: DeepReadonly<Value[Key]>;
 							}
 						: Value;
 type ApplyRichTextPaths<Value, Paths> = [Paths] extends [never]
@@ -195,6 +237,23 @@ type ApplyRichTextPaths<Value, Paths> = [Paths] extends [never]
 						}
 					: Value;
 
+type ApplyFrozenPaths<Value, Paths> = [Paths] extends [never]
+	? Value
+	: IsConstant<Paths> extends true
+		? DeepReadonly<Value>
+		: Value extends Tree<infer Item>
+			? Tree<ApplyFrozenPaths<Item, ChildPaths<ChildPaths<Paths, "*">, "data">>>
+			: Value extends Date | Uint8Array | Set<unknown>
+				? Value
+				: Value extends object
+					? {
+							[Key in keyof Value]: ApplyFrozenPaths<
+								Value[Key],
+								ChildPaths<Paths, Key>
+							>;
+						}
+					: Value;
+
 /** Infer codec values while exposing declared constants as readonly properties. */
 type SchemaPublicValue<S extends Schema> =
 	PublicRichTextSchema<S> extends infer Public
@@ -207,7 +266,10 @@ export type PulseSchemaValue<
 	S extends Schema,
 	O extends PulseSchemaOptions = {},
 > = ApplyConstantPaths<
-	ApplyRichTextPaths<SchemaPublicValue<S>, RichTextPaths<O>>,
+	ApplyFrozenPaths<
+		ApplyRichTextPaths<SchemaPublicValue<S>, RichTextPaths<O>>,
+		FrozenPaths<S>
+	>,
 	AnnotationPaths<O> | LiteralPaths<S>
 >;
 
@@ -229,9 +291,13 @@ export interface PulseLayout {
 	readonly kind: string;
 	/** Annotations on this occurrence, including array/map element layouts. */
 	readonly constant: boolean;
+	/** Replaceable as a whole; descendants are constant and stored with it. */
+	readonly frozen: boolean;
 	readonly richText: boolean;
 	readonly tree: boolean;
 	readonly treeRole?: "tree" | "node" | "location";
+	/** The child definition of a `sub()` field; the stored value is its ID. */
+	readonly sub?: AnyPulseDefinition;
 	readonly codec: Codec<unknown>;
 	/** Validate only this node's value, before it enters the operation journal. */
 	readonly assert: (value: unknown) => unknown;
@@ -256,6 +322,7 @@ export interface CompiledPulseSchema<S extends Schema = Schema> {
 	readonly codecSchema?: Schema;
 	/** Inline declarations, separate from explicit path annotations. */
 	readonly inferredRichTextPaths?: readonly PulseSchemaPath[];
+	readonly inferredConstantPaths?: readonly PulseSchemaPath[];
 	readonly options: PulseSchemaOptions;
 	readonly codec: Codec<InferType<S>>;
 	readonly root: PulseLayout;
@@ -277,9 +344,11 @@ interface MutableLayout {
 	schema: Schema;
 	kind: string;
 	constant: boolean;
+	frozen: boolean;
 	richText: boolean;
 	tree: boolean;
 	treeRole?: "tree" | "node" | "location";
+	sub?: AnyPulseDefinition;
 	codec: Codec<unknown>;
 	assert: (value: unknown) => unknown;
 	clone: (value: unknown) => unknown;
@@ -307,6 +376,7 @@ export function compilePulseSchema<S extends Schema>(
 ): CompiledPulseSchema<S> {
 	const wireSchemas = codecSchemas(schema);
 	const inferredRichTextPaths: PulseSchemaPath[] = [];
+	const inferredConstantPaths: PulseSchemaPath[] = [];
 	const layouts: MutableLayout[] = [];
 	const codecs = new Map<Schema, Codec<unknown>>();
 	const active = new Map<Schema, Map<string, MutableLayout>>();
@@ -362,35 +432,65 @@ export function compilePulseSchema<S extends Schema>(
 		}
 		return codec;
 	};
-	const build = (descriptor: Schema, path: PulseSchemaPath): MutableLayout => {
+	/** `inherited` marks descendants of a constant or frozen occurrence. */
+	const build = (
+		descriptor: Schema,
+		path: PulseSchemaPath,
+		inherited = false,
+		inheritedFrozen = false,
+	): MutableLayout => {
 		const resolved = resolveSchema(descriptor);
 		const inlineRichText = isRichTextSchema(descriptor);
+		const inlineConstant = hasSchemaMarker(descriptor, ConstantSchemaSymbol);
 		const treeRole = treeSchemaRole(descriptor);
+		const subDefinition = subDefinitionOf(descriptor);
 		const tree = treeRole === "tree";
+		const annotated = constantPaths.some((candidate) =>
+			matchesPrefix(candidate, path),
+		);
 		const constant =
-			(typeof resolved === "object" && resolved._type === "literal") ||
-			constantPaths.some((candidate) => matchesPrefix(candidate, path));
+			inherited ||
+			inlineConstant ||
+			annotated ||
+			(typeof resolved === "object" && resolved._type === "literal");
+		const frozen =
+			!constant &&
+			(inheritedFrozen || hasSchemaMarker(descriptor, FrozenSchemaSymbol));
 		const richText =
 			inlineRichText ||
 			richTextPaths.some((candidate) => pathsMatch(candidate, path));
 		const state =
 			annotationState(path, constant, richText) +
+			(frozen ? ".frozen" : "") +
 			(treeRole ? `.${treeRole}` : "");
 		const existing = active.get(descriptor)?.get(state);
 		if (existing) return existing;
 		const resolvedExisting = active.get(resolved)?.get(state);
 		if (resolvedExisting) return resolvedExisting;
 		if (inlineRichText) inferredRichTextPaths.push(path);
+		if (inlineConstant && !inherited && !annotated)
+			inferredConstantPaths.push(path);
 		const kind = typeof resolved === "string" ? resolved : resolved._type;
+		if (
+			frozen &&
+			(typeof resolved === "string"
+				? resolved !== "unknown" && resolved !== "schema"
+				: resolved._type === "literal")
+		)
+			throw new TypeError(
+				`frozen() requires a structured schema, not ${kind}; use constant() instead`,
+			);
 		const layout: MutableLayout = {
 			id: layouts.length,
 			schema: descriptor,
 			kind,
 			constant,
+			frozen,
 			richText,
 			codec: codecFor(descriptor),
 			tree,
 			...(treeRole ? { treeRole } : {}),
+			...(subDefinition ? { sub: subDefinition } : {}),
 			assert(value) {
 				if (
 					!matchFunctions[layout.id]!(
@@ -415,13 +515,14 @@ export function compilePulseSchema<S extends Schema>(
 		layouts.push(layout);
 		activate(descriptor, state, layout);
 		activate(resolved, state, layout);
+		const locked = constant || frozen;
 		if (typeof resolved !== "string") {
 			switch (resolved._type) {
 				case "object":
 					for (const [key, fieldSchema] of Object.entries(resolved.fields)) {
 						assertSchemaProperty(key);
 						const fieldPath = [...path, key];
-						const child = build(fieldSchema, fieldPath);
+						const child = build(fieldSchema, fieldPath, locked);
 						const field: PulseField = {
 							id: layout.fields.length,
 							key,
@@ -458,15 +559,15 @@ export function compilePulseSchema<S extends Schema>(
 				case "array":
 				case "map":
 				case "set":
-					layout.element = build(resolved.element, [...path, "*"]);
+					layout.element = build(resolved.element, [...path, "*"], locked);
 					break;
 				case "tuple":
 					layout.elements = resolved.elements.map((element, index) =>
-						build(element, [...path, index]),
+						build(element, [...path, index], locked),
 					);
 					break;
 				case "optional":
-					layout.value = build(resolved.schema, path);
+					layout.value = build(resolved.schema, path, constant, frozen);
 					break;
 				case "union": {
 					assertSchemaProperty(resolved.tagName);
@@ -487,13 +588,13 @@ export function compilePulseSchema<S extends Schema>(
 							_type: "object",
 							fields: variantFields,
 						};
-						layout.variants.set(tag, build(variantSchema, path));
+						layout.variants.set(tag, build(variantSchema, path, locked));
 					}
 					break;
 				}
 				case "untaggedUnion":
 					layout.elements = resolved.variants.map((variant) =>
-						build(variant, path),
+						build(variant, path, locked),
 					);
 					break;
 			}
@@ -504,7 +605,7 @@ export function compilePulseSchema<S extends Schema>(
 			throw new TypeError(
 				"A constant field cannot also be collaborative rich text",
 			);
-		if (layout.tree && layout.constant)
+		if (layout.tree && (layout.constant || layout.frozen))
 			throw new TypeError(
 				"A constant field cannot also be a collaborative tree",
 			);
@@ -550,12 +651,12 @@ export function compilePulseSchema<S extends Schema>(
 			"prepares",
 			"layouts",
 			"helpers",
-			`const {StructSymbol,TupleSymbol,RichTextSymbol,TreeSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
+			`const {RichTextSymbol,TreeSymbol,SubPulseSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
 		)(prepareFunctions, layouts, {
-			StructSymbol,
-			TupleSymbol,
 			RichTextSymbol,
 			TreeSymbol,
+			SubPulseSymbol,
+			PulseMetaSymbol,
 			assertTreeStructure,
 			recordMarker,
 			prepareFallback,
@@ -598,6 +699,7 @@ export function compilePulseSchema<S extends Schema>(
 		schema,
 		codecSchema: wireSchemas.resolve(schema),
 		inferredRichTextPaths,
+		inferredConstantPaths,
 		options,
 		codec: root.codec as Codec<InferType<S>>,
 		root,
@@ -1122,7 +1224,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 			depth = fresh("depth");
 		const fail = `throw new TypeError(${JSON.stringify(`Value does not match pulse schema layout ${layout.id} (${layout.kind})`)})`;
 		let code = `let ${value}=${input};let ${depth}=${initialDepth};if(${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");`;
-		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();if(${value}[StructSymbol]===true||${value}[TupleSymbol]===true)recordMarker(ctx,false);if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");if(${value}!==null&&typeof ${value}==="object"&&(${value}[StructSymbol]===true||${value}[TupleSymbol]===true))recordMarker(ctx,false);}}}`;
+		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");}}}`;
 		if (mode === "yes") code += markerCode;
 		else if (mode === "conditional") code += `if(!skipMarkers){${markerCode}}`;
 		const next = new Map(active);
@@ -1224,7 +1326,8 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 				break;
 			}
 			case "string":
-				body = `if(typeof ${value}!=="string"||!${value}.isWellFormed())${fail};${result}=${value};`;
+				// A sub field accepts a pulse or sub-pulse handle and stores its ID.
+				body = `${layout.sub ? `if(${value}!==null&&typeof ${value}==="object"&&(${value}[SubPulseSymbol]===true||${value}[PulseMetaSymbol]!==undefined))${value}=${value}.id;` : ""}if(typeof ${value}!=="string"||!${value}.isWellFormed())${fail};${result}=${value};`;
 				break;
 			case "boolean":
 				body = `if(typeof ${value}!=="boolean")${fail};${result}=${value};`;
@@ -1397,7 +1500,10 @@ export function schemaFingerprint<S extends Schema>(
 	const bytes = fingerprintCodec.encode({
 		version: 2,
 		root: compiled.root.id,
-		constants: paths(compiled.options.constantPaths),
+		constants: paths([
+			...(compiled.options.constantPaths ?? []),
+			...(compiled.inferredConstantPaths ?? []),
+		]),
 		texts: paths([
 			...(compiled.options.richTextPaths ?? []),
 			...(compiled.inferredRichTextPaths ?? []),
@@ -1405,7 +1511,11 @@ export function schemaFingerprint<S extends Schema>(
 		layouts: compiled.layouts.map((layout) => {
 			const descriptor = resolveSchema(layout.schema);
 			return {
-				kind: layout.treeRole ? `tree:${layout.treeRole}` : layout.kind,
+				kind: layout.treeRole
+					? `tree:${layout.treeRole}`
+					: layout.frozen
+						? `frozen:${layout.kind}`
+						: layout.kind,
 				constant: layout.constant,
 				richText: layout.richText,
 				keys: layout.fields.map((field) => field.key),

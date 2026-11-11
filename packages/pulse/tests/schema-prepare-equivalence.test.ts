@@ -19,8 +19,6 @@ import {
 	validatePrepared,
 	type PreparedValue,
 } from "../source/core/values.js";
-import { struct } from "../source/utilities/Struct.js";
-import { tuple as constantTuple } from "../source/utilities/Tuple.js";
 
 /** The previous mutation pipeline is intentionally kept independent of prepare. */
 function reference(
@@ -188,14 +186,12 @@ describe("compiled preparation matches the previous mutation pipeline", () => {
 		).root;
 		const base = {
 			body: richText("Hello 🌍"),
-			fixed: struct({ value: 3 }),
-			pair: constantTuple([4, "four"]),
-			rows: [{ body: richText("row"), fixed: struct({ value: 5 }) }],
+			fixed: { value: 3 },
+			pair: [4, "four"],
+			rows: [{ body: richText("row"), fixed: { value: 5 } }],
 		};
 		equivalent(layout, base);
 		equivalent(layout, { ...base, ignored: richText("dropped") });
-		equivalent(layout, { ...base, ignored: struct({ value: 1 }) });
-		equivalent(layout, { ...base, ignored: { deep: constantTuple([1]) } });
 		equivalent(layout, {
 			...base,
 			ignored: { valid: [1, 2, { key: "value" }] },
@@ -279,14 +275,7 @@ describe("compiled preparation matches the previous mutation pipeline", () => {
 			],
 			[
 				tuple("uint", optional("string")),
-				[
-					[1, undefined],
-					[1, "two"],
-					[1],
-					[1, "two", 3],
-					new Array(2),
-					constantTuple([1, "two"]),
-				],
+				[[1, undefined], [1, "two"], [1], [1, "two", 3], new Array(2)],
 			],
 			[
 				literal({ fixed: [1, "a"] }),
@@ -310,7 +299,7 @@ describe("compiled preparation matches the previous mutation pipeline", () => {
 						bigint: 1n,
 						bytes: new Uint8Array([1, 2]),
 						body: richText("ok"),
-						pair: constantTuple([1]),
+						pair: [1],
 					},
 					undefined,
 					new Date(0),

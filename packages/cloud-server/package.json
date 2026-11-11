@@ -1,0 +1,32 @@
+{
+	"name": "@pulsify/cloud-server",
+	"version": "6.0.0",
+	"description": "Pulsify Cloud server: one isolated root per namespace, multiplexed WebSockets and built-in access control, on Cloudflare Durable Objects or Unikraft Cloud.",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/core/index.d.ts",
+			"default": "./dist/core/index.js"
+		},
+		"./cloudflare": {
+			"types": "./dist/cloudflare/index.d.ts",
+			"default": "./dist/cloudflare/index.js"
+		},
+		"./unikraft-cloud": {
+			"types": "./dist/unikraft-cloud/index.d.ts",
+			"default": "./dist/unikraft-cloud/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE.md",
+		"cloudflare/README.md",
+		"unikraft-cloud/README.md"
+	],
+	"license": "FSL-1.1-ALv2",
+	"peerDependencies": {
+		"@pulsify/core": "^6.0.0",
+		"@pulsify/cloud": "^6.0.0"
+	}
+}

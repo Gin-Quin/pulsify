@@ -20,13 +20,15 @@ type RequiredMigrationResult<
 	After extends object,
 	ExcludedKeys extends PropertyKey,
 > = {
-	[Key in keyof After as Key extends ExcludedKeys
-		? never
-		: Key extends keyof Before
-			? IsSameType<Before[Key], After[Key]> extends true
-				? never
+	[
+		Key in keyof After as Key extends ExcludedKeys
+			? never
+			: Key extends keyof Before
+				? IsSameType<Before[Key], After[Key]> extends true
+					? never
+					: Key
 				: Key
-			: Key]: After[Key];
+	]: After[Key];
 };
 
 type OptionalMigrationResult<
@@ -34,13 +36,15 @@ type OptionalMigrationResult<
 	After extends object,
 	ExcludedKeys extends PropertyKey,
 > = {
-	[Key in keyof After as Key extends ExcludedKeys
-		? never
-		: Key extends keyof Before
-			? IsSameType<Before[Key], After[Key]> extends true
-				? Key
+	[
+		Key in keyof After as Key extends ExcludedKeys
+			? never
+			: Key extends keyof Before
+				? IsSameType<Before[Key], After[Key]> extends true
+					? Key
+					: never
 				: never
-			: never]?: After[Key];
+	]?: After[Key];
 };
 
 export type Migration<

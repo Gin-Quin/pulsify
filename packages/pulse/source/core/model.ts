@@ -106,7 +106,7 @@ const keyPath = (path: readonly string[]) => JSON.stringify(path);
 
 /** ID-addressed LWW object registers and an RGA sequence. Scalars live inline. */
 export class CoreModel {
-	readonly index = new Map<string, CoreNode>();
+	readonly index: Map<string, CoreNode> = new Map();
 	root: CoreNode | undefined;
 	lamport = 0;
 	nextClock = 1;
@@ -252,7 +252,7 @@ export class CoreModel {
 	view(): any {
 		return this.root?.data;
 	}
-	get clock() {
+	get clock(): { sid: number; time: number } {
 		return { sid: this.sid, time: this.nextClock };
 	}
 	isAttached(node: CoreNode): boolean {
@@ -1342,7 +1342,7 @@ export class CoreModel {
 		if (node.kind === "object")
 			for (const [key, child] of node.children) {
 				const field = node.layout?.fieldsByKey.get(key);
-				if (field?.constant) {
+				if (field?.constant || field?.layout.frozen) {
 					node.data[key] = freezeConstant(structuredClone(node.data[key]));
 					node.removeChild(key);
 				} else
@@ -1439,6 +1439,7 @@ export class CoreModel {
 				!(documentRoot && depth === 0) &&
 				(constant ||
 					current?.constant ||
+					current?.frozen ||
 					current?.kind === "literal" ||
 					(constantPaths.size && constantPaths.has(keyPath(path))));
 			if (validate && captured)
@@ -1470,6 +1471,7 @@ export class CoreModel {
 				!(documentRoot && depth === 0) &&
 				(constant ||
 					current?.constant ||
+					current?.frozen ||
 					current?.kind === "literal" ||
 					(constantPaths.size && constantPaths.has(keyPath(path))))
 			) {

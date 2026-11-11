@@ -25,10 +25,16 @@ export class PulseRelay {
 	}
 	open(
 		send: (bytes: Uint8Array) => void,
-		options: { protocolVersion?: 1 | 2 | 3 } = {},
+		options: {
+			protocolVersion?: 1 | 2 | 3;
+			/** Readers may connect and download; uploads fail with `FORBIDDEN`. */
+			readOnly?: boolean;
+			/** Pin the session to one document before its connect message. */
+			docId?: string;
+		} = {},
 	): RelayPeer {
 		const peer = {
-			docId: undefined as string | undefined,
+			docId: options.docId,
 			send,
 			protocolVersion: options.protocolVersion ?? 1,
 		};
@@ -54,6 +60,8 @@ export class PulseRelay {
 				try {
 					if (peer.docId !== undefined && peer.docId !== message.docId)
 						throw new PulseError("INVALID_MESSAGE", "One document per session");
+					if (options.readOnly && message.kind !== 1)
+						throw new PulseError("FORBIDDEN", "This session cannot write");
 					if (message.kind === 1) {
 						peer.docId = message.docId;
 						const log = this.documents.get(message.docId);

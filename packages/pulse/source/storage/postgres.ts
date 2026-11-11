@@ -16,7 +16,7 @@ export type PostgresQuery = (
 ) => Promise<readonly Record<string, unknown>[]>;
 
 /** Versioned schema; payloads travel as bytea, never as JSON or base64. */
-export const POSTGRES_PATCH_SCHEMA = `
+export const POSTGRES_PATCH_SCHEMA: string = `
 CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id text NOT NULL, sid bigint NOT NULL CHECK(sid >= 65536),
  time_start bigint NOT NULL CHECK(time_start > 0), span bigint NOT NULL CHECK(span > 0),

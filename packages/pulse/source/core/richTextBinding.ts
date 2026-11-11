@@ -7,14 +7,14 @@ import type { RichText } from "./richText.js";
 // use these editor-independent anchors; RT_FORMAT identifies the document model.
 export const RT_FORMAT = "$pulsify:pm:format";
 export const RT_PREFIX = "$pulsify:pm:";
-export const RT_NODE = `${RT_PREFIX}node`;
-export const RT_PARENT = `${RT_PREFIX}parent`;
-export const RT_TYPE = `${RT_PREFIX}type`;
-export const RT_REDIRECT = `${RT_PREFIX}redirect`;
-export const RT_REMOVED = `${RT_PREFIX}removed`;
-export const RT_ATTR = `${RT_PREFIX}attr:`;
-export const RT_MARK = `${RT_PREFIX}mark:`;
-export const RT_TEXTBLOCK = `${RT_PREFIX}textblock`;
+export const RT_NODE: string = `${RT_PREFIX}node`;
+export const RT_PARENT: string = `${RT_PREFIX}parent`;
+export const RT_TYPE: string = `${RT_PREFIX}type`;
+export const RT_REDIRECT: string = `${RT_PREFIX}redirect`;
+export const RT_REMOVED: string = `${RT_PREFIX}removed`;
+export const RT_ATTR: string = `${RT_PREFIX}attr:`;
+export const RT_MARK: string = `${RT_PREFIX}mark:`;
+export const RT_TEXTBLOCK: string = `${RT_PREFIX}textblock`;
 
 export type RichTextContext = {
 	node: CoreNode;

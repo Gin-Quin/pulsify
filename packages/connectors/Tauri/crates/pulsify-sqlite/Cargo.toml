@@ -1,0 +1,14 @@
+[package]
+name = "pulsify-sqlite"
+version = "6.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Pulsify SQLite patch store and frame relay, file-compatible with the TypeScript SqlitePatchStore"
+readme = "README.md"
+keywords = ["pulsify", "crdt", "sqlite", "local-first", "sync"]
+categories = ["database"]
+
+[dependencies]
+pulsify-protocol = { version = "6.0.0", path = "../../../../../crates/pulsify-protocol" }
+rusqlite = { version = "0.41", features = ["bundled"] }
+serde_json = "1"

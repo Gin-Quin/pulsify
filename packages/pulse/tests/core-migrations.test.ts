@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { array, map, object, optional } from "@gin-quin/codec";
+import { frozen } from "../source/index.js";
 import {
 	createPulse,
 	createPulseScope,
@@ -7,8 +8,6 @@ import {
 	destroyPulse,
 	getPulseMeta,
 	snapshotPulse,
-	struct,
-	type Struct,
 	type DataFromDefinition,
 	type ModelFromDefinition,
 	type Pulse,
@@ -762,19 +761,26 @@ describe("versioned typed document migrations", () => {
 		}
 	});
 
-	test("binary leaves inside struct constants are detached on every public read", () => {
-		type Data = PulseProperties<"BinaryConstantView"> & {
-			fixed: Struct<{ bytes: Uint8Array; nested: { bytes: Uint8Array } }>;
-		};
-		const definition = definePulse<Data>("BinaryConstantView").materialize();
+	test("binary leaves inside frozen values are detached on every public read", () => {
+		const definition = definePulse(
+			"BinaryConstantView",
+			object({
+				fixed: frozen(
+					object({
+						bytes: "uint8Array",
+						nested: object({ bytes: "uint8Array" }),
+					}),
+				),
+			}),
+		).materialize();
 		const pulse = createPulse(
 			definition,
 			{
 				id: "constant-binary-view",
-				fixed: struct({
+				fixed: {
 					bytes: new Uint8Array([1, 2]),
 					nested: { bytes: new Uint8Array([3, 4]) },
-				}),
+				},
 			},
 			options(65536),
 		);

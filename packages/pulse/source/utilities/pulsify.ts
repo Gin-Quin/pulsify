@@ -9,27 +9,24 @@ import {
 } from "../pulses/PulseArray.js";
 import { createObjectProxy } from "../pulses/PulseObject.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
-import type { Struct } from "./Struct.js";
-import type { Tuple } from "./Tuple.js";
 import type { IsSameType } from "./IsSameType.js";
+import type { PulseLayout } from "../core/schema.js";
+import { createSubPulse, type SubPulse } from "../pulses/SubPulse.js";
 
-type PulseBytes<Value extends Uint8Array> = IsSameType<
-	Value,
-	Readonly<Value>
-> extends true
-	? Readonly<Uint8Array>
-	: Uint8Array;
+type PulseBytes<Value extends Uint8Array> =
+	IsSameType<Value, Readonly<Value>> extends true
+		? Readonly<Uint8Array>
+		: Uint8Array;
 
-export type Pulsify<Value> = Value extends RichText
-	? RichText
-	: Value extends Tree<infer Item>
-		? Tree<Item>
-		: Value extends Uint8Array
-			? PulseBytes<Value>
-			: Value extends Tuple<readonly unknown[]>
-				? Value
-				: Value extends Struct<Record<string, unknown>>
-					? Value
+export type Pulsify<Value> =
+	Value extends SubPulse<any>
+		? Value
+		: Value extends RichText
+			? RichText
+			: Value extends Tree<infer Item>
+				? Tree<Item>
+				: Value extends Uint8Array
+					? PulseBytes<Value>
 					: Value extends Array<infer Item>
 						? number extends Value["length"]
 							? PulseArray<Pulsify<Item>>
@@ -42,11 +39,15 @@ export function pulsify(
 	value: unknown,
 	node: CoreNode | undefined,
 	context: ProxyContext,
+	layout?: PulseLayout,
 ): any {
-	if (!node)
+	if (!node) {
+		if (layout?.sub && typeof value === "string")
+			return createSubPulse(layout.sub, value, context.meta.options);
 		return value instanceof Uint8Array
 			? new Uint8Array(value)
 			: constantView(value);
+	}
 	if (node.proxy) return node.proxy;
 	if (node.layout?.tree) node.proxy = createTreeProxy(node, context);
 	else if (node.kind === "text")

@@ -21,7 +21,7 @@ import {
 import { PatchLog } from "../source/protocol/PatchLog.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
-import { struct, type Struct } from "../source/utilities/Struct.js";
+import { frozen } from "../source/index.js";
 
 const options = (sessionId: number) => ({
 	...defaultPulseOptions,
@@ -100,20 +100,18 @@ for (const typed of [false, true]) {
 	});
 
 	test(`constant Buffer leaves return independent copies (${typed ? "typed" : "legacy"})`, () => {
-		type Data = PulseProperties<"ConstantBuffer"> & {
-			fixed: Struct<{ payload: Uint8Array }>;
-		};
 		const definition = typed
 			? definePulse(
 					"ConstantBuffer",
 					object({ fixed: object({ payload: "uint8Array" }) }),
 					{ constantPaths: [["fixed"]] },
 				).materialize()
-			: definePulse<Data>("ConstantBuffer").materialize();
+			: definePulse(
+					"ConstantBuffer",
+					object({ fixed: frozen(object({ payload: "uint8Array" })) }),
+				).materialize();
 		const input = offsetBuffer([21, 22, 23]);
-		const fixed = typed
-			? { payload: input.view }
-			: struct({ payload: input.view });
+		const fixed = { payload: input.view };
 		const pulse = createPulse(definition, { fixed } as any, options(65536));
 		try {
 			input.backing.fill(0);

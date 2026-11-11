@@ -15,6 +15,7 @@ const result = await Bun.build({
 	splitting: true,
 	sourcemap: "external",
 	minify: true,
+	external: ["@gin-quin/codec"],
 });
 if (!result.success) throw new AggregateError(result.logs, "Build failed");
 const declarations = Bun.spawn(
@@ -39,13 +40,38 @@ console.log(
 	}),
 );
 
-for (const name of ["pulsify-prosemirror", "pulsify-lexical"]) {
+for (const name of [
+	"pulsify-prosemirror",
+	"pulsify-lexical",
+	"cloud",
+	"cloud-server/core",
+	"cloud-server/cloudflare",
+	"cloud-server/unikraft-cloud",
+	"connectors/IndexedDB",
+	"connectors/Electron",
+	"connectors/Tauri",
+	"pulsify-react",
+]) {
 	const directory = `${root}packages/${name}`;
-	const manifest = await Bun.file(`${directory}/package.json`).json();
-	await rm(`${directory}/dist`, { recursive: true, force: true });
+	// Cloud server parts share one manifest: core is ".", the others "./<name>".
+	const [packageDirectory, subpath] = name.startsWith("cloud-server/")
+		? [`${root}packages/cloud-server`, name.slice("cloud-server/".length)]
+		: [directory, undefined];
+	const manifest = await Bun.file(`${packageDirectory}/package.json`).json();
+	const outdir = subpath
+		? `${packageDirectory}/dist/${subpath}`
+		: `${directory}/dist`;
+	await rm(outdir, { recursive: true, force: true });
+	// One entry per export: "." is source/index.ts, "./main" is source/main.ts.
+	const entries = subpath
+		? ["index"]
+		: Object.keys(manifest.exports ?? { ".": null }).map((key) =>
+				key === "." ? "index" : key.slice(2),
+			);
 	const adapter = await Bun.build({
-		entrypoints: [`${directory}/source/index.ts`],
-		outdir: `${directory}/dist`,
+		entrypoints: entries.map((entry) => `${directory}/source/${entry}.ts`),
+		outdir,
+		splitting: entries.length > 1,
 		target: "browser",
 		format: "esm",
 		sourcemap: "external",
@@ -54,6 +80,9 @@ for (const name of ["pulsify-prosemirror", "pulsify-lexical"]) {
 			...Object.keys(manifest.peerDependencies),
 			...Object.keys(manifest.dependencies ?? {}),
 			"@pulsify/core/*",
+			"@pulsify/cloud",
+			"@pulsify/cloud-server",
+			"@pulsify/cloud-server/*",
 		],
 	});
 	if (!adapter.success)

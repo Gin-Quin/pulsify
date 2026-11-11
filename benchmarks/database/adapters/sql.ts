@@ -182,10 +182,7 @@ export function sqliteRepository(path: string): SegmentRepository {
 							async (statement, values = []) => {
 								const prepared = db.query(statement);
 								const bindings = values as (
-									| string
-									| number
-									| Uint8Array
-									| null
+									string | number | Uint8Array | null
 								)[];
 								if (/^\s*(SELECT|WITH)/i.test(statement))
 									return prepared.all(...bindings) as Record<string, unknown>[];

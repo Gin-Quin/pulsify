@@ -2,8 +2,14 @@ import { encodeHistoryRequest } from "../protocol/stateDeltas.js";
 import { encodePulseUpdates } from "../pulses/PulseExchange.js";
 import type { Pulse } from "../pulses/Pulse.js";
 import { getPulseMeta } from "../pulses/PulseMeta.js";
-import { asPulseError, PulseError, remoteError } from "../protocol/errors.js";
+import {
+	asPulseError,
+	isRetryable,
+	PulseError,
+	remoteError,
+} from "../protocol/errors.js";
 import { deferred } from "../utilities/deferred.js";
+import { isOnline, onOnline } from "../utilities/isOnline.js";
 import type { ConnectionResponse } from "./ConnectionResponse.js";
 import type { ConnectionStatus } from "./ConnectionStatus.js";
 import type { Connector, ConnectorSession } from "./Connector.js";
@@ -17,19 +23,45 @@ import {
 	vectorCovers,
 	type PulseVersionVector,
 } from "./PulseVersionVector.js";
+import { refreshPulseStatus } from "./refreshPulseStatus.js";
+import type { ReconnectOptions } from "../pulses/PulseOptions.js";
 
 type ConnectionEventMap = {
 	connecting: [];
 	connected: [];
 	synced: [];
+	/** A retryable failure; the next attempt starts after `delayMs`. */
+	reconnecting: [error: Error, delayMs: number, attempt: number];
 	closing: [];
 	closed: [];
+	/** Every failure, retryable or not. */
 	error: [error: Error];
 };
 export type ConnectionEvent = keyof ConnectionEventMap;
+
+/** Lazy waking waits at most this long, and so retries at most this often. */
+const demandDelay = (options: ReconnectOptions) =>
+	Math.min(options.maxDelayMs, 1_000);
+
+const ESTABLISHED: readonly ConnectionStatus[] = [
+	"connected",
+	"syncing",
+	"synced",
+];
+
+/**
+ * One connector of one pulse. Once started, it keeps the pulse synchronized
+ * with its connector: each attempt opens a session and performs a complete
+ * synchronization, and a retryable failure schedules a new attempt with
+ * backoff until `close()` or an error that a retry cannot fix.
+ */
 export class Connection {
 	status: ConnectionStatus = "idle";
 	clockVector: PulseVersionVector = [];
+	/** The last failure, retryable or not. */
+	lastError: Error | undefined;
+	/** Consecutive failed attempts since the last successful connection. */
+	attempt = 0;
 	private session: ConnectorSession | undefined;
 	private controller: AbortController | undefined;
 	private readonly listeners = new Map<
@@ -42,34 +74,183 @@ export class Connection {
 	>();
 	private nextRequestId = 1;
 	private outbound: Promise<void> = Promise.resolve();
-	private synced = deferred<void>();
+	private syncWaiters = new Set<ReturnType<typeof deferred<void>>>();
 	private stopRows: (() => void) | undefined;
 	private scheduled = false;
 	private epoch = 0;
+	/** Incremented by `close()`; a lifecycle loop only runs for its generation. */
+	private generation = 0;
+	private running: number | undefined;
+	private wanted = false;
+	private outage = false;
+	private ended: ReturnType<typeof deferred<void>> | undefined;
+	/** The pending backoff wait, so `retryNow` and demand can shorten it. */
+	private waiting:
+		| {
+				deadline: number;
+				timer: ReturnType<typeof setTimeout>;
+				resolve(): void;
+		  }
+		| undefined;
+	/** A retry was requested before the backoff started waiting. */
+	private retryRequested = false;
+	/** Rows to upload arrived before the backoff started waiting. */
+	private demanded = false;
+	private stopOnline: (() => void) | undefined;
+
+	/** Resolves after the next complete upload; rejects when stopped or closed. */
 	get whenSynced(): Promise<void> {
-		return this.synced.promise;
+		const waiter = deferred<void>();
+		if (this.status === "synced") waiter.resolve();
+		else if (this.status === "error" || this.status === "closed")
+			waiter.reject(
+				this.lastError ?? new PulseError("CLOSED", "Connection is closed"),
+			);
+		else this.syncWaiters.add(waiter);
+		return waiter.promise;
+	}
+	get active(): boolean {
+		return this.wanted;
+	}
+	private get reconnecting(): boolean {
+		return this.status === "reconnecting";
 	}
 	constructor(
 		public readonly pulse: Pulse<any>,
 		public readonly connector: Connector,
 	) {}
 
-	prepare(): void {
-		if (this.status === "closed" || this.status === "error") {
+	/**
+	 * Keep this connector synchronized until `close()`. Restarts a stopped
+	 * connection and skips the backoff of a reconnecting one.
+	 */
+	start(): void {
+		const meta = getPulseMeta(this.pulse);
+		if (meta.destroyed) return;
+		this.wanted = true;
+		this.stopOnline ??= onOnline(() => this.networkChanged());
+		if (!this.stopRows) {
+			const onRows = () => {
+				if (this.reconnecting) this.demand();
+				else this.scheduleSync();
+			};
+			meta.rowListeners.add(onRows);
+			this.stopRows = () => meta.rowListeners.delete(onRows);
+		}
+		if (this.status === "error" || this.status === "closed") {
 			this.status = "idle";
-			this.synced = deferred<void>();
-			this.outbound = Promise.resolve();
+			this.attempt = 0;
+		}
+		if (this.running === this.generation) {
+			this.retryNow();
+			return;
+		}
+		void this.run(this.generation);
+	}
+
+	/** Attempt now instead of waiting for the backoff delay. */
+	retryNow(): void {
+		if (this.waiting) {
+			clearTimeout(this.waiting.timer);
+			this.waiting.resolve();
+		} else if (this.reconnecting) this.retryRequested = true;
+	}
+
+	private async run(generation: number): Promise<void> {
+		this.running = generation;
+		const meta = getPulseMeta(this.pulse);
+		const current = () =>
+			this.generation === generation && this.wanted && !meta.destroyed;
+		try {
+			while (current()) {
+				try {
+					await this.connect();
+					const ended = this.ended;
+					await this.synchronize();
+					// The session lives until its transport fails or `close()`.
+					await ended?.promise;
+				} catch (error) {
+					if (!current()) return;
+					const failure = asPulseError(error);
+					// Failures that did not go through `fail` (rejected uploads, races).
+					if (!this.reconnecting) this.fail(failure);
+					if (!this.reconnecting) return;
+					await this.backoff(failure, current);
+				}
+			}
+		} finally {
+			if (this.running === generation) this.running = undefined;
 		}
 	}
+
+	private async backoff(failure: Error, current: () => boolean) {
+		const options = getPulseMeta(this.pulse).options.reconnect;
+		if (!options) return;
+		this.attempt++;
+		const base = Math.min(
+			options.maxDelayMs,
+			options.initialDelayMs * options.factor ** (this.attempt - 1),
+		);
+		const delay = Math.round(base * (1 - options.jitter * Math.random()));
+		this.emit("reconnecting", failure, delay, this.attempt);
+		if (this.retryRequested) {
+			this.retryRequested = false;
+			if (isOnline()) return;
+		}
+		do {
+			// Offline per the browser: wait for its `online` event, polling slowly.
+			let wait = isOnline() ? delay : options.maxDelayMs;
+			if (this.demanded && isOnline())
+				wait = Math.min(wait, demandDelay(options));
+			this.demanded = false;
+			let waiting!: NonNullable<Connection["waiting"]>;
+			await new Promise<void>((resolve) => {
+				waiting = {
+					deadline: Date.now() + wait,
+					timer: setTimeout(resolve, wait),
+					resolve,
+				};
+				this.waiting = waiting;
+			});
+			if (this.waiting === waiting) this.waiting = undefined;
+		} while (current() && !isOnline());
+	}
+
+	/**
+	 * Lazy waking: the pulse has rows to upload while this connector is down.
+	 * Try again within a second instead of waiting for the full backoff, at
+	 * most once a second while the connector stays down.
+	 */
+	private demand(): void {
+		const waiting = this.waiting;
+		const options = getPulseMeta(this.pulse).options.reconnect;
+		if (!options || !isOnline()) return;
+		if (!waiting) {
+			this.demanded = true;
+			return;
+		}
+		const cap = demandDelay(options);
+		if (waiting.deadline - Date.now() <= cap) return;
+		clearTimeout(waiting.timer);
+		waiting.deadline = Date.now() + cap;
+		waiting.timer = setTimeout(waiting.resolve, cap);
+	}
+
+	private networkChanged(): void {
+		if (this.status === "reconnecting") this.retryNow();
+		else if (ESTABLISHED.includes(this.status)) void this.probe();
+	}
+
+	/** One attempt: open a session and download what the connector has. */
 	async connect(): Promise<ConnectionResponse> {
-		this.prepare();
-		if (this.status !== "idle")
-			throw new PulseError("CONNECTION_FAILED", "Connection is already active");
 		const meta = getPulseMeta(this.pulse);
 		if (meta.destroyed)
 			throw new PulseError("CLOSED", "Pulse has been destroyed");
+		if (ESTABLISHED.includes(this.status) || this.status === "connecting")
+			throw new PulseError("CONNECTION_FAILED", "Connection is already active");
 		const controller = new AbortController();
 		this.controller = controller;
+		this.ended = deferred<void>();
 		const assertCurrent = () => {
 			if (
 				this.controller !== controller ||
@@ -88,11 +269,14 @@ export class Connection {
 		controller.signal.addEventListener("abort", abort, { once: true });
 		try {
 			this.status = "connecting";
+			// The connector's state is unknown: the session starts from scratch.
 			this.clockVector = [];
+			this.outbound = Promise.resolve();
 			this.emit("connecting");
 			assertCurrent();
-			void this.connector
-				.open({
+			let opened: Promise<ConnectorSession>;
+			try {
+				opened = this.connector.open({
 					docId: meta.id,
 					signal: controller.signal,
 					onMessage: (bytes) => {
@@ -101,17 +285,20 @@ export class Connection {
 					onClose: (error) => {
 						if (
 							this.controller === controller &&
-							this.status !== "closed" &&
-							this.status !== "closing" &&
-							this.status !== "error"
+							!["closed", "closing", "error", "reconnecting"].includes(
+								this.status,
+							)
 						)
 							this.fail(error ?? new PulseError("CLOSED", "Transport closed"));
 					},
-				})
-				.then((session) => {
-					if (controller.signal.aborted) session.close();
-					else opening.resolve(session);
-				}, opening.reject);
+				});
+			} catch (error) {
+				opened = Promise.reject(error);
+			}
+			void opened.then((session) => {
+				if (controller.signal.aborted) session.close();
+				else opening.resolve(session);
+			}, opening.reject);
 			const session = await opening.promise;
 			try {
 				assertCurrent();
@@ -121,9 +308,6 @@ export class Connection {
 			}
 			this.session = session;
 			controller.signal.removeEventListener("abort", abort);
-			const onRows = () => this.scheduleSync();
-			meta.rowListeners.add(onRows);
-			this.stopRows = () => meta.rowListeners.delete(onRows);
 			const response = await this.request({
 				kind: 1,
 				docId: meta.id,
@@ -137,6 +321,11 @@ export class Connection {
 			if (response.kind !== 2)
 				throw new PulseError("INVALID_MESSAGE", "Expected sync response");
 			this.status = "connected";
+			this.attempt = 0;
+			this.retryRequested = false;
+			this.demanded = false;
+			this.outage = false;
+			refreshPulseStatus(meta);
 			this.emit("connected");
 			assertCurrent();
 			return response;
@@ -149,11 +338,43 @@ export class Connection {
 		}
 	}
 
+	/** Upload until the connector acknowledged the complete local history. */
+	private async synchronize(): Promise<void> {
+		const meta = getPulseMeta(this.pulse);
+		const epoch = this.epoch;
+		do {
+			if (epoch !== this.epoch)
+				throw new PulseError("CLOSED", "Connection replaced");
+			await this.syncBack();
+		} while (!vectorCovers(this.clockVector, meta.log.vector));
+	}
+
+	/**
+	 * Check that an established session still answers, and download anything
+	 * it missed. A silent or closed transport reconnects. Runs when the network
+	 * comes back; connectors detect dead transports themselves in between.
+	 */
+	async probe(): Promise<void> {
+		if (!this.session || !ESTABLISHED.includes(this.status)) return;
+		const meta = getPulseMeta(this.pulse);
+		const epoch = this.epoch;
+		try {
+			await this.request({
+				kind: 1,
+				docId: meta.id,
+				requestId: this.nextRequestId++,
+				vv:
+					(this.session.protocolVersion ?? 1) >= 3
+						? meta.log.vector
+						: meta.log.historyVector,
+			});
+		} catch (error) {
+			if (epoch === this.epoch) this.fail(asPulseError(error));
+		}
+	}
+
 	async fetchHistory(): Promise<void> {
-		if (
-			!this.session ||
-			!["connected", "synced", "syncing"].includes(this.status)
-		)
+		if (!this.session || !ESTABLISHED.includes(this.status))
 			throw new PulseError("CLOSED", "No active history connection");
 		const meta = getPulseMeta(this.pulse),
 			message = {
@@ -178,8 +399,7 @@ export class Connection {
 			if (
 				epoch !== this.epoch ||
 				!this.session ||
-				this.status === "closed" ||
-				this.status === "error"
+				!ESTABLISHED.includes(this.status)
 			)
 				throw new PulseError("CLOSED", "Connection is closed");
 			const meta = getPulseMeta(this.pulse);
@@ -208,16 +428,10 @@ export class Connection {
 			this.status = vectorCovers(this.clockVector, meta.log.vector)
 				? "synced"
 				: "syncing";
-			this.synced.resolve();
+			for (const waiter of this.syncWaiters) waiter.resolve();
+			this.syncWaiters.clear();
+			refreshPulseStatus(meta);
 			if (this.status === "synced") this.emit("synced");
-			if (
-				meta.connections.every(
-					(connection) =>
-						connection.status === "synced" &&
-						vectorCovers(connection.clockVector, meta.log.vector),
-				)
-			)
-				meta.status = "synced";
 		});
 		this.outbound = run;
 		void run.catch((error) => {
@@ -227,17 +441,13 @@ export class Connection {
 	}
 
 	private scheduleSync(): void {
-		if (
-			this.scheduled ||
-			!["connected", "synced", "syncing"].includes(this.status)
-		)
-			return;
+		if (this.scheduled || !ESTABLISHED.includes(this.status)) return;
 		this.scheduled = true;
 		const epoch = this.epoch;
 		queueMicrotask(() => {
 			if (epoch !== this.epoch) return;
 			this.scheduled = false;
-			if (["connected", "synced", "syncing"].includes(this.status))
+			if (ESTABLISHED.includes(this.status))
 				void this.syncBack().catch(() => {});
 		});
 	}
@@ -254,10 +464,13 @@ export class Connection {
 		frame: Uint8Array,
 	): Promise<PulseMessage> {
 		const result = deferred<PulseMessage>();
-		const timer = setTimeout(
-			() => result.reject(new PulseError("TIMEOUT", "Peer did not respond")),
-			getPulseMeta(this.pulse).options.timeoutMs,
-		);
+		const epoch = this.epoch;
+		const timer = setTimeout(() => {
+			const error = new PulseError("TIMEOUT", "Peer did not respond");
+			result.reject(error);
+			// A peer that stops answering is treated as a lost transport.
+			if (epoch === this.epoch) this.fail(error);
+		}, getPulseMeta(this.pulse).options.timeoutMs);
 		this.pending.set(requestId, result);
 		try {
 			if (!this.session) throw new PulseError("CLOSED", "Transport is closed");
@@ -271,7 +484,8 @@ export class Connection {
 		});
 	}
 	private receive(bytes: Uint8Array): void {
-		if (this.status === "closed" || this.status === "error") return;
+		if (!ESTABLISHED.includes(this.status) && this.status !== "connecting")
+			return;
 		const epoch = this.epoch;
 		try {
 			if (
@@ -304,15 +518,39 @@ export class Connection {
 			} else
 				throw new PulseError("INVALID_MESSAGE", "Unexpected peer response");
 		} catch (error) {
-			if (epoch === this.epoch) this.fail(asPulseError(error));
+			// Applying received data failed (schema, migration, application code):
+			// a new session would receive the same rows, so do not retry.
+			if (epoch === this.epoch)
+				this.fail(
+					error instanceof PulseError
+						? error
+						: new PulseError("CONNECTION_FAILED", String(error), {
+								cause: error,
+								retryable: false,
+							}),
+				);
 		}
 	}
 
+	/** Stop synchronizing this connector. `start()` resumes. */
 	close(): void {
+		this.wanted = false;
+		this.generation++;
+		this.retryNow();
+		this.retryRequested = false;
+		this.demanded = false;
+		this.stopRows?.();
+		this.stopRows = undefined;
+		this.stopOnline?.();
+		this.stopOnline = undefined;
+		this.attempt = 0;
+		this.outage = false;
 		if (this.status === "closed") return;
+		const error = new PulseError("CLOSED", "Connection closed");
 		this.status = "closing";
 		this.emit("closing");
-		this.cleanup(new PulseError("CLOSED", "Connection closed"));
+		this.cleanup(error);
+		this.rejectWaiters(error);
 		this.status = "closed";
 		this.emit("closed");
 	}
@@ -325,27 +563,41 @@ export class Connection {
 		this.scheduled = false;
 		for (const request of this.pending.values()) request.reject(error);
 		this.pending.clear();
-		this.synced.reject(error);
-		this.stopRows?.();
-		this.stopRows = undefined;
+		this.ended?.reject(error);
+		this.ended = undefined;
 		this.controller?.abort();
 		this.controller = undefined;
 		this.session?.close();
 		this.session = undefined;
 	}
+	private rejectWaiters(error: Error): void {
+		for (const waiter of this.syncWaiters) waiter.reject(error);
+		this.syncWaiters.clear();
+	}
 	private fail(error: Error): void {
-		if (
-			this.status === "closed" ||
-			this.status === "closing" ||
-			this.status === "error"
-		)
+		if (["closed", "closing", "error", "reconnecting"].includes(this.status))
 			return;
-		this.status = "error";
-		this.cleanup(error);
+		const failure = asPulseError(error);
 		const meta = getPulseMeta(this.pulse);
-		meta.status = "error";
-		meta.report(error);
-		this.emit("error", error);
+		const retry =
+			this.wanted &&
+			!meta.destroyed &&
+			meta.options.reconnect !== false &&
+			isRetryable(failure);
+		this.lastError = failure;
+		this.status = retry ? "reconnecting" : "error";
+		this.cleanup(failure);
+		if (!retry) {
+			this.wanted = false;
+			this.stopRows?.();
+			this.stopRows = undefined;
+			this.rejectWaiters(failure);
+		}
+		// One report per outage: the retries that follow stay silent.
+		if (!retry || !this.outage) meta.report(failure);
+		this.outage = retry;
+		refreshPulseStatus(meta);
+		this.emit("error", failure);
 	}
 	on<E extends ConnectionEvent>(
 		event: E,

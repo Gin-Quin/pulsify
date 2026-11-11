@@ -63,9 +63,7 @@ const selectedProfiles = argument(
 for (const profile of selectedProfiles)
 	if (!Object.hasOwn(profiles, profile))
 		throw new Error(`Unknown profile ${profile}`);
-const databases = argument("--databases", "postgres,sqlite").split(
-	",",
-);
+const databases = argument("--databases", "postgres,sqlite").split(",");
 for (const database of databases)
 	if (!["postgres", "sqlite"].includes(database))
 		throw new Error(`Unknown database ${database}`);

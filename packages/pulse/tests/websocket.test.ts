@@ -68,9 +68,8 @@ test("real WebSocket transport synchronizes documents and closes all sessions", 
 });
 
 test("scheduled sends from a closed connection cannot fail its replacement", async () => {
-	const { createMemoryConnector, disconnectPulse, PulseRelay } = await import(
-		"../source/index"
-	);
+	const { createMemoryConnector, disconnectPulse, PulseRelay } =
+		await import("../source/index");
 	const connector = createMemoryConnector(new PulseRelay());
 	const pulse = createPulse(Document, data(), {
 		...options(),

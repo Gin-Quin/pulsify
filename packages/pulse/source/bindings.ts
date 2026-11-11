@@ -29,3 +29,5 @@ export {
 export type { CoreEntry, Stamp } from "./core/model.js";
 export type { CoreOperation } from "./core/operations.js";
 export { fingerprintBytes } from "./utilities/fingerprint.js";
+export { RichTextSymbol, SubPulseSymbol } from "./core/values.js";
+export { TreeSymbol } from "./core/treeSchema.js";

@@ -1,9 +1,12 @@
 [package]
 name = "pulsify-protocol"
-version = "0.1.0"
+version = "6.0.0"
 edition = "2021"
-license-file = "../../LICENSE"
-description = "Pulsify v1 binary protocol and opaque patch relay"
+license = "Apache-2.0"
+description = "Pulsify binary protocol (envelopes 1 and 2), version vectors and an opaque patch relay"
+readme = "README.md"
+keywords = ["pulsify", "crdt", "sync", "local-first", "protocol"]
+categories = ["encoding", "network-programming"]
 
 [dev-dependencies]
 serde_json = "1"

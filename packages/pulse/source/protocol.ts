@@ -24,7 +24,13 @@ export {
 export type { PulseVersionVector } from "./connection/PulseVersionVector.js";
 export { PatchLog } from "./protocol/PatchLog.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
-export { PulseError } from "./protocol/errors.js";
+export { relayStoreMessage, encodeBroadcast } from "./protocol/StoreRelay.js";
+export type {
+	StoreRelaySession,
+	StoreRelayResult,
+	StoreRelayBroadcast,
+} from "./protocol/StoreRelay.js";
+export { PulseError, isRetryable } from "./protocol/errors.js";
 export { MAX_FRAME_BYTES } from "./protocol/limits.js";
 
 export {

@@ -2,9 +2,13 @@ import type { Connector, ConnectorSession } from "../connection/Connector.js";
 import { MAX_FRAME_BYTES } from "../protocol/limits.js";
 import { PulseError } from "../protocol/errors.js";
 
-/** Supply a factory for runtimes without a global WebSocket or custom authentication. */
+/**
+ * Supply a factory for runtimes without a global WebSocket or custom authentication.
+ * A `{docId}` placeholder in the URL is replaced by the encoded document ID, for
+ * servers that route a session before its first frame.
+ */
 export function createWebSocketConnector(
-	url: string,
+	template: string,
 	createSocket: (url: string, protocols?: string[]) => WebSocket = (
 		url,
 		protocols,
@@ -13,12 +17,13 @@ export function createWebSocketConnector(
 ): Connector {
 	return {
 		kind: "remote",
-		open({ signal, onMessage, onClose }): Promise<ConnectorSession> {
+		open({ docId, signal, onMessage, onClose }): Promise<ConnectorSession> {
 			return new Promise((resolve, reject) => {
 				if (signal.aborted) {
 					reject(new PulseError("CLOSED", "Connection aborted"));
 					return;
 				}
+				const url = template.replaceAll("{docId}", encodeURIComponent(docId));
 				const socket =
 					options.protocolVersion === 3
 						? createSocket(url, ["pulsify-v3", "pulsify-v2", "pulsify-v1"])
@@ -57,7 +62,7 @@ export function createWebSocketConnector(
 							options.protocolVersion === 3 && socket.protocol === "pulsify-v3"
 								? 3
 								: (options.protocolVersion ?? 1) >= 2 &&
-										socket.protocol === "pulsify-v2"
+									  socket.protocol === "pulsify-v2"
 									? 2
 									: 1,
 						close() {
@@ -73,7 +78,7 @@ export function createWebSocketConnector(
 									"LIMIT_EXCEEDED",
 									"WebSocket output buffer exceeded",
 								);
-							socket.send(bytes);
+							socket.send(bytes as Uint8Array<ArrayBuffer>);
 						},
 					});
 				};

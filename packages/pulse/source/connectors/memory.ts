@@ -4,7 +4,7 @@ import { PulseError } from "../protocol/errors.js";
 import { PulseRelay } from "../protocol/PulseRelay.js";
 
 export function createMemoryConnector(
-	relay = new PulseRelay(validateCoreRow),
+	relay: PulseRelay = new PulseRelay(validateCoreRow),
 	kind: Connector["kind"] = "local",
 ): Connector {
 	return {

@@ -59,8 +59,18 @@ Reference relays acknowledge accepted history in memory. A relay using durable
 storage must commit the database transaction before sending its ack.
 
 Error codes include `INVALID_MESSAGE`, `UNSUPPORTED_VERSION`, `NOT_FOUND`,
-`INCOMPATIBLE_DOCUMENT`, `CLOSED`, `TIMEOUT`, `CONNECTION_FAILED`, `CONFLICT`
-`LIMIT_EXCEEDED` and `HISTORY_UNAVAILABLE`. Unknown versions and kinds are rejected. A breaking
+`INCOMPATIBLE_DOCUMENT`, `CLOSED`, `TIMEOUT`, `CONNECTION_FAILED`, `CONFLICT`,
+`LIMIT_EXCEEDED`, `HISTORY_UNAVAILABLE` and `FORBIDDEN`. A server may pin a
+session to one document before its connect frame and may open it read-only:
+connect and sync are served, and every syncBack or update is answered with a
+`FORBIDDEN` error without storing or forwarding its rows. A client without
+local history sends no upload frame and therefore reaches `synced` as a reader.
+Authorization never enters the replicated document; sub-pulse IDs prefixed by
+their parent ID let a server derive routing and inherited roles from the ID.
+Every frame names its document, so a transport may also multiplex several
+document sessions over one connection and route by `docId`; the
+[cloud session protocol](CLOUD.md) does this for every document of a root.
+Unknown versions and kinds are rejected. A breaking
 message change increments the envelope or operation version; application data
 migrations increment the stored document version instead.
 
@@ -130,7 +140,7 @@ ops:operation[]
 `lamport` is positive and advances beyond the highest applied Lamport time
 when a local transaction is generated. In document version 1, `schema` is empty
 without a runtime schema, or the 32-character compatibility fingerprint of its
-resolved codec layout graph, constant/rich-text annotations and tree roles. Versions 2+
+resolved codec layout graph, constant/frozen/rich-text annotations and tree roles. Versions 2+
 produced by current definitions use `m<version>:<chainFingerprint>` instead.
 This reuses the existing string field; operation payload and envelope versions
 do not change. Historical V1 writes remain addressable by their original identity.
@@ -257,9 +267,10 @@ application value can be encoded with that original codec schema outside
 Pulsify. Root metadata and operation framing are additional protocol layers.
 
 `constants` and `texts` are paths relative to this value, represented as string
-segments; `[]` marks the whole value. They preserve explicit struct/tuple and
-rich-text initialization markers. Declared schema annotations are also applied
-by the compiled layout. Marker paths must resolve to present values, text
+segments; `[]` marks the whole value. They preserve captured constants and
+rich-text initialization markers. Declared schema annotations (`constant`,
+`frozen`, `constantPaths`, `richTextPaths`) are also applied by the compiled
+layout; a frozen value is stored as one immutable value. Marker paths must resolve to present values, text
 markers require strings, and constants cannot simultaneously be collaborative
 text. Public generic values are finite numbers, bigint, well-formed Unicode strings,
 booleans, null, undefined, dense arrays, plain objects and copied binary leaves.
@@ -297,7 +308,7 @@ Definitions compile field codecs, numeric slots, value checks and detached
 copies once. Rejected local values do not advance the clock or journal. Remote
 preflight validates affected values and graph references without cloning the
 whole document for ordinary edits. Schema field order, float32 normalization,
-constant annotations and rich-text annotations must agree on all replicas.
+constant, frozen and rich-text annotations must agree on all replicas.
 
 A definition's schema registry retains the layout for each stored migration
 version. Patches identify the layout they use, so a latest client can decode
@@ -347,8 +358,12 @@ schema codec.
 Outgoing rows are chunked near 2 MiB, within the per-message row limit and the
 Rust relay's 300,000-node structural budget. The chunker reserves room for the
 largest vector and frame metadata. Transport cancellation rejects unfinished
-initialization and removes listeners. Reconnection starts fresh sessions and
-uses retained journal history. Generation zero remains the only supported
+initialization and removes listeners. A connected client retries a lost
+transport with backoff; every reconnection starts a fresh session that assumes
+nothing about the peer: a connect with the local vector, then uploads of every
+row the peer does not acknowledge, from retained journal history. Peers must
+therefore accept repeated connects, on new sessions and within one (liveness
+probes), and exact retransmissions, which the idempotent journal guarantees. Generation zero remains the only supported
 generation. Applications must plan retention and compaction before reaching
 history bounds; silently dropping rows required by offline replicas is not
 supported.

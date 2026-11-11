@@ -1,0 +1,82 @@
+.button {
+	--button-pad-y: var(--space-3);
+	--button-pad-x: var(--space-6);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	padding: var(--button-pad-y) var(--button-pad-x);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-sm);
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	white-space: nowrap;
+	transition:
+		background var(--duration-fast) var(--easing),
+		box-shadow var(--duration-fast) var(--easing),
+		border-color var(--duration-fast) var(--easing),
+		transform var(--duration-fast) var(--easing);
+}
+
+.button svg {
+	transition: transform var(--duration-fast) var(--easing);
+}
+
+.button[data-size="sm"] {
+	--button-pad-y: var(--space-2);
+	--button-pad-x: var(--space-4);
+	font-size: var(--font-size-xs);
+}
+
+.button[data-variant="primary"] {
+	position: relative;
+	overflow: hidden;
+	background: var(--color-accent);
+	color: var(--color-text-on-accent);
+	box-shadow: 0 0 20px rgb(61 245 224 / 0.25);
+}
+
+/* Shine that sweeps across on hover. */
+.button[data-variant="primary"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		110deg,
+		transparent 30%,
+		rgb(255 255 255 / 0.55) 50%,
+		transparent 70%
+	);
+	transform: translateX(-100%);
+	pointer-events: none;
+}
+
+.button[data-variant="primary"]:hover {
+	background: var(--color-accent-hover);
+	color: var(--color-text-on-accent);
+	box-shadow:
+		0 0 16px rgb(61 245 224 / 0.5),
+		0 10px 48px rgb(61 245 224 / 0.45);
+	transform: translateY(-2px);
+}
+
+.button[data-variant="primary"]:hover::after {
+	transform: translateX(100%);
+	transition: transform var(--duration-slow) var(--easing);
+}
+
+.button[data-variant="primary"]:hover svg {
+	transform: translateX(3px);
+}
+
+.button[data-variant="outline"] {
+	border-color: rgb(255 255 255 / 0.55);
+	color: var(--color-text);
+	background: rgb(255 255 255 / 0.02);
+}
+
+.button[data-variant="outline"]:hover {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+	box-shadow: var(--shadow-glow);
+}

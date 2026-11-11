@@ -53,7 +53,7 @@ function unpack(row: RecordRow): StoredPatchRow {
 	};
 }
 
-export const SQLITE_PATCH_SCHEMA = `
+export const SQLITE_PATCH_SCHEMA: string = `
 CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, time_start INTEGER NOT NULL,
  span INTEGER NOT NULL CHECK(span > 0), time_end INTEGER GENERATED ALWAYS AS (time_start + span) STORED,
@@ -85,8 +85,8 @@ export class SqlitePatchStore implements PatchStore {
 				const get = this.db.query(
 					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start=?",
 				);
-				const neighbours =
-					this.db.query(`SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND
+				const neighbours = this.db
+					.query(`SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND
  (time_start=(SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start<?)
  OR time_start=(SELECT MIN(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start>?))`);
 				const insert = this.db.query(
@@ -199,13 +199,12 @@ export class SqlitePatchStore implements PatchStore {
 	): Promise<StoredPatchRow[]> {
 		validateDocId(docId);
 		validateVector(remote);
-		const bindings: SqliteBinding[] = remote.flatMap(([sid, clock]) => [
-			sid,
-			clock,
-		]);
-		bindings.push(docId);
+		// One JSON parameter: some hosts (Durable Objects) bind at most 100 values.
+		const bindings: SqliteBinding[] = remote.length
+			? [JSON.stringify(remote), docId]
+			: [docId];
 		const sql = remote.length
-			? `WITH remote(sid,clock) AS (VALUES ${remote.map(() => "(?,?)").join(",")})
+			? `WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?))
  SELECT o.* FROM pulsify_op_rows o LEFT JOIN remote r ON r.sid=o.sid
  WHERE o.doc_id=? AND o.ready=1 AND o.time_end>COALESCE(r.clock,0) ORDER BY o.sid,o.time_start`
 			: "SELECT * FROM pulsify_op_rows WHERE doc_id=? AND ready=1 ORDER BY sid,time_start";

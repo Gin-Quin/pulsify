@@ -12,9 +12,8 @@ together with the entry files when copying a build.
 ```ts
 import {
   createPulse, definePulse, subscribePulse, snapshotPulse,
-  destroyPulse,
+  destroyPulse, array, object,
 } from "@pulsify/core";
-import { array, object } from "@gin-quin/codec";
 
 const Note = definePulse("Note", object({
   title: "string",
@@ -109,8 +108,7 @@ peer's isolated result. These rules hold regardless of delivery order or duplica
 ## Generic ordered trees
 
 ```ts
-import { object, createCodec } from "@gin-quin/codec";
-import { createPulse, definePulse, richText, tree } from "@pulsify/core";
+import { createCodec, createPulse, definePulse, object, richText, tree } from "@pulsify/core";
 
 const outlineSchema = tree(object({ title: "string", body: richText() }));
 const Outline = definePulse("Outline", object({ outline: outlineSchema })).materialize();
@@ -205,27 +203,30 @@ Use the same schema instance with codec and Pulsify. The schema describes
 application fields; Pulsify supplies `id`, `kind`, `version` and `generation`.
 
 ```ts
-import { array, createCodec, object } from "@gin-quin/codec";
-import { createPulse, definePulse, richText, snapshotPulse } from "@pulsify/core";
+import {
+  array, constant, createCodec, createPulse, definePulse, frozen, object,
+  richText, snapshotPulse, tuple,
+} from "@pulsify/core";
 
 const schema = object({
   title: "string",
   body: richText(),
-  origin: object({ source: "string" }),
+  origin: constant(object({ source: "string" })),
+  cover: frozen(tuple("uint", "uint")),
   items: array(object({ label: "string", done: "boolean" })),
 });
 const documentCodec = createCodec(schema);
-const Article = definePulse("Article", schema, {
-  constantPaths: [["origin"]],
-}).materialize();
+const Article = definePulse("Article", schema).materialize();
 
 const article = createPulse(Article, {
   title: "Draft",
   body: "Hello",
   origin: { source: "import" },
+  cover: [640, 480],
   items: [],
 });
 article.title = "Ready";
+article.cover = [800, 600]; // replaced as a whole; article.cover[0] = 1 is rejected
 article.body.insert(5, " world");
 article.body.format(0, 5, { bold: true });
 console.log(article.body.toDelta());
@@ -271,23 +272,26 @@ remain supported. Replacing an annotation with an equivalent inline declaration
 preserves codec bytes and schema fingerprints. Inline markers in union branches
 apply only to those branches.
 
-Constant fields and their descendants are readonly in TypeScript and reject
-replacement, deletion and nested edits at runtime. Codec `literal(value)` fields
-are also constant. `*` in an annotation path applies to each array element or map
-value, for example `["items", "*", "id"]`. Annotations are separate from the
-codec schema, so they do not change its encoded document bytes. A field cannot
-be both constant and collaborative rich text.
+Wrap a schema in `constant(...)` for a value fixed at creation: the field and
+its descendants are readonly in TypeScript and reject replacement, deletion and
+nested edits at runtime. Codec `literal(value)` fields are also constant. Wrap a
+schema in `frozen(...)` for a value that is only replaced as a whole: the field
+accepts a new value, but its contents are deeply readonly and reject nested
+edits. A frozen value is stored and synchronized as one unit, so concurrent
+replacements never interleave its contents. `frozen` requires a structured
+schema (object, array, map, set, tuple, union or `"unknown"`).
+
+Both markers are separate from the codec schema, so they do not change its
+encoded document bytes. Neither can contain collaborative rich text or trees.
+The deprecated `constantPaths` option still marks constants by path; `*` applies
+to each array element or map value, for example `["items", "*", "id"]`.
 
 Constants retain their captured values for their lifetime. A migration cannot
 change an existing constant or remove its constant annotation while keeping
 that path in the schema. A migration may turn a mutable value into a constant;
 the resulting patch captures its value so late edits to the old child cannot
-change it. Binary leaves are returned as detached copies.
-
-The legacy `struct({...})` and `tuple([...])` helpers make the initialized
-value's contents immutable. Without a schema constant annotation, their parent
-field can still be assigned another value. Use `constantPaths` when the field
-itself must also remain bound to its initial value.
+change it. The same rules apply to frozen contents: a migration may freeze a
+field, but not unfreeze it. Binary leaves are returned as detached copies.
 
 Rich text exposes `text`, `length`, `insert`, `delete`, `format`, and `toDelta`.
 Indices count Unicode code points. Formatting uses per-character attributes;
@@ -347,7 +351,8 @@ const remoteNote = await loadPulse(Note, "document-id", {
   waitFor: "all",
   timeoutMs: 10_000,
 });
-disconnectPulse(remoteNote);  // Keep editing locally.
+// Connected until disconnectPulse: lost connections are retried automatically.
+disconnectPulse(remoteNote);  // Stop on purpose; edits continue locally.
 remoteNote.tags.push("offline");
 await connectPulse(remoteNote).synced;
 ```
@@ -360,9 +365,65 @@ Creation starts disconnected by default. Pass `{ connectors: [connector], connec
 | `connected` | All configured connectors have completed their initial download. |
 | `synced` | Initial synchronization is complete and all configured connectors have acknowledged the local history. |
 
-`loadPulse` waits for `ready` by default. `waitFor` accepts `"connected"`, `"synced"`, `"all"` (alias of `"synced"`) or an array of configured connectors. Required connector failures reject `connected`/`synced`; an earlier `ready` may already have succeeded. Missing documents, aborts and timeouts settle with a `PulseError`. Pass `signal` to cancel initial loading. With no connectors, a created document resolves immediately and loading an unknown ID rejects with `NOT_FOUND`.
+`loadPulse` waits for `ready` by default. `waitFor` accepts `"connected"`, `"synced"`, `"all"` (alias of `"synced"`) or an array of configured connectors. Missing documents, non-retryable errors, aborts and `timeoutMs` settle the promises with a `PulseError`; an earlier `ready` may already have succeeded. Pass `signal` to cancel initial loading. With no connectors, a created document resolves immediately and loading an unknown ID rejects with `NOT_FOUND`.
 
-These promises describe initial synchronization; future edits continue flowing through the sessions. Use `getPulseMeta(pulse)` for diagnostic status and the last connection error. Its engine/journal fields are internal state: do not mutate them directly. After an established transport closes, call `disconnectPulse` and `connectPulse` to reconnect; retries are application-controlled.
+### Reconnection
+
+`connectPulse` means "stay synchronized with every connector, local or remote, until `disconnectPulse` or `destroyPulse`". Each connector has its own lifecycle:
+
+- A closed transport, a failed opening or a request without an answer within `timeoutMs` (`CLOSED`, `CONNECTION_FAILED`, `TIMEOUT`, see `isRetryable`) puts the connection in `reconnecting`. It retries after `initialDelayMs × factor^n`, capped at `maxDelayMs` and shortened by up to `jitter` at random (`reconnect` option, defaults 250 ms, ×2, 30 s, 0.25; `false` gives up after one failure).
+- Every new session is a complete synchronization: the connector's state is considered unknown, so the session sends the local version vector, downloads what is missing and uploads everything the connector has not acknowledged.
+- `FORBIDDEN`, incompatible documents, invalid frames and exceptions thrown while applying received data (for example by a migration) stop that connector with status `error`. A connector can mark any error with `new PulseError(code, message, { retryable })`.
+- Lazy waking: when a pulse has rows to upload (a local edit) while a connector is down, that connector retries within a second instead of waiting for the full backoff, and at most once a second while it stays down. Passive documents keep their backoff.
+- `onError` receives one report per outage, not one per attempt. Connections emit `reconnecting(error, delayMs, attempt)`, and expose `status`, `attempt` and `lastError`.
+- The browser's `online` event and `setOnlineMode(true)` retry waiting connections at once and probe established ones; while `navigator.onLine` is false or `setOnlineMode(false)` is set, attempts wait. Between those events, connectors detect transports that died without closing, once per socket (the cloud connector pings idle sockets); a connector reports it with `onClose(error)`.
+- `timeoutMs` bounds the promises, not the intent: after a `TIMEOUT` the connectors keep trying. Calling `connectPulse` again after a settled attempt returns new promises and retries failing or stopped connectors at once.
+
+`getPulseMeta(pulse).status` is `idle`, `syncing`, `ready`, `synced`, `offline` (a connector is being retried) or `error`; `subscribePulseStatus(pulse, (status) => …)` reports it now and on every change. Its engine/journal fields are internal state: do not mutate them directly.
+
+## Sub-pulses
+
+A pulse can hold the IDs of child pulses. A child is a separate document with
+its own history and version vector, so it loads and synchronizes on its own;
+its ID is prefixed by the parent ID, which lets a server co-locate a whole tree.
+
+```ts
+import { array, createPulse, definePulse, loadPulse, object, sub, subPulse } from "@pulsify/core";
+
+const Document = definePulse("Document", object({ title: "string" })).materialize();
+const Project = definePulse("Project", object({
+  name: "string", documents: array(sub(Document)),
+})).materialize();
+const User = definePulse("User", object({
+  name: "string", projects: array(sub(Project)),
+})).materialize();
+
+const user = createPulse(User, { id: "1234", name: "Ada", projects: [] });
+const project = createPulse(Project, { name: "Engine", documents: [] }, { parent: user });
+project.id;                      // "1234/<generated>"
+user.projects.push(subPulse(project));
+
+const handle = user.projects[0]!; // SubPulse<typeof Project>
+handle.id;                        // The stored value
+handle.pulse;                     // Pulse<Project> | undefined: loaded in this scope?
+await handle.load();              // loadPulse with the parent's scope and connectors
+
+await loadPulse(User, "1234", { connectors, include: true });
+await loadPulse(User, "1234", { connectors, include: { projects: { documents: true } } });
+await loadPulse(Project, "1234/xyz", { connectors }); // A child without its parent
+```
+
+`sub(Definition)` is a string field on the wire; snapshots and migrations see the
+ID. Reads return a handle; writes accept a handle, a pulse or an ID string at
+runtime, and `subPulse(pulse)` produces the typed handle. `{ parent }` prefixes
+the generated ID, rejects an explicit ID outside the parent, and inherits the
+parent's scope, connectors and other options. `include: true` loads every
+sub-pulse recursively; an object selects fields, where `true` loads that child
+only and a nested object continues into it. Arrays, maps and optionals are
+transparent. Included loads use the same `waitFor`, and a missing child rejects
+the whole load with `NOT_FOUND`. Creating a child and linking it from its parent
+are two documents and two writes; a dangling ID is tolerated and resolves to
+`pulse === undefined` until the child exists.
 
 ## Client scopes and in-memory synchronization
 
@@ -392,8 +453,7 @@ first.author.name = "Grace"; // Automatically reaches second.
 ## Migrations and materialization
 
 ```ts
-import { object } from "@gin-quin/codec";
-import { createPulse, definePulse, type PulseProperties } from "@pulsify/core";
+import { createPulse, definePulse, object, type PulseProperties } from "@pulsify/core";
 
 const userV1 = object({ name: "string", email: "string" });
 const userV2 = object({ name: "string", emailV2: "string" });
@@ -435,8 +495,7 @@ type; the target type is inferred from the supplied schema. New required fields
 and fields whose types change must be returned; unchanged fields are preserved:
 
 ```ts
-import { object } from "@gin-quin/codec";
-import { definePulse } from "@pulsify/core";
+import { definePulse, object } from "@pulsify/core";
 
 const personV1 = object({ name: "string" });
 const personV2 = object({ name: "string", displayName: "string" });
@@ -449,7 +508,7 @@ const Person = definePulse("Person", personV1)
   .materialize();
 ```
 
-An optional third argument supplies `constantPaths` and `richTextPaths` for
+An optional third argument supplies `richTextPaths` (and the deprecated `constantPaths`) for
 the target version, just like the options passed to `definePulse`. Neither a
 target type argument nor a subsequent `.schema(...)` call is needed. The existing
 `.migrate<Next>(migrator)` method remains available for typed definitions
@@ -460,7 +519,7 @@ fingerprint. Different migrations may target the same schema, such as normalizin
 an existing string field. Use code comments to explain each transformation.
 Definitions cache a recursive fingerprint for every version:
 `F1 = H(kind, 1, schemaHash1)` and `Fn = H(Fn-1, n, schemaHashN)`. Schema hashes
-include codec layouts and constant/rich-text annotations. Changing an earlier
+include codec layouts and constant/frozen/rich-text annotations. Changing an earlier
 schema changes every later fingerprint, even if the final schema stays the same.
 The arrays and lookup map are shared by all documents of a definition; ordinary
 edits perform no hashing, schema reconstruction or diagnostic snapshot copying.
@@ -498,7 +557,9 @@ history use string field keys in new patches to preserve old layout identities.
 
 `setDefaultPulseOptions` changes defaults; individual calls can override `createId`, `connect`, `connectors`, `scope`, `timeoutMs`, `onError` and an optional numeric `sessionId`. Usually leave session IDs random; explicit IDs must be safe integers >= 65536 and unique among writers of a document.
 
-A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration. See the [protocol specification](../../docs/PROTOCOL.md).
+A `Connector` supplies `kind: "local" | "remote"` and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
+
+Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `@pulsify/cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object or an actor of the Unikraft Cloud server), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
 
 Durable operation stores are available from `@pulsify/core/storage` for
 PostgreSQL and SQLite. They append binary rows and query missing

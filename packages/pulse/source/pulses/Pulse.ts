@@ -1,5 +1,7 @@
+import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import { PulseError } from "../protocol/errors.js";
-import { RichTextSymbol } from "../core/values.js";
+import { RichTextSymbol, SubPulseSymbol } from "../core/values.js";
+import type { SubPulse } from "./SubPulse.js";
 import type { RichText } from "../core/richText.js";
 import type { Tree } from "../core/tree.js";
 import { TreeSymbol, type TreeData } from "../core/treeSchema.js";
@@ -8,7 +10,6 @@ import type { Pulsify } from "../utilities/pulsify.js";
 import { type PulseMeta, PulseMetaSymbol } from "./PulseMeta.js";
 import { defaultPulseScope } from "./PulseOptions.js";
 import type { PulseProperties } from "./PulseProperties.js";
-import type { Tuple } from "../utilities/Tuple.js";
 
 export const pulses = defaultPulseScope.pulses;
 export type Pulse<
@@ -35,7 +36,29 @@ export function destroyPulse(pulse: Pulse<any>): void {
 	for (const connection of meta.connections) connection.dispose();
 	meta.listeners.clear();
 	meta.rowListeners.clear();
+	meta.statusListeners.clear();
 	meta.options.scope.pulses.delete(meta.id);
+}
+/**
+ * Follow the synchronization status (`syncing`, `ready`, `synced`, `offline`,
+ * `error`, `idle`): called on every change, starting with the current one.
+ */
+export function subscribePulseStatus<P extends Pulse<any>>(
+	pulse: P,
+	listener: (status: SynchronizationStatus, pulse: P) => void,
+): () => void {
+	const meta = pulse[PulseMetaSymbol];
+	if (meta.destroyed)
+		throw new PulseError("CLOSED", "Pulse has been destroyed");
+	const wrapped = (status: SynchronizationStatus) => listener(status, pulse);
+	meta.statusListeners.add(wrapped);
+	try {
+		wrapped(meta.status);
+	} catch (error) {
+		meta.statusListeners.delete(wrapped);
+		throw error;
+	}
+	return () => meta.statusListeners.delete(wrapped);
 }
 /** Subscribe synchronously to local and remote changes; first call is immediate. */
 export function subscribePulse<P extends Pulse<any>>(
@@ -62,23 +85,25 @@ type SnapshotTuple<Values extends readonly unknown[]> = {
 /** A detached snapshot of the public, materialized model. */
 export type PulseSnapshot<Value> = unknown extends Value
 	? Value
-	: Value extends RichText
+	: Value extends SubPulse<any>
 		? string
-		: Value extends Tree<infer Item>
-			? TreeData<PulseSnapshot<Item>>
-			: Value extends Uint8Array
-				? Uint8Array
-				: Value extends Tuple<infer Elements>
-					? SnapshotTuple<Elements>
+		: Value extends RichText
+			? string
+			: Value extends Tree<infer Item>
+				? TreeData<PulseSnapshot<Item>>
+				: Value extends Uint8Array
+					? Uint8Array
 					: Value extends readonly (infer Item)[]
 						? number extends Value["length"]
 							? PulseSnapshot<Item>[]
 							: SnapshotTuple<Value>
 						: Value extends object
 							? {
-									[Key in keyof Value as Key extends string | number
-										? Key
-										: never]: PulseSnapshot<Value[Key]>;
+									[
+										Key in keyof Value as Key extends string | number
+											? Key
+											: never
+									]: PulseSnapshot<Value[Key]>;
 								}
 							: Value;
 const snapshotFieldCounts = new WeakMap<PulseLayout, number>();
@@ -116,6 +141,8 @@ export function snapshotPulse<P extends Pulse<any>>(
 			return value.snapshot();
 		if (value && typeof value === "object" && value[RichTextSymbol])
 			return value.toString();
+		if (value && typeof value === "object" && value[SubPulseSymbol])
+			return value.id;
 		if (value instanceof Uint8Array) return new Uint8Array(value);
 		return value && typeof value === "object"
 			? Array.isArray(value)

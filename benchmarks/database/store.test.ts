@@ -13,9 +13,7 @@ import type { SegmentRepository } from "./types.js";
 
 const backends = [
 	"sqlite",
-	...(process.env["PULSIFY_DATABASE_INTEGRATION"]
-		? ["postgres"]
-		: []),
+	...(process.env["PULSIFY_DATABASE_INTEGRATION"] ? ["postgres"] : []),
 ];
 for (const name of backends) {
 	describe(`${name} database benchmark contract`, () => {

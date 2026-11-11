@@ -1,0 +1,24 @@
+{
+	"name": "pulsify-website",
+	"version": "3.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun run benchmarks:data && vite dev",
+		"build": "bun run benchmarks:data && vite build",
+		"benchmarks:data": "bun scripts/benchmark-data.ts",
+		"preview": "bunx serve .output/public",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	},
+	"dependencies": {
+		"@solidjs/meta": "^0.29.8",
+		"@solidjs/router": "^1.0.1",
+		"@solidjs/start": "^2.2.2",
+		"nitro": "^3.0.261103-rc",
+		"solid-js": "^1.9.18",
+		"vite": "^8.3.6"
+	},
+	"devDependencies": {
+		"typescript": "^7.0.2"
+	}
+}

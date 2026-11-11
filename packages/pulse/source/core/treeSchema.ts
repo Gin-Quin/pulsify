@@ -1,4 +1,10 @@
-import { map, object, type Schema } from "@gin-quin/codec";
+import {
+	map,
+	object,
+	type MapSchema,
+	type ObjectSchema,
+	type Schema,
+} from "@gin-quin/codec";
 import { assertKey } from "./values.js";
 import { isFractionalPosition } from "./fractionalPosition.js";
 
@@ -17,7 +23,16 @@ export type TreeData<Item> = Record<
 	}
 >;
 
-function storage<S extends Schema>(element: S) {
+/** How a tree of `S` is stored: a flat map of nodes keyed by ID. */
+export type TreeStorageSchema<S extends Schema> = MapSchema<
+	ObjectSchema<{
+		data: S;
+		location: ObjectSchema<{ parent: "string"; position: "string" }>;
+		deleted: "boolean";
+	}>
+>;
+
+function storage<S extends Schema>(element: S): TreeStorageSchema<S> {
 	return map(
 		Object.assign(
 			object({
@@ -33,11 +48,10 @@ function storage<S extends Schema>(element: S) {
 	);
 }
 
-export type TreeSchema<S extends Schema = Schema> = (() => ReturnType<
-	typeof storage<S>
->) & {
-	readonly [TreeSchemaSymbol]: S;
-};
+export type TreeSchema<S extends Schema = Schema> =
+	(() => TreeStorageSchema<S>) & {
+		readonly [TreeSchemaSymbol]: S;
+	};
 
 /** Declare a collaborative, ordered tree of values matching `element`. Initialize with `{}`. */
 export function tree<S extends Schema>(element: S): TreeSchema<S> {

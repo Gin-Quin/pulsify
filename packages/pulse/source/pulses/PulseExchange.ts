@@ -211,7 +211,10 @@ function encodeNativeRun(
 }
 
 /** State coverage and the independently retained exact operation prefixes. */
-export function getPulseVersions(pulse: Pulse<any>) {
+export function getPulseVersions(pulse: Pulse<any>): {
+	state: PulseVersionVector;
+	history: PulseVersionVector;
+} {
 	const log = getPulseMeta(pulse).log;
 	return { state: log.vector, history: log.historyVector };
 }

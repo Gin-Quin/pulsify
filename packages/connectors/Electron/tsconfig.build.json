@@ -1,0 +1,6 @@
+{
+	"extends": "../../pulse/tsconfig.build.json",
+	"compilerOptions": { "rootDir": "./source", "outDir": "./dist", "paths": {} },
+	"include": ["source/**/*.ts"],
+	"exclude": ["tests", "dist", "node_modules"]
+}
