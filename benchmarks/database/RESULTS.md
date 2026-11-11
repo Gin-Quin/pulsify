@@ -1,4 +1,14 @@
-# Database engine load results — 2026-11-04
+# Database engine load results
+
+> **2026-11-11:** [six new engines, two durability tiers and four hosts](../baselines/database-engines-20261111/README.md)
+> (RocksDB, LMDB, Valkey, Dragonfly, ScyllaDB, ClickHouse; macOS, Docker, a VPS
+> and Unikraft Cloud). On the mixed workload with a 1,000-edit history and 128
+> clients on one document, RocksDB leads the strict tier in Docker (1,692
+> requests/s, PostgreSQL 886) and on Unikraft Cloud (1,590, PostgreSQL 430);
+> LMDB leads the relaxed tier (7,551 in Docker). That campaign runs the mix
+> first, so its numbers are not comparable with the ones below.
+
+## 2026-11-04
 
 > A later [mixed-workload optimization campaign](../baselines/database-mix-optimization-20261104/README.md) improves these Rust adapters. At 128 clients, repeated native mix throughput improves **89–191% for PostgreSQL and 97–203% for SQLite**; a separate Docker before/after pair also exceeds 30% in every cell. The results below are the original engine comparison and are retained unchanged. SQLite at one client improves only 8–24% in the new medium check.
 

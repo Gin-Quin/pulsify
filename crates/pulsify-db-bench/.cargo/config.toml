@@ -1,0 +1,4 @@
+# leveldb-sys bundles LevelDB 1.22 and Snappy 1.1.7, whose CMake files predate
+# the minimum that CMake 4 accepts.
+[env]
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

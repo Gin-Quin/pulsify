@@ -1,10 +1,30 @@
+pub mod clickhouse;
+pub mod kv;
+pub mod leveldb;
+pub mod lmdb;
 pub mod pg;
+pub mod resp;
+pub mod rocks;
+pub mod scylla;
 pub mod sqlite;
 
 use crate::model::Segment;
 use anyhow::{ensure, Result};
 use pulsify_protocol::{PatchRow, VersionVector};
 use std::collections::BTreeMap;
+
+/// The ScyllaDB and ClickHouse drivers are asynchronous; worker threads block on
+/// one shared runtime.
+pub fn runtime() -> &'static tokio::runtime::Runtime {
+    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
+    RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("tokio runtime")
+    })
+}
 
 pub trait Transaction {
     fn vector(&mut self) -> Result<VersionVector>;

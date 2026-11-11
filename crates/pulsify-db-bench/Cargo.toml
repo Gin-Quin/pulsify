@@ -8,10 +8,19 @@ publish = false
 anyhow = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
+clickhouse = "0.15.3"
+db-key = "0.0.5"
 flate2 = "1"
+heed = "0.22"
+leveldb = { version = "0.8.6", default-features = false }
 postgres = "0.19"
 pulsify-protocol = { path = "../pulsify-protocol" }
+redis = "1.8.1"
+rocksdb = "0.25.0"
 rusqlite = { version = "0.38", features = ["bundled"] }
+scylla = "1.10.0"
 serde = { version = "1", features = ["derive"] }
+serde_bytes = "0.11.19"
 serde_json = "1"
 sha2 = "0.10"
+tokio = { version = "1.54.1", features = ["rt-multi-thread"] }

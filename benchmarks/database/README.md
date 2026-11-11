@@ -11,6 +11,12 @@ longer on this Mac. Results and optional benchmark configurations remain;
 selecting those Docker engines again downloads their images. See the
 [removal audit](../baselines/database-engines-20261104/DATABASE-REMOVAL.md).
 
+Valkey, Dragonfly, ScyllaDB and ClickHouse were removed after the 2026-11-11
+campaign at the user's request: the images this benchmark pulled or built are no
+longer on this Mac, and nothing was ever installed on the VPS. Results and
+optional configurations remain; selecting those engines again downloads their
+images.
+
 ## Engines and deployments
 
 | `--databases` name | Docker image | Native mode used in campaign | Table access method |
@@ -21,6 +27,14 @@ selecting those Docker engines again downloads their images. See the
 | orioledb | orioledb/orioledb:latest-pg17 | unavailable | orioledb |
 | pgrust-row | malisper/pgrust:v0.4-beta | official macOS ARM64 release | heap |
 | pgrust-columnar | same version, separate fresh server | same release, fresh cluster | pgrcolumnar |
+| rocksdb | Rust runner, bundled RocksDB | bundled RocksDB | LSM tree, `TransactionDB` |
+| rocksdb-mutex | Rust runner, bundled RocksDB | bundled RocksDB | LSM tree, plain `DB`, write batches |
+| lmdb | Rust runner, bundled LMDB | bundled LMDB | copy-on-write B+tree, memory-mapped |
+| leveldb | Rust runner, bundled LevelDB 1.22 | bundled LevelDB | LSM tree, write batches |
+| valkey | valkey/valkey:9.0.3-alpine | unavailable | in memory, append-only file |
+| dragonfly | dragonflydb/dragonfly:v2.1.0 | unavailable | in memory, append-only file, relaxed tier only |
+| scylla | scylladb/scylla:latest | unavailable | wide-column partition per document |
+| clickhouse | clickhouse/clickhouse-server:25.7 | unavailable | ReplacingMergeTree |
 
 `alloydb` means **AlloyDB Omni locally**, not managed Google Cloud AlloyDB. The
 [official container guide](https://docs.cloud.google.com/alloydb/omni/containers/current/docs/quickstart)
@@ -31,6 +45,37 @@ are created. OrioleDB is Apache-2.0/PostgreSQL licensed, pgrust is AGPL-3.0;
 AlloyDB Omni has Google's own terms. Only Aurora was conditional on open source.
 Image IDs, digests, engine versions, settings and architecture are captured.
 OrioleDB is measured in Docker here: its [official macOS development guide](https://www.orioledb.com/docs/contributing/local-builds) starts by disabling System Integrity Protection. This campaign leaves that system protection unchanged.
+
+## Durability tiers
+
+`--durability strict` (the default) requires every engine to flush a commit to
+disk before acknowledging it. `--durability relaxed` lets each engine
+acknowledge first and flush shortly after: a crash can lose the last moments
+of accepted writes, never consistency. Pulsify clients resend every row the
+server does not acknowledge on reconnection, so the relaxed tier matches what a
+relay needs when clients keep their own journal. Run one tier per results
+directory and compare engines within a tier only.
+
+| Engine | strict | relaxed |
+|---|---|---|
+| PostgreSQL family | `synchronous_commit=on` | `synchronous_commit=off` (fsync stays on) |
+| SQLite | WAL, `synchronous=FULL` | WAL, `synchronous=NORMAL` |
+| RocksDB | WAL synced on every commit | WAL written, not synced |
+| LevelDB | log synced on every write batch | log written, not synced |
+| LMDB | default: synced on every commit | `MDB_NOSYNC` |
+| Valkey | `appendfsync always` | `appendfsync everysec` |
+| Dragonfly | not available | `--aof`, flushed in the background |
+| ScyllaDB | `commitlog_sync: batch` | `commitlog_sync: periodic` |
+| ClickHouse | `fsync_after_insert`, `fsync_part_directory` | no fsync on insert |
+
+The runner reads each engine's effective settings back and refuses a campaign
+whose settings do not match its tier. On macOS, `fsync` does not empty the
+drive cache: the strict tier is strict on Linux only. LMDB alone asks macOS for
+a full flush (`F_FULLFSYNC`), so its native macOS strict numbers measure a
+stronger guarantee than its neighbours'.
+
+Valkey and Dragonfly keep the whole dataset in RAM. Their numbers belong to a
+separate category: they do not measure a store larger than memory.
 
 ## Run
 
@@ -80,6 +125,39 @@ JSON checkpoints completed cells and stores every request. The orchestrator
 continues independent backends after a failure, verifies complete matrices and
 Pulsify replay, writes `REPORT.md`, then exits nonzero if any backend or request
 failed. A partial report is diagnostic evidence, never a completed score.
+
+## Other hosts: one image, Unikraft Cloud or any x86-64 Linux
+
+`unikraft/` packages the runner, a fixture and the engines that fit a small
+instance (SQLite, RocksDB, LMDB, PostgreSQL 16, Valkey, Dragonfly) into one
+image. Its entrypoint runs each selected engine and tier alone on a fresh data
+directory under `/data`, gzips the raw reports and serves them over HTTP on
+port 8080. The orchestration differs from `native.ts`; the runner, fixture
+format and storage adapters are the same.
+
+```sh
+benchmarks/database/unikraft/stage.sh large   # x86-64 runner + fixture
+# Docker through OrbStack: DOCKER_HOST=unix://$HOME/.orbstack/run/docker.sock
+unikraft build benchmarks/database/unikraft --output <org>/pulsify-db-bench:latest
+unikraft volume create --metro fra --name pulsify-bench-data --size 1GiB
+unikraft run --metro fra --name pulsify-db-bench --autostart -m 4GiB --vcpus 1 \
+  -e "BENCH_BACKENDS=sqlite rocksdb postgres" \
+  -e "BENCH_ARGS=--concurrency 1,16,128 --requests 1000 --modes saturation --scenarios mixed,read_delta,read_full,write_patch,compact,write_full" \
+  -p 443:8080/http+tls --scale-to-zero policy=off --restart never \
+  -v pulsify-bench-data:/data --image <org>/pulsify-db-bench:latest
+# Reports appear at https://<fqdn>/unikraft-<tier>-<engine>.json.gz; /DONE marks the end.
+```
+
+Put the reports in a results directory, run `bun
+benchmarks/database/native-fixtures.ts verify <report>` on each and delete the
+instance and volume. The instance has one vCPU: client threads and the
+database share it. Its root filesystem lives in RAM; only `/data` is a disk.
+Mixed runs first because a full-write cell stores about 270 MiB per 1,000
+requests and the volume is 1 GiB.
+
+On a host with no Docker, the embedded engines only need the staged binary and
+fixture: `pulsify-db-bench --backend rocksdb --environment vps --fixture
+fixture.json --output vps-strict-rocksdb.json --data-path work/rocksdb ...`.
 
 ## Memory limits and observed columnar failure
 
@@ -175,6 +253,39 @@ a single-call PL/pgSQL append path. These measurements characterize the benchmar
 adapters and deployment choices; they are not engine throughput ceilings.
 Docker SQLite uses a file in the runner's writable layer; the server engines use
 named data volumes. Filesystem placement is part of these measured deployments.
+
+The non-SQL engines share one ordered key-value layout (`storage/kv.rs`): a
+segment's key is `(sid, end)` in big-endian under its document. One actor's
+segments are contiguous and never overlap, so "end after this clock" and "the
+segment starting here" are forward range scans without a second index. Each
+engine supplies its own document lock and atomic commit:
+
+- **RocksDB:** `TransactionDB`. A writer takes the frontier row with
+  `GetForUpdate`, which the database holds until commit; readers use a snapshot.
+- **RocksDB with a mutex (`rocksdb-mutex`):** the plain `DB` without the
+  transaction layer. The document lock is a striped mutex in the runner and a
+  transaction's writes are one write batch, exactly like the LevelDB adapter.
+- **LMDB:** its single write transaction is the lock; readers never block.
+- **LevelDB:** atomic write batches and snapshots, but no transactions and no
+  lock manager. The document lock is a striped mutex in the runner, which is
+  what RocksDB's `TransactionDB` supplies inside the library. It runs with
+  RocksDB's default 64 MiB write buffer (its own default is 4 MiB) and without
+  compression: its bundled Snappy collides with RocksDB's at link time.
+- **Valkey, Dragonfly:** one sorted set per document, scanned lexicographically.
+  The lock is a one-token list a writer blocks on with `BLPOP`; its writes and
+  the release are one `MULTI`/`EXEC`. A read is one server-side script.
+- **ScyllaDB:** no interactive transactions. A writer reads the document's
+  version and sends one conditional batch on the partition (a lightweight
+  transaction); if the version moved it starts over, with jittered backoff.
+  Optimistic retries are counted. A hot document wastes the losers' work.
+- **ClickHouse:** no row locks and no transactions. The lock is a row in a
+  KeeperMap table that only one inserter can create; a transaction's writes are
+  one atomic INSERT into a ReplacingMergeTree, read back with `FINAL`. It is an
+  analytical engine measured here for curiosity.
+
+ScyllaDB and ClickHouse readers have no snapshot spanning two queries. They
+read the frontier first and the segments after: a delta can then hold rows newer
+than its frontier, never fewer.
 
 All backends use binary Pulsify frames in indexed per-actor segments and
 transactional contiguous clocks. SQL uses relational segment tables. PostgreSQL

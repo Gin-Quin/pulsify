@@ -2,7 +2,14 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir, cpus, totalmem } from "node:os";
 import { resolve, join } from "node:path";
 import { createServer } from "node:net";
-import { engines, pgSettings, type Backend } from "./engines.js";
+import {
+	embedded,
+	engines,
+	pgSettings,
+	relaxedOnly,
+	serverUrls,
+	type Backend,
+} from "./engines.js";
 
 const root = new URL("../../", import.meta.url).pathname;
 const argv = process.argv.slice(2);
@@ -19,6 +26,7 @@ const valueFlags = new Set([
 	"--databases",
 	"--sqlite-busy",
 	"--sqlite-mmap-bytes",
+	"--durability",
 ]);
 for (let i = 0; i < argv.length; i++) {
 	const flag = argv[i]!;
@@ -40,6 +48,8 @@ if (argv.includes("--help")) {
  [--scenarios write_full,read_full,write_patch,compact,read_delta,mixed]
  [--results-dir benchmarks/results/native-database]
  [--sqlite-busy jitter|timeout] [--sqlite-mmap-bytes 67108864]
+ [--durability strict|relaxed]  strict flushes every commit before its acknowledgement;
+   relaxed lets each engine acknowledge first (see README). One tier per results directory.
  Native: PG_BIN for PostgreSQL; PGRUST_BIN for the verified official 0.4-beta release.
  AlloyDB Omni and OrioleDB run in Docker on this Mac. Unsupported native deployments
  are recorded explicitly. Each engine gets fresh isolated data; no cloud resources.`);
@@ -62,6 +72,9 @@ if (
 	throw new Error("Unknown or duplicate database");
 if (!["both", "bare-metal", "docker"].includes(environment))
 	throw new Error("Unknown environment");
+const durability = arg("--durability", "strict");
+if (!["strict", "relaxed"].includes(durability))
+	throw new Error("Unknown durability tier");
 const levels = concurrency.split(",").map(Number),
 	workers = Math.max(...levels);
 if (
@@ -84,6 +97,8 @@ const env: Record<string, string | undefined> = {
 	...process.env,
 	BENCH_RESULTS_DIR: output,
 	BENCH_FIXTURE: fixture,
+	BENCH_APPENDFSYNC: durability === "relaxed" ? "everysec" : "always",
+	BENCH_COMMITLOG_SYNC: durability === "relaxed" ? "periodic" : "batch",
 };
 const activeCommands = new Set<() => void>();
 async function run(
@@ -140,6 +155,8 @@ const common = [
 	arg("--sqlite-busy", "jitter"),
 	"--sqlite-mmap-bytes",
 	arg("--sqlite-mmap-bytes", "67108864"),
+	"--durability",
+	durability,
 	...(contractOnly ? ["--contract-only"] : []),
 ];
 env["BENCH_COMMIT"] = await run(["git", "rev-parse", "HEAD"], true);
@@ -164,6 +181,7 @@ const context = {
 	commit: env["BENCH_COMMIT"],
 	dirty: !!(await run(["git", "status", "--porcelain"], true)),
 	profile,
+	durability,
 	selectedDatabases,
 	requests: Number(requests),
 	concurrency: levels,
@@ -202,6 +220,7 @@ for (const path of [
 	"native.ts",
 	"engines.ts",
 	"native-compose.yaml",
+	"clickhouse-keeper.xml",
 	"native.Dockerfile",
 	"native-fixtures.ts",
 	"fixtures.ts",
@@ -226,6 +245,13 @@ for (const path of [
 	"src/storage/mod.rs",
 	"src/storage/pg.rs",
 	"src/storage/sqlite.rs",
+	"src/storage/kv.rs",
+	"src/storage/rocks.rs",
+	"src/storage/lmdb.rs",
+	"src/storage/leveldb.rs",
+	"src/storage/resp.rs",
+	"src/storage/scylla.rs",
+	"src/storage/clickhouse.rs",
 ]) {
 	hasher.update(path);
 	hasher.update(
@@ -302,6 +328,10 @@ async function measure(
 			pgUrl,
 			"--sqlite-path",
 			mounted ? "/tmp/native.sqlite" : join(temporary, "native.sqlite"),
+			"--data-path",
+			mounted ? `/tmp/native-${backend}` : join(temporary, `${backend}-data`),
+			"--server-url",
+			serverUrls[backend] ?? "",
 			...common,
 		],
 		false,
@@ -345,10 +375,15 @@ try {
 					"No macOS native deployment configured; use Docker (Linux).";
 				continue;
 			}
+			if (durability === "strict" && relaxedOnly.has(backend)) {
+				context.unsupported[key] =
+					"No flush-before-acknowledge mode; relaxed tier only.";
+				continue;
+			}
 			let stop: (() => Promise<unknown>) | undefined;
 			try {
 				let url = "";
-				if (native !== "sqlite") {
+				if (!embedded.has(native)) {
 					const bin =
 						native === "postgres"
 							? (env["PG_BIN"] ?? "/opt/homebrew/opt/postgresql@16/bin")
@@ -485,6 +520,11 @@ try {
 		};
 		for (const backend of selectedDatabases) {
 			await memorySnapshot(`docker/${backend}/before`);
+			if (durability === "strict" && relaxedOnly.has(backend)) {
+				context.unsupported[`docker/${backend}`] =
+					"No flush-before-acknowledge mode; relaxed tier only.";
+				continue;
+			}
 			try {
 				const engine = engines[backend];
 				if (engine.image) {

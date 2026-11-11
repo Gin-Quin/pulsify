@@ -34,9 +34,9 @@ fn busy(attempt: i32) -> bool {
 pub struct Sqlite(pub Connection);
 impl Sqlite {
     pub fn open(path: &str) -> Result<Self> {
-        Self::open_with(path, "jitter", 64 * 1024 * 1024)
+        Self::open_with(path, "jitter", 64 * 1024 * 1024, false)
     }
-    pub fn open_with(path: &str, busy_mode: &str, mmap_bytes: u64) -> Result<Self> {
+    pub fn open_with(path: &str, busy_mode: &str, mmap_bytes: u64, relaxed: bool) -> Result<Self> {
         ensure!(mmap_bytes <= 1024 * 1024 * 1024, "mmap limit is 1 GiB");
         let db = Connection::open(path)?;
         match busy_mode {
@@ -44,11 +44,13 @@ impl Sqlite {
             "timeout" => db.busy_timeout(Duration::from_secs(30))?,
             _ => anyhow::bail!("unknown SQLite busy mode"),
         }
-        db.execute_batch("PRAGMA synchronous=FULL;")?;
+        // NORMAL in WAL mode syncs at checkpoints only: a power loss can drop the
+        // last commits, never corrupt the file.
+        db.pragma_update(None, "synchronous", if relaxed { "NORMAL" } else { "FULL" })?;
         db.pragma_update(None, "mmap_size", mmap_bytes as i64)?;
         Ok(Self(db))
     }
-    pub fn metadata(&self, busy_mode: &str) -> Result<serde_json::Value> {
+    pub fn metadata(&self, busy_mode: &str, relaxed: bool) -> Result<serde_json::Value> {
         let mut settings = serde_json::Map::new();
         for name in [
             "journal_mode",
@@ -68,8 +70,9 @@ impl Sqlite {
             settings.insert(name.into(), value.into());
         }
         ensure!(
-            settings["journal_mode"] == "wal" && settings["synchronous"] == "2",
-            "Durable WAL/FULL settings required"
+            settings["journal_mode"] == "wal"
+                && settings["synchronous"] == if relaxed { "1" } else { "2" },
+            "SQLite settings do not match the durability tier"
         );
         Ok(
             serde_json::json!({"sqliteVersion":rusqlite::version(),"settings":settings,"busyMode":busy_mode,"busyDeadlineMs":30000}),

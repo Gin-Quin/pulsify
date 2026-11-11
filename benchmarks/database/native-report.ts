@@ -27,7 +27,12 @@ type Cell = {
 	operations: Record<string, Summary>;
 };
 type Report = {
-	arguments: { backend: string; environment: string; requests: number };
+	arguments: {
+		backend: string;
+		environment: string;
+		requests: number;
+		durability?: string;
+	};
 	metadata: Record<string, unknown>;
 	cells: Cell[];
 	materializationChecks?: number;
@@ -37,7 +42,7 @@ const reports: Report[] = [];
 const filenames = (await readdir(directory)).sort();
 for (const name of filenames)
 	if (
-		/^(docker|bare-metal)-.*\.json(?:\.gz)?$/.test(name) &&
+		/^(docker|bare-metal|vps|unikraft)-.*\.json(?:\.gz)?$/.test(name) &&
 		!/-contract\.json(?:\.gz)?$/.test(name)
 	) {
 		if (name.endsWith(".gz") && filenames.includes(name.slice(0, -3))) continue;
@@ -61,7 +66,15 @@ if (context.backendFailures && Object.keys(context.backendFailures).length)
 if (context.unsupported && Object.keys(context.unsupported).length)
 	markdown += `**Deployments not run:** ${JSON.stringify(context.unsupported)}\n\n`;
 markdown +=
-	"All backends use in-process Rust clients: postgres (PostgreSQL wire protocol) and rusqlite. No Python or per-key IPC. Real Pulsify fixtures and exact-history verification.\n\n";
+	"All backends use in-process Rust clients: the PostgreSQL wire protocol, bundled SQLite, RocksDB and LMDB, the Redis protocol (Valkey, Dragonfly), CQL (ScyllaDB) and HTTP (ClickHouse). No Python or per-key IPC. Real Pulsify fixtures and exact-history verification.\n\n";
+const tiers = [
+	...new Set(reports.map((r) => r.arguments.durability ?? "strict")),
+];
+if (tiers.length === 1)
+	markdown += `**Durability tier: ${tiers[0]}.** ${tiers[0] === "relaxed" ? "Engines may acknowledge a commit before flushing it to disk" : "Every commit is flushed to disk before its acknowledgement"}; compare engines within one tier only.\n\n`;
+else if (tiers.length > 1)
+	markdown +=
+		"**Both durability tiers are in this folder** (see the Tier column): strict flushes every commit before its acknowledgement, relaxed may acknowledge first. Compare engines within one tier only.\n\n";
 markdown +=
 	"The mixed workload is exactly 45% patch writes, 25% vector reads, 10% full writes, 10% full reads, 10% compaction attempts. Burst latency includes sender queue time; saturation latency is closed-loop service latency. Compaction no-ops are separated from useful work.\n\n";
 markdown +=
@@ -69,7 +82,8 @@ markdown +=
 markdown +=
 	"Retry counts are a lower bound when a request exhausts its retry budget; failed compactions are recorded separately as errors.\n\n";
 markdown +=
-	"| Environment | Database | Scenario | Topology | Mode | Clients | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |\n|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n";
+	"| Environment | Tier | Database | Scenario | Topology | Mode | Clients | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |\n|---|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n";
+const tier = (report: Report) => report.arguments.durability ?? "strict";
 let cells = 0,
 	requests = 0,
 	errors = 0;
@@ -79,16 +93,16 @@ for (const report of reports)
 		cells++;
 		requests += s.requests;
 		errors += s.errors;
-		markdown += `|${report.arguments.environment}|${report.arguments.backend}|${cell.scenario}|${cell.topology}|${cell.mode}|${cell.concurrency}|${s.throughput_per_sec.toFixed(1)}|${s.service.p50_ms.toFixed(3)}|${s.service.p95_ms.toFixed(3)}|${s.service.p99_ms.toFixed(3)}|${s.latency.p99_ms.toFixed(3)}|${s.errors}|${s.retries}|${s.useful_compactions}/${s.noop_compactions}|\n`;
+		markdown += `|${report.arguments.environment}|${tier(report)}|${report.arguments.backend}|${cell.scenario}|${cell.topology}|${cell.mode}|${cell.concurrency}|${s.throughput_per_sec.toFixed(1)}|${s.service.p50_ms.toFixed(3)}|${s.service.p95_ms.toFixed(3)}|${s.service.p99_ms.toFixed(3)}|${s.latency.p99_ms.toFixed(3)}|${s.errors}|${s.retries}|${s.useful_compactions}/${s.noop_compactions}|\n`;
 	}
 markdown +=
 	"\n## Operations within the mixed workload\n\nPer-operation req/s is its completed share over the entire mixed cell duration. Service latency includes database lock waits and retries; burst end-to-end latency also includes admission queue time.\n\n";
 markdown +=
-	"| Environment | Database | Topology | Mode | Clients | Operation | Count | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |\n|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n";
+	"| Environment | Tier | Database | Topology | Mode | Clients | Operation | Count | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |\n|---|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n";
 for (const report of reports)
 	for (const cell of report.cells.filter((c) => c.scenario === "mixed"))
 		for (const [op, s] of Object.entries(cell.operations))
-			markdown += `|${report.arguments.environment}|${report.arguments.backend}|${cell.topology}|${cell.mode}|${cell.concurrency}|${op}|${s.requests}|${s.throughput_per_sec.toFixed(1)}|${s.service.p50_ms.toFixed(3)}|${s.service.p95_ms.toFixed(3)}|${s.service.p99_ms.toFixed(3)}|${s.latency.p99_ms.toFixed(3)}|${s.errors}|${s.retries}|${s.useful_compactions}/${s.noop_compactions}|\n`;
+			markdown += `|${report.arguments.environment}|${tier(report)}|${report.arguments.backend}|${cell.topology}|${cell.mode}|${cell.concurrency}|${op}|${s.requests}|${s.throughput_per_sec.toFixed(1)}|${s.service.p50_ms.toFixed(3)}|${s.service.p95_ms.toFixed(3)}|${s.service.p99_ms.toFixed(3)}|${s.latency.p99_ms.toFixed(3)}|${s.errors}|${s.retries}|${s.useful_compactions}/${s.noop_compactions}|\n`;
 markdown += `\n${cells} completed cells, ${requests} requests, ${errors} errors, ${reports.reduce((n, r) => n + (r.materializationChecks ?? 0), 0)} representative histories materialized through Pulsify. All accepted history was compared row-for-row in Rust.\n`;
 await Bun.write(join(directory, "REPORT.md"), markdown);
 console.log(

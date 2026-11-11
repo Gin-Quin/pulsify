@@ -1,0 +1,8 @@
+Linux vmi3607475 6.8.0-147-generic #147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+cpus: 6
+MemTotal:       12247544 kB
+MemAvailable:    8597440 kB
+Model name:                              AMD EPYC Processor (with IBPB)
+BIOS Model name:                         pc-i440fx-9.0  CPU @ 2.0GHz
+/dev/sda1      405196772 392758444  12421944  97% /
+ 09:06:42 up 23 days, 15:54,  6 users,  load average: 0.68, 0.58, 0.83

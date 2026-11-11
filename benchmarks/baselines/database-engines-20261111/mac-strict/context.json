@@ -1,0 +1,833 @@
+{
+  "startedAt": "2026-11-11T08:17:11.081Z",
+  "completedAt": "2026-11-11T08:49:27.698Z",
+  "sourceSha256": "42a029633a706eff79c6dde0aa6e079e1595492869d0e9741868d6a31687955f",
+  "orchestrationSha256": "a5c793b88fe545ac324c00c38d75831c40af954a08612d638bc3bd56b09ac4cd",
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
+  "memorySnapshots": {
+    "bare-metal/postgres/before": {
+      "at": "2026-11-11T08:17:22.102Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 47067 \nPages purgeable: 1843 \nPages purged: 36264391 \n\nSwap I/O:\nSwapins: 1572336 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 541078 \nPages inactive: 536000 \nPages speculative: 6893 \nPages throttled: 0 \nPages wired down: 250228 \n\nCompressor Stats:\nPages used by compressor: 675520 \nPages decompressed: 322673572 \nPages compressed: 360609570 \n\nFile I/O:\nPageins: 33863971 \nPageouts: 8998144 \n\nSystem-wide memory free percentage: 54%",
+      "swap": "vm.swapusage: total = 12288.00M  used = 10561.50M  free = 1726.50M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25203100    33%  453127 252031000    0%   /"
+    },
+    "bare-metal/sqlite/before": {
+      "at": "2026-11-11T08:18:33.728Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 159777 \nPages purgeable: 670 \nPages purged: 36265889 \n\nSwap I/O:\nSwapins: 1572612 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 469477 \nPages inactive: 464960 \nPages speculative: 4326 \nPages throttled: 0 \nPages wired down: 250117 \n\nCompressor Stats:\nPages used by compressor: 707960 \nPages decompressed: 322950643 \nPages compressed: 360982722 \n\nFile I/O:\nPageins: 33877822 \nPageouts: 8999373 \n\nSystem-wide memory free percentage: 53%",
+      "swap": "vm.swapusage: total = 12288.00M  used = 10561.50M  free = 1726.50M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25228696    33%  453127 252286960    0%   /"
+    },
+    "bare-metal/rocksdb/before": {
+      "at": "2026-11-11T08:19:21.327Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 108538 \nPages purgeable: 445 \nPages purged: 36265929 \n\nSwap I/O:\nSwapins: 1572680 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 513336 \nPages inactive: 511440 \nPages speculative: 1425 \nPages throttled: 0 \nPages wired down: 255725 \n\nCompressor Stats:\nPages used by compressor: 666279 \nPages decompressed: 323043636 \nPages compressed: 361004779 \n\nFile I/O:\nPageins: 33885603 \nPageouts: 8999446 \n\nSystem-wide memory free percentage: 55%",
+      "swap": "vm.swapusage: total = 12288.00M  used = 10553.50M  free = 1734.50M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24905372    33%  453127 249053720    0%   /"
+    },
+    "bare-metal/lmdb/before": {
+      "at": "2026-11-11T08:19:47.612Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 94300 \nPages purgeable: 1239 \nPages purged: 36265939 \n\nSwap I/O:\nSwapins: 1572716 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 526505 \nPages inactive: 524153 \nPages speculative: 2166 \nPages throttled: 0 \nPages wired down: 250808 \n\nCompressor Stats:\nPages used by compressor: 658319 \nPages decompressed: 323058041 \nPages compressed: 361004779 \n\nFile I/O:\nPageins: 33889856 \nPageouts: 8999483 \n\nSystem-wide memory free percentage: 55%",
+      "swap": "vm.swapusage: total = 12288.00M  used = 10553.50M  free = 1734.50M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24892800    33%  453127 248928000    0%   /"
+    },
+    "bare-metal/valkey/before": {
+      "at": "2026-11-11T08:21:39.867Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51536 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566935 \nPages inactive: 565072 \nPages speculative: 1629 \nPages throttled: 0 \nPages wired down: 248733 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151128 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895062 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
+    },
+    "bare-metal/scylla/before": {
+      "at": "2026-11-11T08:21:39.868Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51605 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566944 \nPages inactive: 565072 \nPages speculative: 1631 \nPages throttled: 0 \nPages wired down: 248732 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151130 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895069 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
+    },
+    "bare-metal/clickhouse/before": {
+      "at": "2026-11-11T08:21:39.870Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51366 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566921 \nPages inactive: 565072 \nPages speculative: 1631 \nPages throttled: 0 \nPages wired down: 248728 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151130 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895072 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
+    },
+    "docker/postgres/before": {
+      "at": "2026-11-11T08:21:41.497Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 44329 \nPages purgeable: 1396 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603910 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 571003 \nPages inactive: 567970 \nPages speculative: 3177 \nPages throttled: 0 \nPages wired down: 248775 \n\nCompressor Stats:\nPages used by compressor: 621732 \nPages decompressed: 323153820 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33904310 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25475128    33%  453127 254751280    0%   /"
+    },
+    "docker/sqlite/before": {
+      "at": "2026-11-11T08:23:07.112Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 29830 \nPages purgeable: 1255 \nPages purged: 36267198 \n\nSwap I/O:\nSwapins: 1605213 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 526161 \nPages inactive: 522175 \nPages speculative: 3405 \nPages throttled: 0 \nPages wired down: 247851 \n\nCompressor Stats:\nPages used by compressor: 727430 \nPages decompressed: 323434338 \nPages compressed: 361587742 \n\nFile I/O:\nPageins: 33934528 \nPageouts: 8999732 \n\nSystem-wide memory free percentage: 52%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10348.62M  free = 915.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24746716    33%  453127 247467160    0%   /"
+    },
+    "docker/rocksdb/before": {
+      "at": "2026-11-11T08:25:05.371Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 80031 \nPages purgeable: 1871 \nPages purged: 36268404 \n\nSwap I/O:\nSwapins: 1606327 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 494341 \nPages inactive: 492005 \nPages speculative: 2018 \nPages throttled: 0 \nPages wired down: 247285 \n\nCompressor Stats:\nPages used by compressor: 740829 \nPages decompressed: 323812364 \nPages compressed: 362031844 \n\nFile I/O:\nPageins: 33951478 \nPageouts: 9000131 \n\nSystem-wide memory free percentage: 51%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10324.62M  free = 939.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25466060    33%  453127 254660600    0%   /"
+    },
+    "docker/lmdb/before": {
+      "at": "2026-11-11T08:26:15.321Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 74219 \nPages purgeable: 483 \nPages purged: 36268955 \n\nSwap I/O:\nSwapins: 1606797 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 513656 \nPages inactive: 509798 \nPages speculative: 3670 \nPages throttled: 0 \nPages wired down: 247203 \n\nCompressor Stats:\nPages used by compressor: 707977 \nPages decompressed: 324070428 \nPages compressed: 362250977 \n\nFile I/O:\nPageins: 33962113 \nPageouts: 9042103 \n\nSystem-wide memory free percentage: 53%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10324.62M  free = 939.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25468476    33%  453127 254684760    0%   /"
+    },
+    "docker/valkey/before": {
+      "at": "2026-11-11T08:27:24.238Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 47606 \nPages purgeable: 611 \nPages purged: 36269179 \n\nSwap I/O:\nSwapins: 1607672 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 495368 \nPages inactive: 538050 \nPages speculative: 2777 \nPages throttled: 0 \nPages wired down: 250674 \n\nCompressor Stats:\nPages used by compressor: 722192 \nPages decompressed: 324241862 \nPages compressed: 362486654 \n\nFile I/O:\nPageins: 33977806 \nPageouts: 9043467 \n\nSystem-wide memory free percentage: 52%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10316.62M  free = 947.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25454500    33%  453127 254545000    0%   /"
+    },
+    "docker/scylla/before": {
+      "at": "2026-11-11T08:29:02.510Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 151185 \nPages purgeable: 2924 \nPages purged: 36270262 \n\nSwap I/O:\nSwapins: 1607928 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 461673 \nPages inactive: 458838 \nPages speculative: 2272 \nPages throttled: 0 \nPages wired down: 248543 \n\nCompressor Stats:\nPages used by compressor: 734275 \nPages decompressed: 324548361 \nPages compressed: 362881682 \n\nFile I/O:\nPageins: 34026072 \nPageouts: 9043774 \n\nSystem-wide memory free percentage: 52%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10316.62M  free = 947.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25274988    33%  453127 252749880    0%   /"
+    },
+    "docker/clickhouse/before": {
+      "at": "2026-11-11T08:30:11.195Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 16157 \nPages purgeable: 597 \nPages purged: 36270845 \n\nSwap I/O:\nSwapins: 1609164 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 539332 \nPages inactive: 537786 \nPages speculative: 458 \nPages throttled: 0 \nPages wired down: 249704 \n\nCompressor Stats:\nPages used by compressor: 712969 \nPages decompressed: 324778870 \nPages compressed: 363088784 \n\nFile I/O:\nPageins: 34059125 \nPageouts: 9043909 \n\nSystem-wide memory free percentage: 53%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10300.62M  free = 963.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24407292    33%  453127 244072920    0%   /"
+    },
+    "completed": {
+      "at": "2026-11-11T08:49:27.698Z",
+      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 7242 \nPages purgeable: 0 \nPages purged: 36670363 \n\nSwap I/O:\nSwapins: 1613820 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 504088 \nPages inactive: 498550 \nPages speculative: 4826 \nPages throttled: 0 \nPages wired down: 245977 \n\nCompressor Stats:\nPages used by compressor: 795767 \nPages decompressed: 334273162 \nPages compressed: 373827324 \n\nFile I/O:\nPageins: 34493257 \nPageouts: 9169446 \n\nSystem-wide memory free percentage: 49%",
+      "swap": "vm.swapusage: total = 11264.00M  used = 10212.62M  free = 1051.38M  (encrypted)",
+      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  21684500    36%  453127 216845000    0%   /"
+    }
+  },
+  "fixtureSha256": "2846df31834b60a3df096998b9db67815be83f3e243ea416d83f7c5dcab12014",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M4",
+    "cpus": 10,
+    "ramBytes": 34359738368
+  },
+  "commit": "45719ea7822c355b16fbaec0e85ef702ef222a4a",
+  "dirty": true,
+  "profile": "large",
+  "durability": "strict",
+  "selectedDatabases": [
+    "postgres",
+    "sqlite",
+    "rocksdb",
+    "lmdb",
+    "valkey",
+    "scylla",
+    "clickhouse"
+  ],
+  "requests": 1000,
+  "concurrency": [
+    1,
+    16,
+    128
+  ],
+  "command": [
+    "--environment",
+    "both",
+    "--profile",
+    "large",
+    "--databases",
+    "postgres,sqlite,rocksdb,lmdb,valkey,scylla,clickhouse",
+    "--concurrency",
+    "1,16,128",
+    "--requests",
+    "1000",
+    "--modes",
+    "saturation",
+    "--scenarios",
+    "mixed,read_delta,read_full,write_patch,compact,write_full",
+    "--results-dir",
+    "benchmarks/results/engines-20261111/mac-strict"
+  ],
+  "resourceSettings": {
+    "postgresCompatibleArguments": [
+      "-c",
+      "max_connections=180",
+      "-c",
+      "shared_buffers=128MB",
+      "-c",
+      "max_wal_size=128MB",
+      "-c",
+      "min_wal_size=32MB",
+      "-c",
+      "checkpoint_timeout=60s"
+    ],
+    "dockerContainerMemoryLimitBytes": 4294967296,
+    "dockerContainerSwapLimitBytes": 0,
+    "oneMeasuredBackendAtATime": true,
+    "alloydb": "same PostgreSQL settings; effective settings captured in raw report"
+  },
+  "databases": {
+    "docker": {
+      "runnerImage": "sha256:ac0d544dce671af3ae6f100f96695c713662d45ef5d8471ad85ee8533b919242",
+      "docker": {
+        "ID": "529db05a-4162-4a91-9817-c257bfa975c3",
+        "Containers": 11,
+        "ContainersRunning": 9,
+        "ContainersPaused": 0,
+        "ContainersStopped": 2,
+        "Images": 38,
+        "Driver": "overlay2",
+        "DriverStatus": [
+          [
+            "Backing Filesystem",
+            "btrfs"
+          ],
+          [
+            "Supports d_type",
+            "true"
+          ],
+          [
+            "Using metacopy",
+            "false"
+          ],
+          [
+            "Native Overlay Diff",
+            "true"
+          ],
+          [
+            "userxattr",
+            "false"
+          ]
+        ],
+        "Plugins": {
+          "Volume": [
+            "local"
+          ],
+          "Network": [
+            "bridge",
+            "host",
+            "ipvlan",
+            "macvlan",
+            "null",
+            "overlay"
+          ],
+          "Authorization": null,
+          "Log": [
+            "awslogs",
+            "fluentd",
+            "gcplogs",
+            "gelf",
+            "journald",
+            "json-file",
+            "local",
+            "splunk",
+            "syslog"
+          ]
+        },
+        "MemoryLimit": true,
+        "SwapLimit": true,
+        "CpuCfsPeriod": true,
+        "CpuCfsQuota": true,
+        "CPUShares": true,
+        "CPUSet": true,
+        "PidsLimit": true,
+        "IPv4Forwarding": true,
+        "Debug": false,
+        "NFd": 128,
+        "OomKillDisable": false,
+        "NGoroutines": 148,
+        "SystemTime": "2026-11-11T09:21:41.489643755+01:00",
+        "LoggingDriver": "json-file",
+        "CgroupDriver": "cgroupfs",
+        "CgroupVersion": "2",
+        "NEventsListener": 1,
+        "KernelVersion": "7.2.12-orbstack-00394-gbecdd6130068",
+        "OperatingSystem": "OrbStack",
+        "OSVersion": "",
+        "OSType": "linux",
+        "Architecture": "aarch64",
+        "IndexServerAddress": "https://index.docker.io/v1/",
+        "RegistryConfig": {
+          "InsecureRegistryCIDRs": [
+            "127.0.0.0/8",
+            "::1/128"
+          ],
+          "IndexConfigs": {
+            "docker.io": {
+              "Name": "docker.io",
+              "Mirrors": [],
+              "Secure": true,
+              "Official": true
+            }
+          },
+          "Mirrors": []
+        },
+        "NCPU": 10,
+        "MemTotal": 16818991104,
+        "GenericResources": null,
+        "DockerRootDir": "/var/lib/docker",
+        "HttpProxy": "http://proxy.orb.internal:8305",
+        "HttpsProxy": "http://proxy.orb.internal:8305",
+        "NoProxy": "localhost,127.0.0.1,127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,0.250.250.0/24,*.orb.internal,*.local,gateway.docker.internal,host.internal,host.docker.internal,host.lima.internal,docker.for.mac.localhost,docker.for.mac.host.internal",
+        "Name": "orbstack",
+        "Labels": [],
+        "ExperimentalBuild": true,
+        "ServerVersion": "29.8.2",
+        "Runtimes": {
+          "io.containerd.runc.v2": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          },
+          "runc": {
+            "path": "runc",
+            "status": {
+              "org.opencontainers.runtime-spec.features": "{\"ociVersionMin\":\"1.0.0\",\"ociVersionMax\":\"1.3.0\",\"hooks\":[\"prestart\",\"createRuntime\",\"createContainer\",\"startContainer\",\"poststart\",\"poststop\"],\"mountOptions\":[\"async\",\"atime\",\"bind\",\"defaults\",\"dev\",\"diratime\",\"dirsync\",\"exec\",\"iversion\",\"lazytime\",\"loud\",\"mand\",\"noatime\",\"nodev\",\"nodiratime\",\"noexec\",\"noiversion\",\"nolazytime\",\"nomand\",\"norelatime\",\"nostrictatime\",\"nosuid\",\"nosymfollow\",\"private\",\"ratime\",\"rbind\",\"rdev\",\"rdiratime\",\"relatime\",\"remount\",\"rexec\",\"rnoatime\",\"rnodev\",\"rnodiratime\",\"rnoexec\",\"rnorelatime\",\"rnostrictatime\",\"rnosuid\",\"rnosymfollow\",\"ro\",\"rprivate\",\"rrelatime\",\"rro\",\"rrw\",\"rshared\",\"rslave\",\"rstrictatime\",\"rsuid\",\"rsymfollow\",\"runbindable\",\"rw\",\"shared\",\"silent\",\"slave\",\"strictatime\",\"suid\",\"symfollow\",\"sync\",\"tmpcopyup\",\"unbindable\"],\"linux\":{\"namespaces\":[\"cgroup\",\"ipc\",\"mount\",\"network\",\"pid\",\"time\",\"user\",\"uts\"],\"capabilities\":[\"CAP_CHOWN\",\"CAP_DAC_OVERRIDE\",\"CAP_DAC_READ_SEARCH\",\"CAP_FOWNER\",\"CAP_FSETID\",\"CAP_KILL\",\"CAP_SETGID\",\"CAP_SETUID\",\"CAP_SETPCAP\",\"CAP_LINUX_IMMUTABLE\",\"CAP_NET_BIND_SERVICE\",\"CAP_NET_BROADCAST\",\"CAP_NET_ADMIN\",\"CAP_NET_RAW\",\"CAP_IPC_LOCK\",\"CAP_IPC_OWNER\",\"CAP_SYS_MODULE\",\"CAP_SYS_RAWIO\",\"CAP_SYS_CHROOT\",\"CAP_SYS_PTRACE\",\"CAP_SYS_PACCT\",\"CAP_SYS_ADMIN\",\"CAP_SYS_BOOT\",\"CAP_SYS_NICE\",\"CAP_SYS_RESOURCE\",\"CAP_SYS_TIME\",\"CAP_SYS_TTY_CONFIG\",\"CAP_MKNOD\",\"CAP_LEASE\",\"CAP_AUDIT_WRITE\",\"CAP_AUDIT_CONTROL\",\"CAP_SETFCAP\",\"CAP_MAC_OVERRIDE\",\"CAP_MAC_ADMIN\",\"CAP_SYSLOG\",\"CAP_WAKE_ALARM\",\"CAP_BLOCK_SUSPEND\",\"CAP_AUDIT_READ\",\"CAP_PERFMON\",\"CAP_BPF\",\"CAP_CHECKPOINT_RESTORE\"],\"cgroup\":{\"v1\":true,\"v2\":true,\"systemd\":true,\"systemdUser\":true,\"rdma\":true},\"seccomp\":{\"enabled\":true,\"actions\":[\"SCMP_ACT_ALLOW\",\"SCMP_ACT_ERRNO\",\"SCMP_ACT_KILL\",\"SCMP_ACT_KILL_PROCESS\",\"SCMP_ACT_KILL_THREAD\",\"SCMP_ACT_LOG\",\"SCMP_ACT_NOTIFY\",\"SCMP_ACT_TRACE\",\"SCMP_ACT_TRAP\"],\"operators\":[\"SCMP_CMP_EQ\",\"SCMP_CMP_GE\",\"SCMP_CMP_GT\",\"SCMP_CMP_LE\",\"SCMP_CMP_LT\",\"SCMP_CMP_MASKED_EQ\",\"SCMP_CMP_NE\"],\"archs\":[\"SCMP_ARCH_AARCH64\",\"SCMP_ARCH_ARM\",\"SCMP_ARCH_LOONGARCH64\",\"SCMP_ARCH_MIPS\",\"SCMP_ARCH_MIPS64\",\"SCMP_ARCH_MIPS64N32\",\"SCMP_ARCH_MIPSEL\",\"SCMP_ARCH_MIPSEL64\",\"SCMP_ARCH_MIPSEL64N32\",\"SCMP_ARCH_PPC\",\"SCMP_ARCH_PPC64\",\"SCMP_ARCH_PPC64LE\",\"SCMP_ARCH_RISCV64\",\"SCMP_ARCH_S390\",\"SCMP_ARCH_S390X\",\"SCMP_ARCH_X32\",\"SCMP_ARCH_X86\",\"SCMP_ARCH_X86_64\"],\"knownFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"],\"supportedFlags\":[\"SECCOMP_FILTER_FLAG_TSYNC\",\"SECCOMP_FILTER_FLAG_SPEC_ALLOW\",\"SECCOMP_FILTER_FLAG_LOG\",\"SECCOMP_FILTER_FLAG_WAIT_KILLABLE_RECV\"]},\"apparmor\":{\"enabled\":true},\"selinux\":{\"enabled\":true},\"intelRdt\":{\"enabled\":true,\"schemata\":true,\"monitoring\":true},\"memoryPolicy\":{\"modes\":[\"MPOL_BIND\",\"MPOL_DEFAULT\",\"MPOL_INTERLEAVE\",\"MPOL_LOCAL\",\"MPOL_PREFERRED\",\"MPOL_PREFERRED_MANY\",\"MPOL_WEIGHTED_INTERLEAVE\"],\"flags\":[\"MPOL_F_NUMA_BALANCING\",\"MPOL_F_RELATIVE_NODES\",\"MPOL_F_STATIC_NODES\"]},\"mountExtensions\":{\"idmap\":{\"enabled\":true}},\"netDevices\":{\"enabled\":true}},\"annotations\":{\"com.cyphar.pathrs.libpathrs.version\":\"0.2.5\",\"io.github.seccomp.libseccomp.version\":\"2.6.0\",\"org.opencontainers.runc.checkpoint.enabled\":\"true\",\"org.opencontainers.runc.commit\":\"29dd3dc2b13b4123162e5fe132504bb4b15569f1\",\"org.opencontainers.runc.version\":\"1.5.2\"},\"potentiallyUnsafeConfigAnnotations\":[\"bundle\",\"org.systemd.property.\",\"org.criu.config\"]}"
+            }
+          }
+        },
+        "DefaultRuntime": "runc",
+        "Swarm": {
+          "NodeID": "",
+          "NodeAddr": "",
+          "LocalNodeState": "inactive",
+          "ControlAvailable": false,
+          "Error": "",
+          "RemoteManagers": null
+        },
+        "LiveRestoreEnabled": false,
+        "Isolation": "",
+        "InitBinary": "docker-init",
+        "ContainerdCommit": {
+          "ID": "ee2735368117d2eb259779949d5e75cdafec9761"
+        },
+        "RuncCommit": {
+          "ID": "29dd3dc2b13b4123162e5fe132504bb4b15569f1"
+        },
+        "InitCommit": {
+          "ID": "de40ad0"
+        },
+        "SecurityOptions": [
+          "name=seccomp,profile=builtin",
+          "name=cgroupns"
+        ],
+        "ProductLicense": "Community Engine",
+        "DefaultAddressPools": [
+          {
+            "Base": "192.168.97.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.107.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.117.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.147.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.148.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.155.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.156.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.158.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.163.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.164.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.165.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.166.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.167.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.171.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.172.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.181.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.183.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.186.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.207.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.214.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.215.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.216.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.223.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.227.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.228.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.229.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.237.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.239.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.242.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "192.168.247.0/24",
+            "Size": 24
+          },
+          {
+            "Base": "fd07:b51a:cc66:d000::/56",
+            "Size": 64
+          }
+        ],
+        "FirewallBackend": {
+          "Driver": "iptables",
+          "Info": [
+            [
+              "EnableUserlandProxy",
+              "true"
+            ],
+            [
+              "UserlandProxyPath",
+              "/opt/orbstack-guest/pstub"
+            ]
+          ]
+        },
+        "CDISpecDirs": [
+          "/etc/cdi",
+          "/var/run/cdi"
+        ],
+        "Containerd": {
+          "Address": "/var/run/docker/containerd/containerd.sock",
+          "Namespaces": {
+            "Containers": "moby",
+            "Plugins": "plugins.moby"
+          }
+        },
+        "Warnings": [
+          "WARNING: DOCKER_INSECURE_NO_IPTABLES_RAW is set"
+        ],
+        "ClientInfo": {
+          "Debug": false,
+          "Version": "29.8.2",
+          "DefaultAPIVersion": "1.56",
+          "GitCommit": "7fc2dff",
+          "GoVersion": "go1.26.8",
+          "Os": "darwin",
+          "Arch": "arm64",
+          "BuildTime": "Sun Oct 11 12:42:20 2026",
+          "Context": "orbstack",
+          "Plugins": [
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v0.37.2",
+              "ShortDescription": "Docker Buildx",
+              "Name": "buildx",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-buildx"
+            },
+            {
+              "SchemaVersion": "0.1.0",
+              "Vendor": "Docker Inc.",
+              "Version": "v5.5.0",
+              "ShortDescription": "Docker Compose",
+              "Name": "compose",
+              "Path": "/home/benchmark/.docker/cli-plugins/docker-compose"
+            }
+          ],
+          "Warnings": null
+        }
+      },
+      "engines": {
+        "postgres": {
+          "image": "postgres:16-alpine",
+          "imageId": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:c54a696c68013b2f8f42f479e00a2b6ad24c5ef10ee31cdfb8972cec3dad7eb7",
+            "RepoTags": [
+              "postgres:16-alpine"
+            ],
+            "RepoDigests": [
+              "postgres@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-10-21T23:19:19.130817935Z",
+            "Config": {
+              "ExposedPorts": {
+                "5432/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "GOSU_VERSION=1.19",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=16",
+                "PG_VERSION=16.15",
+                "PG_SHA256=c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed",
+                "DOCKER_PG_LLVM_DEPS=llvm21-dev \t\tclang21",
+                "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "postgres"
+              ],
+              "Volumes": {
+                "/var/lib/postgresql/data": {}
+              },
+              "WorkingDir": "/",
+              "StopSignal": "SIGINT"
+            },
+            "Architecture": "arm64",
+            "Variant": "v8",
+            "Os": "linux",
+            "Size": 288118565,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/1998b2dea655e4f0487b753616632df718fb268ff461980d0e2bb347a1c02f29/diff:/var/lib/docker/overlay2/7aa569cad2ef9e815234963f506e2dc427b1823c9e9cc5011168f979df552132/diff:/var/lib/docker/overlay2/63783425c3290dc626ed106344b2d271b9b9932c84b435f45f6695d10765d7c3/diff:/var/lib/docker/overlay2/22c6dcd0cd4b8ab2badd6d0a013fd290171fca6acc55e6076e7c8938e9dbbea0/diff:/var/lib/docker/overlay2/ae2a30ac039ea1e6ff7759e97156aed5399002abf5f0ca0bdc9941f21a9d43bd/diff:/var/lib/docker/overlay2/a972b87d29ead2218351e934ce15833ef1f32468026a974e8ff31be2873b133a/diff:/var/lib/docker/overlay2/04872b5750ae93fdc96e6d75cd8e61842eb263852eea573d634eeb3a711415ad/diff:/var/lib/docker/overlay2/ae4c86a0efe9bfe57114f7f61b39c32ee5d4252c7e1304b6cddb50f1de3fca43/diff:/var/lib/docker/overlay2/40abf9d29a0aa33fc6ed6454fb276fa31bea7fd7409c37fdc91383a13908192e/diff:/var/lib/docker/overlay2/fd20c2c54b057c1a33a91a86efa07e0e6357e7b386134f0e1d478ec0de6fe15c/diff",
+                "MergedDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/merged",
+                "UpperDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/diff",
+                "WorkDir": "/var/lib/docker/overlay2/062bc0c777b88c1de3e5027ec3c8d3931dd7c59fb3778ddcc476dad239dac124/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:a278e6f39431cd0ed74238a3d377893ad0d905d68b676bf9a65529080669756b",
+                "sha256:25b35b60e822dc07db5d94c66aad3cf6e744dffe52ef8e96fe0ab7508ca13cef",
+                "sha256:178939e6df3b2eaa3f3f01f2b065c9f4920da570bb5f86931b284ba14989cfc3",
+                "sha256:3008a8b1b42bd43ca75b2ad6dc9445c3fc5ee804607b19c6a0e5772de2174779",
+                "sha256:b9ab9319124b78f2eab3e708e0f2bca3bbdd74a43e6079dcc24994e1bfad827b",
+                "sha256:fe66a4308294aa7a316259db6edd8b4ca689561673a81ffcd8909bb0c9270083",
+                "sha256:c69654a286a965d6f50adbbd3cc3b365ff2107b36d465fa328ba6067c4153efc",
+                "sha256:a9937bfca4f569bc0880f4363d38466de4ff96d6d8c0a4fc01ea5a275b44cd3b",
+                "sha256:56c3932189be40d90dd8bc6814f7156ad1612351eb4a30a96e271b9c5e5f7350",
+                "sha256:9b0b3a6d972bc0a40a19e4a5c9e22e3eab1ef27161a3082c15d32a8a50965230",
+                "sha256:8461b6ba2dc08f48b6a17482a968b3a74e09a2cc83ff37c0fee57f40ccbf1caa"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "valkey": {
+          "image": "valkey/valkey:9.0.3-alpine",
+          "imageId": "sha256:e2f37c65adc16318b14b7a9fbca8a1809d7580955670e09b4e0611ca33e96a9b",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:e2f37c65adc16318b14b7a9fbca8a1809d7580955670e09b4e0611ca33e96a9b",
+            "RepoTags": [
+              "valkey/valkey:9.0.3-alpine"
+            ],
+            "RepoDigests": [
+              "valkey/valkey@sha256:84c96f47ebe197e635cd3ddbe3ab74e8bdf783cf3befbfb1c36387275c1cd5d5"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2026-03-09T21:20:51.309077055Z",
+            "Config": {
+              "ExposedPorts": {
+                "6379/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "VALKEY_VERSION=9.0.3"
+              ],
+              "Entrypoint": [
+                "docker-entrypoint.sh"
+              ],
+              "Cmd": [
+                "valkey-server"
+              ],
+              "WorkingDir": "/data",
+              "Labels": {
+                "org.opencontainers.image.source": "https://github.com/valkey-io/valkey"
+              },
+              "ArgsEscaped": true
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 43523573,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/ef32210d9cf82ab48d699558cd27be4c9dc856d2fd5cade695aa66646877331b/diff:/var/lib/docker/overlay2/1d120410357bf18dd1843e25e7762f958985290c38d0269f091bdd28deab180d/diff:/var/lib/docker/overlay2/824fa934063616b6282feb7c61789420c6bad9abc876697cd883cbb16dc78132/diff:/var/lib/docker/overlay2/a007a629a2bf5be37e58de932f738f79d31373a6a322ecf9f2f5439e394f9cfa/diff:/var/lib/docker/overlay2/72190624fabcbcc782de9b0017290766e81e2d59e3e6ccdb1a7259d6887b7591/diff:/var/lib/docker/overlay2/24b1980e54651f8da833badf85e70735ae4ad9f59fbf9b38355801c304f6e86a/diff",
+                "MergedDir": "/var/lib/docker/overlay2/bbb5cb0a3b33475d3eaf32ba643f984fe1dc55e59caa1ae7f45e101c89819c3e/merged",
+                "UpperDir": "/var/lib/docker/overlay2/bbb5cb0a3b33475d3eaf32ba643f984fe1dc55e59caa1ae7f45e101c89819c3e/diff",
+                "WorkDir": "/var/lib/docker/overlay2/bbb5cb0a3b33475d3eaf32ba643f984fe1dc55e59caa1ae7f45e101c89819c3e/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:45f3ea5848e8a25ca27718b640a21ffd8c8745d342a24e1d4ddfc8c449b0a724",
+                "sha256:0e3498e32defc248010c0b95bfb1a18eeb6e6d67ac6e4fc48f073c3b685d872d",
+                "sha256:a618dbc5516db1959b64ef679e8114da7ba6dd83938239fc126d37fcc31de8d2",
+                "sha256:70fdcfcbb48c0de09b4fe24a6ea4fac6bf314220ae9a4109d0fddb96e69f69d1",
+                "sha256:29b7a2d53793ffc2a405df707418b20711eb763ad398822e0c9faa7f5fb78fd0",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:c0738507197c20f15a0a8876d8b5fdcb269b8b5b378f5a42b083656a90991abc"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "scylla": {
+          "image": "scylladb/scylla:latest",
+          "imageId": "sha256:a58053b07197305811ac1a3c343050518740ede733e1e38cdaeca92cca425af7",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:a58053b07197305811ac1a3c343050518740ede733e1e38cdaeca92cca425af7",
+            "RepoTags": [
+              "scylladb/scylla:latest"
+            ],
+            "RepoDigests": [
+              "scylladb/scylla@sha256:00e7bba5672ffb85a4c6dbee9f0d772628705e4551295de3776aca8d659468ed"
+            ],
+            "Comment": "FROM docker.io/redhat/ubi9-minimal:latest",
+            "Created": "2026-11-03T18:34:58.487575555Z",
+            "Config": {
+              "User": "scylla:scylla",
+              "ExposedPorts": {
+                "10000/tcp": {},
+                "22/tcp": {},
+                "7000/tcp": {},
+                "7001/tcp": {},
+                "9042/tcp": {},
+                "9160/tcp": {},
+                "9180/tcp": {}
+              },
+              "Env": [
+                "container=oci",
+                "PATH=/opt/scylladb/python3/bin:/usr/bin:/usr/sbin",
+                "LANG=C.UTF-8",
+                "LANGUAGE=",
+                "LC_ALL=C.UTF-8"
+              ],
+              "Entrypoint": [
+                "/docker-entrypoint.py"
+              ],
+              "Volumes": {
+                "/var/lib/scylla": {}
+              },
+              "WorkingDir": "/",
+              "Labels": {
+                "architecture": "aarch64",
+                "build-date": "2026-11-02T00:25:24Z",
+                "com.redhat.component": "ubi9-minimal-container",
+                "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",
+                "cpe": "cpe:/a:redhat:enterprise_linux:9::appstream",
+                "description": "ScyllaDB",
+                "distribution-scope": "public",
+                "io.buildah.version": "1.43.4",
+                "io.k8s.description": "The Universal Base Image Minimal is a stripped down image that uses microdnf as a package manager. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions for Red Hat products. This image is maintained by Red Hat and updated regularly.",
+                "io.k8s.display-name": "Red Hat Universal Base Image 9 Minimal",
+                "io.openshift.expose-services": "",
+                "io.openshift.tags": "minimal rhel9",
+                "maintainer": "ScyllaDB, Inc.",
+                "name": "ScyllaDB",
+                "org.opencontainers.image.created": "2026-11-02T00:25:24Z",
+                "org.opencontainers.image.ref.name": "ScyllaDB",
+                "org.opencontainers.image.revision": "dc4aefa4aecb10996718adb6435f6491abaff715",
+                "org.opencontainers.image.version": "2026.3.5-0.20261103.76a3b0773cfe",
+                "release": "0.20261103.76a3b0773cfe",
+                "summary": "NoSQL data store using the Seastar framework, compatible with Apache Cassandra And Amazon DynamoDB protocols",
+                "url": "https://catalog.redhat.com/en/search?searchType=containers",
+                "vcs-ref": "dc4aefa4aecb10996718adb6435f6491abaff715",
+                "vcs-type": "git",
+                "vendor": "ScyllaDB, Inc.",
+                "version": "2026.3.5"
+              }
+            },
+            "Architecture": "arm64",
+            "Variant": "v8",
+            "Os": "linux",
+            "Size": 605716055,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/fe52b1d67e36541dc143f2cd1afd9e513728636a648045d1b6c36abae412791d/diff",
+                "MergedDir": "/var/lib/docker/overlay2/7ac79bd4ee83ebfa3dcbadc20d1ed56d2037f91e7a37358be4e29d5f7a467658/merged",
+                "UpperDir": "/var/lib/docker/overlay2/7ac79bd4ee83ebfa3dcbadc20d1ed56d2037f91e7a37358be4e29d5f7a467658/diff",
+                "WorkDir": "/var/lib/docker/overlay2/7ac79bd4ee83ebfa3dcbadc20d1ed56d2037f91e7a37358be4e29d5f7a467658/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:57f2a09e89738d0aef957270f31e3f5a0eb0283e454b9d86661c4b4ec55a7de7",
+                "sha256:e58e29d6f323d24dc07b716c3f90eeae0fe61cfa58698b3117083fc7f8cb4276"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        },
+        "clickhouse": {
+          "image": "clickhouse/clickhouse-server:25.7",
+          "imageId": "sha256:ed00b083c41efe4144c64f7279f44dec69da96b95a475f6701abe5b5cca3becf",
+          "resourceLimits": {
+            "memoryBytes": 4294967296,
+            "memorySwapBytes": 4294967296,
+            "nanoCpus": 0
+          },
+          "inspection": {
+            "Id": "sha256:ed00b083c41efe4144c64f7279f44dec69da96b95a475f6701abe5b5cca3becf",
+            "RepoTags": [
+              "clickhouse/clickhouse-server:25.7"
+            ],
+            "RepoDigests": [
+              "clickhouse/clickhouse-server@sha256:299ddbec6765584900b08ff6aa50b6be433c93b90c9426ce814b26256922f72b"
+            ],
+            "Comment": "buildkit.dockerfile.v0",
+            "Created": "2025-10-14T20:44:59.882694768Z",
+            "Config": {
+              "ExposedPorts": {
+                "8123/tcp": {},
+                "9000/tcp": {},
+                "9009/tcp": {}
+              },
+              "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=en_US.UTF-8",
+                "TZ=UTC",
+                "CLICKHOUSE_CONFIG=/etc/clickhouse-server/config.xml"
+              ],
+              "Entrypoint": [
+                "/entrypoint.sh"
+              ],
+              "Volumes": {
+                "/var/lib/clickhouse": {}
+              },
+              "Labels": {
+                "com.clickhouse.build.version": "25.7.8.71",
+                "org.opencontainers.image.ref.name": "ubuntu",
+                "org.opencontainers.image.version": "22.04"
+              }
+            },
+            "Architecture": "arm64",
+            "Os": "linux",
+            "Size": 715208811,
+            "GraphDriver": {
+              "Data": {
+                "LowerDir": "/var/lib/docker/overlay2/31375672663a4c09970e24632c1b4c530ce2ac566222181da1cc2545b977bcf3/diff:/var/lib/docker/overlay2/25d50702bf821bc488c0465dfecb19af53f3eb0d22e88036b793c3fc0f2dee72/diff:/var/lib/docker/overlay2/a8bddd0db9b1d13d7ffdf675bb092da48bd7fcfdd974a6fd11cb2fea69e27cb7/diff:/var/lib/docker/overlay2/8ff3eed269bf44167bdc2900b88670bcdcea889b498a7f816070f78367a74307/diff:/var/lib/docker/overlay2/2959df143fe41acb28407fe1ff6e817b74c8112e565c69031b1545f9f28a56aa/diff:/var/lib/docker/overlay2/022833a3a7309fd386aa9d0b488d2845d2da001af9fb7f032f08ac3b5c69f210/diff:/var/lib/docker/overlay2/05ebaed61bd052d123ce8c269eaa90a24f397f3132e39f8153469f0f799bdcce/diff:/var/lib/docker/overlay2/2ef88add192eb9e93e2a258d5824275f3a87e074691b13f6eef2af36b570455a/diff:/var/lib/docker/overlay2/112f82d48be14f8a1be92473f7d55151ee070f8ba803aedf9ea415339b1934ee/diff:/var/lib/docker/overlay2/d1974d8764288292ba88c21ae2ba7ad00d9af54af92a77dd179363f4f344036f/diff",
+                "MergedDir": "/var/lib/docker/overlay2/4414b2c227c01f8f0ee883e4e9ba1536200457cae167ce736685bc26bbf2a1a7/merged",
+                "UpperDir": "/var/lib/docker/overlay2/4414b2c227c01f8f0ee883e4e9ba1536200457cae167ce736685bc26bbf2a1a7/diff",
+                "WorkDir": "/var/lib/docker/overlay2/4414b2c227c01f8f0ee883e4e9ba1536200457cae167ce736685bc26bbf2a1a7/work"
+              },
+              "Name": "overlay2"
+            },
+            "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                "sha256:0d1a800648d7469f0278fe8acc8f0affd3e7199368ec9d0e4bfee32f62775852",
+                "sha256:0537e2ddd5f373b7f83899244e460408f0649679d6e28a66b86b62c283c80447",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:28a438bcb8c276f21db28d63e342f584ea7853672a1f3c89f98ddb8cb7bc3e5a",
+                "sha256:c1d9d499b38bcaa5a4354676558f9f669e14a73539ce85b83506f3c62c5bf09d",
+                "sha256:9eb833a0d37dc3c352811e0e8a707e4fc58ecc0023d3465050fe75da2d8c3450",
+                "sha256:d92e3e613fae2151ae5100d555fe9baeb9c915de653789d34959a3f8b3db810d",
+                "sha256:712bee726006e544697ad9f265964a7e2ad59cc30f2a9bb510185dab18caa5c2",
+                "sha256:3348a52a25f2b2b91f8e6ebe542f64756325309cc1a19548b8e307f7e477affa"
+              ]
+            },
+            "Metadata": {
+              "LastTagTime": "0001-01-01T00:00:00Z"
+            }
+          }
+        }
+      }
+    }
+  },
+  "requestErrors": {
+    "bare-metal/postgres": 2,
+    "bare-metal/sqlite": 0,
+    "bare-metal/rocksdb": 0,
+    "bare-metal/lmdb": 0,
+    "docker/postgres": 0,
+    "docker/sqlite": 0,
+    "docker/rocksdb": 0,
+    "docker/lmdb": 0,
+    "docker/valkey": 0
+  },
+  "backendFailures": {
+    "docker/scylla": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/results/engines-20261111/mac-strict/docker-scylla.json",
+    "docker/clickhouse": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/results/engines-20261111/mac-strict/docker-clickhouse.json"
+  },
+  "unsupported": {
+    "bare-metal/valkey": "No macOS native deployment configured; use Docker (Linux).",
+    "bare-metal/scylla": "No macOS native deployment configured; use Docker (Linux).",
+    "bare-metal/clickhouse": "No macOS native deployment configured; use Docker (Linux)."
+  }
+}

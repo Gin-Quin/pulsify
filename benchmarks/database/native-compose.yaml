@@ -106,6 +106,102 @@ services:
   pgrust-columnar:
     <<: *pgrust
     volumes: ["pgrust-columnar-data:/var/lib/postgresql/data"]
+  # In-memory engines. The append-only file is their only durability:
+  # "always" flushes before each reply, "everysec" once per second.
+  valkey:
+    image: valkey/valkey:9.0.3-alpine
+    mem_limit: 4g
+    memswap_limit: 4g
+    command:
+      [
+        "valkey-server",
+        "--appendonly",
+        "yes",
+        "--appendfsync",
+        "${BENCH_APPENDFSYNC:-always}",
+        "--save",
+        "",
+      ]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    volumes: ["valkey-data:/data"]
+  # Dragonfly's append-only file has no flush-before-reply mode: relaxed tier only.
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:v2.1.0
+    mem_limit: 4g
+    memswap_limit: 4g
+    ulimits:
+      memlock: -1
+    # Its append-only file needs io_uring, which Docker's default seccomp profile blocks.
+    security_opt: ["seccomp=unconfined"]
+    command: ["dragonfly", "--logtostderr", "--dir", "/data", "--aof"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    volumes: ["dragonfly-data:/data"]
+  # "batch" flushes the commit log before each reply, "periodic" every 10 s.
+  # Batch limits are raised: one document's initial history is one batch.
+  scylla:
+    image: scylladb/scylla:latest
+    mem_limit: 4g
+    memswap_limit: 4g
+    command: [
+        "--smp",
+        "4",
+        "--memory",
+        "2G",
+        "--overprovisioned",
+        "1",
+        "--developer-mode",
+        "1",
+        "--commitlog-sync",
+        "${BENCH_COMMITLOG_SYNC:-batch}",
+        # Like the 30 s lock and statement deadlines of the other engines.
+        "--write-request-timeout-in-ms",
+        "30000",
+        "--cas-contention-timeout-in-ms",
+        "30000",
+        "--read-request-timeout-in-ms",
+        "30000",
+        "--range-request-timeout-in-ms",
+        "30000",
+        "--batch-size-warn-threshold-in-kb",
+        "65536",
+        "--batch-size-fail-threshold-in-kb",
+        "65536",
+      ]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "cqlsh -e 'SELECT now() FROM system.local' >/dev/null"]
+      interval: 2s
+      timeout: 10s
+      retries: 120
+    volumes: ["scylla-data:/var/lib/scylla"]
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.7
+    mem_limit: 4g
+    memswap_limit: 4g
+    ulimits:
+      nofile: 262144
+    environment:
+      CLICKHOUSE_PASSWORD: pulsify-benchmark
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "clickhouse-client --password pulsify-benchmark -q 'SELECT 1' >/dev/null",
+        ]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-keeper.xml:/etc/clickhouse-server/config.d/keeper.xml:ro
   native:
     mem_limit: 4g
     memswap_limit: 4g
@@ -125,3 +221,7 @@ volumes:
   oriole-data:
   pgrust-row-data:
   pgrust-columnar-data:
+  valkey-data:
+  dragonfly-data:
+  scylla-data:
+  clickhouse-data:

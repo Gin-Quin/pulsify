@@ -56,25 +56,117 @@ struct Args {
     sqlite_busy: String,
     #[arg(long, default_value_t = 67108864)]
     sqlite_mmap_bytes: u64,
+    /// strict: a commit is flushed to disk before it is acknowledged.
+    /// relaxed: the engine may acknowledge first and flush shortly after.
+    #[arg(long, default_value = "strict")]
+    durability: String,
+    /// Directory of an embedded engine (RocksDB, LMDB).
+    #[arg(long, default_value = "/tmp/pulsify-native-data")]
+    data_path: String,
+    /// Address of a non-PostgreSQL server (Valkey, Dragonfly, ScyllaDB, ClickHouse).
+    #[arg(long, default_value = "")]
+    server_url: String,
 }
+type Connect = Arc<dyn Fn() -> Result<Box<dyn Session>> + Send + Sync>;
 #[derive(Clone)]
 struct Factory {
     args: Args,
+    connect: Connect,
 }
 impl Factory {
     fn connect(&self) -> Result<Box<dyn Session>> {
-        Ok(match self.args.backend.as_str() {
-            "postgres" | "alloydb" | "orioledb" | "pgrust-row" | "pgrust-columnar" => Box::new(
-                storage::pg::Pg::open_for(&self.args.postgres_url, &self.args.backend)?,
-            ),
-            "sqlite" => Box::new(storage::sqlite::Sqlite::open_with(
-                &self.args.sqlite_path,
-                &self.args.sqlite_busy,
-                self.args.sqlite_mmap_bytes,
-            )?),
-            _ => anyhow::bail!("unknown backend"),
-        })
+        (self.connect)()
     }
+}
+/// Initialize the selected engine once; return how to open one client session
+/// and the settings the engine reports for itself.
+fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
+    let relaxed = args.durability == "relaxed";
+    ensure!(
+        relaxed || args.durability == "strict",
+        "unknown durability tier"
+    );
+    let args = args.clone();
+    Ok(match args.backend.as_str() {
+        "postgres" | "alloydb" | "orioledb" | "pgrust-row" | "pgrust-columnar" => {
+            use storage::pg::Pg;
+            Pg::initialize_for(&args.postgres_url, &args.backend)?;
+            let metadata =
+                Pg::open_for(&args.postgres_url, &args.backend, relaxed)?.metadata(relaxed)?;
+            let connect: Connect = Arc::new(move || {
+                Ok(Box::new(Pg::open_for(
+                    &args.postgres_url,
+                    &args.backend,
+                    relaxed,
+                )?))
+            });
+            (connect, metadata)
+        }
+        "sqlite" => {
+            use storage::sqlite::Sqlite;
+            Sqlite::initialize(&args.sqlite_path)?;
+            let session = move || {
+                Sqlite::open_with(
+                    &args.sqlite_path,
+                    &args.sqlite_busy,
+                    args.sqlite_mmap_bytes,
+                    relaxed,
+                )
+                .map(|session| (session, args.sqlite_busy.clone()))
+            };
+            let (first, busy) = session()?;
+            let metadata = first.metadata(&busy, relaxed)?;
+            (Arc::new(move || Ok(Box::new(session()?.0))), metadata)
+        }
+        "rocksdb" => {
+            let db = storage::rocks::open(&args.data_path)?;
+            let metadata = serde_json::json!({"engine":"RocksDB TransactionDB","walSyncOnCommit":!relaxed,"lockTimeoutMs":30000,"options":"library defaults"});
+            let connect: Connect =
+                Arc::new(move || Ok(Box::new(storage::rocks::Rocks(db.clone(), !relaxed))));
+            (connect, metadata)
+        }
+        "rocksdb-mutex" => {
+            let db = storage::rocks::open_plain(&args.data_path)?;
+            let metadata = serde_json::json!({"engine":"RocksDB DB (no TransactionDB)","walSyncOnCommit":!relaxed,"options":"library defaults","documentLock":"striped mutex in the runner"});
+            let connect: Connect =
+                Arc::new(move || Ok(Box::new(storage::rocks::RocksMutex(db.clone(), !relaxed))));
+            (connect, metadata)
+        }
+        "leveldb" => {
+            let db = storage::leveldb::open(&args.data_path)?;
+            let metadata = serde_json::json!({"engine":"LevelDB 1.22 (leveldb-sys 2.0.9)","syncOnCommit":!relaxed,"writeBufferBytes":storage::leveldb::WRITE_BUFFER_BYTES,"compression":"none","documentLock":"striped mutex in the runner: LevelDB has no lock manager"});
+            let connect: Connect =
+                Arc::new(move || Ok(Box::new(storage::leveldb::LevelDb(db.clone(), !relaxed))));
+            (connect, metadata)
+        }
+        "lmdb" => {
+            let lmdb = storage::lmdb::open(&args.data_path, relaxed)?;
+            let metadata = serde_json::json!({"engine":"LMDB","noSync":relaxed,"mapSizeBytes":8u64 << 30,"maxReaders":512});
+            (Arc::new(move || Ok(Box::new(lmdb.clone()))), metadata)
+        }
+        "valkey" | "dragonfly" => {
+            use storage::resp::Resp;
+            let metadata = Resp::open(&args.server_url)?.metadata(&args.backend, relaxed)?;
+            let connect: Connect = Arc::new(move || Ok(Box::new(Resp::open(&args.server_url)?)));
+            (connect, metadata)
+        }
+        "scylla" => {
+            use storage::scylla::Scylla;
+            Scylla::initialize(&args.server_url)?;
+            let metadata = Scylla::open(&args.server_url)?.metadata(relaxed)?;
+            let connect: Connect = Arc::new(move || Ok(Box::new(Scylla::open(&args.server_url)?)));
+            (connect, metadata)
+        }
+        "clickhouse" => {
+            use storage::clickhouse::ClickHouse;
+            ClickHouse::initialize(&args.server_url, relaxed)?;
+            let metadata = ClickHouse::open(&args.server_url).metadata(relaxed)?;
+            let connect: Connect =
+                Arc::new(move || Ok(Box::new(ClickHouse::open(&args.server_url))));
+            (connect, metadata)
+        }
+        _ => anyhow::bail!("unknown backend"),
+    })
 }
 const OPERATIONS: [&str; 5] = [
     "write_full",
@@ -536,25 +628,12 @@ fn main() -> Result<()> {
         concurrency.iter().all(|c| *c > 0 && *c <= p.streams.len()),
         "concurrency exceeds actual fixture actor streams"
     );
-    match args.backend.as_str() {
-        "postgres" | "alloydb" | "orioledb" | "pgrust-row" | "pgrust-columnar" => {
-            storage::pg::Pg::initialize_for(&args.postgres_url, &args.backend)?
-        }
-        "sqlite" => storage::sqlite::Sqlite::initialize(&args.sqlite_path)?,
-        _ => anyhow::bail!("unknown backend"),
+    let (connect, database_metadata) = open(&args)?;
+    let factory = Factory {
+        args: args.clone(),
+        connect,
     };
-    let factory = Factory { args: args.clone() };
     contract::verify(|| factory.connect().expect("contract connection"));
-    let database_metadata = if args.backend == "sqlite" {
-        storage::sqlite::Sqlite::open_with(
-            &args.sqlite_path,
-            &args.sqlite_busy,
-            args.sqlite_mmap_bytes,
-        )?
-        .metadata(&args.sqlite_busy)?
-    } else {
-        storage::pg::Pg::open_for(&args.postgres_url, &args.backend)?.metadata()?
-    };
     if args.contract_only {
         fs::write(&args.output, serde_json::to_vec_pretty(&database_metadata)?)?;
         return Ok(());
@@ -562,7 +641,7 @@ fn main() -> Result<()> {
     let mut report = Report {
         format: 2,
         arguments: args.clone(),
-        metadata: serde_json::json!({"database":database_metadata,"profile":p.profile,"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"benchmarkVersion":env!("CARGO_PKG_VERSION"),"sqliteVersion":rusqlite::version(),"commit":std::env::var("BENCH_COMMIT").unwrap_or_default()}),
+        metadata: serde_json::json!({"database":database_metadata,"profile":p.profile,"durability":args.durability,"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"benchmarkVersion":env!("CARGO_PKG_VERSION"),"sqliteVersion":rusqlite::version(),"commit":std::env::var("BENCH_COMMIT").unwrap_or_default()}),
         cells: Vec::new(),
     };
     let run = std::time::SystemTime::now()

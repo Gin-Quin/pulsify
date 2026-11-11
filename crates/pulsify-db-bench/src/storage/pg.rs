@@ -9,11 +9,16 @@ pub struct Pg(pub Client, bool, HashMap<&'static str, Statement>);
 impl Pg {
     #[cfg(test)]
     pub fn open(url: &str) -> Result<Self> {
-        Self::open_for(url, "postgres")
+        Self::open_for(url, "postgres", false)
     }
-    pub fn open_for(url: &str, flavor: &str) -> Result<Self> {
+    pub fn open_for(url: &str, flavor: &str, relaxed: bool) -> Result<Self> {
         let mut client = Client::connect(url, NoTls)?;
         client.batch_execute("SET statement_timeout='30s'; SET lock_timeout='30s';")?;
+        if relaxed {
+            // WAL is still written and fsynced in the background: a crash loses the
+            // last moments of commits, never consistency.
+            client.batch_execute("SET synchronous_commit=off")?;
+        }
         Ok(Self(client, flavor == "pgrust-columnar", HashMap::new()))
     }
     #[cfg(test)]
@@ -21,7 +26,7 @@ impl Pg {
         Self::initialize_for(url, "postgres")
     }
     pub fn initialize_for(url: &str, flavor: &str) -> Result<()> {
-        let mut pg = Self::open_for(url, flavor)?;
+        let mut pg = Self::open_for(url, flavor, false)?;
         let version: String = pg.0.query_one("SELECT version()", &[])?.get(0);
         if flavor.starts_with("pgrust-") {
             ensure!(
@@ -74,7 +79,7 @@ impl Pg {
         println!("Verified {flavor}: {version}; both tables USING {am}");
         Ok(())
     }
-    pub fn metadata(&mut self) -> Result<serde_json::Value> {
+    pub fn metadata(&mut self, relaxed: bool) -> Result<serde_json::Value> {
         let version: String = self.0.query_one("SELECT version()", &[])?.get(0);
         let tables: Vec<serde_json::Value> = self.0.query("SELECT c.relname,a.amname FROM pg_class c JOIN pg_am a ON a.oid=c.relam WHERE c.relname IN ('native_segments','native_vectors') ORDER BY c.relname", &[])?.iter().map(|r| serde_json::json!({"table":r.get::<_, &str>(0), "accessMethod":r.get::<_, &str>(1)})).collect();
         let indexes: Vec<serde_json::Value> = self.0.query("SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=current_schema() AND tablename IN ('native_segments','native_vectors') ORDER BY indexname", &[])?.iter().map(|r| serde_json::json!({"name":r.get::<_, &str>(0),"definition":r.get::<_, &str>(1)})).collect();
@@ -96,8 +101,9 @@ impl Pg {
             settings.insert(name.into(), value.into());
         }
         ensure!(
-            settings["fsync"] == "on" && settings["synchronous_commit"] == "on",
-            "Durable settings required"
+            settings["fsync"] == "on"
+                && settings["synchronous_commit"] == if relaxed { "off" } else { "on" },
+            "PostgreSQL settings do not match the durability tier"
         );
         Ok(
             serde_json::json!({"version":version,"tables":tables,"indexes":indexes,"settings":settings,"columnarVectorReplacement":self.1}),

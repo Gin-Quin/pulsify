@@ -1,4 +1,9 @@
 FROM rust:1.95-slim-bookworm AS build
+# RocksDB, LMDB and LevelDB are compiled from source: C++ toolchain, CMake and
+# libclang for bindgen.
+# LevelDB 1.22's CMake file passes a Clang-only warning flag, so Clang compiles the C++.
+RUN apt-get update && apt-get install -y --no-install-recommends clang g++ make cmake libclang-dev && rm -rf /var/lib/apt/lists/*
+ENV CC=clang CXX=clang++
 WORKDIR /source
 COPY crates/pulsify-protocol crates/pulsify-protocol
 COPY crates/pulsify-db-bench/Cargo.toml crates/pulsify-db-bench/Cargo.lock crates/pulsify-db-bench/

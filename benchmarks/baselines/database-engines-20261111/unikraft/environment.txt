@@ -1,0 +1,10 @@
+Linux (none) 6.12.114+ #2 SMP PREEMPT_DYNAMIC Fri Oct 30 15:11:34 UTC 2026 x86_64 GNU/Linux
+cpus: 1
+MemTotal:        4022800 kB
+MemAvailable:    3859224 kB
+open files: 1024
+Filesystem     1K-blocks  Used Available Use% Mounted on
+overlay          3218240    12   3218228   1% /
+/dev/vda          996780   280    927688   1% /data
+overlay / overlay rw,relatime,lowerdir=/mnt/erofs,upperdir=/mnt/tmp/upper,workdir=/mnt/tmp/work,uuid=on 0 0
+/dev/vda /data ext4 rw,relatime,discard 0 0

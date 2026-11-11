@@ -52,7 +52,7 @@ async function readDirectory(directory: string, phase: string) {
 	);
 	for (const name of names.sort()) {
 		if (
-			!/^(docker|bare-metal)-.*\.json(?:\.gz)?$/.test(name) ||
+			!/^(docker|bare-metal|vps|unikraft)-.*\.json(?:\.gz)?$/.test(name) ||
 			/-contract\.json/.test(name)
 		)
 			continue;
