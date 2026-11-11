@@ -37,7 +37,9 @@
 		"format": "bun fmt",
 		"format:check": "bun fmt --check",
 		"dev:website": "bun run --cwd packages/website dev",
-		"build:website": "bun run --cwd packages/website build"
+		"build:website": "bun run --cwd packages/website build",
+		"deploy:website": "bun run build:website && bunx wrangler deploy -c packages/website/wrangler.jsonc",
+		"deploy:cloudflare": "bunx wrangler deploy -c packages/cloud-server/cloudflare/wrangler.jsonc"
 	},
 	"trustedDependencies": [
 		"better-sqlite3"

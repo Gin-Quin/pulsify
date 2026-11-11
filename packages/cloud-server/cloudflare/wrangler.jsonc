@@ -1,0 +1,13 @@
+// Pulsify Cloud on Cloudflare: bun run deploy:cloudflare
+{
+	"name": "pulsify-cloud",
+	"account_id": "0607b213538e700239aa5e3f48cc2737",
+	"main": "worker.ts",
+	"compatibility_date": "2026-11-05",
+	"routes": [{ "pattern": "cloudflare.pulsify.cloud", "custom_domain": true }],
+	"observability": { "enabled": true },
+	"durable_objects": {
+		"bindings": [{ "name": "PULSIFY_ROOTS", "class_name": "PulsifyCloudRoot" }]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["PulsifyCloudRoot"] }]
+}

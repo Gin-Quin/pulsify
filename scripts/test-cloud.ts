@@ -79,7 +79,7 @@ async function waitForHealth(url: string, timeoutMs = 60_000) {
 
 async function startCloudflare(): Promise<string> {
 	const result = await Bun.build({
-		entrypoints: [`${root}packages/cloud-server/cloudflare/tests/worker.ts`],
+		entrypoints: [`${root}packages/cloud-server/cloudflare/worker.ts`],
 		outdir: directory,
 		naming: "worker.js",
 		target: "browser",
