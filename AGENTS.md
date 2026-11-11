@@ -1,9 +1,16 @@
 # Repository instructions
 
+- Work and commit on `main` by default. Only create a branch when explicitly asked.
 - Never prefix branch names with `codex/`. Use a prefix such as `feat/` or `fix/`.
 - When committing, check previous commit names and follow the same style and conventions.
 - Use a gitmoji and plain English for PR titles.
 - Bump Pulsify's major version for every major change, especially changes to the transport, wire format, or synchronization semantics. Keep Pulsify package versions and peer dependency ranges aligned, and update the lockfile and relevant protocol documentation and fixtures.
+
+## Formatting
+
+- Bun is the formatter, configured by `[fmt]` in `bunfig.toml`. `bun run format:check` verifies the repository (CI runs it) and `bun run format:fix` formats it. To format only the files you changed, pass them: `bun fmt <files>`.
+- Never run Prettier, Biome or another formatter, `bunx prettier` included: they have no configuration here and rewrite whole files.
+- `.prettierignore` is the ignore list that `bun fmt` reads. Keep it; it does not mean Prettier is in use.
 
 ## Releasing
 
