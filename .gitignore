@@ -8,3 +8,6 @@ benchmarks/results/
 .nitro/
 .vinxi/
 packages/cloud-server/unikraft-cloud/.build/
+# Local credentials, such as CLOUDFLARE_API_TOKEN for the deploy scripts.
+.env
+.env.*

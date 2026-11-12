@@ -8,6 +8,7 @@
 	--color-bg-raised: #06161f;
 	--color-surface: rgb(8 30 40 / 0.62);
 	--color-surface-strong: rgb(4 18 26 / 0.9);
+	--color-nav-hover: rgb(61 245 224 / 0.14);
 	--color-border: rgb(61 245 224 / 0.22);
 	--color-border-strong: rgb(61 245 224 / 0.5);
 	--color-divider: rgb(255 255 255 / 0.07);
@@ -123,6 +124,7 @@
 	--color-bg: #f6fbfc;
 	--color-surface: rgb(255 255 255 / 0.72);
 	--color-surface-strong: rgb(228 240 243 / 0.9);
+	--color-nav-hover: var(--color-surface-strong);
 	--color-border: rgb(8 127 120 / 0.25);
 	--color-border-strong: rgb(8 127 120 / 0.55);
 	--color-divider: rgb(6 34 43 / 0.1);

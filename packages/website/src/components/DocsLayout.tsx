@@ -1,5 +1,6 @@
 import { useLocation } from "@solidjs/router";
 import {
+	createEffect,
 	createSignal,
 	For,
 	onCleanup,
@@ -66,6 +67,23 @@ export function DocsLayout(props: { children: JSX.Element }) {
 					style={{ "--i": i() }}
 					href={`#${section.id}`}
 					aria-current={active() === section.id ? "location" : undefined}
+					onClick={(event) => {
+						if (
+							event.defaultPrevented ||
+							event.button !== 0 ||
+							event.metaKey ||
+							event.altKey ||
+							event.ctrlKey ||
+							event.shiftKey ||
+							location.hash !== `#${section.id}`
+						)
+							return;
+						// The router skips navigation when the hash is unchanged.
+						event.preventDefault();
+						document
+							.getElementById(section.id)
+							?.scrollIntoView({ block: "start" });
+					}}
 				>
 					{section.title}
 				</a>
@@ -90,22 +108,29 @@ export function DocsLayout(props: { children: JSX.Element }) {
 		<div class={styles.layout}>
 			<nav class={styles.sidebar} aria-label="Documentation">
 				<For each={docsNav}>
-					{(entry) =>
-						"group" in entry ? (
-							// Only the group of the current page is unfolded on arrival.
+					{(entry) => {
+						if (!("group" in entry)) return link(entry);
+						const [open, setOpen] = createSignal(
+							entry.pages.some((page) => page.href === path()),
+						);
+						// Reveal the current page without closing other groups.
+						createEffect(() => {
+							if (entry.pages.some((page) => page.href === path()))
+								setOpen(true);
+						});
+						return (
 							<details
 								class={styles.group}
-								open={entry.pages.some((page) => page.href === path())}
+								open={open()}
+								onToggle={(event) => setOpen(event.currentTarget.open)}
 							>
 								<summary>{entry.group}</summary>
 								<div class={styles.pages}>
 									<For each={entry.pages}>{link}</For>
 								</div>
 							</details>
-						) : (
-							link(entry)
-						)
-					}
+						);
+					}}
 				</For>
 			</nav>
 			<article ref={article} class={styles.content}>
