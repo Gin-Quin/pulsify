@@ -3,7 +3,7 @@
 	top: 0;
 	z-index: 10;
 	height: var(--header-height);
-	background: rgb(3 13 20 / 0.7);
+	background: color-mix(in srgb, var(--color-bg) 70%, transparent);
 	backdrop-filter: var(--blur-glass);
 	border-bottom: var(--border-width) solid var(--color-divider);
 }
@@ -82,6 +82,31 @@
 	color: var(--color-text);
 }
 
+.theme {
+	display: grid;
+	place-items: center;
+	padding: var(--space-2);
+	border: 0;
+	border-radius: var(--radius-pill);
+	background: none;
+	color: var(--color-text);
+	cursor: pointer;
+	transition:
+		color var(--duration-fast) var(--easing),
+		background var(--duration-fast) var(--easing);
+}
+
+.theme:hover {
+	color: var(--color-accent);
+	background: rgb(61 245 224 / 0.06);
+}
+
+/* The icon shows the theme a click switches to. CSS picks it, so the prerendered page needs no theme state. */
+:root[data-theme="light"] .sun,
+:root:not([data-theme="light"]) .moon {
+	display: none;
+}
+
 @media (max-width: 760px) {
 	.nav,
 	.github span {
@@ -102,6 +127,31 @@
 	}
 
 	.actions .github {
+		display: none;
+	}
+
+	/* Where the theme toggle shows, tighter spacing makes room for it on a phone. */
+	.inner:has(.theme) {
+		gap: var(--space-2);
+		padding: 0 var(--space-4);
+	}
+
+	.inner:has(.theme) .nav a {
+		padding-inline: var(--space-2);
+	}
+
+	.inner:has(.theme) .actions {
+		gap: var(--space-2);
+	}
+
+	.theme {
+		padding: var(--space-1);
+	}
+}
+
+/* Narrower than this, the wordmark would run into the nav: keep the mark only. */
+@media (max-width: 440px) {
+	.inner:has(.theme) > a span {
 		display: none;
 	}
 }

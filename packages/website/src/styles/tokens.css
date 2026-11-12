@@ -112,3 +112,34 @@
 	--font-size-eyebrow: 0.75rem;
 	--section-gap: var(--space-9);
 }
+
+/*
+ * Light theme, for the docs only: it applies where the header shows its theme
+ * toggle. Only the tokens the docs use are overridden.
+ */
+:root[data-theme="light"]:has([data-theme-toggle]) {
+	--color-bg: #f6fbfc;
+	--color-surface: rgb(255 255 255 / 0.72);
+	--color-surface-strong: rgb(228 240 243 / 0.9);
+	--color-border: rgb(8 127 120 / 0.25);
+	--color-border-strong: rgb(8 127 120 / 0.55);
+	--color-divider: rgb(6 34 43 / 0.1);
+
+	--color-text: #06222b;
+	--color-text-muted: #4a6670;
+	--color-text-on-accent: #fff;
+
+	--color-accent: #087f78;
+	--color-accent-hover: #066560;
+	--color-accent-2: #0f8a4a;
+	--color-secondary: #b02fc9;
+	--color-sky: #0a78a8;
+	--color-violet: #4a63d8;
+	--color-glow: rgb(8 127 120 / 0.22);
+
+	--color-code-bg: rgb(232 242 245 / 0.85);
+	--color-code-keyword: #b02fc9;
+	--color-code-string: #8f6200;
+	--color-code-fn: #087f78;
+	--color-code-comment: #607d86;
+}
