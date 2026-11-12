@@ -15,8 +15,7 @@ frame directly; it decodes the envelope once and forwards its binary payload.
 The relay/application still owns authentication, authorization and semantic
 validation of operation contents. `relayStoreMessage` from `pulsify-core/protocol`
 serves protocol frames directly from a store. `pulsify-cloud-server/cloudflare` adapts
-Durable Object SQLite to the `SqliteConnection` interface, and the Unikraft Cloud
-server calls `pulsify_append` from Rust with the same PostgreSQL schema.
+Durable Object SQLite to the `SqliteConnection` interface.
 
 Rows are atomic and immutable. Exact duplicates are idempotent. Reusing an ID
 with different bytes, overlapping immutable segments, or forking one actor's

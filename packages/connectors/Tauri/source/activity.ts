@@ -1,24 +1,24 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-/** A presence to drive, such as `presence` from `pulsify-cloud`. */
-export type PresenceTarget = { set(present: boolean): void };
-export type TauriPresenceWindow = Pick<
+/** A user activity to drive, such as `userActivity` from `pulsify-cloud`. */
+export type ActivityTarget = { set(present: boolean): void };
+export type TauriActivityWindow = Pick<
 	ReturnType<typeof getCurrentWindow>,
 	"isMinimized" | "isVisible" | "onResized" | "onFocusChanged"
 >;
 
 /**
- * Report the native window state to a presence: minimized or hidden
+ * Report the native window state to a user activity: minimized or hidden
  * means away, shown or focused means back. Webviews do not always tell the
  * page: WebView2 (Windows) never reports a minimized window as hidden.
  * Resolves to a function that stops watching.
  */
-export async function watchTauriPresence(
-	targets: PresenceTarget | readonly PresenceTarget[],
-	options: { window?: TauriPresenceWindow } = {},
+export async function watchTauriActivity(
+	targets: ActivityTarget | readonly ActivityTarget[],
+	options: { window?: TauriActivityWindow } = {},
 ): Promise<() => void> {
 	const appWindow = options.window ?? getCurrentWindow();
-	const list = Array.isArray(targets) ? targets : [targets as PresenceTarget];
+	const list = Array.isArray(targets) ? targets : [targets as ActivityTarget];
 	let shown: boolean | undefined;
 	const report = (present: boolean) => {
 		shown = present;

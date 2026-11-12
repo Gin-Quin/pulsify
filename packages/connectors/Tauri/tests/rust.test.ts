@@ -16,7 +16,7 @@ import {
 	richText,
 	snapshotPulse,
 	sub,
-	subPulse,
+	pulseRef,
 	type Connector,
 	type Pulse,
 } from "pulsify-core";
@@ -80,7 +80,7 @@ function createWorkspace(id: string, connector: Connector) {
 		{ title: "Plan", body: "Draft", tags: ["a"], stats: { views: 0 } },
 		{ parent: workspace },
 	);
-	workspace.notes.push(subPulse(note));
+	workspace.notes.push(pulseRef(note));
 	return { workspace, note };
 }
 async function edit(
@@ -98,7 +98,6 @@ async function loadWorkspace(id: string, connector: Connector) {
 	const workspace = await loadPulse(Workspace, id, {
 		scope: createPulseScope(),
 		connectors: [connector],
-		include: true,
 		waitFor: "all",
 	});
 	const note = workspace.notes[0]!.pulse!;

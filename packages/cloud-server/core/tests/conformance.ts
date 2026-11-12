@@ -5,16 +5,18 @@ import {
 	createPulse,
 	createPulseScope,
 	decodeMessage,
+	definePresence,
 	definePulse,
 	destroyPulse,
 	encodeMessage,
 	exportPulseUpdates,
 	getPulseMeta,
+	joinPresence,
 	loadPulse,
 	object,
 	richText,
 	sub,
-	subPulse,
+	pulseRef,
 	type PulseMessage,
 } from "pulsify-core";
 import {
@@ -119,7 +121,10 @@ export function describeCloudBackend(
 		socket.binaryType = "arraybuffer";
 		const frames: PulseMessage[] = [];
 		const texts: unknown[] = [];
-		const welcomes: { server: Record<string, unknown> }[] = [];
+		const welcomes: {
+			server: Record<string, unknown>;
+			presence?: boolean;
+		}[] = [];
 		/** The type of every message received, in order; `frame` for binary ones. */
 		const order: string[] = [];
 		socket.addEventListener("message", (event) => {
@@ -163,7 +168,7 @@ export function describeCloudBackend(
 			{ title: "Second", body: "World" },
 			{ parent: workspace },
 		);
-		workspace.notes.push(subPulse(first), subPulse(second));
+		workspace.notes.push(pulseRef(first), pulseRef(second));
 		await Promise.all(
 			[workspace, first, second].map((pulse) => connectPulse(pulse).synced),
 		);
@@ -306,7 +311,6 @@ export function describeCloudBackend(
 			const b = device("alice");
 			const workspace = await loadPulse(Workspace, root, {
 				...b.options,
-				include: true,
 			});
 			const [bFirst, bSecond] = workspace.notes.map((note) => note.pulse!);
 			expect(bFirst!.title).toBe("First");
@@ -428,6 +432,79 @@ export function describeCloudBackend(
 			expect(workspace.name).toBe("Alice");
 		});
 
+		test("relays presence between the sessions of a document and announces departures", async () => {
+			const { root, first, second, workspace } = await seed("presence");
+			await admin().grant({ subject: "bob", prefix: first.id, role: "reader" });
+			const Viewer = definePresence("viewer", object({ name: "string" }), {
+				throttleMs: 0,
+			});
+			const names = (presence: { others: readonly any[] }) =>
+				presence.others
+					.map((other) => [other.subject, other.state.name])
+					.sort();
+			// A client that never used presence must not receive its frames.
+			const old = await raw(root, "alice");
+			await eventually(() => expect(old.welcomes).toHaveLength(1));
+			// Presence is a capability a backend announces in its welcome.
+			if (!old.welcomes[0]!.presence) return;
+			old.socket.send(
+				encodeMessage({ kind: 1, docId: first.id, requestId: 1, vv: [] }),
+			);
+			await eventually(() => expect(old.frames).toHaveLength(1));
+
+			const b = device("bob");
+			const note = await loadPulse(Note, first.id, b.options);
+			const alice = joinPresence(first, Viewer);
+			const bob = joinPresence(note, Viewer);
+			alice.set({ name: "Alice" });
+			// A reader publishes too, and its subject comes from its token.
+			bob.set({ name: "I am Alice" });
+			await eventually(() => {
+				expect(names(bob)).toEqual([["alice", "Alice"]]);
+				expect(names(alice)).toEqual([["bob", "I am Alice"]]);
+			});
+			expect(alice.others[0]!.peer).not.toBe(bob.others[0]!.peer);
+
+			// Presence belongs to one document: other documents see nothing.
+			const elsewhere = joinPresence(second, Viewer);
+			const onRoot = joinPresence(workspace, Viewer);
+			onRoot.set({ name: "On the workspace" });
+			await Bun.sleep(50);
+			expect(elsewhere.others).toEqual([]);
+			expect(names(bob)).toEqual([["alice", "Alice"]]);
+
+			// A session that arrives later receives the current states.
+			const c = device("alice");
+			const late = joinPresence(
+				await loadPulse(Note, first.id, c.options),
+				Viewer,
+			);
+			await eventually(() =>
+				expect(names(late)).toEqual([
+					["alice", "Alice"],
+					["bob", "I am Alice"],
+				]),
+			);
+
+			// Leaving a document, without closing the socket, is announced.
+			destroyPulse(note);
+			await eventually(() => expect(alice.others).toEqual([]));
+
+			// So is losing access to it.
+			const again = await loadPulse(Note, first.id, {
+				...b.options,
+				scope: createPulseScope(),
+			});
+			joinPresence(again, Viewer).set({ name: "Bob" });
+			await eventually(() => expect(names(alice)).toEqual([["bob", "Bob"]]));
+			await admin().revoke({ subject: "bob", prefix: first.id });
+			await eventually(() => expect(alice.others).toEqual([]));
+
+			expect(old.order.filter((kind) => kind === "frame")).toHaveLength(
+				old.frames.length,
+			);
+		});
+
 		test("every socket starts with a welcome naming its server", async () => {
 			const root = unique("welcome");
 			await admin().grant({ subject: "alice", prefix: root, role: "owner" });
@@ -509,7 +586,7 @@ export function describeCloudBackend(
 			const second = unique("second");
 			await admin().grant({ subject: "alice", prefix: second, role: "owner" });
 			const d = device("alice", { envelope: 1 });
-			await loadPulse(Workspace, root, { ...d.options, include: true });
+			await loadPulse(Workspace, root, d.options);
 			const other = createPulse(
 				Workspace,
 				{ id: second, name: "Second root", notes: [] },

@@ -100,11 +100,11 @@ dependencies = [
 
 [[package]]
 name = "pulsify-protocol"
-version = "7.0.0"
+version = "10.0.0"
 
 [[package]]
 name = "pulsify-sqlite"
-version = "7.0.0"
+version = "10.0.0"
 dependencies = [
  "pulsify-protocol",
  "rusqlite",

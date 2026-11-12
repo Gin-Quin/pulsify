@@ -5,7 +5,7 @@ import type { TreeData } from "../core/treeSchema.js";
 import { PulseError } from "../protocol/errors.js";
 import { getPulseMeta } from "./PulseMeta.js";
 import type { Pulse } from "./Pulse.js";
-import type { SubPulse } from "./SubPulse.js";
+import type { PulseRef } from "./PulseRef.js";
 import type {
 	AnyPulseDefinition,
 	DataFromDefinition,
@@ -17,8 +17,8 @@ import { createRuntime } from "./PulseRuntime.js";
 
 export type InitialValue<Value> = unknown extends Value
 	? Value
-	: Value extends SubPulse<infer Definition>
-		? string | SubPulse<Definition> | Pulse<ModelFromDefinition<Definition>>
+	: Value extends PulseRef<infer Definition>
+		? string | PulseRef<Definition> | Pulse<ModelFromDefinition<Definition>>
 		: Value extends RichText
 			? string | RichText
 			: Value extends Tree<infer Item>

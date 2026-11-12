@@ -1,11 +1,11 @@
 import {
 	createEmitter,
-	type PresenceEvents,
-	type PresenceReason,
-	type PresenceState,
+	type UserActivityEvents,
+	type UserActivityReason,
+	type UserActivityState,
 } from "./events.js";
 
-export type PresenceOptions = {
+export type UserActivityOptions = {
 	/** Present while the user interacted within this long. Default 5 min; `Infinity` for screens nobody touches. */
 	activeMs?: number;
 	/**
@@ -19,12 +19,12 @@ export type PresenceOptions = {
  * Whether someone may be looking at this app: the window, not any server.
  * Connectors stop background pings while nobody is, so servers can sleep.
  */
-export type Presence = {
-	readonly state: PresenceState;
+export type UserActivity = {
+	readonly state: UserActivityState;
 	/** `change` and `return` listeners. A `change` listener is called at once with the current state. */
-	on<E extends keyof PresenceEvents>(
+	on<E extends keyof UserActivityEvents>(
 		event: E,
-		listener: (...args: PresenceEvents[E]) => void,
+		listener: (...args: UserActivityEvents[E]) => void,
 	): () => void;
 	/**
 	 * Forward a native signal the webview may not report: `false` (window
@@ -41,15 +41,17 @@ export type Presence = {
  * narrows them, since some webviews never report a hidden page (WebView2 in
  * Tauri). Outside a page (no `document`), present unless set otherwise.
  */
-export function createPresence(options: PresenceOptions = {}): Presence {
+export function createUserActivity(
+	options: UserActivityOptions = {},
+): UserActivity {
 	const activeMs = options.activeMs ?? 5 * 60_000;
 	const unfocusedMs = options.unfocusedMs ?? 30_000;
-	const emitter = createEmitter<PresenceEvents>();
+	const emitter = createEmitter<UserActivityEvents>();
 	let lastActivity = Date.now();
 	let away = false;
 	let focused = true;
-	let reason: PresenceReason = "start";
-	let last: PresenceState | undefined;
+	let reason: UserActivityReason = "start";
+	let last: UserActivityState | undefined;
 	let idle: ReturnType<typeof setTimeout> | undefined;
 	let stop: (() => void) | undefined;
 	const page = () => typeof document !== "undefined";
@@ -57,7 +59,7 @@ export function createPresence(options: PresenceOptions = {}): Presence {
 	const span = () => (focused ? activeMs : unfocusedMs);
 	const present = () =>
 		!away && (!page() || (visible() && Date.now() - lastActivity < span()));
-	const snapshot = (): PresenceState => ({
+	const snapshot = (): UserActivityState => ({
 		present: present(),
 		reason,
 		visible: visible(),
@@ -65,10 +67,10 @@ export function createPresence(options: PresenceOptions = {}): Presence {
 		away,
 		lastActivity,
 	});
-	const evaluate = (why: PresenceReason) => {
+	const evaluate = (why: UserActivityReason) => {
 		const next = { ...snapshot(), reason: why };
 		clearTimeout(idle);
-		// Presence also ends with time alone: wake up when it would.
+		// UserActivity also ends with time alone: wake up when it would.
 		if (next.present && page() && Number.isFinite(span()))
 			idle = setTimeout(
 				() => evaluate("idle"),
@@ -87,7 +89,7 @@ export function createPresence(options: PresenceOptions = {}): Presence {
 		emitter.emit("change", next);
 	};
 	/** A sign of the user: count it as activity. */
-	const back = (why: PresenceReason) => {
+	const back = (why: UserActivityReason) => {
 		lastActivity = Date.now();
 		evaluate(why);
 		if (present()) emitter.emit("return");
@@ -149,7 +151,7 @@ export function createPresence(options: PresenceOptions = {}): Presence {
 			start();
 			// A new listener sees the current state; a fresh start already sent it.
 			if (event === "change" && !fresh)
-				(listener as (state: PresenceState) => void)(snapshot());
+				(listener as (state: UserActivityState) => void)(snapshot());
 			return off;
 		},
 		set(value) {
@@ -166,5 +168,5 @@ export function createPresence(options: PresenceOptions = {}): Presence {
 	};
 }
 
-/** The presence of this page, shared by every connector that is not given its own. */
-export const presence: Presence = createPresence();
+/** The user activity of this page, shared by every connector that is not given its own. */
+export const userActivity: UserActivity = createUserActivity();

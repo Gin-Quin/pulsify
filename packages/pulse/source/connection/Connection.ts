@@ -8,6 +8,7 @@ import {
 	PulseError,
 	remoteError,
 } from "../protocol/errors.js";
+import { isPresenceFrame } from "../protocol/presenceFrames.js";
 import { deferred } from "../utilities/deferred.js";
 import { isOnline, onOnline } from "../utilities/isOnline.js";
 import type { ConnectionResponse } from "./ConnectionResponse.js";
@@ -486,9 +487,25 @@ export class Connection {
 			this.pending.delete(requestId);
 		});
 	}
+	/** The session is established with an endpoint that relays presence frames. */
+	get relaysPresence(): boolean {
+		return !!this.session?.presence && ESTABLISHED.includes(this.status);
+	}
+	/**
+	 * Send a presence frame if this session's endpoint relays them. Presence
+	 * is best effort: nothing is queued, awaited or acknowledged.
+	 */
+	sendPresence(frame: Uint8Array): void {
+		if (!this.relaysPresence) return;
+		void this.session!.send(frame).catch(() => {});
+	}
 	private receive(bytes: Uint8Array): void {
 		if (!ESTABLISHED.includes(this.status) && this.status !== "connecting")
 			return;
+		if (isPresenceFrame(bytes)) {
+			getPulseMeta(this.pulse).presence?.receive(this, bytes);
+			return;
+		}
 		const epoch = this.epoch;
 		try {
 			if (

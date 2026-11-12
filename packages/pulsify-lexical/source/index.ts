@@ -8,6 +8,9 @@ import {
 	$createNodeSelection,
 	$setSelection,
 	getRegisteredNode,
+	BLUR_COMMAND,
+	FOCUS_COMMAND,
+	COMMAND_PRIORITY_LOW,
 	COLLABORATION_TAG,
 	SKIP_SCROLL_INTO_VIEW_TAG,
 	HISTORY_PUSH_TAG,
@@ -22,19 +25,26 @@ import {
 	type LexicalNode,
 	type SerializedEditorState,
 } from "lexical";
-import { type RichText } from "pulsify-core";
+import {
+	joinPresence,
+	RichTextSelection,
+	type Pulse,
+	type RichText,
+} from "pulsify-core";
 import {
 	RT_NODE,
-	RT_PARENT,
 	richTextContext,
 	reconcileEditorTokens,
-	invertEditorChange,
-	type EditorChange,
+	createPulsifyHistory,
+	connectEditorHistory,
+	type PulsifyHistory,
 	type RichTextContext,
 } from "pulsify-core/bindings";
 import {
+	anchorOfPoint,
 	captureDocument,
 	matchDocument,
+	pointOfAnchor,
 	readDocument,
 	redirectOperations,
 	sameJSON,
@@ -42,10 +52,21 @@ import {
 	type Tree,
 	type Point,
 } from "./document.js";
+import { drawSelections } from "./cursors.js";
+
+export {
+	createPulsifyHistory,
+	type PulsifyHistory,
+	type PulsifyHistoryOptions,
+} from "pulsify-core/bindings";
 
 const REMOTE_TAG = "pulsify:remote";
 const bindings = new WeakMap<LexicalEditor, LexicalBinding>();
+/** The binding that last shared a selection on each pulse, by its token. */
+const publishers = new WeakMap<object, object>();
 export interface LexicalBindingOptions {
+	/** A history plugin created by either editor package. Defaults to a fresh plugin. */
+	history?: PulsifyHistory;
 	/** Bump this when changing the meaning of custom nodes. All peers must agree. */
 	schemaId?: string;
 	onError?: (error: unknown) => void;
@@ -53,13 +74,44 @@ export interface LexicalBindingOptions {
 	undoDelay?: number;
 	/** Maximum local undo groups retained. Default: 100. */
 	maxUndo?: number;
+	/**
+	 * Share my selection through presence and draw the caret and selected range
+	 * of every other peer in this field. `true` shares without a name.
+	 * `draw: false` shares mine and draws nothing. `container` is where the
+	 * overlay elements go (default: the parent of the editor's root element).
+	 */
+	selection?:
+		| boolean
+		| {
+				name?: string;
+				color?: string;
+				draw?: boolean;
+				container?: HTMLElement;
+		  };
 }
 export interface LexicalBinding {
+	readonly history: PulsifyHistory;
 	destroy(): void;
 	undo(): boolean;
 	redo(): boolean;
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
+	/**
+	 * A Lexical point (`{ key, offset, type }`, e.g. `selection.anchor`) as a
+	 * string that follows it through every edit.
+	 */
+	anchorAt(point: {
+		key: string;
+		offset: number;
+		type?: "text" | "element";
+	}): string;
+	/**
+	 * Where an anchor is now; `undefined` for an anchor of another field or of
+	 * an entry not received yet.
+	 */
+	pointOf(
+		anchor: string,
+	): { key: string; offset: number; type: "text" | "element" } | undefined;
 }
 
 /** Nodes and formatting as Lexical JSON. Plain snapshots remain a text projection. */
@@ -79,9 +131,14 @@ export function bindLexical(
 		throw new TypeError("This Lexical editor is already bound");
 	const schemaId = options.schemaId ?? "lexical:1",
 		undoDelay = options.undoDelay ?? 300,
-		maxUndo = options.maxUndo ?? 100;
+		maxUndo = options.maxUndo ?? 100,
+		sharing = options.selection === true ? {} : options.selection || undefined;
 	if (
 		!schemaId ||
+		(sharing &&
+			(typeof sharing !== "object" ||
+				(sharing.name !== undefined && typeof sharing.name !== "string") ||
+				(sharing.color !== undefined && typeof sharing.color !== "string"))) ||
 		!Number.isFinite(undoDelay) ||
 		undoDelay < 0 ||
 		!Number.isSafeInteger(maxUndo) ||
@@ -92,20 +149,17 @@ export function bindLexical(
 	let native = readDocument(context, schemaId),
 		rendered: DocumentView;
 	let writing = false,
-		disposed = false,
-		lastTime = 0,
-		lastTyping = "";
-	const undo: EditorChange[][] = [],
-		redo: EditorChange[][] = [],
-		cleanup: (() => void)[] = [];
+		disposed = false;
+	const history = options.history ?? createPulsifyHistory(options);
+	const cleanup: (() => void)[] = [];
 	const fail = (error: unknown) => {
 		binding.destroy();
 		if (options.onError) options.onError(error);
 		else throw error;
 	};
 	const notifyHistory = () => {
-		editor.dispatchCommand(CAN_UNDO_COMMAND, undo.length > 0);
-		editor.dispatchCommand(CAN_REDO_COMMAND, redo.length > 0);
+		editor.dispatchCommand(CAN_UNDO_COMMAND, history.canUndo);
+		editor.dispatchCommand(CAN_REDO_COMMAND, history.canRedo);
 	};
 	const pull = (flush = true) => {
 		if (disposed || writing) return;
@@ -124,46 +178,71 @@ export function bindLexical(
 				context,
 				schemaId,
 			);
-			lastTime = 0;
+			history.stopCapturing();
 		} catch (error) {
 			fail(error);
 		}
 	};
-	const replay = (from: EditorChange[][], to: EditorChange[][]): boolean => {
-		if (disposed || !from.length) return false;
-		const group = from.at(-1)!,
-			inverted: EditorChange[] = [];
-		writing = true;
-		try {
-			richTextContext(field);
-			for (const change of [...group].reverse())
-				inverted.push(invertEditorChange(context, change));
-			from.pop();
-			to.push(inverted);
-			lastTime = 0;
-		} finally {
-			writing = false;
-		}
-		pull(false);
-		notifyHistory();
-		return true;
-	};
+	const historyConnection = connectEditorHistory(history, context, {
+		flush: () => {
+			if (!editor._updating) editor.read(() => {});
+		},
+		replay(action) {
+			writing = true;
+			try {
+				richTextContext(field);
+				action();
+			} finally {
+				writing = false;
+			}
+			pull(false);
+		},
+	});
+	cleanup.push(
+		() => historyConnection.destroy(),
+		history.subscribe(notifyHistory),
+	);
 	const binding: LexicalBinding = {
+		history,
 		get canUndo() {
-			return undo.length > 0;
+			return history.canUndo;
 		},
 		get canRedo() {
-			return redo.length > 0;
+			return history.canRedo;
 		},
-		undo: () => replay(undo, redo),
-		redo: () => replay(redo, undo),
+		undo: () => history.undo(),
+		redo: () => history.redo(),
 		destroy() {
 			if (disposed) return;
 			disposed = true;
 			for (const unregister of cleanup.splice(0)) unregister();
 			if (bindings.get(editor) === binding) bindings.delete(editor);
-			undo.length = 0;
-			redo.length = 0;
+		},
+		anchorAt(point) {
+			if (
+				!point ||
+				typeof point !== "object" ||
+				typeof point.key !== "string" ||
+				!Number.isSafeInteger(point.offset) ||
+				(point.type !== undefined &&
+					point.type !== "text" &&
+					point.type !== "element")
+			)
+				throw new TypeError("Invalid Lexical point");
+			if (disposed)
+				throw new TypeError("This Lexical binding has been destroyed");
+			richTextContext(field);
+			const anchor = anchorOfPoint(context, native, rendered, point);
+			if (anchor === undefined)
+				throw new RangeError("This Lexical point is not in the bound document");
+			return anchor;
+		},
+		pointOf(anchor) {
+			if (typeof anchor !== "string")
+				throw new TypeError("An anchor is a string");
+			if (disposed) return undefined;
+			richTextContext(field);
+			return pointOfAnchor(context, rendered, anchor);
 		},
 	};
 	try {
@@ -224,36 +303,10 @@ export function bindLexical(
 						native = readDocument(context, schemaId);
 						matchDocument(native, current);
 						rendered = current;
-						if (
-							change.inserted.length ||
-							change.deleted.length ||
-							change.attributes.length
-						) {
-							const entries = [...change.inserted, ...change.deleted].map(
-								(id) => context.node.entries.get(id)!,
-							);
-							const typing =
-								entries.length === 1 &&
-								!entries[0]!.marks.has(RT_NODE) &&
-								!change.attributes.length
-									? `${change.inserted.length ? "insert" : "delete"}:${entries[0]!.marks.get(RT_PARENT)?.value}`
-									: "";
-							const now = Date.now();
-							if (
-								undo.length &&
-								!tags.has(HISTORY_PUSH_TAG) &&
-								(tags.has(HISTORY_MERGE_TAG) ||
-									(typing &&
-										typing === lastTyping &&
-										now - lastTime < undoDelay))
-							)
-								undo.at(-1)!.push(change);
-							else undo.push([change]);
-							while (undo.length > maxUndo) undo.shift();
-							redo.length = 0;
-							lastTime = now;
-							lastTyping = typing;
-						}
+						historyConnection.record(change, {
+							push: tags.has(HISTORY_PUSH_TAG),
+							merge: tags.has(HISTORY_MERGE_TAG),
+						});
 						if (!sameJSON(native.tree.json, current.tree.json))
 							applyDocument(
 								editor,
@@ -276,6 +329,90 @@ export function bindLexical(
 			),
 		);
 		cleanup.push(context.subscribe(pull));
+		if (sharing) {
+			const presence = joinPresence(
+				context.pulse as Pulse<any>,
+				RichTextSelection,
+			);
+			const owner = {};
+			/** Only what this binding shared: a pulse has one selection per peer. */
+			const clear = (): boolean => {
+				if (publishers.get(context.pulse as object) !== owner) return false;
+				publishers.delete(context.pulse as object);
+				presence.set(undefined);
+				return true;
+			};
+			// Lexical keeps its selection when the editor loses focus: a cursor
+			// nobody is using would stay on the other peers' screens.
+			let blurred = false;
+			const publish = () => {
+				if (blurred) return;
+				const selected = rendered.selection;
+				const [anchor, head] =
+					selected && "anchor" in selected
+						? [selected.anchor, selected.focus].map((point) =>
+								anchorOfPoint(context, native, rendered, point),
+							)
+						: [];
+				if (anchor === undefined || head === undefined) {
+					clear();
+					return;
+				}
+				presence.set({
+					anchor,
+					head,
+					name: sharing.name ?? "",
+					color: sharing.color ?? "",
+				});
+				publishers.set(context.pulse as object, owner);
+			};
+			let overlay: ReturnType<typeof drawSelections> | undefined;
+			cleanup.push(() => {
+				overlay?.destroy();
+				clear();
+				presence.leave();
+			});
+			// A headless editor has no root element: it shares and draws nothing.
+			if (sharing.draw !== false && !editor._headless)
+				overlay = drawSelections(
+					editor,
+					presence,
+					(anchor) =>
+						disposed ? undefined : pointOfAnchor(context, rendered, anchor),
+					sharing.container,
+				);
+			cleanup.push(
+				// Registered after the listener above: `rendered` is up to date.
+				editor.registerUpdateListener(() => {
+					if (disposed) return;
+					publish();
+					overlay?.schedule();
+				}),
+				// A remote change that carries the character of a waiting anchor.
+				context.subscribe(() => {
+					if (!writing) overlay?.schedule();
+				}),
+				editor.registerCommand(
+					BLUR_COMMAND,
+					() => {
+						blurred = true;
+						clear();
+						return false;
+					},
+					COMMAND_PRIORITY_LOW,
+				),
+				editor.registerCommand(
+					FOCUS_COMMAND,
+					() => {
+						blurred = false;
+						publish();
+						return false;
+					},
+					COMMAND_PRIORITY_LOW,
+				),
+			);
+			publish();
+		}
 		cleanup.push(
 			editor.registerCommand(
 				UNDO_COMMAND,
@@ -294,15 +431,13 @@ export function bindLexical(
 			editor.registerCommand(
 				CLEAR_HISTORY_COMMAND,
 				() => {
-					undo.length = 0;
-					redo.length = 0;
-					lastTime = 0;
-					notifyHistory();
+					history.clear();
 					return true;
 				},
 				COMMAND_PRIORITY_HIGH,
 			),
 		);
+		notifyHistory();
 		return binding;
 	} catch (error) {
 		binding.destroy();

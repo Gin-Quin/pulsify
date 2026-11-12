@@ -388,7 +388,7 @@ its own history and version vector, so it loads and synchronizes on its own;
 its ID is prefixed by the parent ID, which lets a server co-locate a whole tree.
 
 ```ts
-import { array, createPulse, definePulse, loadPulse, object, sub, subPulse } from "pulsify-core";
+import { array, createPulse, definePulse, loadPulse, object, sub, pulseRef } from "pulsify-core";
 
 const Document = definePulse("Document", object({ title: "string" })).materialize();
 const Project = definePulse("Project", object({
@@ -401,29 +401,143 @@ const User = definePulse("User", object({
 const user = createPulse(User, { id: "1234", name: "Ada", projects: [] });
 const project = createPulse(Project, { name: "Engine", documents: [] }, { parent: user });
 project.id;                      // "1234/<generated>"
-user.projects.push(subPulse(project));
+user.projects.push(pulseRef(project));
 
-const handle = user.projects[0]!; // SubPulse<typeof Project>
-handle.id;                        // The stored value
-handle.pulse;                     // Pulse<Project> | undefined: loaded in this scope?
-await handle.load();              // loadPulse with the parent's scope and connectors
+const ref = user.projects[0]!;    // PulseRef<typeof Project>
+ref.id;                           // The stored value
+ref.pulse;                        // Pulse<Project> | undefined: loaded in this scope?
+await ref.load();                 // loadPulse with the parent's scope and connectors
 
-await loadPulse(User, "1234", { connectors, include: true });
-await loadPulse(User, "1234", { connectors, include: { projects: { documents: true } } });
+await loadPulse(User, "1234", { connectors }); // With every sub-pulse, recursively
+const lazy = await loadPulse(User, "1234", { connectors, subPulses: false }); // The user only
+await Promise.all(lazy.projects.map((ref) => ref.load({ subPulses: false }))); // Its projects, not their documents
 await loadPulse(Project, "1234/xyz", { connectors }); // A child without its parent
 ```
 
 `sub(Definition)` is a string field on the wire; snapshots and migrations see the
-ID. Reads return a handle; writes accept a handle, a pulse or an ID string at
-runtime, and `subPulse(pulse)` produces the typed handle. `{ parent }` prefixes
+ID. Reads return a reference; writes accept a reference, a pulse or an ID string at
+runtime, and `pulseRef(pulse)` produces the typed reference. `{ parent }` prefixes
 the generated ID, rejects an explicit ID outside the parent, and inherits the
-parent's scope, connectors and other options. `include: true` loads every
-sub-pulse recursively; an object selects fields, where `true` loads that child
-only and a nested object continues into it. Arrays, maps and optionals are
-transparent. Included loads use the same `waitFor`, and a missing child rejects
-the whole load with `NOT_FOUND`. Creating a child and linking it from its parent
-are two documents and two writes; a dangling ID is tolerated and resolves to
-`pulse === undefined` until the child exists.
+parent's scope, connectors and other options. `loadPulse` loads every
+sub-pulse recursively, `ref.load()` included, through arrays, maps and
+optionals; `subPulses: false` loads none, and you load the ones you need with
+`ref.load()`. `setDefaultPulseOptions({ subPulses: false })` makes every load
+lazy. Sub-pulse loads use the same `waitFor`. Creating a child and linking it
+from its parent are two documents and two writes; a dangling ID is tolerated:
+it does not fail the load of its parent and resolves to `pulse === undefined`
+until the child exists. Any other error of a child rejects the whole load.
+
+## Presence
+
+Presence is live state that every connected peer publishes for itself and
+that everyone subscribed to the pulse sees until that peer leaves: who has a
+document open, a pointer, a selection. It is never stored and never enters the
+document's history.
+
+```ts
+import { definePresence, joinPresence, object } from "pulsify-core";
+
+const Viewer = definePresence("viewer", object({ name: "string", color: "string" }));
+const Cursor = definePresence("cursor", object({ x: "float32", y: "float32" }), { throttleMs: 30 });
+
+const viewers = joinPresence(project, Viewer);
+viewers.set({ name: "Ada", color: "#e5484d" }); // sent now, and again after every reconnection
+viewers.mine;                                   // { name: "Ada", color: "#e5484d" }
+viewers.others;                                 // [{ peer: 7, subject?: "…", state: { name, color } }, …]
+const stop = viewers.subscribe(({ others }) => render(others)); // now, then on every change
+viewers.set(undefined);                         // no state any more; the others stay visible
+viewers.leave();                                // undo this joinPresence
+```
+
+- **Channels.** `definePresence(name, schema, { throttleMs })` takes any codec
+  schema, except an array or set whose elements take no bytes (`null`,
+  `undefined`, a literal, an empty object or tuple): its length could not be
+  bounded by the size of the state. A state is validated, replaced as a
+  whole, and limited to 16 KiB once encoded. Use one channel per kind of state. Peers see each other in a
+  channel when its name and schema layout match: another schema under the
+  same name is another channel, so there are no migrations.
+- **Peers.** A peer is one connected session of the document (a tab, a
+  window, a device), numbered by the relay, with the same number in every
+  channel of the pulse. It is not the actor ID: readers have a peer and no
+  actor, and a reconnection is a new peer. `subject` is the identity the relay
+  authenticated, when it did; a state is only what its peer says.
+- **Values.** `others` is a frozen array that changes identity only when
+  something changed, and a peer whose state did not change keeps the same
+  object. `mine` is a detached copy of what was set. `subscribe` calls its
+  listener at once, then synchronously after every change of `others` or
+  `mine`, and a last time when its holder leaves, with the presence itself.
+- **Sending.** A channel sends its first state at once, then the latest one
+  at most every `throttleMs` (50 by default). Nothing is sent while the state
+  does not change; there is no heartbeat.
+- **Lifecycle.** `joinPresence` works on any pulse, connected or not. Offline,
+  `others` is empty and `mine` is kept, then sent when a connection that
+  relays presence is established. Joins are counted: each one is undone by
+  its own `leave()`, which is idempotent, and the channel closes with the
+  last. `destroyPulse` closes every channel. A peer that closes its tab,
+  loses the network or its access is removed by the relay.
+- **Readers** publish presence: it is not a write to the document.
+- **Where.** Presence goes through relays: the memory connector,
+  `createWebSocketConnector(url, factory, { presence: true })` for a relay
+  running version 9 or later, and Pulsify Cloud. Local stores (IndexedDB,
+  Electron, Tauri) do not relay it. A pulse uses one relay for presence: the
+  first connector, in order, whose session relays it, until that session
+  fails. A custom connector sets `ConnectorSession.presence` once its
+  endpoint is known to relay kind 7.
+
+The four framework bindings wrap exactly this object: `usePulsePresence`
+(`pulsify-react`, `pulsify-vue`), `new SveltePresence` (`pulsify-svelte`) and
+`createPulsePresence` (`pulsify-solid`).
+
+### Text positions
+
+An index into a `richText()` field moves when someone types before it. An
+anchor does not:
+
+```ts
+const caret = note.body.anchorAt(5); // follows the character before index 5
+note.body.insert(0, "Hey ");
+note.body.indexOf(caret);            // 9
+```
+
+An anchor is a plain string: the ID of the entry before the position, or of
+the field itself for its start. It stays after that entry, so text inserted
+exactly there lands after the anchor, and it resolves to where the entry was
+once it is deleted. `indexOf` returns `undefined` for an anchor of another
+field, or of a character this replica has not received yet; resolve it again
+after the document changes. Publish anchors in presence, or store them in a
+pulse to pin a comment. `RichTextSelection` is the presence channel
+(`{ anchor, head, name, color }`) that the ProseMirror and Lexical bindings
+share selections on; both expose the same anchors in editor positions.
+
+### Relaying presence
+
+`PulseRelay` relays presence as it is. `relay.open(send, { docId, readOnly,
+subject })` names the user you authenticated, which every peer reads as
+`peer.subject`. A server that owns its sockets and calls `relayStoreMessage`
+does the forwarding itself:
+
+```ts
+import { encodeBroadcast, encodePresenceLeave, relayStoreMessage } from "pulsify-core/protocol";
+
+// peer: a positive number no other open session of the document uses.
+const result = await relayStoreMessage(store, bytes, { docId, readOnly, peer, subject });
+for (const frame of result.responses) socket.send(frame);
+if (result.presence) session.presence = true; // this client understands presence
+for (const other of othersOf(docId, socket)) {
+  if (result.broadcast) other.send(encodeBroadcast(docId, result.broadcast));
+  const { presence } = result;
+  if (presence && other.presence && (!presence.to || presence.to === other.peer))
+    other.send(presence.frame);
+}
+// When a session ends:
+for (const other of othersOf(docId, socket))
+  if (other.presence) other.send(encodePresenceLeave(docId, peer));
+```
+
+Forward presence only to sessions that have sent a presence frame themselves:
+clients older than version 9 reject it. A relay stores nothing; it may drop
+frames beyond a rate with `createPresenceBudget()`. The wire format is in the
+[protocol specification](../../docs/PROTOCOL.md#presence-kind-7).
 
 ## Client scopes and in-memory synchronization
 

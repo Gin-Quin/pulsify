@@ -32,21 +32,36 @@ export type CloudRoleMessage = {
 };
 /** Who answers a socket, for debugging: free-form, never used for routing. */
 export type CloudServerInfo = {
-	/** `"cloudflare"`, `"unikraft-cloud"`, or another host. */
+	/** The host, for example `"cloudflare"`. */
 	backend: string;
-	/** The Durable Object ID, or the machine instance. A new value means a new instance. */
+	/** The instance serving the root. A new value means a new instance. */
 	id: string;
-	/** The Cloudflare edge that accepted the socket, or the Unikraft metro. */
+	/** Where the socket was accepted. */
 	location?: string;
 };
-/** Server → client, first frame of every socket: who answers it. */
-export type CloudWelcomeMessage = { type: "welcome"; server: CloudServerInfo };
+/**
+ * Server → client, first frame of every socket: who answers it, and whether
+ * it relays presence frames (a client never sends them to a server that
+ * does not say so).
+ */
+export type CloudWelcomeMessage = {
+	type: "welcome";
+	server: CloudServerInfo;
+	presence?: boolean;
+};
 /** Client → server: stop receiving a document's updates without closing the socket. */
 export type CloudUnsubscribeMessage = { type: "unsubscribe"; docId: string };
 export type CloudServerMessage = CloudRoleMessage | CloudWelcomeMessage;
 
-export function welcomeMessage(server: CloudServerInfo): string {
-	const message: CloudWelcomeMessage = { type: "welcome", server };
+export function welcomeMessage(
+	server: CloudServerInfo,
+	capabilities: { presence?: boolean } = {},
+): string {
+	const message: CloudWelcomeMessage = {
+		type: "welcome",
+		server,
+		...(capabilities.presence ? { presence: true } : {}),
+	};
 	return JSON.stringify(message);
 }
 export type CloudClientMessage = CloudUnsubscribeMessage;
@@ -79,6 +94,7 @@ export function parseServerMessage(text: string): CloudServerMessage {
 					? { location: server["location"] }
 					: {}),
 			},
+			...(message["presence"] === true ? { presence: true } : {}),
 		};
 	}
 	const { docId, role } = message;

@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "bun examples/server.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests",
+		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests packages/pulsify-vue/tests && bun test --conditions browser packages/pulsify-svelte/tests packages/pulsify-solid/tests",
 		"check": "bun run typecheck && bun run test && bun run test:crdt && bun run test:database",
 		"build": "bun scripts/build.ts",
 		"bench": "bun benchmarks/index.ts",
@@ -71,6 +71,9 @@
 		"pulsify-prosemirror": "workspace:*",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
-		"typescript": "^7.0.2"
+		"solid-js": "^1.9.19",
+		"svelte": "^5.57.3",
+		"typescript": "^7.0.2",
+		"vue": "^3.5.45"
 	}
 }

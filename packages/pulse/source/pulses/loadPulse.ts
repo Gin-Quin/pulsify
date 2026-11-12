@@ -15,35 +15,25 @@ import { actorPoolOf, leaseActor } from "./actors.js";
 import { defaultPulseOptions, type PulseOptions } from "./PulseOptions.js";
 import { createRuntime } from "./PulseRuntime.js";
 
-/**
- * Select `sub()` fields to load with their parent; arrays, maps and optionals
- * are transparent. `true` on a field loads that child only; a nested object
- * continues into the child.
- */
-export type SubPulseInclude = {
-	readonly [field: string]: boolean | SubPulseInclude;
-};
 export type LoadPulseOptions = Partial<PulseOptions> &
 	ConnectPulseOptions & {
 		waitFor?: "ready" | "connected" | "synced" | "all" | Connector[];
-		/** `true` loads every sub-pulse recursively; an object selects fields. */
-		include?: boolean | SubPulseInclude;
 	};
 export async function loadPulse<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	id: string,
 	input: LoadPulseOptions = {},
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
-	const { include, ...connectInput } = input;
+	const { subPulses = defaultPulseOptions.subPulses, ...connectInput } = input;
 	const pulse = await loadOne(definition, id, connectInput);
-	if (include) await loadIncluded(pulse, include, connectInput, new Set());
+	if (subPulses) await loadSubPulses(pulse, connectInput, new Set());
 	return pulse;
 }
 
 async function loadOne<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	id: string,
-	input: Omit<LoadPulseOptions, "include">,
+	input: Omit<LoadPulseOptions, "subPulses">,
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
 	const options = { ...defaultPulseOptions, ...input };
 	// A runtime reuses the scope's leased actor only if the lease came first,
@@ -93,11 +83,10 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 	}
 }
 
-/** Walk the stored data with its compiled layouts and load every selected sub-pulse. */
-async function loadIncluded(
+/** Walk the stored data with its compiled layouts and load every sub-pulse, recursively. */
+async function loadSubPulses(
 	pulse: Pulse<any>,
-	include: true | SubPulseInclude,
-	input: Omit<LoadPulseOptions, "include">,
+	input: Omit<LoadPulseOptions, "subPulses">,
 	visited: Set<string>,
 ): Promise<void> {
 	const meta = getPulseMeta(pulse);
@@ -106,38 +95,28 @@ async function loadIncluded(
 	const root = meta.definition.compiledSchema?.root;
 	if (!root) return;
 	const tasks: Promise<void>[] = [];
-	// `true` recurses through every child; "self" loads a selected child only.
-	const visit = (
-		layout: PulseLayout | undefined,
-		value: unknown,
-		spec: true | "self" | SubPulseInclude,
-	): void => {
+	const visit = (layout: PulseLayout | undefined, value: unknown): void => {
 		if (!layout || value === undefined || value === null) return;
 		if (layout.sub) {
 			if (typeof value !== "string") return;
-			const child = loadOne(layout.sub, value, input).then((loaded) =>
-				spec === "self"
-					? undefined
-					: loadIncluded(loaded, spec, input, visited),
+			tasks.push(
+				loadOne(layout.sub, value, input).then(
+					(loaded) => loadSubPulses(loaded, input, visited),
+					// A dangling ID is tolerated: its reference keeps `pulse === undefined`.
+					(error) => {
+						if (!(error instanceof PulseError && error.code === "NOT_FOUND"))
+							throw error;
+					},
+				),
 			);
-			tasks.push(child);
 			return;
 		}
 		switch (layout.kind) {
 			case "optional":
-				return visit(layout.value, value, spec);
+				return visit(layout.value, value);
 			case "object":
-				for (const field of layout.fields) {
-					const selected =
-						spec === true || spec === "self" ? spec : spec[field.key];
-					const next = selected === true && spec !== true ? "self" : selected;
-					if (next)
-						visit(
-							field.layout,
-							(value as Record<string, unknown>)[field.key],
-							next,
-						);
-				}
+				for (const field of layout.fields)
+					visit(field.layout, (value as Record<string, unknown>)[field.key]);
 				return;
 			case "array":
 			case "tuple":
@@ -146,23 +125,21 @@ async function loadIncluded(
 						visit(
 							layout.kind === "tuple" ? layout.elements?.[i] : layout.element,
 							item,
-							spec,
 						),
 					);
 				return;
 			case "map":
 				if (typeof value === "object")
-					for (const item of Object.values(value))
-						visit(layout.element, item, spec);
+					for (const item of Object.values(value)) visit(layout.element, item);
 				return;
 			case "union": {
 				if (typeof value !== "object" || !layout.tagName) return;
 				const tag = (value as Record<string, unknown>)[layout.tagName];
-				return visit(layout.variants?.get(String(tag)), value, spec);
+				return visit(layout.variants?.get(String(tag)), value);
 			}
 			// ponytail: untagged unions are not walked; add a layout match if needed.
 		}
 	};
-	visit(root, meta.model.view(), include);
+	visit(root, meta.model.view());
 	await Promise.all(tasks);
 }

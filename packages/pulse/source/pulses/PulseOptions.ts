@@ -25,6 +25,11 @@ export type PulseOptions = {
 	/** Retry failing connectors until `disconnectPulse`; `false` gives up after the first failure. */
 	reconnect: ReconnectOptions | false;
 	sessionId?: number;
+	/**
+	 * Whether `loadPulse` loads the sub-pulses with the pulse, recursively;
+	 * with `false`, load the ones you need with `ref.load()`.
+	 */
+	subPulses: boolean;
 	onError: (error: Error) => void;
 };
 export const defaultPulseOptions: PulseOptions = {
@@ -39,6 +44,7 @@ export const defaultPulseOptions: PulseOptions = {
 		factor: 2,
 		jitter: 0.25,
 	},
+	subPulses: true,
 	onError: () => {},
 };
 export function setDefaultPulseOptions(options: Partial<PulseOptions>): void {

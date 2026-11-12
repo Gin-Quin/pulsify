@@ -5,7 +5,8 @@ import { PulseError } from "../protocol/errors.js";
 /**
  * Supply a factory for runtimes without a global WebSocket or custom authentication.
  * A `{docId}` placeholder in the URL is replaced by the encoded document ID, for
- * servers that route a session before its first frame.
+ * servers that route a session before its first frame. Pass `presence: true`
+ * for a relay that forwards presence frames (pulsify-core 9 or later).
  */
 export function createWebSocketConnector(
 	template: string,
@@ -13,7 +14,7 @@ export function createWebSocketConnector(
 		url,
 		protocols,
 	) => new WebSocket(url, protocols),
-	options: { protocolVersion?: 1 | 2 | 3 } = {},
+	options: { protocolVersion?: 1 | 2 | 3; presence?: boolean } = {},
 ): Connector {
 	return {
 		kind: "remote",
@@ -65,6 +66,7 @@ export function createWebSocketConnector(
 									  socket.protocol === "pulsify-v2"
 									? 2
 									: 1,
+						presence: options.presence === true,
 						close() {
 							if (closed) return;
 							finish();

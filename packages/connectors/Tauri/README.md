@@ -57,7 +57,6 @@ const remote = createWebSocketConnector("wss://sync.example.com/{docId}");
 
 const notebook = await loadPulse(Notebook, userId, {
   connectors: [local, remote],
-  include: true,
 });
 ```
 
@@ -76,22 +75,22 @@ Plugin errors arrive as `PulseError`s with the store's code (`CONFLICT`,
 call closes the connection with `CLOSED` or `CONNECTION_FAILED`, which the core
 retries.
 
-## Window presence
+## Window activity
 
 Remote connectors such as `pulsify-cloud` ping their sockets in the background
 only while someone uses the app. WebView2 (Windows) never tells the page that
 its window is minimized, so forward the native window state:
 
 ```ts
-import { presence } from "pulsify-cloud";
-import { watchTauriPresence } from "pulsify-tauri";
+import { userActivity } from "pulsify-cloud";
+import { watchTauriActivity } from "pulsify-tauri";
 
-const stop = await watchTauriPresence(presence); // any { set(present) }
+const stop = await watchTauriActivity(userActivity); // any { set(present) }
 ```
 
-A minimized or hidden window calls `presence.set(false)`; a restored, shown or
-focused one calls `presence.set(true)`. Every cloud connector of the page
-shares this `presence` unless given its own. It uses `isMinimized`, `isVisible`,
+A minimized or hidden window calls `userActivity.set(false)`; a restored, shown or
+focused one calls `userActivity.set(true)`. Every cloud connector of the page
+shares this `userActivity` unless given its own. It uses `isMinimized`, `isVisible`,
 `onResized` and `onFocusChanged` from `@tauri-apps/api/window`, so the
 capability needs `core:window:default` (included in `core:default`).
 

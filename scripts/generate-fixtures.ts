@@ -12,6 +12,11 @@ import {
 import { encodeOperations } from "../packages/pulse/source/connection/PulsePatch";
 import type { CoreOperation } from "../packages/pulse/source/core/operations";
 import type { PreparedValue } from "../packages/pulse/source/core/values";
+import {
+	encodePresenceFrame,
+	encodePresenceLeave,
+	type PresenceFrame,
+} from "../packages/pulse/source/protocol/presenceFrames";
 // Intentionally run by a maintainer only when changing or extending the wire contract.
 const Fixture = definePulse<PulseProperties<"Fixture"> & { value: number }>(
 	"Fixture",
@@ -87,6 +92,58 @@ const messages: [string, PulseMessage][] = [
 		},
 	],
 ];
+const noState = new Uint8Array();
+// Kind 7: relays forward these and never store them.
+const presence: [string, PresenceFrame][] = [
+	[
+		"join-from-client",
+		{
+			docId: "fixture",
+			peer: 0,
+			to: 0,
+			event: 0,
+			subject: "",
+			channel: "cursor#0a1b2c3d",
+			state: noState,
+		},
+	],
+	[
+		"state-relayed",
+		{
+			docId: "rust/🌍",
+			peer: 281474976710656,
+			to: 0,
+			event: 1,
+			subject: "ada@example.com",
+			channel: "cursor#0a1b2c3d",
+			state: new Uint8Array([0, 0, 128, 63, 0, 0, 0, 64]),
+		},
+	],
+	[
+		"state-answering-a-join",
+		{
+			docId: "fixture",
+			peer: 7,
+			to: 9,
+			event: 1,
+			subject: "",
+			channel: "viewer#ffffffff",
+			state: new Uint8Array([3, 65, 100, 97]),
+		},
+	],
+	[
+		"clear",
+		{
+			docId: "fixture",
+			peer: 7,
+			to: 0,
+			event: 2,
+			subject: "",
+			channel: "viewer#ffffffff",
+			state: noState,
+		},
+	],
+];
 const prepared = (value: unknown): PreparedValue => ({
 	value,
 	constants: [],
@@ -127,5 +184,5 @@ const operations: CoreOperation[] = [
 ];
 await Bun.write(
 	"fixtures/protocol.json",
-	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 3, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }] }, null, 2)}\n`,
+	`${JSON.stringify({ protocolVersion: 1, operationsVersion: 3, messages: messages.map(([name, message]) => ({ name, bytes: [...encodeMessage(message)] })), operations: [{ name: "all-operation-variants", bytes: [...encodeOperations(operations)] }], presence: [...presence.map(([name, frame]) => ({ name, bytes: [...encodePresenceFrame(frame)] })), { name: "leave", bytes: [...encodePresenceLeave("fixture", 7)] }] }, null, 2)}\n`,
 );

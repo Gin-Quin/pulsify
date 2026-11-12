@@ -77,19 +77,22 @@ export function startCloudHost(secrets: CloudSecrets) {
 				open(socket) {
 					const { id, root, subject, envelope } = socket.data;
 					socket.send(
-						welcomeMessage({
-							backend: "test",
-							id: instance,
-							location: "local",
-						}),
+						welcomeMessage(
+							{ backend: "test", id: instance, location: "local" },
+							{ presence: true },
+						),
 					);
-					rootFor(root).peers.set(id, {
+					const peer: CloudPeer = {
 						id,
 						subject,
 						envelope,
+						presence: false,
+						usePresence: () =>
+							rootFor(root).peers.set(id, { ...peer, presence: true }),
 						send: (data) => socket.send(data),
 						close: (code, reason) => socket.close(code, reason),
-					});
+					};
+					rootFor(root).peers.set(id, peer);
 				},
 				message(socket, message) {
 					if (frozen) return;

@@ -33,7 +33,8 @@ const Note = definePulse(
 const connector = createWebSocketConnector(
 	`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/sync`,
 	undefined,
-	{ protocolVersion: 3 },
+	// The example server is a PulseRelay of this version: it relays presence.
+	{ protocolVersion: 3, presence: true },
 );
 const status = document.querySelector<HTMLOutputElement>("#status")!;
 let note;
@@ -67,6 +68,8 @@ const binding = bindLexical(editor, pulse.body, {
 	onError(error) {
 		status.value = String(error);
 	},
+	// Share this tab's selection and draw the other tabs' cursors.
+	selection: true,
 });
 for (const [id, action] of [
 	["bold", () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")],

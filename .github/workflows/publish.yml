@@ -22,7 +22,7 @@ jobs:
       - run: bun run build
       # Versions already on npm are skipped, so packages can be bumped independently.
       - run: |
-          for dir in packages/pulse packages/cloud packages/cloud-server packages/pulsify-react packages/pulsify-lexical packages/pulsify-prosemirror packages/connectors/IndexedDB packages/connectors/Tauri packages/connectors/Electron; do
+          for dir in packages/pulse packages/cloud packages/cloud-server packages/pulsify-react packages/pulsify-svelte packages/pulsify-vue packages/pulsify-solid packages/pulsify-lexical packages/pulsify-prosemirror packages/connectors/IndexedDB packages/connectors/Tauri packages/connectors/Electron; do
             name=$(jq -r .name "$dir/package.json")
             version=$(jq -r .version "$dir/package.json")
             if npm view "$name@$version" version >/dev/null 2>&1; then

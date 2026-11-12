@@ -24,6 +24,7 @@ export type EditorChange = {
 		before: unknown;
 		after: unknown;
 		stamp: Stamp;
+		beforeStamp?: Stamp | undefined;
 	}[];
 };
 
@@ -43,6 +44,7 @@ export function commitEditorOperations(
 			before: unknown;
 			after: unknown;
 			stamp: Stamp;
+			beforeStamp?: Stamp | undefined;
 		}
 	>();
 	let serial = 0;
@@ -62,6 +64,9 @@ export function commitEditorOperations(
 					updates.set(identity, {
 						entry: id,
 						key,
+						beforeStamp: previous
+							? previous.beforeStamp
+							: entry.marks.get(key)?.stamp,
 						before: previous
 							? previous.before
 							: (entry.marks.get(key)?.value ?? null),

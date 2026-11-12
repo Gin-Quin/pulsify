@@ -21,9 +21,9 @@ import {
 	createCloudClient,
 	createCloudConnector,
 	signCloudToken,
-	createPresence,
+	createUserActivity,
 	type CloudConnectorOptions,
-	type PresenceOptions,
+	type UserActivityOptions,
 } from "pulsify-cloud";
 import { eventually, Note, Workspace } from "./conformance.js";
 import { startCloudHost } from "./host.js";
@@ -48,10 +48,10 @@ const reconnect = { initialDelayMs: 5, maxDelayMs: 20, factor: 2, jitter: 0 };
 
 /** A workspace and a note of one root, on one connector: one socket. */
 type Heartbeat = Exclude<CloudConnectorOptions["heartbeat"], false | undefined>;
-async function open(settings: (Heartbeat & PresenceOptions) | false) {
+async function open(settings: (Heartbeat & UserActivityOptions) | false) {
 	const { activeMs, unfocusedMs, ...rest } = settings || {};
 	const heartbeat = settings === false ? false : rest;
-	const presence = createPresence({
+	const activity = createUserActivity({
 		...(activeMs === undefined ? {} : { activeMs }),
 		...(unfocusedMs === undefined ? {} : { unfocusedMs }),
 	});
@@ -65,7 +65,7 @@ async function open(settings: (Heartbeat & PresenceOptions) | false) {
 		url: host.url,
 		token: () => signCloudToken({ subject: "alice" }, secrets.tokenSecret),
 		heartbeat,
-		presence,
+		activity,
 	});
 	const options = {
 		scope: createPulseScope(),
@@ -89,14 +89,14 @@ async function open(settings: (Heartbeat & PresenceOptions) | false) {
 	cleanup.push(() => {
 		for (const pulse of [note, workspace] as Pulse<any>[]) destroyPulse(pulse);
 		cloud.close();
-		presence.dispose();
+		activity.dispose();
 	});
 	const reconnections = () =>
 		[workspace, note].reduce(
 			(count, pulse) => count + getPulseMeta(pulse).connections[0]!.attempt,
 			0,
 		);
-	return { cloud, presence, workspace, note, reconnections };
+	return { cloud, activity, workspace, note, reconnections };
 }
 
 describe("cloud socket heartbeat", () => {
@@ -311,18 +311,18 @@ describe("a page left open lets the server sleep", () => {
 		await eventually(() => expect(host.pings - before).toBe(1));
 	});
 
-	test("native signals: presence.set(false) silences a visible page until presence.set(true)", async () => {
-		const { presence } = await open({
+	test("native signals: activity.set(false) silences a visible page until activity.set(true)", async () => {
+		const { activity } = await open({
 			intervalMs: 30,
 			staleMs: 30,
 			timeoutMs: 1_000,
 		});
-		presence.set(false);
+		activity.set(false);
 		const before = host.pings;
 		globalThis.dispatchEvent(new Event("keydown"));
 		await Bun.sleep(150);
 		expect(host.pings - before).toBe(0);
-		presence.set(true);
+		activity.set(true);
 		await eventually(() => expect(host.pings - before).toBe(1));
 		await eventually(() =>
 			expect(host.pings - before).toBeGreaterThanOrEqual(3),
@@ -343,12 +343,12 @@ describe("a page left open lets the server sleep", () => {
 	});
 
 	test("a suspended process checks its sockets when it resumes, even away", async () => {
-		const { presence } = await open({
+		const { activity } = await open({
 			intervalMs: 30,
 			staleMs: 30,
 			timeoutMs: 1_000,
 		});
-		presence.set(false);
+		activity.set(false);
 		await Bun.sleep(60);
 		const before = host.pings;
 		const now = Date.now;
@@ -459,7 +459,7 @@ describe("connection events", () => {
 	});
 
 	test("every ping says why: send, network, return", async () => {
-		const { cloud, presence, note } = await open({
+		const { cloud, activity, note } = await open({
 			intervalMs: false,
 			staleMs: 30,
 			timeoutMs: 1_000,
@@ -476,7 +476,7 @@ describe("connection events", () => {
 		);
 		await eventually(() => expect(firsts(events, "pong")).toHaveLength(2));
 		await Bun.sleep(40);
-		presence.set(true);
+		activity.set(true);
 		await eventually(() =>
 			expect(firsts(events, "ping")).toEqual(["send", "network", "return"]),
 		);
@@ -534,7 +534,7 @@ describe("connection events", () => {
 	});
 });
 
-describe("presence", () => {
+describe("user activity", () => {
 	class Page extends EventTarget {
 		visibilityState: "visible" | "hidden" = "visible";
 		hasFocus() {
@@ -555,11 +555,11 @@ describe("presence", () => {
 	});
 
 	test("changes are reported with their reason, independently of any connection", () => {
-		const presence = createPresence({ activeMs: 60_000, unfocusedMs: 60 });
-		cleanup.push(() => presence.dispose());
+		const activity = createUserActivity({ activeMs: 60_000, unfocusedMs: 60 });
+		cleanup.push(() => activity.dispose());
 		const changes: string[] = [];
 		cleanup.push(
-			presence.on("change", (p) =>
+			activity.on("change", (p) =>
 				changes.push(
 					`${p.reason}:${p.present ? "present" : "away"}${p.focused ? "" : ",unfocused"}${p.visible ? "" : ",hidden"}${p.away ? ",native" : ""}`,
 				),
@@ -571,12 +571,12 @@ describe("presence", () => {
 			expect(changes.at(-1)).toBe("idle:away,unfocused"),
 		).then(() => {
 			let returns = 0;
-			cleanup.push(presence.on("return", () => returns++));
+			cleanup.push(activity.on("return", () => returns++));
 			globalThis.dispatchEvent(new Event("focus"));
 			page.show("hidden");
 			page.show("visible");
-			presence.set(false);
-			presence.set(true);
+			activity.set(false);
+			activity.set(true);
 			// Repeated input while present changes nothing.
 			globalThis.dispatchEvent(new Event("keydown"));
 			globalThis.dispatchEvent(new Event("keydown"));
@@ -591,7 +591,7 @@ describe("presence", () => {
 				"native:present",
 			]);
 			expect(returns).toBe(3);
-			expect(presence.state).toMatchObject({
+			expect(activity.state).toMatchObject({
 				present: true,
 				focused: true,
 				visible: true,
@@ -600,22 +600,22 @@ describe("presence", () => {
 			});
 			// A late listener starts from the current state.
 			const late: boolean[] = [];
-			cleanup.push(presence.on("change", (p) => late.push(p.present)));
+			cleanup.push(activity.on("change", (p) => late.push(p.present)));
 			expect(late).toEqual([true]);
 		});
 	});
 
-	test("several connectors share one presence", async () => {
-		const shared = createPresence();
+	test("several connectors share one activity", async () => {
+		const shared = createUserActivity();
 		cleanup.push(() => shared.dispose());
 		const a = await open({ intervalMs: false, staleMs: 30, timeoutMs: 1_000 });
 		const b = createCloudConnector({
 			url: host.url,
 			token: () => signCloudToken({ subject: "alice" }, secrets.tokenSecret),
-			presence: shared,
+			activity: shared,
 		});
 		cleanup.push(() => b.close());
-		expect(a.presence).not.toBe(shared);
+		expect(a.activity).not.toBe(shared);
 		expect(shared.state.present).toBe(true);
 	});
 });

@@ -8,7 +8,10 @@ import {
 	type CloudPingReason,
 } from "./events.js";
 import { rootOf } from "./ids.js";
-import { presence as pagePresence, type Presence } from "./presence.js";
+import {
+	userActivity as pageActivity,
+	type UserActivity,
+} from "./userActivity.js";
 import type { CloudRole } from "./roles.js";
 import {
 	CLOUD_PING,
@@ -55,8 +58,8 @@ export type CloudConnectorOptions = {
 				intervalMs?: number | false;
 		  }
 		| false;
-	/** Whether someone is looking at this app. Defaults to the shared page `presence`. */
-	presence?: Presence;
+	/** Whether someone is looking at this app. Defaults to the shared page `userActivity`. */
+	activity?: UserActivity;
 	/** For runtimes without a global WebSocket. */
 	createSocket?: (url: string, protocols: string[]) => WebSocket;
 };
@@ -71,8 +74,7 @@ export type CloudConnector = Connector & {
 	onRole(listener: (docId: string, role: CloudRole | null) => void): () => void;
 	/**
 	 * The sockets currently open or opening, one per root: each talks to that
-	 * root's server, a Durable Object or a Unikraft machine. A reconnection is
-	 * a new connection.
+	 * root's server. A reconnection is a new connection.
 	 */
 	readonly connections: readonly CloudConnection[];
 	/** Called with every current connection, then with each new one. */
@@ -102,6 +104,8 @@ type Channel = {
 	pingTimer: ReturnType<typeof setTimeout> | undefined;
 	state: CloudConnectionState;
 	server: CloudServerInfo | undefined;
+	/** The server said in its welcome that it relays presence frames. */
+	presence: boolean;
 	latencyMs: number | undefined;
 	error: Error | undefined;
 	events: ReturnType<typeof createEmitter<CloudConnectionEvents>>;
@@ -132,7 +136,7 @@ export function createCloudConnector(
 					timeoutMs: options.heartbeat?.timeoutMs ?? 5_000,
 					intervalMs: options.heartbeat?.intervalMs ?? 2_000,
 				};
-	const presence = options.presence ?? pagePresence;
+	const activity = options.activity ?? pageActivity;
 	let unwatch: (() => void) | undefined;
 
 	const setState = (
@@ -179,6 +183,7 @@ export function createCloudConnector(
 			pingTimer: undefined,
 			state: "connecting",
 			server: undefined,
+			presence: false,
 			latencyMs: undefined,
 			error: undefined,
 			events: createEmitter<CloudConnectionEvents>(),
@@ -309,7 +314,7 @@ export function createCloudConnector(
 	const watch = () => {
 		if (unwatch) return;
 		const stopOnline = onOnline(() => checkAll("network"));
-		const stopReturn = presence.on("return", () => checkAll("return"));
+		const stopReturn = activity.on("return", () => checkAll("return"));
 		unwatch = () => {
 			stopOnline();
 			stopReturn();
@@ -332,7 +337,7 @@ export function createCloudConnector(
 				channel.events.emit("suspended", gapMs);
 				ping(channel, "resume");
 			} else if (
-				presence.state.present &&
+				activity.state.present &&
 				now - channel.lastReceived >= interval
 			)
 				ping(channel, "interval");
@@ -353,6 +358,7 @@ export function createCloudConnector(
 				const message = parseServerMessage(data);
 				if (message.type === "welcome") {
 					channel.server = message.server;
+					channel.presence = message.presence === true;
 					channel.events.emit("server", message.server);
 					return;
 				}
@@ -430,6 +436,10 @@ export function createCloudConnector(
 			const socket = channel.socket!;
 			const handle: ConnectorSession = {
 				protocolVersion: channel.envelope!,
+				// The welcome precedes every answer, so this is settled once connected.
+				get presence() {
+					return channel.presence;
+				},
 				close() {
 					if (closed) return;
 					closed = true;

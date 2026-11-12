@@ -30,6 +30,23 @@ export type {
 	StoreRelayResult,
 	StoreRelayBroadcast,
 } from "./protocol/StoreRelay.js";
+export {
+	PRESENCE_KIND,
+	MAX_PRESENCE_BYTES,
+	MAX_PRESENCE_RATE,
+	createPresenceBudget,
+	PresenceEvent,
+	isPresenceFrame,
+	encodePresenceFrame,
+	decodePresenceFrame,
+	relayPresenceFrame,
+	encodePresenceLeave,
+} from "./protocol/presenceFrames.js";
+export type {
+	PresenceFrame,
+	PresenceRelay,
+	PresenceSender,
+} from "./protocol/presenceFrames.js";
 export { PulseError, isRetryable } from "./protocol/errors.js";
 export { MAX_FRAME_BYTES } from "./protocol/limits.js";
 

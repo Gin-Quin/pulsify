@@ -10,7 +10,7 @@ import {
 	getPulseMeta,
 	loadPulse,
 	PulseRelay,
-	subPulse,
+	pulseRef,
 } from "pulsify-core";
 import { servePulsifyStore } from "../source/main";
 import {
@@ -43,7 +43,7 @@ describe("persistence", () => {
 			{ title: "First", body: "Hello", tags: ["a"], meta: { count: 1 } },
 			{ parent: notebook },
 		);
-		notebook.notes.push(subPulse(note));
+		notebook.notes.push(pulseRef(note));
 		await Promise.all([
 			connectPulse(notebook).synced,
 			connectPulse(note).synced,
@@ -69,7 +69,6 @@ describe("persistence", () => {
 		const loaded = await loadPulse(Notebook, "notebook", {
 			scope: restarted,
 			connectors: [window.connector],
-			include: true,
 			waitFor: "all",
 		});
 		expect(loaded.name).toBe("Ideas & plans");

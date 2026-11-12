@@ -1,7 +1,8 @@
 # Pulsify binary protocol
 
 Default envelope version **1**, optional grouped envelope **2**, state envelope **3**
-and compact write envelope **4**.
+and compact write envelope **4**. Envelope 1 also carries [presence](#presence-kind-7),
+which relays forward and never store.
 All envelopes and core payloads use operations version **3**. Earlier operation
 versions are unsupported.
 The native core has no
@@ -52,6 +53,7 @@ Every variant starts with `docId:string, requestId:uint`, in that order.
 | 4 | update | vv:vector, rows:row[] |
 | 5 | ack | vv:vector |
 | 6 | error | code:string, message:string |
+| 7 | presence | peer:uint, to:uint, event:uint, subject:string, channel:string, state:bytes |
 
 A session serves one document. `requestId` correlates a request and response;
 server pushes use update with request ID zero. A connect request can receive
@@ -74,6 +76,82 @@ document sessions over one connection and route by `docId`; the
 Unknown versions and kinds are rejected. A breaking
 message change increments the envelope or operation version; application data
 migrations increment the stored document version instead.
+
+## Presence (kind 7)
+
+Presence is live state that each connected session publishes for itself:
+who is here, a pointer, a selection. It is not part of a document: it has no
+row, no vector, no acknowledgement and no storage. A relay forwards the frame
+to the other sessions of the document and keeps nothing.
+
+```text
+protocolVersion:uint = 1
+operationsVersion:uint = 3
+kind:uint = 7
+docId:string
+requestId:uint = 0
+peer:uint       // the session that sent the frame; 0 from a client
+to:uint         // the only peer to deliver it to; 0 for every other peer
+event:uint      // 0 join, 1 state, 2 clear, 3 leave
+subject:string  // who the relay authenticated, or empty; empty from a client
+channel:string  // channel key; empty in a leave, never otherwise
+state:bytes     // the encoded state; empty unless event = 1
+```
+
+A **peer** is one session of one document, numbered by its relay with a
+positive safe integer that no other open session of that document uses. It is
+not an actor ID: readers have a peer number and no actor, and a reconnection
+is a new peer. A **channel key** is the channel name, `#`, and the first eight
+hexadecimal digits of the schema's layout fingerprint, so sessions with
+another schema never decode each other's bytes. `state` is the codec encoding
+of the channel's schema.
+
+| Event | Sent by | Meaning |
+| --- | --- | --- |
+| 0 join | client | "Send me your state in this channel." The others answer with a state whose `to` is the joiner. |
+| 1 state | client | The sender's state in the channel, replacing the previous one. |
+| 2 clear | client | The sender has no state in the channel any more. |
+| 3 leave | relay | The session ended: it has no state in any channel any more. |
+
+A client sends a join for each channel it holds when a session is
+established and when it joins a channel later, followed by its state if it
+has one. It sends nothing while its state does not change: there is no
+heartbeat.
+
+A relay, on a presence frame from a session:
+
+1. rejects it like any invalid frame when it does not decode or when a client
+   sends a leave, and rejects or drops it when the session is not connected
+   to the document;
+2. replaces `peer` with the session's number and `subject` with the identity
+   it authenticated (or the empty string), whatever the client wrote;
+3. forwards it to the session numbered `to`, or to every other session of the
+   document when `to` is zero, and never to the sender;
+4. forwards only to sessions that have sent a presence frame themselves:
+   earlier clients reject kind 7;
+5. may drop frames beyond a rate (the reference relays forward 200 per
+   session and second) instead of failing the session.
+
+When a session ends (transport closed, document unsubscribed, access
+revoked), the relay sends a leave with that session's number to the
+document's other presence sessions. Readers may send presence: it is not a
+write.
+
+A client uses one relay for the presence of a document: the first of its
+connectors, in order, whose session relays presence, until that session
+fails. Peer numbers of two relays are unrelated and are never merged. When
+its session ends, a client forgets every peer it knew; the next session
+starts with joins. A receiver ignores frames for channels it does not hold
+and states it cannot decode: presence never fails the synchronization of the
+document.
+
+Bounds: a state holds at most 16 KiB, a channel key or a subject at most 256
+UTF-16 units. A decoder must not allocate more than those bytes can describe:
+the reference implementation refuses channel schemas with an array or set of
+zero-byte elements, the only collections a length alone could inflate. Stores, `decodeMessage` and the Rust crate reject kind 7. A
+client sends it only to an endpoint known to relay it
+(`ConnectorSession.presence`): the memory connector, a WebSocket connector
+created with `presence: true`, and a cloud server whose welcome says so.
 
 ## Actor sequences, vectors and immutable rows
 
@@ -305,6 +383,18 @@ or `undefined` removes an attribute. Plain snapshots and JSON output contain
 the text string; `toDelta()` exposes runs and formatting. An insertion with
 attributes emits insertion and formatting operations in the same atomic
 transaction.
+
+The ProseMirror and Lexical bindings share an editor-local history plugin.
+History stacks and grouping metadata never travel over the wire. Undo/redo emit
+ordinary kind 3 and kind 5 operations in one atomic transaction per group:
+inserted entries are deleted by ID, deleted entries are restored with fresh IDs
+after their original tombstones, and an attribute is reverted only while its
+current stamp still belongs to the local edit being undone. Later remote
+attribute writes are preserved. Older local history groups follow the fresh
+entry IDs and attribute stamps created by undo/redo. Structural removal uses
+the existing reserved editor attributes, so hiding a block also hides remote
+text inside it. These operations use the existing payload version and require
+no new message kinds or protocol negotiation.
 
 Root `id`, `kind` and generation zero are managed metadata. Version changes are
 reserved for compatible registered migrations. Roots must be objects with the

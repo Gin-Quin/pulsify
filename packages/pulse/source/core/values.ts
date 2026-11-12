@@ -2,7 +2,7 @@ import { TreeSymbol } from "./treeSchema.js";
 
 export const RichTextSymbol: unique symbol = Symbol("RichText");
 export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
-export const SubPulseSymbol: unique symbol = Symbol("SubPulse");
+export const PulseRefSymbol: unique symbol = Symbol("PulseRef");
 export type PreparedValue = {
 	value: unknown;
 	constants: string[][];

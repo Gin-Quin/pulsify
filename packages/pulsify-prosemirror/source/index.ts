@@ -11,28 +11,99 @@ import {
 	NodeSelection,
 	Selection,
 	type EditorState,
+	type Command,
 } from "prosemirror-state";
 import { Mapping } from "prosemirror-transform";
-import type { EditorView } from "prosemirror-view";
-import { type RichText } from "pulsify-core";
-import { richTextContext } from "pulsify-core/bindings";
+import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import {
+	joinPresence,
+	RichTextSelection,
+	type Presence,
+	type Pulse,
+	type RichText,
+} from "pulsify-core";
+import {
+	richTextContext,
+	createPulsifyHistory,
+	connectEditorHistory,
+	type PulsifyHistory,
+	type PulsifyHistoryOptions,
+} from "pulsify-core/bindings";
+import {
+	anchorOfPosition,
 	matchTokens,
+	positionOfAnchor,
 	readDocument,
 	writeDocument,
 	type DocumentView,
 	type Token,
 } from "./document.js";
 
-export interface ProseMirrorBindingOptions {
+export {
+	createPulsifyHistory,
+	type PulsifyHistory,
+	type PulsifyHistoryOptions,
+} from "pulsify-core/bindings";
+
+const historyKey = new PluginKey<PulsifyHistory>("pulsifyHistory");
+/** Pulsify history commands for ProseMirror keymaps and toolbar buttons. */
+export const undo: Command = (state, dispatch) => {
+	const history = historyKey.getState(state);
+	return !!history && (dispatch ? history.undo() : history.canUndo);
+};
+export const redo: Command = (state, dispatch) => {
+	const history = historyKey.getState(state);
+	return !!history && (dispatch ? history.redo() : history.canRedo);
+};
+
+export interface ProseMirrorBindingOptions extends PulsifyHistoryOptions {
+	/** A history plugin created by either editor package. Defaults to a fresh plugin. */
+	history?: PulsifyHistory;
 	/** Receive asynchronous synchronization errors. The binding disconnects on error. */
 	onError?: (error: unknown) => void;
+	/**
+	 * Share my selection through presence and draw the caret and selected range of
+	 * every other peer in this field. `true` shares without a name.
+	 * `draw: false` shares mine and draws nothing. Mine is shared while the
+	 * editor has the focus. A peer without a color gets one from its peer number.
+	 */
+	selection?: boolean | { name?: string; color?: string; draw?: boolean };
 }
 export interface ProseMirrorBinding {
+	readonly history: PulsifyHistory;
+	undo(): boolean;
+	redo(): boolean;
+	readonly canUndo: boolean;
+	readonly canRedo: boolean;
 	/** Disconnect without destroying the editor or the pulse. */
 	destroy(): void;
+	/**
+	 * A document position as a string that follows it through every local and
+	 * remote edit. It names the entry before the position, so text another peer
+	 * inserts exactly there lands after it, and it is interchangeable with the
+	 * anchors of `field.anchorAt`. A position between two blocks gives the anchor
+	 * of the end of the block before it. Throws a RangeError for a position
+	 * outside the document, and a TypeError once the binding or its editor is
+	 * destroyed.
+	 */
+	anchorAt(position: number): string;
+	/**
+	 * Where an anchor is now; where its character was once it is deleted.
+	 * Undefined for an anchor of another field or of an entry not received yet,
+	 * and for any anchor once the binding or its editor is destroyed.
+	 */
+	positionOf(anchor: string): number | undefined;
 }
+/** The state of the `RichTextSelection` channel. */
+type SharedSelection = {
+	anchor: string;
+	head: string;
+	name: string;
+	color: string;
+};
 const bindings = new WeakMap<EditorView, ProseMirrorBinding>();
+/** The binding that last shared a selection on each pulse, by its token. */
+const publishers = new WeakMap<object, object>();
 
 /** Read a field as a ProseMirror document, including nodes, attributes and marks. */
 export function proseMirrorDocument(
@@ -57,28 +128,95 @@ export function bindProseMirror(
 	if (bindings.has(view))
 		throw new TypeError("This ProseMirror editor is already bound");
 	const context = richTextContext(field);
+	const history = options.history ?? createPulsifyHistory(options);
 	const schema = view.state.schema;
+	const sharing =
+		options.selection === true ? {} : options.selection || undefined;
+	for (const value of [sharing?.name, sharing?.color])
+		if (value !== undefined && typeof value !== "string")
+			throw new TypeError("A selection name and color must be strings");
+	const draws = !!sharing && sharing.draw !== false;
 	let rendered = readDocument(context, schema);
-	// Establish stable anchors once, including for an initially empty field.
-	writeDocument(context, rendered.doc, rendered);
-	rendered = readDocument(context, schema);
 	let syncing = false,
 		disposed = false;
 	let unsubscribe: (() => void) | undefined;
 	let pending = new Mapping();
-	const key = new PluginKey("pulsify");
+	let capture = true,
+		push = false,
+		merge = false;
+	const key = new PluginKey<DecorationSet>("pulsify");
 	const release = () => {
 		unsubscribe?.();
 		unsubscribe = undefined;
+	};
+	let presence: Presence<SharedSelection> | undefined;
+	let stopDrawing: (() => void) | undefined;
+	let focused = false;
+	const owner = {};
+	// Presence only: sharing a selection never writes to the document.
+	const publish = () => {
+		if (!presence || !sharing || disposed || !focused) return;
+		const { anchor, head } = view.state.selection;
+		const size = rendered.doc.content.size;
+		presence.set({
+			anchor: anchorOfPosition(context, rendered, Math.min(anchor, size)),
+			head: anchorOfPosition(context, rendered, Math.min(head, size)),
+			name: sharing.name ?? "",
+			color: sharing.color ?? "",
+		});
+		publishers.set(context.pulse as object, owner);
+	};
+	// A pulse has one selection per peer: another binding of the same pulse
+	// may have shared its own since, and that one must stay.
+	const withdraw = () => {
+		if (publishers.get(context.pulse as object) !== owner) return;
+		publishers.delete(context.pulse as object);
+		presence?.set(undefined);
+	};
+	const decorate = (doc: ProseMirrorNode): DecorationSet => {
+		if (!presence || disposed) return DecorationSet.empty;
+		const size = doc.content.size;
+		const decorations: Decoration[] = [];
+		for (const { peer, state } of presence.others) {
+			const anchor = positionOfAnchor(context, rendered, state.anchor);
+			const head = positionOfAnchor(context, rendered, state.head);
+			// Another field, or a character that has not arrived yet.
+			if (anchor === undefined || head === undefined) continue;
+			decorations.push(
+				...peerDecorations(
+					doc,
+					peer,
+					state,
+					Math.min(anchor, size),
+					Math.min(head, size),
+				),
+			);
+		}
+		return DecorationSet.create(doc, decorations);
+	};
+	// Redraw through a transaction that changes neither the document, the
+	// selection, the scroll position nor the undo history.
+	const redraw = () => {
+		if (!draws || disposed || view.isDestroyed) return;
+		const drawn = key.getState(view.state);
+		if (!drawn || signature(drawn) === signature(decorate(view.state.doc)))
+			return;
+		view.dispatch(
+			view.state.tr.setMeta(key, "selection").setMeta("addToHistory", false),
+		);
 	};
 	const pull = () => {
 		if (syncing || disposed || view.isDestroyed) return;
 		try {
 			richTextContext(field);
+			history.stopCapturing();
 			const next = readDocument(context, schema);
 			const previous = rendered;
 			rendered = next;
-			if (view.state.doc.eq(next.doc)) return;
+			if (view.state.doc.eq(next.doc)) {
+				redraw();
+				return;
+			}
 			syncing = true;
 			const tr = replaceDocument(view.state, next.doc, previous, next);
 			tr.setMeta(key, true).setMeta("addToHistory", false);
@@ -103,13 +241,71 @@ export function bindProseMirror(
 			syncing = false;
 		}
 	};
-	const plugin = new Plugin({
+	const historyConnection = connectEditorHistory(history, context, {
+		flush() {
+			if (view.isDestroyed) binding.destroy();
+		},
+		replay(action) {
+			syncing = true;
+			try {
+				richTextContext(field);
+				action();
+			} finally {
+				syncing = false;
+			}
+			pull();
+		},
+	});
+	const historyPlugin = new Plugin<PulsifyHistory>({
+		key: historyKey,
+		state: { init: () => history, apply: (_tr, value) => value },
+	});
+	const plugin = new Plugin<DecorationSet>({
 		key,
+		...(draws && {
+			state: {
+				init: (_config, state) =>
+					state.doc.eq(rendered.doc)
+						? decorate(state.doc)
+						: DecorationSet.empty,
+				apply(tr, drawn) {
+					// A transaction of this binding, remote change or redraw: the
+					// rendered document is current, so resolve every anchor again.
+					if (tr.getMeta(key)) return decorate(tr.doc);
+					// A local change moves what is drawn; update() below corrects it
+					// once the field has the change.
+					return tr.docChanged ? drawn.map(tr.mapping, tr.doc) : drawn;
+				},
+			},
+		}),
+		props: {
+			...(draws && { decorations: (state) => key.getState(state) }),
+			...(sharing && {
+				handleDOMEvents: {
+					focus() {
+						focused = true;
+						publish();
+						return false;
+					},
+					blur() {
+						focused = false;
+						withdraw();
+						return false;
+					},
+				},
+			}),
+		},
 		appendTransaction(transactions) {
 			if (!syncing)
 				for (const tr of transactions)
-					if (tr.docChanged && !tr.getMeta(key))
-						pending.appendMapping(tr.mapping);
+					if (!tr.getMeta(key)) {
+						if (tr.docChanged) {
+							pending.appendMapping(tr.mapping);
+							capture &&= tr.getMeta("addToHistory") !== false;
+							push ||= tr.getMeta("pulsifyHistory") === "push";
+							merge ||= tr.getMeta("pulsifyHistory") === "merge";
+						} else if (tr.selectionSet) history.stopCapturing();
+					}
 			return null;
 		},
 		view() {
@@ -119,52 +315,100 @@ export function bindProseMirror(
 			}
 			return {
 				update(current, previousState) {
-					const mapping = pending;
+					const mapping = pending,
+						record = { capture, push, merge };
 					pending = new Mapping();
-					if (syncing || disposed || current.state.doc.eq(previousState.doc))
-						return;
-					try {
-						richTextContext(field);
-						syncing = true;
-						writeDocument(context, current.state.doc, rendered, mapping);
-						rendered = readDocument(context, schema);
-					} catch (error) {
-						// Native quota/validation failures must not leave an editor
-						// showing an edit which the field rejected atomically.
-						current.updateState(previousState);
-						throw error;
-					} finally {
-						syncing = false;
-					}
+					capture = true;
+					push = merge = false;
+					if (disposed) return;
+					if (!syncing && !current.state.doc.eq(previousState.doc))
+						try {
+							richTextContext(field);
+							syncing = true;
+							const change = writeDocument(
+								context,
+								current.state.doc,
+								rendered,
+								mapping,
+								true,
+							);
+							rendered = readDocument(context, schema);
+							historyConnection.record(change, record);
+						} catch (error) {
+							// Native quota/validation failures must not leave an editor
+							// showing an edit which the field rejected atomically.
+							current.updateState(previousState);
+							throw error;
+						} finally {
+							syncing = false;
+						}
+					publish();
+					redraw();
 				},
 				destroy() {
 					release();
 					if (bindings.get(view) === binding) bindings.delete(view);
+					// Reconfiguring plugins also ends this plugin view; only the end
+					// of the editor ends the binding and withdraws its selection.
+					queueMicrotask(() => {
+						if (view.isDestroyed) binding.destroy();
+					});
 				},
 			};
 		},
 	});
 	const binding: ProseMirrorBinding = {
+		history,
+		undo: () => history.undo(),
+		redo: () => history.redo(),
+		get canUndo() {
+			return history.canUndo;
+		},
+		get canRedo() {
+			return history.canRedo;
+		},
 		destroy() {
 			if (disposed) return;
 			disposed = true;
+			historyConnection.destroy();
 			release();
+			stopDrawing?.();
+			withdraw();
+			presence?.leave();
+			presence = undefined;
 			if (bindings.get(view) === binding) bindings.delete(view);
 			if (!view.isDestroyed && view.state.plugins.includes(plugin))
 				view.updateState(
 					view.state.reconfigure({
 						plugins: view.state.plugins.filter(
-							(candidate) => candidate !== plugin,
+							(candidate) =>
+								candidate !== plugin && candidate !== historyPlugin,
 						),
 					}),
 				);
 		},
+		anchorAt(position) {
+			if (disposed || view.isDestroyed)
+				throw new TypeError("This ProseMirror binding has been destroyed");
+			return anchorOfPosition(context, rendered, position);
+		},
+		positionOf(anchor) {
+			if (disposed || view.isDestroyed) return undefined;
+			return positionOfAnchor(context, rendered, anchor);
+		},
 	};
 	try {
+		// Establish stable anchors once, after the history plugin has connected.
+		writeDocument(context, rendered.doc, rendered);
+		rendered = readDocument(context, schema);
+		if (sharing)
+			presence = joinPresence(context.pulse as Pulse<any>, RichTextSelection);
 		// Initialize outside plugin.view: dispatching during construction would
 		// re-enter ProseMirror's plugin-view setup.
 		view.updateState(
-			view.state.reconfigure({ plugins: [...view.state.plugins, plugin] }),
+			view.state.reconfigure({
+				plugins: [...view.state.plugins, historyPlugin, plugin],
+			}),
 		);
 		bindings.set(view, binding);
 		if (!view.state.doc.eq(rendered.doc)) {
@@ -180,11 +424,96 @@ export function bindProseMirror(
 				);
 			syncing = false;
 		}
+		if (presence) {
+			focused = view.hasFocus();
+			publish();
+			if (draws) stopDrawing = presence.subscribe(redraw);
+		}
 		return binding;
 	} catch (error) {
 		binding.destroy();
 		throw error;
 	}
+}
+
+/** A stable color for a peer that shares none: a hue from its number. */
+const peerColor = (peer: number): string =>
+	`hsl(${(peer * 137) % 360}, 70%, 45%)`;
+// A color comes from another peer and goes into a style: it must not be able
+// to end its declaration.
+const safeColor = /^[#\w .,%()/-]{1,64}$/;
+
+/** The caret of one peer at its head, and its selected range when it has one. */
+function peerDecorations(
+	doc: ProseMirrorNode,
+	peer: number,
+	state: SharedSelection,
+	anchor: number,
+	head: number,
+): Decoration[] {
+	const color = safeColor.test(state.color) ? state.color : peerColor(peer);
+	const id = [peer, color, state.name];
+	const decorations: Decoration[] = [];
+	const from = Math.min(anchor, head),
+		to = Math.max(anchor, head);
+	if (from < to)
+		decorations.push(
+			Decoration.inline(
+				from,
+				to,
+				{
+					style: `background-color: color-mix(in srgb, ${color} 25%, transparent)`,
+					"data-peer-selection": String(peer),
+				},
+				// An anchor follows the entry on its left, so text typed at the
+				// start of the range is inside it and text typed at its end is not.
+				{ inclusiveStart: true, id: ["range", ...id] },
+			),
+		);
+	// A caret needs inline content: the start of the field and the position
+	// after a leaf block are drawn in the nearest text block.
+	let position = head;
+	const $head = doc.resolve(head);
+	if (!$head.parent.inlineContent) {
+		const near =
+			Selection.findFrom($head, 1, true) ?? Selection.findFrom($head, -1, true);
+		if (near) position = near.head;
+	}
+	decorations.push(
+		Decoration.widget(
+			position,
+			(view) => {
+				const caret = view.dom.ownerDocument.createElement("span");
+				caret.setAttribute("data-peer", String(peer));
+				caret.style.cssText = `position: relative; margin: 0 -1px; border-left: 2px solid ${color}; word-break: normal; pointer-events: none;`;
+				if (state.name) {
+					const label = caret.appendChild(
+						view.dom.ownerDocument.createElement("span"),
+					);
+					label.textContent = state.name;
+					label.style.cssText = `position: absolute; bottom: 100%; left: -2px; padding: 0 4px; border-radius: 3px 3px 3px 0; background-color: ${color}; color: #fff; font: 600 11px/1.4 system-ui, sans-serif; white-space: nowrap; user-select: none;`;
+				}
+				return caret;
+			},
+			// On the left of text typed at its position, as its anchor is.
+			{
+				side: -1,
+				key: `pulsify-caret/${id.join("/")}`,
+				ignoreSelection: true,
+				id: ["caret", ...id],
+			},
+		),
+	);
+	return decorations;
+}
+/** What a set draws, to redraw only when it changes. */
+function signature(set: DecorationSet): string {
+	return JSON.stringify(
+		set
+			.find()
+			.map((decoration) => [decoration.from, decoration.to, decoration.spec.id])
+			.sort(),
+	);
 }
 
 function replaceDocument(

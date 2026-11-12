@@ -21,6 +21,8 @@ export type RichTextContext = {
 	model: CoreModel;
 	assertActive(): void;
 	subscribe(listener: () => void): () => void;
+	/** The pulse that holds the field, for a binding that shares presence on it. */
+	readonly pulse: unknown;
 };
 export const richTextContexts = new WeakMap<RichText, RichTextContext>();
 const anchors = new WeakMap<CoreNode, Set<CoreEntry>>();
@@ -107,6 +109,26 @@ export function richTextEntries(node: CoreNode): CoreEntry[] {
 			!isRichTextNode(entry) &&
 			attached(String(entry.marks.get(RT_PARENT)?.value ?? "")),
 	);
+}
+/**
+ * Where an anchor is now: the nearest surviving entry at or before the one it
+ * names, character or structural; `null` at the start of the field;
+ * `undefined` for an anchor of another field or of an entry not received yet.
+ * An anchor is the ID of the entry before a position, or the field's own ID
+ * for its start, so it follows that entry through every edit.
+ */
+// ponytail: O(length) per anchor; index the sequence if documents with many anchors need it.
+export function resolveRichTextAnchor(
+	node: CoreNode,
+	anchor: string,
+): CoreEntry | null | undefined {
+	if (anchor === node.id) return null;
+	const entry = node.entries.get(anchor);
+	if (!entry) return undefined;
+	if (!entry.deleted) return entry;
+	for (let i = node.order.indexOf(entry) - 1; i >= 0; i--)
+		if (!node.order[i]!.deleted) return node.order[i]!;
+	return null;
 }
 export function richTextContent(node: CoreNode): string {
 	if (!anchors.has(node)) return node.data.join("");

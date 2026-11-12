@@ -5,7 +5,7 @@ import type { Tree } from "./tree.js";
 import type { RichText } from "./richText.js";
 import { RichTextSchemaSymbol } from "./values.js";
 import type { SubSchema } from "./subSchema.js";
-import type { SubPulse } from "../pulses/SubPulse.js";
+import type { PulseRef } from "../pulses/PulseRef.js";
 
 /** Codec sees a lazy string schema; Pulsify also sees its collaborative marker. */
 export type RichTextSchema = (() => "string") & {
@@ -29,7 +29,7 @@ type PublicSchemaList<Values extends readonly Schema[]> = {
 export type PublicRichTextSchema<S extends Schema> = Schema extends S
 	? S
 	: S extends SubSchema<infer Definition>
-		? LiteralSchema<SubPulse<Definition>>
+		? LiteralSchema<PulseRef<Definition>>
 		: S extends RichTextSchema
 			? LiteralSchema<RichText>
 			: S extends TreeSchema<infer Element>

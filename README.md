@@ -31,7 +31,7 @@ bun run test:codec-local      # Isolated build against ../codec, without changin
 bun scripts/test-storage.ts  # Actual PostgreSQL and SQLite integration checks
 bun run bench                 # Reproducible performance report
 bun run bench:crdt            # Pulsify / native json-joy / Yjs / Loro, including proxy overhead
-bun run bench:database        # Native Rust load: PostgreSQL / SQLite + compatible engines, host + Docker
+bun run bench:database        # Native Rust load: PostgreSQL / SQLite + compatible engines, in Docker
 bun run dev                   # Two-tab WebSocket example at http://127.0.0.1:3000
 ```
 
@@ -41,13 +41,16 @@ a `richText()` field with `bindProseMirror(view, note.body)` from
 `pulsify-prosemirror` ([usage](packages/pulsify-prosemirror/README.md)).
 
 The vanilla Lexical demo is at `http://127.0.0.1:3000/lexical`. Both editor
-bindings use `richText()` and ship independently of the core.
+bindings use `richText()` and ship independently of the core. Both provide the
+same `createPulsifyHistory()` plugin for collaborative undo/redo, with local
+stacks and synchronized inverse operations.
 
 - [ProseMirror binding](packages/pulsify-prosemirror/README.md)
 - [Lexical binding](packages/pulsify-lexical/README.md)
-- [Pulsify Cloud client](packages/cloud/README.md) and [server: Cloudflare and Unikraft Cloud backends with built-in access control](packages/cloud-server/README.md)
+- [Pulsify Cloud client](packages/cloud/README.md) and [server with built-in access control](packages/cloud-server/README.md)
 - [Cloud session protocol and management API](docs/CLOUD.md)
 - [React hook with fine-grained rendering](packages/pulsify-react/README.md)
+- Reactive pulses for [Svelte](packages/pulsify-svelte/README.md), [Vue](packages/pulsify-vue/README.md) and [Solid](packages/pulsify-solid/README.md)
 - Local persistence: [IndexedDB](packages/connectors/IndexedDB/README.md), [Electron (better-sqlite3)](packages/connectors/Electron/README.md), [Tauri (rusqlite)](packages/connectors/Tauri/README.md)
 - [API and examples](packages/pulse/README.md)
 - [Binary format and connector contract](docs/PROTOCOL.md)
@@ -92,8 +95,7 @@ snapshots, durable journal pruning, restored generations and framework adapters
 are not negotiated by this protocol. The host application supplies authentication and
 authorization; relays accept read-only sessions that answer uploads with
 `FORBIDDEN`. `pulsify-cloud-server` is the managed deployment: one isolated actor
-per root pulse (a Durable Object on Cloudflare, an actor beside PostgreSQL on
-Unikraft Cloud), one multiplexed socket per user and root, and per-root grant
+per root pulse, one multiplexed socket per user and root, and per-root grant
 tables applied live to open sockets. The benchmark reports describe measured workloads and retained
 history differences; they do not claim a universal performance ranking.
 

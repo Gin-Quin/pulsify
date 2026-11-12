@@ -18,7 +18,7 @@ import {
 	richText,
 	snapshotPulse,
 	sub,
-	subPulse,
+	pulseRef,
 	type Pulse,
 } from "pulsify-core";
 import type { ConnectorSession } from "pulsify-core";
@@ -111,8 +111,8 @@ describe("IndexedDB connector", () => {
 			createPulse(Task, { title: "Ship", done: false }, { parent: doc }),
 		);
 		await connectPulse(task).synced;
-		doc.tasks.push(subPulse(task));
-		doc.pinned = subPulse(task);
+		doc.tasks.push(pulseRef(task));
+		doc.pinned = pulseRef(task);
 		doc.title = "Final";
 		doc.body.insert(5, " world", { bold: true });
 		doc.body.delete(0, 1);
@@ -133,7 +133,6 @@ describe("IndexedDB connector", () => {
 			await loadPulse(Note, expected.id, {
 				scope: createPulseScope(),
 				connectors: [reloaded],
-				include: true,
 			}),
 		);
 		expect(snapshotPulse(loaded)).toEqual(expected);

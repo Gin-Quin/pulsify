@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { watchTauriPresence, type TauriPresenceWindow } from "../source/index";
+import { watchTauriActivity, type TauriActivityWindow } from "../source/index";
 
 /** A native window whose state and events we drive. */
 function nativeWindow() {
@@ -19,7 +19,7 @@ function nativeWindow() {
 			handlers.focus.add(handler);
 			return () => handlers.focus.delete(handler);
 		},
-	} as unknown as TauriPresenceWindow;
+	} as unknown as TauriActivityWindow;
 	return {
 		window,
 		state,
@@ -30,10 +30,10 @@ function nativeWindow() {
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 
-test("minimizing, hiding, restoring and focusing the window drive presence", async () => {
+test("minimizing, hiding, restoring and focusing the window drive the user activity", async () => {
 	const native = nativeWindow();
 	const reports: boolean[] = [];
-	const stop = await watchTauriPresence(
+	const stop = await watchTauriActivity(
 		[{ set: (present) => reports.push(present) }],
 		{ window: native.window },
 	);
@@ -77,7 +77,7 @@ test("a window that starts minimized starts away", async () => {
 	const native = nativeWindow();
 	native.state.minimized = true;
 	const reports: boolean[] = [];
-	await watchTauriPresence(
+	await watchTauriActivity(
 		{ set: (present) => reports.push(present) },
 		{
 			window: native.window,

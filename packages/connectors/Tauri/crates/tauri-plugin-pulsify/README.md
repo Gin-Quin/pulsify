@@ -49,7 +49,6 @@ import { loadPulse } from "pulsify-core";
 
 const notebook = await loadPulse(Notebook, userId, {
   connectors: [createTauriConnector(), remote],
-  include: true,
 });
 ```
 

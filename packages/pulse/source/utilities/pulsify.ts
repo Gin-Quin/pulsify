@@ -11,7 +11,7 @@ import { createObjectProxy } from "../pulses/PulseObject.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
 import type { IsSameType } from "./IsSameType.js";
 import type { PulseLayout } from "../core/schema.js";
-import { createSubPulse, type SubPulse } from "../pulses/SubPulse.js";
+import { createPulseRef, type PulseRef } from "../pulses/PulseRef.js";
 
 type PulseBytes<Value extends Uint8Array> =
 	IsSameType<Value, Readonly<Value>> extends true
@@ -19,7 +19,7 @@ type PulseBytes<Value extends Uint8Array> =
 		: Uint8Array;
 
 export type Pulsify<Value> =
-	Value extends SubPulse<any>
+	Value extends PulseRef<any>
 		? Value
 		: Value extends RichText
 			? RichText
@@ -43,7 +43,7 @@ export function pulsify(
 ): any {
 	if (!node) {
 		if (layout?.sub && typeof value === "string")
-			return createSubPulse(layout.sub, value, context.meta.options);
+			return createPulseRef(layout.sub, value, context.meta.options);
 		return value instanceof Uint8Array
 			? new Uint8Array(value)
 			: constantView(value);
@@ -61,6 +61,9 @@ export function pulsify(
 					return () => {
 						context.meta.listeners.delete(listener);
 					};
+				},
+				get pulse() {
+					return context.meta.pulse;
 				},
 			},
 		);

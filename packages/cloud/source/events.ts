@@ -1,8 +1,8 @@
 import type { CloudRole } from "./roles.js";
 import type { CloudEnvelope, CloudServerInfo } from "./wire.js";
 
-/** What last changed the presence: a page signal, a native one, or time. */
-export type PresenceReason =
+/** What last changed the user activity: a page signal, a native one, or time. */
+export type UserActivityReason =
 	| "start"
 	| "input"
 	| "focus"
@@ -14,9 +14,9 @@ export type PresenceReason =
 	| "native"
 	| "idle";
 /** Whether someone may be looking at this app, and why. */
-export type PresenceState = {
+export type UserActivityState = {
 	readonly present: boolean;
-	readonly reason: PresenceReason;
+	readonly reason: UserActivityReason;
 	/** The page is not reported hidden. */
 	readonly visible: boolean;
 	/** The window has focus. */
@@ -26,9 +26,9 @@ export type PresenceState = {
 	/** Timestamp of the last input or return of the user. */
 	readonly lastActivity: number;
 };
-export type PresenceEvents = {
-	/** Presence, visibility, focus or the native override changed. */
-	change: [state: PresenceState];
+export type UserActivityEvents = {
+	/** Whether someone is there, visibility, focus or the native override changed. */
+	change: [state: UserActivityState];
 	/** The user came back (input after an absence, focus, page shown). */
 	return: [];
 };
@@ -46,7 +46,7 @@ export type CloudPingReason =
 	/** Timers ran late: the process was suspended. */
 	| "resume";
 export type CloudConnectionState = "connecting" | "open" | "closed";
-/** Events of one socket, to one root's server: a Durable Object or a Unikraft machine. */
+/** Events of one socket, to the server that hosts one root. */
 export type CloudConnectionEvents = {
 	/** Opening, open, or closed with its cause. */
 	state: [state: CloudConnectionState, error?: Error];

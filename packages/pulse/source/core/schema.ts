@@ -35,7 +35,7 @@ import {
 	hasSchemaMarker,
 } from "./constantSchema.js";
 import { subDefinitionOf } from "./subSchema.js";
-import { SubPulseSymbol } from "./values.js";
+import { PulseRefSymbol } from "./values.js";
 import { PulseMetaSymbol } from "../pulses/PulseMeta.js";
 import type { AnyPulseDefinition } from "../pulses/PulseDefinition.js";
 
@@ -651,11 +651,11 @@ export function compilePulseSchema<S extends Schema>(
 			"prepares",
 			"layouts",
 			"helpers",
-			`const {RichTextSymbol,TreeSymbol,SubPulseSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
+			`const {RichTextSymbol,TreeSymbol,PulseRefSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
 		)(prepareFunctions, layouts, {
 			RichTextSymbol,
 			TreeSymbol,
-			SubPulseSymbol,
+			PulseRefSymbol,
 			PulseMetaSymbol,
 			assertTreeStructure,
 			recordMarker,
@@ -1327,7 +1327,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 			}
 			case "string":
 				// A sub field accepts a pulse or sub-pulse handle and stores its ID.
-				body = `${layout.sub ? `if(${value}!==null&&typeof ${value}==="object"&&(${value}[SubPulseSymbol]===true||${value}[PulseMetaSymbol]!==undefined))${value}=${value}.id;` : ""}if(typeof ${value}!=="string"||!${value}.isWellFormed())${fail};${result}=${value};`;
+				body = `${layout.sub ? `if(${value}!==null&&typeof ${value}==="object"&&(${value}[PulseRefSymbol]===true||${value}[PulseMetaSymbol]!==undefined))${value}=${value}.id;` : ""}if(typeof ${value}!=="string"||!${value}.isWellFormed())${fail};${result}=${value};`;
 				break;
 			case "boolean":
 				body = `if(typeof ${value}!=="boolean")${fail};${result}=${value};`;

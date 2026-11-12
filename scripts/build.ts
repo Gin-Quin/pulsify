@@ -51,6 +51,9 @@ for (const name of [
 	"connectors/Electron",
 	"connectors/Tauri",
 	"pulsify-react",
+	"pulsify-svelte",
+	"pulsify-vue",
+	"pulsify-solid",
 ]) {
 	const directory = `${root}packages/${name}`;
 	// Cloud server parts share one manifest: core is ".", the others "./<name>".

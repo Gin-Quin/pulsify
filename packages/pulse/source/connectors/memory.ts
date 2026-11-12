@@ -34,6 +34,7 @@ export function createMemoryConnector(
 			signal.addEventListener("abort", abort, { once: true });
 			return {
 				protocolVersion: version,
+				presence: true,
 				close,
 				async send(bytes) {
 					if (closed) throw new PulseError("CLOSED", "Connection closed");

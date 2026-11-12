@@ -1,5 +1,6 @@
 export { definePulse } from "./pulses/PulseDefinition.js";
 export type {
+	AnyPulseDefinition,
 	PulseDefinition,
 	PulseMaterializer,
 	ModelFromDefinition,
@@ -21,8 +22,8 @@ export { sub } from "./core/subSchema.js";
 export { constant, frozen } from "./core/constantSchema.js";
 export type { ConstantSchema, FrozenSchema } from "./core/constantSchema.js";
 export type { SubSchema } from "./core/subSchema.js";
-export { subPulse } from "./pulses/SubPulse.js";
-export type { SubPulse } from "./pulses/SubPulse.js";
+export { pulseRef } from "./pulses/PulseRef.js";
+export type { PulseRef } from "./pulses/PulseRef.js";
 export type { TreeSchema, TreeData } from "./core/treeSchema.js";
 export type { Tree, TreeNode, TreeJSONNode } from "./core/tree.js";
 export type { RichTextSchema } from "./core/richTextSchema.js";
@@ -37,7 +38,7 @@ export type {
 	CreatePulseOptions,
 } from "./pulses/createPulse.js";
 export { loadPulse } from "./pulses/loadPulse.js";
-export type { LoadPulseOptions, SubPulseInclude } from "./pulses/loadPulse.js";
+export type { LoadPulseOptions } from "./pulses/loadPulse.js";
 export {
 	destroyPulse,
 	disconnectPulse,
@@ -94,6 +95,17 @@ export {
 export type { MigrationDriftDetails } from "./protocol/errors.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
 export { relayStoreMessage, encodeBroadcast } from "./protocol/StoreRelay.js";
+export { encodePresenceLeave } from "./protocol/presenceFrames.js";
+export {
+	definePresence,
+	joinPresence,
+	RichTextSelection,
+} from "./presence/presence.js";
+export type {
+	Presence,
+	PresenceDefinition,
+	PresencePeer,
+} from "./presence/presence.js";
 export type {
 	StoreRelaySession,
 	StoreRelayResult,

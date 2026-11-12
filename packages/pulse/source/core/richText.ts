@@ -11,6 +11,7 @@ import {
 	richTextContent,
 	richTextEntries,
 	richTextContexts,
+	resolveRichTextAnchor,
 	type RichTextContext,
 } from "./richTextBinding.js";
 
@@ -32,6 +33,18 @@ export interface RichText extends Iterable<string> {
 	toString(): string;
 	toJSON(): string;
 	toDelta(): RichTextDelta[];
+	/**
+	 * The position before `index` as a string that follows its character
+	 * through every local and remote edit. Plain data: publish it in presence
+	 * or store it in a pulse.
+	 */
+	anchorAt(index: number): string;
+	/**
+	 * The index an anchor is at now; where its character was once it is
+	 * deleted. `undefined` for an anchor of another field, or of a character
+	 * this replica has not received yet.
+	 */
+	indexOf(anchor: string): number | undefined;
 	[Symbol.toPrimitive](hint: string): string;
 }
 
@@ -56,6 +69,8 @@ export function richText(text?: string): RichTextSchema | RichText {
 		toString: () => text,
 		toJSON: () => text,
 		toDelta: () => (text ? [{ insert: text }] : []),
+		anchorAt: unattached,
+		indexOf: unattached,
 		[Symbol.toPrimitive]: () => text,
 		[Symbol.iterator]: () => text[Symbol.iterator](),
 	});
@@ -66,7 +81,7 @@ export function createTextProxy(
 	node: CoreNode,
 	model: CoreModel,
 	assertActive: () => void,
-	binding: Pick<RichTextContext, "subscribe">,
+	binding: Pick<RichTextContext, "subscribe" | "pulse">,
 ): RichText {
 	const attached = () => {
 		assertActive();
@@ -171,12 +186,39 @@ export function createTextProxy(
 			attached();
 			return entriesToDelta(visible());
 		},
+		anchorAt(index: number) {
+			attached();
+			const content = visible();
+			assertIndex(index, content.length);
+			return index ? content[index - 1]!.id : node.id;
+		},
+		indexOf(anchor: string) {
+			attached();
+			const entry = resolveRichTextAnchor(node, anchor);
+			if (!entry) return entry === null ? 0 : undefined;
+			// The characters up to the entry; structural entries hold no text.
+			const content = new Set(visible());
+			let index = 0;
+			for (const candidate of node.order) {
+				if (content.has(candidate)) index++;
+				if (candidate === entry) break;
+			}
+			return index;
+		},
 		[Symbol.toPrimitive]: text,
 		[Symbol.iterator]() {
 			return text()[Symbol.iterator]();
 		},
 	});
-	richTextContexts.set(proxy, { node, model, assertActive, ...binding });
+	richTextContexts.set(proxy, {
+		node,
+		model,
+		assertActive,
+		subscribe: binding.subscribe,
+		get pulse() {
+			return binding.pulse;
+		},
+	});
 	return proxy;
 }
 

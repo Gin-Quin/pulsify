@@ -1,7 +1,7 @@
 import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import { PulseError } from "../protocol/errors.js";
-import { RichTextSymbol, SubPulseSymbol } from "../core/values.js";
-import type { SubPulse } from "./SubPulse.js";
+import { RichTextSymbol, PulseRefSymbol } from "../core/values.js";
+import type { PulseRef } from "./PulseRef.js";
 import type { RichText } from "../core/richText.js";
 import type { Tree } from "../core/tree.js";
 import { TreeSymbol, type TreeData } from "../core/treeSchema.js";
@@ -32,6 +32,7 @@ export function destroyPulse(pulse: Pulse<any>): void {
 	const meta = pulse[PulseMetaSymbol];
 	if (meta.destroyed) return;
 	meta.destroyed = true;
+	meta.presence?.dispose();
 	disconnectPulse(pulse);
 	for (const connection of meta.connections) connection.dispose();
 	meta.listeners.clear();
@@ -85,7 +86,7 @@ type SnapshotTuple<Values extends readonly unknown[]> = {
 /** A detached snapshot of the public, materialized model. */
 export type PulseSnapshot<Value> = unknown extends Value
 	? Value
-	: Value extends SubPulse<any>
+	: Value extends PulseRef<any>
 		? string
 		: Value extends RichText
 			? string
@@ -141,7 +142,7 @@ export function snapshotPulse<P extends Pulse<any>>(
 			return value.snapshot();
 		if (value && typeof value === "object" && value[RichTextSymbol])
 			return value.toString();
-		if (value && typeof value === "object" && value[SubPulseSymbol])
+		if (value && typeof value === "object" && value[PulseRefSymbol])
 			return value.id;
 		if (value instanceof Uint8Array) return new Uint8Array(value);
 		return value && typeof value === "object"

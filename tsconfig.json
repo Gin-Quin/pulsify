@@ -22,6 +22,9 @@
 			"pulsify-prosemirror": ["./packages/pulsify-prosemirror/source/index.ts"],
 			"pulsify-lexical": ["./packages/pulsify-lexical/source/index.ts"],
 			"pulsify-react": ["./packages/pulsify-react/source/index.ts"],
+			"pulsify-svelte": ["./packages/pulsify-svelte/source/index.ts"],
+			"pulsify-vue": ["./packages/pulsify-vue/source/index.ts"],
+			"pulsify-solid": ["./packages/pulsify-solid/source/index.ts"],
 			"pulsify-indexeddb": ["./packages/connectors/IndexedDB/source/index.ts"],
 			"pulsify-electron": ["./packages/connectors/Electron/source/index.ts"],
 			"pulsify-electron/main": [

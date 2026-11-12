@@ -5,6 +5,7 @@ import type { ConnectPulseResolvers } from "../connection/connectPulse.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import type { PatchLog } from "../protocol/PatchLog.js";
+import type { PresenceHub } from "../presence/presence.js";
 import type { Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
 import type { PulseOptions } from "./PulseOptions.js";
@@ -27,6 +28,8 @@ export type PulseMeta = {
 	cancelConnection: ((error: Error) => void) | undefined;
 	listeners: Set<() => void>;
 	rowListeners: Set<() => void>;
+	/** The presence channels of this pulse, once `joinPresence` was called. */
+	presence: PresenceHub | undefined;
 	mutate(ops: CoreOperation[]): void;
 	applyRows(rows: PulsePatchRow[]): void;
 	report(error: Error): void;

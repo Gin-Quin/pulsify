@@ -31,6 +31,8 @@ type Attachment = {
 	root: string;
 	subject: string;
 	envelope: CloudEnvelope;
+	/** The client has sent a presence frame; kept here so it survives hibernation. */
+	presence?: boolean;
 };
 declare const WebSocketPair: new () => { 0: WebSocket; 1: WebSocket };
 declare const WebSocketRequestResponsePair:
@@ -91,11 +93,14 @@ export class PulsifyCloudRoot {
 			this.state.acceptWebSocket(server, [attachment.id]);
 			const location = request.headers.get(ROOT_HEADERS.location);
 			server.send(
-				welcomeMessage({
-					backend: "cloudflare",
-					id: this.state.id?.toString() ?? root,
-					...(location ? { location } : {}),
-				}),
+				welcomeMessage(
+					{
+						backend: "cloudflare",
+						id: this.state.id?.toString() ?? root,
+						...(location ? { location } : {}),
+					},
+					{ presence: true },
+				),
 			);
 			return new Response(null, {
 				status: 101,
@@ -159,6 +164,12 @@ export class PulsifyCloudRoot {
 		).deserializeAttachment() as Attachment;
 		return {
 			...attachment,
+			presence: attachment.presence === true,
+			usePresence: () =>
+				(socket as HibernatableSocket).serializeAttachment({
+					...attachment,
+					presence: true,
+				}),
 			send: (data) => socket.send(data as string | Uint8Array<ArrayBuffer>),
 			close: (code, reason) => socket.close(code, reason),
 		};

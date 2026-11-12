@@ -148,7 +148,7 @@ export function createTauriConnector(
 	};
 }
 export {
-	watchTauriPresence,
-	type PresenceTarget,
-	type TauriPresenceWindow,
-} from "./presence.js";
+	watchTauriActivity,
+	type ActivityTarget,
+	type TauriActivityWindow,
+} from "./activity.js";

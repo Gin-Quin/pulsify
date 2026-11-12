@@ -3,17 +3,17 @@
 Cloud session protocol **1**. It carries the unchanged Pulsify frames described
 in [PROTOCOL.md](PROTOCOL.md) (envelopes 1 and 2, operations version 3) and
 adds routing, authentication, multiplexing and access control. Every backend
-(`pulsify-cloud-server/cloudflare`, the Unikraft Cloud Rust server) implements this
-document; the conformance suite in
+(`pulsify-cloud-server/cloudflare`) implements this document; the conformance
+suite in
 [`packages/cloud-server/core/tests/conformance.ts`](../packages/cloud-server/core/tests/conformance.ts)
-is the executable authority. Run it with `bun run test:cloud --backend
-cloudflare|unikraft`.
+is the executable authority. Run it with
+`bun run test:cloud --backend cloudflare`.
 
 ## Roots
 
 A document belongs to the root named by the part of its ID before the first
 `/`: `toto/tata/x` belongs to `toto`. A root is an isolated namespace and the
-unit of placement: one Durable Object, or one actor of the Rust server. All
+unit of placement: one actor (a Durable Object on Cloudflare). All
 events of a root are processed in arrival order, one at a time.
 
 Root IDs follow the document ID rules (well-formed Unicode, no NUL, at most
@@ -131,7 +131,7 @@ Storage conflicts answer `CONFLICT`, actor overflow `LIMIT_EXCEEDED`.
 ### Text frames
 
 ```text
-server → client  {"type":"welcome","server":{"backend":string,"id":string,"location"?:string}}
+server → client  {"type":"welcome","server":{"backend":string,"id":string,"location"?:string},"presence"?:true}
 server → client  {"type":"role","docId":string,"role":"reader"|"editor"|"owner"|null}
 client → server  {"type":"unsubscribe","docId":string}
 client → server  {"type":"ping"}      exactly these bytes
@@ -139,12 +139,12 @@ server → client  {"type":"pong"}      exactly these bytes
 ```
 
 `welcome` is the first frame of every socket. It names who answers, for
-debugging only: clients never route on it. `backend` is `cloudflare`,
-`unikraft-cloud`, or another host; `id` is the Durable Object ID on Cloudflare,
-and on Unikraft `PULSIFY_INSTANCE`, else `HOSTNAME`, else an ID drawn at boot,
-so a new value means a new instance; `location` is the Cloudflare colo that
-accepted the socket, or `PULSIFY_LOCATION` on Unikraft. Clients ignore unknown
-fields.
+debugging only: clients never route on it. `backend` names the host
+(`cloudflare`); `id` identifies the instance (the Durable Object ID on
+Cloudflare), so a new value means a new instance; `location` is where the
+socket was accepted (the Cloudflare colo). `presence: true` says the server
+relays [presence frames](#presence); a client never sends them otherwise.
+Clients ignore unknown fields.
 
 The role message precedes the sync of every `connect`. After a grant change,
 the root recomputes the role of every subscription of the affected subject (all
@@ -155,20 +155,19 @@ subscription. Any other text frame closes the socket with 1008.
 `ping` checks the socket, not a document: the server answers `pong` at once,
 without touching the root, its subscriptions or its storage. The strings are
 fixed so a Cloudflare Durable Object answers through
-`setWebSocketAutoResponse`, without waking up or billing duration; the Rust
-server answers in the socket's reader task. The reference client pings when it
+`setWebSocketAutoResponse`, without waking up or billing duration. The
+reference client pings when it
 needs a socket that may be dead: before sending on a socket that received
 nothing for `heartbeat.staleMs` (5 s), when the page becomes visible or focused
 (stale sockets), and when the network comes back (all sockets). It also pings
 sockets silent for `heartbeat.intervalMs` (2 s, or never with `false`) for
-passive readers, but only while its `presence` says someone may be there
-(the page's shared one by default, or `createPresence()`): user input within
+passive readers, but only while its `activity` says someone may be there
+(the page's shared one by default, or `createUserActivity()`): user input within
 `activeMs` (5 min, or `unfocusedMs`, 30 s, while the window does not have
-focus), the page not reported hidden, and no `presence.set(false)` from a
+focus), the page not reported hidden, and no `userActivity.set(false)` from a
 native signal. Input is the signal every webview
 reports; visibility only narrows it (WebView2 in Tauri never reports a hidden
-page). A page left open sends nothing, so a Unikraft instance can scale to
-zero; its first input, focus, `pageshow`, `resume` or edit checks silent
+page). A page left open sends nothing, so the root can sleep; its first input, focus, `pageshow`, `resume` or edit checks silent
 sockets again. A timer that fires late means the process was suspended: every
 socket is checked on resume, present or not. With no frame within `heartbeat.timeoutMs` (5 s) after a ping,
 it closes the socket and its pulses reconnect.
@@ -177,21 +176,46 @@ A subscription ends with `unsubscribe`, a revocation, or the socket. The
 reference client sends `unsubscribe` when a pulse's connection closes and
 closes an idle socket after `lingerMs`.
 
+## Presence
+
+Presence is a capability: a backend that relays it says `presence: true` in
+its welcome, and the conformance suite checks it only then. The Cloudflare
+backend does; the Unikraft Cloud server does not yet.
+
+Presence frames (kind 7 of [PROTOCOL.md](PROTOCOL.md#presence-kind-7)) follow
+the subscriptions of the socket, not the socket itself:
+
+- **Who may send.** A socket subscribed to the document with any role,
+  readers included. Without a subscription the frame is dropped silently: the
+  client has already received its `FORBIDDEN`.
+- **Peer number.** One per socket, the same for every document of the root,
+  derived from the connection ID so that it survives hibernation and is still
+  known after the socket is gone.
+- **Subject.** The subject of the socket's token, set by the root on every
+  forwarded frame.
+- **Recipients.** The other sockets subscribed to the document that have
+  sent a presence frame themselves. The host remembers that with the socket
+  (its attachment on Cloudflare), so it also survives hibernation.
+- **Departures.** `unsubscribe`, a lost role, a closed socket, and a
+  subscription found without its socket when the root wakes up each send a
+  leave for that document to the remaining presence sockets.
+- **Nothing is stored**, and a root keeps no presence in memory either: a
+  newcomer's join is forwarded and the peers answer it themselves.
+- **Rate.** Frames beyond 200 per socket and second are dropped.
+
+A client's leave, or a presence frame that does not decode, closes the socket
+with 1008 like any other invalid frame.
+
 ## Storage
 
 Patch rows use the Pulsify stores of [STORAGE.md](STORAGE.md) unchanged.
 
-- **Cloudflare:** one SQLite database per root (Durable Object storage) with
-  the SQLite patch schema, `pulsify_cloud_grants(subject, prefix, role)` and
-  `pulsify_cloud_subscriptions(connection, doc_id, role)`. Subscriptions are
-  persisted because a hibernated object loses its memory while its sockets
-  stay open; rows of sockets that no longer exist are deleted on wake-up.
-  Socket attachments hold the connection ID, root, subject and envelope.
-- **Unikraft Cloud:** one PostgreSQL database per instance with the PostgreSQL
-  patch schema and `pulsify_cloud_grants(root, subject, prefix, role)`
-  ([generated](../packages/cloud-server/unikraft-cloud/server/sql/schema.sql) from
-  `UNIKRAFT_CLOUD_POSTGRES_SCHEMA`). Subscriptions live in memory. A root's
-  actor caches its grants, so one server owns a database.
+One SQLite database per root (Durable Object storage) holds the SQLite patch
+schema, `pulsify_cloud_grants(subject, prefix, role)` and
+`pulsify_cloud_subscriptions(connection, doc_id, role)`. Subscriptions are
+persisted because a hibernated object loses its memory while its sockets stay
+open; rows of sockets that no longer exist are deleted on wake-up. Socket
+attachments hold the connection ID, root, subject and envelope.
 
 A Cloudflare Worker forwards to the object named after the root (optionally in
 `PULSIFY_JURISDICTION`) with internal headers `x-pulsify-root`,

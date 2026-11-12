@@ -5,7 +5,6 @@ import { EditorView } from "prosemirror-view";
 import { schema as basic } from "prosemirror-schema-basic";
 import { addListNodes, wrapInList } from "prosemirror-schema-list";
 import { baseKeymap, toggleMark } from "prosemirror-commands";
-import { history, undo, redo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import {
 	connectPulse,
@@ -18,7 +17,7 @@ import {
 	PulseError,
 	richText,
 } from "../packages/pulse/source/index.js";
-import { bindProseMirror } from "pulsify-prosemirror";
+import { bindProseMirror, undo, redo } from "pulsify-prosemirror";
 
 const Note = definePulse(
 	"EditorNote",
@@ -27,7 +26,8 @@ const Note = definePulse(
 const connector = createWebSocketConnector(
 	`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/sync`,
 	undefined,
-	{ protocolVersion: 3 },
+	// The example server is a PulseRelay of this version: it relays presence.
+	{ protocolVersion: 3, presence: true },
 );
 const status = document.querySelector<HTMLOutputElement>("#status")!;
 let note;
@@ -54,7 +54,6 @@ const view = new EditorView(document.querySelector("#editor"), {
 	state: EditorState.create({
 		schema,
 		plugins: [
-			history(),
 			keymap({
 				"Mod-b": toggleMark(schema.marks["strong"]!),
 				"Mod-i": toggleMark(schema.marks["em"]!),
@@ -69,6 +68,8 @@ const binding = bindProseMirror(view, pulse.body, {
 	onError(error) {
 		status.value = String(error);
 	},
+	// Share this tab's selection and draw the other tabs' cursors.
+	selection: true,
 });
 for (const [id, command] of [
 	["bold", toggleMark(schema.marks["strong"]!)],

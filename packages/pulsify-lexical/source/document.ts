@@ -23,6 +23,7 @@ import {
 	editorAttributes,
 	isRichTextNode,
 	newerTextStamp,
+	resolveRichTextAnchor,
 	richTextRedirects,
 	richTextRemovedNodes,
 	type EditorToken,
@@ -38,6 +39,8 @@ export type JSONNode = SerializedLexicalNode & {
 	text?: string;
 };
 export type Tree = {
+	/** The Lexical runtime key, for a tree captured from an editor. */
+	key?: string;
 	id?: string;
 	json: JSONNode;
 	children: Tree[];
@@ -147,7 +150,7 @@ export function captureDocument(
 				own.push(token);
 				offset += value.length;
 			}
-			return { json, children: [], tokens: own };
+			return { key, json, children: [], tokens: own };
 		}
 		const id =
 			node.getType() === "root"
@@ -176,7 +179,7 @@ export function captureDocument(
 			: [];
 		if ($isElementNode(node))
 			json.children = children.map((child) => child.json);
-		return { id, json, children, tokens: [token] };
+		return { key, id, json, children, tokens: [token] };
 	};
 	const tree = visit($getRoot(), "");
 	const selected = $getSelection();
@@ -548,6 +551,175 @@ export function matchDocument(
 		else newPos += value.length;
 	}
 	return keys;
+}
+
+type Place = {
+	tree: Tree;
+	parent: Tree | undefined;
+	/** Its index in the parent. */
+	index: number;
+	/** The tokens of the subtree are `tokens[start]` to `tokens[end - 1]`. */
+	start: number;
+	end: number;
+};
+type ViewIndex = {
+	places: Map<Tree, Place>;
+	keys: Map<string, Place>;
+	nodes: Map<string, Place>;
+	characters: Map<string, Token>;
+};
+const indexes = new WeakMap<DocumentView, ViewIndex>();
+/** Built once per rendered view: a view is replaced, never edited, after a change. */
+function indexView(view: DocumentView): ViewIndex {
+	let index = indexes.get(view);
+	if (index) return index;
+	index = {
+		places: new Map(),
+		keys: new Map(),
+		nodes: new Map(),
+		characters: new Map(),
+	};
+	const { places, keys, nodes, characters } = index;
+	let count = 0;
+	const visit = (tree: Tree, parent: Tree | undefined, at: number) => {
+		const place: Place = { tree, parent, index: at, start: count, end: 0 };
+		count += tree.tokens.length;
+		tree.children.forEach((child, position) => visit(child, tree, position));
+		place.end = count;
+		places.set(tree, place);
+		if (tree.key !== undefined) keys.set(tree.key, place);
+		if (tree.id !== undefined) nodes.set(tree.id, place);
+	};
+	visit(view.tree, undefined, 0);
+	for (const token of view.tokens)
+		if (token.entry && !token.attributes[RT_NODE])
+			characters.set(token.entry.id, token);
+	indexes.set(view, index);
+	return index;
+}
+const structures = new WeakMap<DocumentView, Map<string, string>>();
+/** The sequence entry of each structural node, by node ID. */
+function structuralEntries(native: DocumentView): Map<string, string> {
+	let entries = structures.get(native);
+	if (!entries) {
+		entries = new Map();
+		for (const token of native.tokens)
+			if (token.entry && token.attributes[RT_NODE])
+				entries.set(String(token.attributes[RT_NODE]), token.entry.id);
+		structures.set(native, entries);
+	}
+	return entries;
+}
+const isText = (tree: Tree | undefined): tree is Tree & { key: string } =>
+	!!tree && tree.id === undefined && tree.key !== undefined;
+const isElement = (tree: Tree): boolean =>
+	tree.tokens[0]?.attributes[elementKey] === true;
+
+/**
+ * The anchor of a point of the rendered view: the ID of the sequence entry
+ * just before it, character or structural, as `field.anchorAt` gives for a
+ * text index. `undefined` for a point that is not in the view.
+ */
+export function anchorOfPoint(
+	context: RichTextContext,
+	native: DocumentView,
+	view: DocumentView,
+	point: { key: string; offset: number; type?: "text" | "element" },
+): string | undefined {
+	const index = indexView(view),
+		place = index.keys.get(point.key);
+	if (!place || point.offset < 0) return undefined;
+	const { tree } = place;
+	let before = place.start;
+	if (point.type ? point.type === "text" : tree.id === undefined) {
+		if (tree.id !== undefined) return undefined;
+		let length = 0;
+		// A point inside a surrogate pair counts as before the pair.
+		for (const token of tree.tokens) {
+			length += token.value.length;
+			if (length <= point.offset) before++;
+		}
+		if (point.offset > length) return undefined;
+	} else {
+		if (tree.id === undefined || point.offset > tree.children.length)
+			return undefined;
+		before = point.offset
+			? index.places.get(tree.children[point.offset - 1]!)!.end
+			: place.start + tree.tokens.length;
+	}
+	const entries = structuralEntries(native);
+	for (let position = before - 1; position >= 0; position--) {
+		const token = view.tokens[position]!,
+			node = token.attributes[RT_NODE];
+		const id = node ? entries.get(String(node)) : token.entry?.id;
+		if (id) return id;
+	}
+	return context.node.id;
+}
+
+/**
+ * Where an anchor is in the rendered view: just after the entry it names, or
+ * after the nearest rendered entry before it once that one is gone.
+ * `undefined` for an anchor of another field or of an entry not received yet.
+ */
+export function pointOfAnchor(
+	context: RichTextContext,
+	view: DocumentView,
+	anchor: string,
+): Point | undefined {
+	const { node } = context,
+		index = indexView(view);
+	const resolved = resolveRichTextAnchor(node, anchor);
+	if (resolved === undefined) return undefined;
+	const text = (tree: Tree & { key: string }): Point => ({
+		key: tree.key,
+		offset: 0,
+		type: "text",
+	});
+	const after = (entry: CoreEntry): Point | undefined => {
+		if (!isRichTextNode(entry)) {
+			const token = index.characters.get(entry.id);
+			return token?.key === undefined
+				? undefined
+				: {
+						key: token.key,
+						offset: token.offset! + token.value.length,
+						type: "text",
+					};
+		}
+		const place = index.nodes.get(String(entry.marks.get(RT_NODE)!.value));
+		if (place?.tree.key === undefined) return undefined;
+		// Inside an element, before its first child; after any other node.
+		const inside = isElement(place.tree),
+			parent = inside ? place.tree : place.parent,
+			offset = inside ? 0 : place.index + 1,
+			next = parent?.children[offset];
+		if (isText(next)) return text(next);
+		return parent?.key === undefined
+			? undefined
+			: { key: parent.key, offset, type: "element" };
+	};
+	if (resolved) {
+		const point = after(resolved);
+		if (point) return point;
+		// The entry is not rendered (a removed block): the one before it.
+		for (let at = node.order.indexOf(resolved) - 1; at >= 0; at--) {
+			const entry = node.order[at]!,
+				found = entry.deleted ? undefined : after(entry);
+			if (found) return found;
+		}
+	}
+	// The start of the field: the first place a caret can be.
+	let tree = view.tree;
+	while (true) {
+		const first = tree.children[0];
+		if (isText(first)) return text(first);
+		if (!first || !isElement(first)) break;
+		tree = first;
+	}
+	return tree.key === undefined
+		? undefined
+		: { key: tree.key, offset: 0, type: "element" };
 }
 
 export function redirectOperations(

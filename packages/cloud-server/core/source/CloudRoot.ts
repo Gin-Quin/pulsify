@@ -1,6 +1,10 @@
 import {
+	createPresenceBudget,
 	encodeBroadcast,
 	encodeMessage,
+	encodePresenceLeave,
+	PRESENCE_KIND,
+	relayPresenceFrame,
 	relayStoreMessage,
 } from "pulsify-core/protocol";
 import {
@@ -35,6 +39,10 @@ export type CloudPeer = {
 	readonly id: string;
 	readonly subject: string;
 	readonly envelope: CloudEnvelope;
+	/** The client has sent a presence frame, so it understands them. */
+	readonly presence: boolean;
+	/** Remember that for the life of the socket, hibernation included. */
+	usePresence(): void;
 	send(data: Uint8Array | string): void;
 	close(code: number, reason: string): void;
 };
@@ -43,6 +51,23 @@ export type CloudPeers = {
 	get(id: string): CloudPeer | undefined;
 	all(): Iterable<CloudPeer>;
 };
+
+/**
+ * A session's presence peer number. Derived from the connection ID, so it
+ * survives hibernation, needs no storage, and is still known when the socket
+ * is gone and its departure must be announced.
+ */
+export function presencePeer(connection: string): number {
+	let high = 0x811c9dc5;
+	let low = 0x9e3779b9;
+	for (let i = 0; i < connection.length; i++) {
+		const unit = connection.charCodeAt(i);
+		high = Math.imul(high ^ unit, 16777619);
+		low = Math.imul(low ^ unit, 2246822519);
+	}
+	// 48 bits, never zero: zero means "everyone" in a presence frame.
+	return (high >>> 0) * 65536 + (low >>> 16) + 1;
+}
 
 /**
  * The runtime-independent state machine of one root: its documents, its
@@ -54,6 +79,8 @@ export class CloudRoot {
 	private bySubject = new Map<string, CloudGrant[]>();
 	/** connection → document → role last sent to that connection. */
 	private readonly subscriptions = new Map<string, Map<string, CloudRole>>();
+	/** What each connection may still send this second; lost on hibernation. */
+	private readonly presenceBudgets = new Map<string, () => boolean>();
 	private queue: Promise<unknown> = Promise.resolve();
 
 	constructor(
@@ -156,9 +183,11 @@ export class CloudRoot {
 		this.setGrants(grants);
 		const live = new Set(Array.from(this.peers.all(), (peer) => peer.id));
 		const stale = new Set<string>();
+		const gone: [connection: string, docId: string][] = [];
 		for (const { connection, docId, role } of subscriptions) {
 			if (!live.has(connection)) {
 				stale.add(connection);
+				gone.push([connection, docId]);
 				continue;
 			}
 			let documents = this.subscriptions.get(connection);
@@ -168,6 +197,43 @@ export class CloudRoot {
 		}
 		for (const connection of stale)
 			await this.storage.deleteConnection(connection);
+		// Sockets that closed while the root slept left without a goodbye.
+		for (const [connection, docId] of gone) this.leave(connection, docId);
+	}
+
+	/** The other sockets of a document that use presence. */
+	private *presencePeers(
+		docId: string,
+		except: string,
+	): Generator<CloudPeer, void> {
+		for (const [connection, documents] of this.subscriptions) {
+			if (connection === except || !documents.has(docId)) continue;
+			const other = this.peers.get(connection);
+			if (other?.presence) yield other;
+		}
+	}
+
+	/** Presence is never stored: a session that leaves a document is announced. */
+	private leave(connection: string, docId: string): void {
+		const frame = encodePresenceLeave(docId, presencePeer(connection));
+		for (const other of this.presencePeers(docId, connection))
+			safely(() => other.send(frame));
+	}
+
+	/** Forward a presence frame to the document's other sessions, or to the one it answers. */
+	private presence(peer: CloudPeer, bytes: Uint8Array): void {
+		const { docId, frame, to } = relayPresenceFrame(bytes, {
+			peer: presencePeer(peer.id),
+			subject: peer.subject,
+		});
+		if (!peer.presence) peer.usePresence();
+		let budget = this.presenceBudgets.get(peer.id);
+		if (!budget)
+			this.presenceBudgets.set(peer.id, (budget = createPresenceBudget()));
+		// A session over its budget is not an error: frames are dropped.
+		if (!budget()) return;
+		for (const other of this.presencePeers(docId, peer.id))
+			if (!to || to === presencePeer(other.id)) safely(() => other.send(frame));
 	}
 
 	private setGrants(grants: CloudGrant[]): void {
@@ -206,6 +272,12 @@ export class CloudRoot {
 			return fail("FORBIDDEN", `${docId} belongs to another root`);
 		const role = this.role(peer.subject, docId);
 		const subscribed = this.subscriptions.get(peer.id)?.has(docId) ?? false;
+		if (kind === PRESENCE_KIND) {
+			// Readers too: presence is not a write. Without a subscription the
+			// frame is dropped: the client already got its FORBIDDEN.
+			if (subscribed && role) this.presence(peer, bytes);
+			return;
+		}
 		if (kind === 1) {
 			if (!role) {
 				if (subscribed) await this.unsubscribe(peer.id, docId);
@@ -253,11 +325,16 @@ export class CloudRoot {
 		const documents = this.subscriptions.get(connection);
 		if (!documents?.delete(docId)) return;
 		if (!documents.size) this.subscriptions.delete(connection);
+		this.leave(connection, docId);
 		await this.storage.deleteSubscription(connection, docId);
 	}
 
 	private async forget(connection: string): Promise<void> {
-		if (!this.subscriptions.delete(connection)) return;
+		this.presenceBudgets.delete(connection);
+		const documents = this.subscriptions.get(connection);
+		if (!documents) return;
+		this.subscriptions.delete(connection);
+		for (const docId of documents.keys()) this.leave(connection, docId);
 		await this.storage.deleteConnection(connection);
 	}
 

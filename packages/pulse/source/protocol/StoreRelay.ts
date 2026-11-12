@@ -4,6 +4,11 @@ import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
 import type { PatchStore } from "../storage/rows.js";
 import { chunkRows } from "./chunkRows.js";
 import { asPulseError, PulseError } from "./errors.js";
+import {
+	isPresenceFrame,
+	relayPresenceFrame,
+	type PresenceRelay,
+} from "./presenceFrames.js";
 import { stateDeltaOf } from "./stateDeltas.js";
 
 export type StoreRelaySession = {
@@ -12,6 +17,13 @@ export type StoreRelaySession = {
 	readOnly?: boolean;
 	/** Pin the session to one document; other document IDs are rejected. */
 	docId?: string;
+	/**
+	 * Presence: a positive number that no other open session of the document
+	 * uses. Without it, presence frames are rejected.
+	 */
+	peer?: number;
+	/** Presence: the user you authenticated, shown to the other peers. */
+	subject?: string;
 };
 export type StoreRelayBroadcast = {
 	rows: PulsePatchRow[];
@@ -23,12 +35,20 @@ export type StoreRelayResult = {
 	responses: Uint8Array<ArrayBuffer>[];
 	/** Newly stored rows to forward to the document's other peers. */
 	broadcast?: StoreRelayBroadcast;
+	/**
+	 * A presence frame to forward and never store: to the session whose peer
+	 * number is `to`, or to every other session of the document that has sent
+	 * a presence frame itself (older clients reject them).
+	 */
+	presence?: Omit<PresenceRelay, "docId">;
 };
 
 /**
  * Serve one protocol frame from a durable store, without an in-memory journal.
  * Rows are committed before the acknowledgement is produced. The caller owns
  * sockets: send `responses` to the peer and `encodeBroadcast` to the others.
+ * Presence frames are not served from the store: forward `presence` as it
+ * says, and send `encodePresenceLeave` to the others when a session ends.
  */
 export async function relayStoreMessage(
 	store: PatchStore,
@@ -36,6 +56,16 @@ export async function relayStoreMessage(
 	session: StoreRelaySession = {},
 	validateRow?: (row: PulsePatchRow) => void,
 ): Promise<StoreRelayResult> {
+	if (isPresenceFrame(bytes)) {
+		// Readers too: presence is not a write to the document.
+		const { docId, ...presence } = relayPresenceFrame(bytes, {
+			peer: session.peer ?? 0,
+			...(session.subject ? { subject: session.subject } : {}),
+		});
+		if (session.docId !== undefined && session.docId !== docId)
+			throw new PulseError("INVALID_MESSAGE", "One document per session");
+		return { docId, responses: [], presence };
+	}
 	const peerVersion = session.protocolVersion ?? 1;
 	const encode = (message: Parameters<typeof encodeMessage>[0]) =>
 		encodeMessage(message, { peerVersion });

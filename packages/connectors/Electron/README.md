@@ -77,7 +77,6 @@ const remote = createWebSocketConnector("wss://sync.example.com/{docId}");
 
 const notebook = await loadPulse(Notebook, "notebook", {
   connectors: [local, remote],
-  include: true,
 });
 ```
 

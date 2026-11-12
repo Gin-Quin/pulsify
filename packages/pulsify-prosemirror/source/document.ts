@@ -22,9 +22,11 @@ import {
 	RT_FORMAT,
 	reconcileEditorTokens,
 	matchTokens,
+	resolveRichTextAnchor,
 	type CoreEntry,
 	type Stamp,
 	type CoreOperation,
+	type EditorChange,
 } from "pulsify-core/bindings";
 import { fingerprintBytes } from "pulsify-core/bindings";
 
@@ -434,7 +436,8 @@ export function writeDocument(
 	doc: ProseMirrorNode,
 	previous: DocumentView,
 	mapping = new Mapping(),
-): void {
+	trackHistory = false,
+): EditorChange {
 	doc.check();
 	if (!mapping.maps.length && !doc.eq(previous.doc)) {
 		const start = previous.doc.content.findDiffStart(doc.content);
@@ -539,7 +542,93 @@ export function writeDocument(
 				attributes: { [RT_REDIRECT]: target.id },
 			});
 	}
-	reconcileEditorTokens(context, desired, newKeys, extraOperations);
+	return reconcileEditorTokens(
+		context,
+		desired,
+		newKeys,
+		extraOperations,
+		trackHistory,
+	);
+}
+
+/** Where a token ends: after its character, its leaf, or the opening of its node. */
+const tokenEnd = (token: Token): number => token.pos + (token.size || 1);
+
+/**
+ * The anchor of a position: the ID of the entry before it, as the core's
+ * `field.anchorAt` gives it, or the ID of the field when nothing precedes it.
+ * The closing of a node is not an entry, so a position between two blocks
+ * shares its anchor with the end of the block before it.
+ */
+export function anchorOfPosition(
+	context: RichTextContext,
+	view: DocumentView,
+	position: number,
+): string {
+	if (
+		!Number.isInteger(position) ||
+		position < 0 ||
+		position > view.doc.content.size
+	)
+		throw new RangeError(
+			`Position ${position} is outside the ProseMirror document`,
+		);
+	// Token ends strictly increase in document order.
+	const { tokens } = view;
+	let low = 0,
+		high = tokens.length;
+	while (low < high) {
+		const middle = (low + high) >>> 1;
+		if (tokenEnd(tokens[middle]!) <= position) low = middle + 1;
+		else high = middle;
+	}
+	// A node the schema had to fill in has no entry: use the one before it.
+	for (let index = low - 1; index >= 0; index--) {
+		const entry = tokens[index]!.entry;
+		if (entry) return entry.id;
+	}
+	return context.node.id;
+}
+
+type TokenIndex = { characters: Map<string, Token>; nodes: Map<string, Token> };
+const tokenIndexes = new WeakMap<DocumentView, TokenIndex>();
+
+/**
+ * Where an anchor is in a rendered document: after the entry it names, or
+ * after the nearest rendered entry before it once that one is gone. 0 for the
+ * start of the field; undefined for an anchor of another field or of an entry
+ * not received yet.
+ */
+export function positionOfAnchor(
+	context: RichTextContext,
+	view: DocumentView,
+	anchor: string,
+): number | undefined {
+	const { node } = context;
+	const entry = resolveRichTextAnchor(node, anchor);
+	if (!entry) return entry === null ? 0 : undefined;
+	let index = tokenIndexes.get(view);
+	if (!index) {
+		index = { characters: new Map(), nodes: new Map() };
+		for (const token of view.tokens) {
+			const id = token.attributes[RT_NODE];
+			if (typeof id === "string") index.nodes.set(id, token);
+			else if (token.entry) index.characters.set(token.entry.id, token);
+		}
+		tokenIndexes.set(view, index);
+	}
+	// Concurrent first bindings give one node several entries: all name it.
+	const find = (candidate: CoreEntry): Token | undefined => {
+		const id = candidate.marks.get(RT_NODE)?.value;
+		return typeof id === "string"
+			? index.nodes.get(id)
+			: index.characters.get(candidate.id);
+	};
+	let token = find(entry);
+	// An entry can survive without being rendered, in a removed block for one.
+	for (let i = node.order.indexOf(entry) - 1; !token && i >= 0; i--)
+		if (!node.order[i]!.deleted) token = find(node.order[i]!);
+	return token ? tokenEnd(token) : 0;
 }
 
 export { matchTokens };

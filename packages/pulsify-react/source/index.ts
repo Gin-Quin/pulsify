@@ -1,12 +1,26 @@
-import { subscribePulse, type Pulse } from "pulsify-core";
 import {
+	getPulseMeta,
+	joinPresence,
+	loadPulse,
+	subscribePulse,
+	type AnyPulseDefinition,
+	type LoadPulseOptions,
+	type ModelFromDefinition,
+	type Presence,
+	type PresenceDefinition,
+	type PresencePeer,
+	type Pulse,
+} from "pulsify-core";
+import {
+	defaultPulseOptions,
 	RichTextSymbol,
-	SubPulseSymbol,
+	PulseRefSymbol,
 	TreeSymbol,
 } from "pulsify-core/bindings";
 import {
 	useCallback,
 	useLayoutEffect,
+	useMemo,
 	useState,
 	useSyncExternalStore,
 } from "react";
@@ -188,8 +202,8 @@ function changed(track: Track): boolean {
 function same(read: any, value: any): boolean {
 	if (typeof read !== "object" || read === null) return Object.is(read, value);
 	// Sub-pulse handles and bytes are fresh objects on every read.
-	if (read[SubPulseSymbol])
-		return value?.[SubPulseSymbol] === true && read.id === value.id;
+	if (read[PulseRefSymbol])
+		return value?.[PulseRefSymbol] === true && read.id === value.id;
 	if (read instanceof Uint8Array)
 		return (
 			value instanceof Uint8Array &&
@@ -249,4 +263,130 @@ export function usePulse<P extends Pulse<any>>(input: P): P {
 		}
 	});
 	return root.proxy as P;
+}
+
+/** Loads in flight, by ID, so a suspended component finds its promise again. */
+// ponytail: keyed by ID only, as the default scope is; key by scope too if apps load one ID in several scopes.
+const loads = new Map<string, { promise: Promise<void>; error?: unknown }>();
+const subscribeNothing = () => () => {};
+const onClient = () => true;
+
+/**
+ * Load a pulse, suspend until it is loaded, then return it as `usePulse`
+ * does. A pulse loaded or created already in the scope is returned at once.
+ * A failed load throws to the nearest error boundary and starts again on the
+ * next render.
+ *
+ * Never loads on the server: the nearest `<Suspense>` boundary shows its
+ * fallback and renders on the client.
+ */
+export function useLoadPulse<Definition extends AnyPulseDefinition>(
+	definition: Definition,
+	id: string,
+	options?: LoadPulseOptions,
+): Pulse<ModelFromDefinition<Definition>> {
+	useSyncExternalStore(subscribeNothing, onClient, clientOnly);
+	const scope = options?.scope ?? defaultPulseOptions.scope;
+	const loaded = scope.pulses.get(id);
+	if (loaded && getPulseMeta(loaded).loaded)
+		return usePulse(loaded as Pulse<ModelFromDefinition<Definition>>);
+	let load = loads.get(id);
+	if (!load) {
+		const entry: { promise: Promise<void>; error?: unknown } = {
+			promise: loadPulse(definition, id, options).then(
+				() => void loads.delete(id),
+				(error) => void (entry.error = error ?? new Error("loadPulse failed")),
+			),
+		};
+		loads.set(id, (load = entry));
+	}
+	if (load.error !== undefined) {
+		loads.delete(id);
+		throw load.error;
+	}
+	throw load.promise;
+}
+
+const NOBODY: readonly never[] = Object.freeze([]);
+
+/** What `usePulsePresence` returns: one presence channel of a pulse. */
+export type PulsePresence<State> = {
+	/** Everyone else in the channel. Unchanged peers keep the same object. */
+	readonly others: readonly PresencePeer<State>[];
+	/** What this session last set, or undefined. */
+	readonly mine: State | undefined;
+	/**
+	 * Publish this session's state; undefined removes it. Never call it during
+	 * render. It keeps its identity while the pulse and the channel are the same.
+	 */
+	readonly set: (state: State | undefined) => void;
+};
+
+/**
+ * Join a presence channel of a pulse while the component is mounted, and
+ * re-render when the others or this session's own state change. Joins are
+ * counted, so several components can share a channel.
+ *
+ * Presence lives on the client only: during server rendering and hydration,
+ * the nearest `<Suspense>` boundary shows its fallback, as with `usePulse`.
+ */
+export function usePulsePresence<State>(
+	input: Pulse<any>,
+	definition: PresenceDefinition<State>,
+): PulsePresence<State> {
+	const pulse = unwrap(input) as Pulse<any>;
+	// One slot per pulse and channel: after a switch, nothing of the previous
+	// channel is shown, and `set` cannot publish into it.
+	const slot = useMemo(
+		() => ({
+			pulse,
+			definition,
+			handle: undefined as Presence<State> | undefined,
+			version: 0,
+			/** A state set before the channel is joined, by a child's effect. */
+			pending: undefined as { state: State | undefined } | undefined,
+			others: NOBODY as readonly PresencePeer<State>[],
+			mine: undefined as State | undefined,
+		}),
+		[pulse, definition],
+	);
+	const subscribe = useCallback(
+		(notify: () => void) => {
+			const handle = joinPresence(slot.pulse, slot.definition);
+			slot.handle = handle;
+			if (slot.pending) handle.set(slot.pending.state);
+			slot.pending = undefined;
+			let listening = false;
+			handle.subscribe(() => {
+				if (!listening) return;
+				slot.version++;
+				notify();
+			});
+			listening = true;
+			// The render that precedes the join saw nothing: show what is there.
+			if (
+				handle.mine !== slot.mine ||
+				(handle.others !== slot.others &&
+					handle.others.length + slot.others.length > 0)
+			)
+				slot.version++;
+			return () => {
+				listening = false;
+				if (slot.handle === handle) slot.handle = undefined;
+				handle.leave();
+			};
+		},
+		[slot],
+	);
+	useSyncExternalStore(subscribe, () => slot.version, clientOnly);
+	const set = useCallback(
+		(state: State | undefined) => {
+			if (slot.handle) slot.handle.set(state);
+			else slot.pending = { state };
+		},
+		[slot],
+	);
+	slot.others = slot.handle?.others ?? NOBODY;
+	slot.mine = slot.handle?.mine;
+	return { others: slot.others, mine: slot.mine, set };
 }

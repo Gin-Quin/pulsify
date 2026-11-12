@@ -7,7 +7,7 @@ export {
 export type { CloudCaller, CloudSecrets } from "./auth.js";
 export { routeCloudRequest } from "./gateway.js";
 export type { CloudRoute } from "./gateway.js";
-export { CloudRoot } from "./CloudRoot.js";
+export { CloudRoot, presencePeer } from "./CloudRoot.js";
 export type { CloudPeer, CloudPeers } from "./CloudRoot.js";
 export { CLOUD_SQLITE_SCHEMA, SqliteCloudStorage } from "./storage.js";
 export type {

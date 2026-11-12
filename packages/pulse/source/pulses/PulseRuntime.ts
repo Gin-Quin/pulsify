@@ -474,6 +474,7 @@ export function createRuntime(
 		cancelConnection: undefined,
 		listeners: new Set(),
 		rowListeners: new Set(),
+		presence: undefined,
 		mutate: (ops) => model.commit(ops),
 		report(error) {
 			meta.lastError = error;

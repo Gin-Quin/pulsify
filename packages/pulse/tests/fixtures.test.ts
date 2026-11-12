@@ -8,6 +8,11 @@ import {
 	decodeOperations,
 	encodeOperations,
 } from "../source/connection/PulsePatch";
+import {
+	decodePresenceFrame,
+	encodePresenceFrame,
+	isPresenceFrame,
+} from "../source/protocol/presenceFrames";
 
 for (const fixture of fixtures.messages)
 	test(`stable wire bytes: ${fixture.name}`, () => {
@@ -18,4 +23,12 @@ for (const fixture of fixtures.operations)
 	test(`stable operation bytes: ${fixture.name}`, () => {
 		const bytes = new Uint8Array(fixture.bytes);
 		expect(encodeOperations(decodeOperations(bytes))).toEqual(bytes);
+	});
+for (const fixture of fixtures.presence)
+	test(`stable presence bytes: ${fixture.name}`, () => {
+		const bytes = new Uint8Array(fixture.bytes);
+		expect(isPresenceFrame(bytes)).toBe(true);
+		expect(encodePresenceFrame(decodePresenceFrame(bytes))).toEqual(bytes);
+		// Not a document message: stores and older peers reject it.
+		expect(() => decodeMessage(bytes)).toThrow();
 	});

@@ -10,8 +10,8 @@ import {
 	PulseRelay,
 	snapshotPulse,
 	sub,
-	subPulse,
-	type SubPulse,
+	pulseRef,
+	type PulseRef,
 } from "../source/index";
 
 const Document = definePulse(
@@ -48,8 +48,8 @@ function tree(connectors = [createMemoryConnector()]) {
 		{ title: "Spec" },
 		{ parent: project },
 	);
-	project.documents.push(subPulse(document));
-	user.projects.push(subPulse(project));
+	project.documents.push(pulseRef(document));
+	user.projects.push(pulseRef(project));
 	return { scope, user, project, document };
 }
 
@@ -58,13 +58,13 @@ describe("sub-pulses", () => {
 		const { scope, user, project, document } = tree();
 		expect(project.id.startsWith("1234/")).toBe(true);
 		expect(document.id.startsWith(`${project.id}/`)).toBe(true);
-		const handle: SubPulse<typeof Project> = user.projects[0]!;
+		const handle: PulseRef<typeof Project> = user.projects[0]!;
 		expect(handle.id).toBe(project.id);
 		expect(handle.pulse).toBe(project);
 		expect(handle.pulse?.documents[0]?.pulse?.title).toBe("Spec");
 		expect(snapshotPulse(user).projects).toEqual([project.id]);
 		expect(user.favorite).toBeUndefined();
-		user.favorite = subPulse(project);
+		user.favorite = pulseRef(project);
 		expect(user.favorite?.pulse).toBe(project);
 		const other = createPulse(
 			Project,
@@ -91,7 +91,7 @@ describe("sub-pulses", () => {
 		).toThrow(/must start with 1234\//);
 	});
 
-	test("include loads selected or all sub-pulses; load() fetches one later", async () => {
+	test("subPulses loads all sub-pulses by default or none; load() fetches one later", async () => {
 		const relay = new PulseRelay();
 		const connector = createMemoryConnector(relay);
 		const { user, project, document } = tree([connector]);
@@ -104,35 +104,21 @@ describe("sub-pulses", () => {
 			scope: shallow,
 			connectors: [connector],
 			waitFor: "all",
+			subPulses: false,
 		});
 		expect(loaded.projects[0]!.pulse).toBeUndefined();
-		const fetched = await loaded.projects[0]!.load({ waitFor: "all" });
+		const fetched = await loaded.projects[0]!.load({
+			waitFor: "all",
+			subPulses: false,
+		});
 		expect(fetched.name).toBe("Engine");
 		expect(loaded.projects[0]!.pulse).toBe(fetched);
 		expect(fetched.documents[0]!.pulse).toBeUndefined();
-
-		const partial = createPulseScope();
-		const partialUser = await loadPulse(User, "1234", {
-			scope: partial,
-			connectors: [connector],
-			include: { projects: true },
-		});
-		expect(partialUser.projects[0]!.pulse?.name).toBe("Engine");
-		expect(partialUser.projects[0]!.pulse?.documents[0]!.pulse).toBeUndefined();
-		const deepUser = await loadPulse(User, "1234", {
-			scope: createPulseScope(),
-			connectors: [connector],
-			include: { projects: { documents: true } },
-		});
-		expect(deepUser.projects[0]!.pulse?.documents[0]!.pulse?.title).toBe(
-			"Spec",
-		);
 
 		const full = createPulseScope();
 		const fullUser = await loadPulse(User, "1234", {
 			scope: full,
 			connectors: [connector],
-			include: true,
 			waitFor: "all",
 		});
 		expect(fullUser.projects[0]!.pulse?.documents[0]!.pulse?.title).toBe(
@@ -145,5 +131,28 @@ describe("sub-pulses", () => {
 			connectors: [connector],
 		});
 		expect(child.title).toBe("Spec");
+	});
+
+	test("a dangling ID does not fail the load of its parent", async () => {
+		const connector = createMemoryConnector(new PulseRelay());
+		const { user, project, document } = tree([connector]);
+		// Typed writes take a reference; the runtime also accepts the ID.
+		user.projects.push("1234/missing" as never);
+		await Promise.all(
+			[user, project, document].map((pulse) => connectPulse(pulse).synced),
+		);
+
+		const scope = createPulseScope();
+		const loaded = await loadPulse(User, "1234", {
+			scope,
+			connectors: [connector],
+		});
+		expect(loaded.projects[0]!.pulse?.documents[0]!.pulse?.title).toBe("Spec");
+		expect(loaded.projects[1]!.id).toBe("1234/missing");
+		expect(loaded.projects[1]!.pulse).toBeUndefined();
+		expect(scope.pulses.size).toBe(3);
+		await expect(loaded.projects[1]!.load()).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		});
 	});
 });

@@ -18,7 +18,7 @@ import {
 	PulseError,
 	richText,
 	sub,
-	subPulse,
+	pulseRef,
 	type ModelFromDefinition,
 	type Pulse,
 } from "pulsify-core";
@@ -103,7 +103,6 @@ function createApp(user: { id: string }) {
 				return await loadPulse(Notebook, user.id, {
 					connectors: [cloud],
 					scope,
-					include: true,
 				});
 			} catch (error) {
 				if (!(error instanceof PulseError) || error.code !== "NOT_FOUND")
@@ -120,7 +119,7 @@ function createApp(user: { id: string }) {
 		async addNote(notebook: NotebookPulse, title: string): Promise<NotePulse> {
 			const note = createPulse(Note, { title, body: "" }, { parent: notebook });
 			await connectPulse(note).synced;
-			notebook.notes.push(subPulse(note));
+			notebook.notes.push(pulseRef(note));
 			return note;
 		},
 		openShared: (noteId: string) =>

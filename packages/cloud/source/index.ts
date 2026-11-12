@@ -9,12 +9,12 @@ export type {
 	CloudConnectionEvents,
 	CloudConnectionState,
 	CloudPingReason,
-	PresenceEvents,
-	PresenceReason,
-	PresenceState,
+	UserActivityEvents,
+	UserActivityReason,
+	UserActivityState,
 } from "./events.js";
-export { createPresence, presence } from "./presence.js";
-export type { Presence, PresenceOptions } from "./presence.js";
+export { createUserActivity, userActivity } from "./userActivity.js";
+export type { UserActivity, UserActivityOptions } from "./userActivity.js";
 export { createCloudClient } from "./api.js";
 export type { CloudClient, CloudClientOptions, CloudRootUsage } from "./api.js";
 export {

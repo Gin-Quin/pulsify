@@ -40,6 +40,24 @@ try {
 	await first.keyboard.type("Formatted paragraph");
 	await expect(right.locator("p")).toHaveCount(2);
 	await expect(right.locator("strong")).toHaveText("Formatted paragraph");
+	// The first tab's caret is drawn in the second one, at the end of its text.
+	const caret = second.locator("[data-peer]");
+	await expect(caret).toHaveCount(1);
+	const strong = (await right.locator("strong").boundingBox())!;
+	await expect
+		.poll(async () => {
+			const box = await caret.boundingBox();
+			return (
+				!!box &&
+				box.height > 0 &&
+				Math.abs(box.x - (strong.x + strong.width)) < 4 &&
+				box.y + box.height > strong.y &&
+				box.y < strong.y + strong.height
+			);
+		})
+		.toBe(true);
+	// Remote cursors are not part of the document, nor of its history.
+	await expect(first.locator("[data-peer]")).toHaveCount(0);
 	await second.locator("#disconnect").click();
 	await right.click();
 	await second.keyboard.press("ControlOrMeta+End");
@@ -56,9 +74,22 @@ try {
 	await expect(second.locator("#status")).toHaveText("Connected");
 	await expect(left).toContainText("offline");
 	await expect(right).toContainText("Online");
-	await expect
-		.poll(async () => await left.innerHTML())
-		.toBe(await right.innerHTML());
+	// The same document in both tabs, once the cursors drawn in it are set aside.
+	const content = (editor: typeof left) =>
+		editor.evaluate((element) => {
+			const copy = element.cloneNode(true) as HTMLElement;
+			for (const drawn of copy.querySelectorAll("[data-peer]")) drawn.remove();
+			for (const range of copy.querySelectorAll("[data-peer-selection]"))
+				range.replaceWith(...range.childNodes);
+			copy.normalize();
+			return copy.innerHTML;
+		});
+	await expect.poll(() => content(left)).toBe(await content(right));
+	// A tab that loses focus takes its cursor away from the others.
+	await right.click();
+	await expect(first.locator("[data-peer]")).toHaveCount(1);
+	await second.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+	await expect(first.locator("[data-peer]")).toHaveCount(0);
 	// Undo only this client's typing, keeping the remote addition.
 	await first.locator("#undo").click();
 	await expect(left).not.toContainText("Online");
@@ -72,6 +103,7 @@ try {
 			nodesAndMarks: "passed",
 			offlineMerge: "passed",
 			localUndo: "passed",
+			remoteCursors: "passed",
 			pageErrors: errors.length,
 		}),
 	);

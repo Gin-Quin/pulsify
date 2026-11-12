@@ -6,10 +6,13 @@ import {
 	createMemoryConnector,
 	createPulse,
 	createPulseScope,
+	definePresence,
 	definePulse,
 	destroyPulse,
 	getPulseMeta,
+	joinPresence,
 	loadPulse,
+	PulseRelay,
 	richText,
 	tree,
 	type Pulse,
@@ -22,10 +25,11 @@ import {
 	memo,
 	StrictMode,
 	Suspense,
+	useEffect,
 	useLayoutEffect,
 	type ReactNode,
 } from "react";
-import { usePulse } from "../source/index";
+import { useLoadPulse, usePulse, usePulsePresence } from "../source/index";
 
 const { window } = new JSDOM("<!doctype html><html><body></body></html>");
 Object.assign(globalThis, {
@@ -65,7 +69,8 @@ function note(options = {}) {
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
-	for (const cleanup of cleanups.splice(0)) cleanup();
+	// Last in, first out: components unmount before their pulses are destroyed.
+	for (const cleanup of cleanups.splice(0).reverse()) cleanup();
 });
 
 function render(node: ReactNode) {
@@ -511,4 +516,227 @@ test("renders on the client only", async () => {
 		doc.title = "Final";
 	});
 	expect(container.textContent).toBe("Final");
+});
+
+test("useLoadPulse suspends until the pulse is loaded, on the client only", async () => {
+	const connector = createMemoryConnector();
+	const a = track(note({ connectors: [connector], sessionId: 65538 }));
+	await connectPulse(a).synced;
+	const options = { connectors: [connector], sessionId: 65539 };
+	let loaded: NotePulse | undefined;
+	function Title() {
+		loaded = useLoadPulse(Note, a.id, options);
+		return loaded.title;
+	}
+	const app = h(Suspense, { fallback: "Loading" }, h(Title));
+	expect(renderToString(app)).toContain("Loading");
+	expect(loaded).toBeUndefined();
+
+	const { container } = render(app);
+	expect(container.textContent).toBe("Loading");
+	const until = async (text: string) =>
+		act(async () => {
+			for (let i = 0; i < 50 && container.textContent !== text; i++)
+				await new Promise((resolve) => setTimeout(resolve, 5));
+		});
+	await until("Draft");
+	expect(container.textContent).toBe("Draft");
+	track(loaded!);
+	a.title = "Remote";
+	await until("Remote");
+	expect(container.textContent).toBe("Remote");
+});
+
+test("useLoadPulse returns a pulse created already without suspending", () => {
+	const created = track(
+		createPulse(Note, { title: "Local", author: { name: "Ada" }, items: [] }),
+	);
+	function Title() {
+		return useLoadPulse(Note, created.id).title;
+	}
+	const { container } = render(h(Suspense, { fallback: "Loading" }, h(Title)));
+	expect(container.textContent).toBe("Local");
+});
+
+const Viewer = definePresence("viewer", object({ name: "string" }), {
+	throttleMs: 0,
+});
+
+/** Two pulses of one document, each through its own session of one relay. */
+async function peers() {
+	const relay = new PulseRelay();
+	const options = () => ({
+		scope: createPulseScope(),
+		connectors: [createMemoryConnector(relay)],
+	});
+	const mine = track(note(options()));
+	await connectPulse(mine).synced;
+	const theirs = track(
+		await loadPulse(Note, mine.id, { ...options(), waitFor: "all" }),
+	);
+	return { mine, theirs };
+}
+/** Presence arrives from the relay later: wait inside act, then check. */
+const settle = async (check: () => void) => {
+	for (let i = 0; i < 100; i++) {
+		await act(() => new Promise((resolve) => setTimeout(resolve, 5)));
+		try {
+			return check();
+		} catch {
+			// Not there yet.
+		}
+	}
+	check();
+};
+
+test("usePulsePresence joins on mount, shows the others and leaves on unmount", async () => {
+	const { mine, theirs } = await peers();
+	const remote = joinPresence(theirs, Viewer);
+	remote.set({ name: "Grace" });
+	let renders = 0;
+	function Viewers() {
+		renders++;
+		const viewers = usePulsePresence(usePulse(mine), Viewer);
+		useEffect(() => viewers.set({ name: "Ada" }), [viewers.set]);
+		return `${viewers.mine?.name}:${viewers.others.map((other) => other.state.name)}`;
+	}
+	const { container, root } = render(h(Viewers));
+	await settle(() => expect(container.textContent).toBe("Ada:Grace"));
+	await settle(() =>
+		expect(remote.others.map((other) => other.state.name)).toEqual(["Ada"]),
+	);
+	const before = renders;
+	// The relay delivers it later, so act has to wait for it.
+	await act(async () => {
+		remote.set({ name: "Grace Hopper" });
+		await new Promise((resolve) => setTimeout(resolve, 5));
+	});
+	await settle(() => expect(container.textContent).toBe("Ada:Grace Hopper"));
+	expect(renders).toBe(before + 1);
+	// A change of the document does not re-render a component that reads presence only.
+	act(() => {
+		mine.title = "Other";
+	});
+	expect(renders).toBe(before + 1);
+	act(() => root.unmount());
+	await settle(() => expect(remote.others).toEqual([]));
+});
+
+test("usePulsePresence survives StrictMode and keeps a stable set", async () => {
+	const { mine, theirs } = await peers();
+	const remote = joinPresence(theirs, Viewer);
+	const setters = new Set<unknown>();
+	function Viewers() {
+		const viewers = usePulsePresence(mine, Viewer);
+		setters.add(viewers.set);
+		useEffect(() => viewers.set({ name: "Ada" }), [viewers.set]);
+		return viewers.mine?.name ?? "nobody";
+	}
+	const { container } = render(h(StrictMode, null, h(Viewers)));
+	await settle(() => expect(container.textContent).toBe("Ada"));
+	await settle(() => expect(remote.others).toHaveLength(1));
+	expect(setters.size).toBe(1);
+});
+
+test("a state set by a child's effect, before the join, is not lost", async () => {
+	const { mine, theirs } = await peers();
+	const remote = joinPresence(theirs, Viewer);
+	function Child({ set }: { set: (state: { name: string }) => void }) {
+		useEffect(() => set({ name: "From a child" }), [set]);
+		return null;
+	}
+	function Parent() {
+		const viewers = usePulsePresence(mine, Viewer);
+		return h(Child, { set: viewers.set });
+	}
+	render(h(Parent));
+	await settle(() =>
+		expect(remote.others.map((other) => other.state.name)).toEqual([
+			"From a child",
+		]),
+	);
+});
+
+test("two components share a channel: the last one to unmount leaves it", async () => {
+	const { mine, theirs } = await peers();
+	const remote = joinPresence(theirs, Viewer);
+	function Publisher() {
+		const viewers = usePulsePresence(mine, Viewer);
+		useEffect(() => viewers.set({ name: "Ada" }), [viewers.set]);
+		return null;
+	}
+	function Reader() {
+		return usePulsePresence(mine, Viewer).mine?.name ?? "nobody";
+	}
+	const reader = render(h(Reader));
+	const publisher = render(h(Publisher));
+	await settle(() => expect(reader.container.textContent).toBe("Ada"));
+	await settle(() => expect(remote.others).toHaveLength(1));
+	act(() => publisher.root.unmount());
+	// The channel is still held: the state stays.
+	await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+	expect(remote.others).toHaveLength(1);
+	act(() => reader.root.unmount());
+	await settle(() => expect(remote.others).toEqual([]));
+});
+
+test("switching the pulse never shows or publishes into the previous one", async () => {
+	const first = await peers();
+	const second = await peers();
+	const remoteFirst = joinPresence(first.theirs, Viewer);
+	const remoteSecond = joinPresence(second.theirs, Viewer);
+	remoteFirst.set({ name: "In the first" });
+	const reachedFirst: string[] = [];
+	remoteFirst.subscribe(({ others }) =>
+		reachedFirst.push(...others.map((other) => other.state.name)),
+	);
+	const shown: string[] = [];
+	function Child({
+		name,
+		set,
+	}: {
+		name: string;
+		set: (state: { name: string }) => void;
+	}) {
+		// A layout effect runs before the hook has joined the new channel.
+		useLayoutEffect(() => set({ name }), [name, set]);
+		return null;
+	}
+	function Viewers({ pulse, name }: { pulse: NotePulse; name: string }) {
+		const viewers = usePulsePresence(pulse, Viewer);
+		shown.push(
+			`${name}:${viewers.mine?.name}:${viewers.others.map((other) => other.state.name)}`,
+		);
+		return h(Child, { name, set: viewers.set });
+	}
+	const { root } = render(h(Viewers, { pulse: first.mine, name: "one" }));
+	await settle(() =>
+		expect(remoteFirst.others.map((other) => other.state.name)).toEqual([
+			"one",
+		]),
+	);
+	shown.length = 0;
+	await act(async () =>
+		root.render(h(Viewers, { pulse: second.mine, name: "two" })),
+	);
+	// The first render for the second pulse shows nothing of the first one.
+	expect(shown[0]).toBe("two:undefined:");
+	await settle(() =>
+		expect(remoteSecond.others.map((other) => other.state.name)).toEqual([
+			"two",
+		]),
+	);
+	// The first pulse was left, and never got the second one's state.
+	expect(remoteFirst.others).toEqual([]);
+	expect(reachedFirst).not.toContain("two");
+	expect(shown.every((line) => !line.includes("In the first"))).toBe(true);
+	expect(shown.every((line) => !line.startsWith("two:one"))).toBe(true);
+});
+
+test("usePulsePresence refuses to render on the server", () => {
+	const doc = track(note());
+	function Viewers() {
+		return String(usePulsePresence(doc, Viewer).others.length);
+	}
+	expect(() => renderToString(h(Viewers))).toThrow("client only");
 });
