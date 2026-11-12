@@ -170,6 +170,7 @@ pub struct Buffer {
     pub vector: Option<Vec<u8>>,
 }
 impl Buffer {
+    #[cfg(feature = "other-databases")]
     pub fn is_empty(&self) -> bool {
         self.pending.is_empty() && self.vector.is_none()
     }

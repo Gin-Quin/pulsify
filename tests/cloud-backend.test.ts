@@ -1,5 +1,5 @@
 // Runs the cloud conformance suite against a deployed or locally started
-// backend. Use `bun run test:cloud --backend cloudflare|unikraft`.
+// backend. Use `bun run test:cloud --backend cloudflare`.
 import { describeCloudBackend } from "../packages/cloud-server/core/tests/conformance.js";
 
 const url = process.env["PULSIFY_CLOUD_URL"];

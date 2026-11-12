@@ -105,12 +105,11 @@ UTF-16 code units. Both stores validate IDs on writes and reads.
 
 ## Integration checks and measurements
 
-Run `bun scripts/test-storage.ts` with Docker available. It starts a uniquely
-named disposable PostgreSQL 16 container, runs the suite against PostgreSQL and
-actual SQLite, then removes that container. For an existing disposable database,
-set `PULSIFY_POSTGRES_URL` and run
-`bun test packages/pulse/tests/storage.test.ts`. Without this variable, SQLite
-runs and the PostgreSQL integration suite is explicitly skipped.
+Run `bun run test:storage` for the storage conformance suite. The core storage suite
+runs against actual SQLite, without Docker, a database server or credentials.
+The browser connector keeps its IndexedDB tests; the native benchmark contract
+tests also cover RocksDB and LMDB via `bun run test:database:rust`. The PostgreSQL
+integration suite and its conditional skip have been removed. The two batch regression scenarios also run against SQLite.
 
 The common suite checks duplicate handling, conflicts, transactional rollback,
 overlapping ranges, actor forks, gaps, cross-actor dependencies, partial-frontier

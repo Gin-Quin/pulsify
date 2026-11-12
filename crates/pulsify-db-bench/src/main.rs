@@ -99,6 +99,7 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
     let args = args.clone();
     let cache = args.cache_mib << 20;
     Ok(match args.backend.as_str() {
+        #[cfg(feature = "other-databases")]
         "postgres" | "alloydb" | "orioledb" | "pgrust-row" | "pgrust-columnar" => {
             use storage::pg::Pg;
             Pg::initialize_for(&args.postgres_url, &args.backend)?;
@@ -144,6 +145,7 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
                 Arc::new(move || Ok(Box::new(storage::rocks::RocksMutex(db.clone(), !relaxed))));
             (connect, metadata)
         }
+        #[cfg(feature = "other-databases")]
         "leveldb" => {
             let db = storage::leveldb::open(&args.data_path, cache)?;
             let metadata = serde_json::json!({"engine":"LevelDB 1.22 (leveldb-sys 2.0.9)","syncOnCommit":!relaxed,"writeBufferBytes":storage::leveldb::WRITE_BUFFER_BYTES,"blockCacheBytes":cache,"maxOpenFiles":storage::leveldb::MAX_OPEN_FILES,"compression":"Snappy","documentLock":"striped mutex in the runner: LevelDB has no lock manager"});
@@ -156,12 +158,14 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
             let metadata = serde_json::json!({"engine":"LMDB","noSync":relaxed,"mapSizeBytes":storage::lmdb::MAP_BYTES,"maxReaders":512});
             (Arc::new(move || Ok(Box::new(lmdb.clone()))), metadata)
         }
+        #[cfg(feature = "other-databases")]
         "valkey" | "dragonfly" => {
             use storage::resp::Resp;
             let metadata = Resp::open(&args.server_url)?.metadata(&args.backend, relaxed)?;
             let connect: Connect = Arc::new(move || Ok(Box::new(Resp::open(&args.server_url)?)));
             (connect, metadata)
         }
+        #[cfg(feature = "other-databases")]
         "scylla" => {
             use storage::scylla::Scylla;
             Scylla::initialize(&args.server_url)?;
@@ -169,6 +173,7 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
             let connect: Connect = Arc::new(move || Ok(Box::new(Scylla::open(&args.server_url)?)));
             (connect, metadata)
         }
+        #[cfg(feature = "other-databases")]
         "clickhouse" => {
             use storage::clickhouse::ClickHouse;
             ClickHouse::initialize(&args.server_url, relaxed)?;

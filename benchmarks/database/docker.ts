@@ -4,14 +4,27 @@ import { resolve } from "node:path";
 const root = new URL("../../", import.meta.url).pathname;
 const args = process.argv.slice(2);
 if (args.includes("--help")) {
-	console.log(`Usage: bun run bench:database [--quick] [--samples N] [--warmup N]
+	console.log(`Usage: bun run bench:database:legacy [--quick] [--samples N] [--warmup N]
   [--databases postgres,sqlite] [--profiles small,medium,large]
   [--results-dir PATH] [--test-only]
 
-Builds an isolated Docker Compose stack, runs database conformance tests and the benchmark,
+Builds an isolated Docker Compose stack, runs SQLite conformance tests and the benchmark,
 writes database.json + database.md, then removes its containers and volumes.`);
 	process.exit(0);
 }
+// Contract checks use only SQLite and do not need the benchmark's Docker stack.
+if (args.includes("--test-only")) {
+	const tests = Bun.spawn(
+		["bun", "test", "benchmarks/database/store.test.ts"],
+		{
+			cwd: root,
+			stdout: "inherit",
+			stderr: "inherit",
+		},
+	);
+	process.exit(await tests.exited);
+}
+
 const directoryIndex = args.indexOf("--results-dir");
 const results = resolve(
 	root,
@@ -22,8 +35,6 @@ const results = resolve(
 if (directoryIndex !== -1) args.splice(directoryIndex, 2);
 if (args.includes("--output") || args.includes("--markdown"))
 	throw new Error("Use --results-dir to choose the Docker report directory");
-const testOnly = args.includes("--test-only");
-if (testOnly) args.splice(args.indexOf("--test-only"), 1);
 await mkdir(results, { recursive: true });
 const project = `pulsify-db-bench-${process.pid}-${Date.now()}`;
 const compose = [
@@ -135,19 +146,18 @@ try {
 		"--timeout",
 		"60000",
 	]);
-	if (!testOnly)
-		await command([
-			...compose,
-			"run",
-			"--rm",
-			"benchmark",
-			"benchmarks/database/runner.ts",
-			...args,
-			"--output",
-			"/results/database.json",
-			"--markdown",
-			"/results/database.md",
-		]);
+	await command([
+		...compose,
+		"run",
+		"--rm",
+		"benchmark",
+		"benchmarks/database/runner.ts",
+		...args,
+		"--output",
+		"/results/database.json",
+		"--markdown",
+		"/results/database.md",
+	]);
 	console.log(`Database suite completed. Reports directory: ${results}`);
 } catch (error) {
 	await command([...compose, "logs", "--tail", "40"], false, false);

@@ -1,8 +1,5 @@
 // Start a Pulsify Cloud backend locally and run the conformance suite against it.
 //   bun run test:cloud --backend cloudflare        workerd, real Durable Objects
-//   bun run test:cloud --backend unikraft          Rust server + local PostgreSQL
-//   bun run test:cloud --backend unikraft --image pulsify-cloud
-//                                                  the Unikraft Cloud image, with Docker
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,9 +9,13 @@ const root = new URL("../", import.meta.url).pathname;
 const { values } = parseArgs({
 	options: {
 		backend: { type: "string", default: "cloudflare" },
-		image: { type: "string" },
 	},
 });
+if (values.backend !== "cloudflare")
+	throw new Error(
+		"Cloud integration tests currently support only the SQLite-backed Cloudflare backend",
+	);
+
 const secrets = {
 	PULSIFY_TOKEN_SECRET: "a local token secret of at least 32 characters",
 	PULSIFY_API_KEY: "a local api key of at least thirty-two characters",
@@ -48,20 +49,6 @@ function start(
 		await child.exited;
 	});
 	return child;
-}
-
-async function run(
-	command: string[],
-	options: Parameters<typeof Bun.spawn>[1] = {},
-) {
-	const child = Bun.spawn(command, {
-		cwd: root,
-		stdout: "inherit",
-		stderr: "inherit",
-		...options,
-	});
-	if ((await child.exited) !== 0)
-		throw new Error(`Command failed: ${command.join(" ")}`);
 }
 
 async function waitForHealth(url: string, timeoutMs = 60_000) {
@@ -115,86 +102,9 @@ const config :Workerd.Config = (
 	return `http://127.0.0.1:${port}`;
 }
 
-async function startUnikraft(): Promise<string> {
-	const port = freePort();
-	if (values.image) {
-		const name = `pulsify-cloud-test-${port}`;
-		await run([
-			"docker",
-			"run",
-			"-d",
-			"--rm",
-			"--name",
-			name,
-			"-p",
-			`127.0.0.1:${port}:8080`,
-			"-e",
-			`PULSIFY_TOKEN_SECRET=${secrets.PULSIFY_TOKEN_SECRET}`,
-			"-e",
-			`PULSIFY_API_KEY=${secrets.PULSIFY_API_KEY}`,
-			values.image,
-		]);
-		cleanups.push(() => run(["docker", "stop", name]).catch(() => {}));
-		return `http://127.0.0.1:${port}`;
-	}
-	const manifest = "packages/cloud-server/unikraft-cloud/server/Cargo.toml";
-	await run(["cargo", "build", "--release", "--manifest-path", manifest]);
-	const data = join(directory, "postgres");
-	await run(
-		["initdb", "-D", data, "-U", "postgres", "--auth=trust", "-E", "UTF8"],
-		{
-			stdout: "ignore",
-		},
-	);
-	start(
-		[
-			"postgres",
-			"-D",
-			data,
-			"-c",
-			"listen_addresses=",
-			"-c",
-			`unix_socket_directories=${directory}`,
-		],
-		{ stdout: "ignore" },
-	);
-	for (let i = 0; ; i++) {
-		const ready = Bun.spawn([
-			"pg_isready",
-			"-q",
-			"-U",
-			"postgres",
-			"-h",
-			directory,
-		]);
-		if ((await ready.exited) === 0) break;
-		if (i > 100) throw new Error("PostgreSQL did not start");
-		await Bun.sleep(100);
-	}
-	start(
-		[
-			`${root}packages/cloud-server/unikraft-cloud/server/target/release/pulsify-cloud-server`,
-		],
-		{
-			env: {
-				...process.env,
-				...secrets,
-				PORT: String(port),
-				DATABASE_URL: `host=${directory} user=postgres dbname=postgres`,
-			},
-		},
-	);
-	return `http://127.0.0.1:${port}`;
-}
-
 let status = 1;
 try {
-	const backend =
-		values.backend === "unikraft" ? "Unikraft Cloud" : "Cloudflare";
-	const url =
-		values.backend === "unikraft"
-			? await startUnikraft()
-			: await startCloudflare();
+	const url = await startCloudflare();
 	await waitForHealth(url);
 	const tests = Bun.spawn(["bun", "test", "tests/cloud-backend.test.ts"], {
 		cwd: root,
@@ -204,7 +114,7 @@ try {
 			...process.env,
 			...secrets,
 			PULSIFY_CLOUD_URL: url,
-			PULSIFY_CLOUD_BACKEND: backend,
+			PULSIFY_CLOUD_BACKEND: "Cloudflare",
 		},
 	});
 	status = await tests.exited;

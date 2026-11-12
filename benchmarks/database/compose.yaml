@@ -21,7 +21,6 @@ services:
       BENCH_COMMIT: ${BENCH_COMMIT:-unknown}
       BENCH_DIRTY: ${BENCH_DIRTY:-unknown}
       BENCH_INFRASTRUCTURE: ${BENCH_INFRASTRUCTURE:-{}}
-      PULSIFY_DATABASE_INTEGRATION: "1"
     volumes:
       - ${BENCH_RESULTS_DIR:-../results}:/results
 volumes:

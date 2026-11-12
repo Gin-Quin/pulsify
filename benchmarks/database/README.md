@@ -25,6 +25,28 @@ longer on this Mac, and nothing was ever installed on the VPS. Results and
 optional configurations remain; selecting those engines again downloads their
 images.
 
+## Tests
+
+Database regression tests currently use SQLite, RocksDB and LMDB. The browser
+connector also retains its IndexedDB tests:
+
+```sh
+bun run test:storage
+bun run test:database
+bun run test:database:rust
+```
+
+The native suite retains the SQLite, RocksDB (transactional and mutex variants)
+and LMDB parallel contracts, plus database-independent scheduling/segment checks.
+`test:database:rust` builds with `--no-default-features`, so the removed engines'
+clients are not compiled. Default benchmark builds retain all engines through
+the `other-databases` feature.
+
+Tests for PostgreSQL, LevelDB, Valkey/Dragonfly, ScyllaDB and ClickHouse have
+been removed. The benchmark tools and historical measurements still support
+those engines; a benchmark verifies its selected engine before measuring it.
+The regression tests do not start them.
+
 ## Engines
 
 | `--databases` name | Docker image | Table access method |
@@ -411,9 +433,9 @@ histories are then imported through Pulsify in TypeScript, including reversed
 row delivery; snapshots and vectors must converge. Proof hashes remain in the
 report; large base64 replay frames are removed after verification. The native
 executable runs the same live parallel contract before **every** backend's
-campaign. SQLite and codec/mix unit tests run without external services:
-`cargo test --release --locked --manifest-path crates/pulsify-db-bench/Cargo.toml`.
-The optional Rust PostgreSQL unit test runs only with `PULSIFY_NATIVE_PG_URL`.
+campaign. SQLite, RocksDB, LMDB and codec/mix unit tests run without external
+services via `bun run test:database:rust`. No PostgreSQL integration test is
+registered by this suite.
 
 ## Architecture
 

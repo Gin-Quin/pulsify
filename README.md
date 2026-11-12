@@ -28,7 +28,8 @@ bun run test:runtimes         # Built package: Bun, Node 22+, Deno 2, Chromium
 bun run test:workers          # Cloudflare workerd: automatic batching, array/tree moves, offline merge
 bun run test:cloudflare       # Cloudflare workerd: Durable Object relay, SQLite store, reader/editor roles
 bun run test:codec-local      # Isolated build against ../codec, without changing either repository
-bun scripts/test-storage.ts  # Actual PostgreSQL and SQLite integration checks
+bun run test:storage        # Actual SQLite storage integration checks
+bun run test:database:rust  # Native SQLite, RocksDB and LMDB contract tests
 bun run bench                 # Reproducible performance report
 bun run bench:crdt            # Pulsify / native json-joy / Yjs / Loro, including proxy overhead
 bun run bench:database        # Native Rust load: PostgreSQL / SQLite + compatible engines, in Docker

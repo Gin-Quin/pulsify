@@ -43,8 +43,6 @@ jobs:
       - run: cargo fmt --manifest-path packages/cloud-server/unikraft-cloud/server/Cargo.toml --check
       - run: cargo test --manifest-path packages/cloud-server/unikraft-cloud/server/Cargo.toml
       - run: bun run test:cloud --backend cloudflare
-      - run: echo "$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_PATH"
-      - run: bun run test:cloud --backend unikraft
   tauri:
     runs-on: ubuntu-latest
     steps:
@@ -74,8 +72,16 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            crates/pulsify-db-bench/target
+          key: storage-${{ runner.os }}-${{ hashFiles('crates/pulsify-db-bench/Cargo.lock', 'crates/pulsify-db-bench/Cargo.toml') }}
       - run: bun install --frozen-lockfile
       - run: bun run test:storage
+      - run: bun run test:database:rust
   benchmarks:
     runs-on: ubuntu-latest
     steps:

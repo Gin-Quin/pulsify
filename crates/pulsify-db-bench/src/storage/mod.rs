@@ -1,10 +1,15 @@
+#[cfg(feature = "other-databases")]
 pub mod clickhouse;
 pub mod kv;
+#[cfg(feature = "other-databases")]
 pub mod leveldb;
 pub mod lmdb;
+#[cfg(feature = "other-databases")]
 pub mod pg;
+#[cfg(feature = "other-databases")]
 pub mod resp;
 pub mod rocks;
+#[cfg(feature = "other-databases")]
 pub mod scylla;
 pub mod sqlite;
 
@@ -15,6 +20,7 @@ use std::collections::BTreeMap;
 
 /// The ScyllaDB and ClickHouse drivers are asynchronous; worker threads block on
 /// one shared runtime.
+#[cfg(feature = "other-databases")]
 pub fn runtime() -> &'static tokio::runtime::Runtime {
     static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
     RUNTIME.get_or_init(|| {

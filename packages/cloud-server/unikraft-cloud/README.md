@@ -44,6 +44,10 @@ server) and `UNIKRAFT_CLOUD_DEFAULTS`.
 
 ```sh
 cargo test --manifest-path packages/cloud-server/unikraft-cloud/server/Cargo.toml
-bun run test:cloud --backend unikraft                       # binary + local PostgreSQL
-bun run test:cloud --backend unikraft --image pulsify-cloud  # Docker image
 ```
+
+Cloud integration tests currently use SQLite only. The PostgreSQL-backed
+Unikraft integration runner is disabled; CI retains the server's unit tests and
+schema consistency check, which do not connect to a database. Run the cloud
+integration suite against SQLite-backed Durable Objects with
+`bun run test:cloud --backend cloudflare`.

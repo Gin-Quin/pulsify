@@ -31,12 +31,12 @@ bun run bench:database:legacy --databases postgres,foundationdb,sqlite \
 # Local contract tests (file-backed SQLite).
 bun run test:database
 
-# Contract tests for all three real databases in Docker, without benchmarking.
-bun run test:database:docker
+# Compatibility option: SQLite contract tests only, without starting Docker.
+bun benchmarks/database/docker.ts --test-only
 ```
 
 Each Docker invocation builds the runner, creates an isolated Compose project,
-initializes fresh databases, runs the contract tests, then measures. It writes
+initializes fresh databases, runs the SQLite contract tests, then measures. It writes
 `database.json` and `database.md` to `benchmarks/results/` by default. Choose a
 new `--results-dir` to retain another campaign. Failures exit nonzero without
 overwriting prior reports with partial timing results.
@@ -189,4 +189,4 @@ bun benchmarks/database/runner.ts --databases sqlite --quick \
 ```
 
 The Docker command uses `--results-dir` to map both reports to the host. Its
-contract tests always cover all three databases even when timing is filtered.
+contract tests currently cover SQLite only, independently of timing filters.

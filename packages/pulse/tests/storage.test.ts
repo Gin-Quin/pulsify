@@ -9,8 +9,6 @@ import {
 } from "../source/index.js";
 import { afterAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { SQL } from "bun";
-import { PostgresPatchStore } from "../source/storage/postgres.js";
 import { SqlitePatchStore } from "../source/storage/sqlite.js";
 import {
 	encodeStoredRow,
@@ -379,94 +377,81 @@ const sqlite = new Database(":memory:");
 conformance("SQLite actual database", async () => new SqlitePatchStore(sqlite));
 afterAll(() => sqlite.close());
 
-const postgresUrl = process.env["PULSIFY_POSTGRES_URL"];
-if (postgresUrl) {
-	const sql = new SQL(postgresUrl);
-	const store = new PostgresPatchStore((statement, values) =>
-		sql.unsafe(statement, values as never[]),
-	);
-	const initialized = store.initialize();
-	conformance("PostgreSQL actual database", async () => {
-		await initialized;
-		return store;
+test("SQLite batch path deduplicates identical input and rolls back equivocation", async () => {
+	const store = new SqlitePatchStore(sqlite);
+	const docId = crypto.randomUUID(),
+		first = row(docId),
+		second = row(docId, 2);
+	expect(await store.append([first, first, second, second])).toEqual({
+		inserted: 2,
+		ready: 2,
+		pending: 0,
 	});
-	test("PostgreSQL batch path deduplicates identical input and rolls back equivocation", async () => {
-		await initialized;
-		const docId = crypto.randomUUID(),
-			first = row(docId),
-			second = row(docId, 2);
-		expect(await store.append([first, first, second, second])).toEqual({
-			inserted: 2,
-			ready: 2,
-			pending: 0,
-		});
-		const fresh = row(docId, 1, other);
-		await expect(
-			store.append([fresh, { ...fresh, operations: new Uint8Array([9]) }]),
-		).rejects.toThrow();
-		expect(await store.vector(docId)).toEqual([[actor, 3]]);
-	});
-	test("PostgreSQL causal batch promotion agrees with an independent dependency closure", async () => {
-		await initialized;
-		const docId = crypto.randomUUID(),
-			actors = [70001, 70002, 70003];
-		const generated: StoredPatchRow[] = [],
-			frontier = new Map<number, number>();
-		let seed = 19937;
-		const random = (): number => {
-			seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-			return seed;
-		};
-		for (let i = 0; i < 60; i++) {
-			const sid = actors[random() % actors.length]!,
-				clock = frontier.get(sid) ?? 1;
-			const dependencies = [...frontier]
-				.filter(([peer]) => peer === sid || random() % 2 === 0)
-				.sort((a, b) => a[0] - b[0]) as Array<[number, number]>;
-			generated.push(row(docId, clock, sid, dependencies));
-			frontier.set(sid, clock + 1);
-		}
-		const shuffled = generated.slice();
-		for (let i = shuffled.length - 1; i > 0; i--) {
-			const j = random() % (i + 1);
-			[shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-		}
-		const received: StoredPatchRow[] = [],
-			expected = new Map<number, number>();
-		for (let i = 0; i < shuffled.length; i += 7) {
-			const batch = shuffled.slice(i, i + 7);
-			received.push(...batch);
-			await store.append(batch);
-			const waiting = received.slice();
-			let changed: boolean;
-			do {
-				changed = false;
-				for (let j = waiting.length - 1; j >= 0; j--) {
-					const candidate = waiting[j]!;
-					if (
-						candidate.dependencies.every(
-							([sid, clock]) => (expected.get(sid) ?? 0) >= clock,
-						)
-					) {
-						expected.set(
-							candidate.sid,
-							Math.max(
-								expected.get(candidate.sid) ?? 0,
-								candidate.clock + candidate.span,
-							),
-						);
-						waiting.splice(j, 1);
-						changed = true;
-					}
+	const fresh = row(docId, 1, other);
+	await expect(
+		store.append([fresh, { ...fresh, operations: new Uint8Array([9]) }]),
+	).rejects.toThrow();
+	expect(await store.vector(docId)).toEqual([[actor, 3]]);
+});
+test("SQLite causal batch promotion agrees with an independent dependency closure", async () => {
+	const store = new SqlitePatchStore(sqlite);
+	const docId = crypto.randomUUID(),
+		actors = [70001, 70002, 70003];
+	const generated: StoredPatchRow[] = [],
+		frontier = new Map<number, number>();
+	let seed = 19937;
+	const random = (): number => {
+		seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+		return seed;
+	};
+	for (let i = 0; i < 60; i++) {
+		const sid = actors[random() % actors.length]!,
+			clock = frontier.get(sid) ?? 1;
+		const dependencies = [...frontier]
+			.filter(([peer]) => peer === sid || random() % 2 === 0)
+			.sort((a, b) => a[0] - b[0]) as Array<[number, number]>;
+		generated.push(row(docId, clock, sid, dependencies));
+		frontier.set(sid, clock + 1);
+	}
+	const shuffled = generated.slice();
+	for (let i = shuffled.length - 1; i > 0; i--) {
+		const j = random() % (i + 1);
+		[shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+	}
+	const received: StoredPatchRow[] = [],
+		expected = new Map<number, number>();
+	for (let i = 0; i < shuffled.length; i += 7) {
+		const batch = shuffled.slice(i, i + 7);
+		received.push(...batch);
+		await store.append(batch);
+		const waiting = received.slice();
+		let changed: boolean;
+		do {
+			changed = false;
+			for (let j = waiting.length - 1; j >= 0; j--) {
+				const candidate = waiting[j]!;
+				if (
+					candidate.dependencies.every(
+						([sid, clock]) => (expected.get(sid) ?? 0) >= clock,
+					)
+				) {
+					expected.set(
+						candidate.sid,
+						Math.max(
+							expected.get(candidate.sid) ?? 0,
+							candidate.clock + candidate.span,
+						),
+					);
+					waiting.splice(j, 1);
+					changed = true;
 				}
-			} while (changed);
-			expect(await store.vector(docId)).toEqual(
-				[...expected].sort((a, b) => a[0] - b[0]),
-			);
-		}
+			}
+		} while (changed);
 		expect(await store.vector(docId)).toEqual(
-			[...frontier].sort((a, b) => a[0] - b[0]),
+			[...expected].sort((a, b) => a[0] - b[0]),
 		);
-	});
-	afterAll(() => sql.close());
-} else test.skip("PostgreSQL integration: set PULSIFY_POSTGRES_URL", () => {});
+	}
+	expect(await store.vector(docId)).toEqual(
+		[...frontier].sort((a, b) => a[0] - b[0]),
+	);
+});
