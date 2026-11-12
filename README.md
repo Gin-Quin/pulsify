@@ -111,13 +111,18 @@ git push origin vX.Y.Z
 ```
 
 The `Publish` workflow checks that the tagged commit belongs to `main` and that
-the tag matches the package version, then deploys [pulsify.cloud](https://pulsify.cloud)
-and publishes the npm packages. Versions already on npm are skipped when retrying.
-A push to `main` without a version tag runs checks only.
+the tag matches the package and Rust crate versions, then deploys
+[pulsify.cloud](https://pulsify.cloud) and publishes the npm packages and Rust
+crates. The Rust crates publish to crates.io in dependency order:
+`pulsify-protocol`, `pulsify-sqlite`, then `tauri-plugin-pulsify`. Versions already
+published to either registry are skipped when retrying. A push to `main` without
+a version tag runs checks only.
 
 Website deployment needs the `CLOUDFLARE_API_TOKEN` GitHub Actions secret, scoped
-to the Pulsify account and the `pulsify.cloud` zone. npm uses trusted publishing
-through GitHub Actions and needs no npm token.
+to the Pulsify account and the `pulsify.cloud` zone. npm and crates.io use trusted
+publishing through GitHub Actions and need no registry tokens in GitHub secrets.
+Each Rust crate must configure `Gin-Quin/pulsify` and workflow `publish.yml` as a
+trusted GitHub publisher in its crates.io settings, without an environment restriction.
 
 ## License
 
