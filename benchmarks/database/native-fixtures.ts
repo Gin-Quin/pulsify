@@ -22,6 +22,10 @@ const [command, path, profile = "medium", workers = "128", requests = "400"] =
 if (command === "generate") {
 	const f = fixture(profile as Profile, "native-database-fixture");
 	const all = [...f.initial, ...f.patches.flat()];
+	// A message carries a bounded number of rows; a long history is several frames.
+	const chunks = Array.from({ length: Math.ceil(all.length / 1024) }, (_, i) =>
+		all.slice(i * 1024, (i + 1) * 1024),
+	);
 	const frame = (rows: typeof all) =>
 		Buffer.from(
 			encodeMessage({ kind: 4, docId: f.docId, requestId: 0, vv: [], rows }),
@@ -38,7 +42,7 @@ if (command === "generate") {
 		});
 		destroyPulse(temporary);
 		try {
-			applyRows(peer, all);
+			for (const chunk of chunks) applyRows(peer, chunk);
 			const stream: string[] = [];
 			for (let i = 0; i < Number(requests); i++) {
 				const before = getPulseVersions(peer).history;
@@ -59,7 +63,7 @@ if (command === "generate") {
 		path!,
 		JSON.stringify({
 			profile,
-			seed: frame(all),
+			seed: chunks.map(frame),
 			initial: frame(f.initial),
 			remote: f.remote,
 			streams,

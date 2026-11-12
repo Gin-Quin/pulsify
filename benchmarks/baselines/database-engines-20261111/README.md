@@ -1,4 +1,4 @@
-# New storage engines, two durability tiers, four hosts — 2026-11-11
+# New storage engines, two durability tiers, three hosts — 2026-11-11
 
 One campaign measures PostgreSQL 16 and SQLite again next to six new engines:
 RocksDB and LMDB (embedded), Valkey and Dragonfly (in memory), ScyllaDB and
@@ -9,7 +9,7 @@ and durability tiers](../../database/README.md).
 
 | Folder | Host | Engines |
 |---|---|---|
-| [mac-strict](mac-strict/REPORT.md), [mac-relaxed](mac-relaxed/REPORT.md) | Apple M4, macOS native and Docker (Linux VM, 4 GiB per container) | all eight in Docker; PostgreSQL, SQLite, RocksDB, LMDB native |
+| [mac-strict](mac-strict/REPORT.md), [mac-relaxed](mac-relaxed/REPORT.md) | Apple M4, Docker (Linux VM, 4 GiB per container) | all eight |
 | [vps](vps/REPORT.md) | KVM VPS, 6 vCPU AMD EPYC, 11 GiB, Ubuntu 24.04 | SQLite, RocksDB, LMDB (no server installed there) |
 | [unikraft](unikraft/REPORT.md) | Unikraft Cloud `fra`, 1 vCPU, 4 GiB, 1 GiB ext4 volume | PostgreSQL, SQLite, RocksDB |
 
@@ -21,10 +21,6 @@ Successful requests/s at 1, 16 and 128 clients, then service p99 at 128 clients.
 
 | Host | Engine | 1 | 16 | 128 | p99 ms at 128 |
 |---|---|---:|---:|---:|---:|
-| macOS native | PostgreSQL | 1,186 | 2,358 | 2,313 | 176 |
-| macOS native | SQLite | 2,409 | 2,988 | 1,511 | 540 |
-| macOS native | RocksDB | 2,739 | 9,032 | 4,869 | 177 |
-| macOS native | LMDB | 313 | 458 | 439 | 1,780 |
 | Docker | PostgreSQL | 558 | 1,118 | 886 | 468 |
 | Docker | SQLite | 728 | 393 | 484 | 1,784 |
 | Docker | RocksDB | 947 | 719 | 1,692 | 442 |
@@ -43,10 +39,6 @@ Successful requests/s at 1, 16 and 128 clients, then service p99 at 128 clients.
 
 | Host | Engine | 1 | 16 | 128 | p99 ms at 128 |
 |---|---|---:|---:|---:|---:|
-| macOS native | PostgreSQL | 948 | 2,181 | 1,797 | 195 |
-| macOS native | SQLite | 2,074 | 2,336 | 1,130 | 850 |
-| macOS native | RocksDB | 2,505 | 8,720 | 7,053 | 127 |
-| macOS native | LMDB | 2,722 | 10,879 | 9,029 | 103 |
 | Docker | PostgreSQL | 1,155 | 1,897 | 1,372 | 315 |
 | Docker | SQLite | 2,005 | 2,636 | 1,391 | 688 |
 | Docker | RocksDB | 2,219 | 6,610 | 5,948 | 107 |
@@ -68,8 +60,8 @@ are in each folder's report.
 ## RocksDB with and without its transaction layer, and LevelDB
 
 [lsm-variants](lsm-variants/REPORT.md): three adapters in one session, in one
-Linux container on the Mac pinned to one core (`--cpuset-cpus 0`; macOS cannot
-pin a native process), then unpinned on ten. `rocksdb` is `TransactionDB`;
+Linux container on the Mac pinned to one core (`--cpuset-cpus 0`), then
+unpinned on ten. `rocksdb` is `TransactionDB`;
 `rocksdb-mutex` is the plain `DB` with a mutex in the runner and one write batch
 per transaction; LevelDB uses that same adapter shape. Requests/s at 1, 16 and
 128 clients.
@@ -109,11 +101,7 @@ Docker rows above by more than the engine does.
 ## Reading these numbers
 
 - **One run per cell.** These are finite 1,000-request batches, not repeated
-  campaigns: differences under roughly 20% are not a ranking. On macOS the two
-  tiers of PostgreSQL and SQLite differ by less than that noise.
-- **macOS strict is not strict.** `fsync` there does not empty the drive cache.
-  LMDB alone asks for a full flush, which is why its native strict numbers are
-  5 to 20 times below its relaxed ones. Judge the strict tier on Linux.
+  campaigns: differences under roughly 20% are not a ranking.
 - **Not comparable with the 2026-11-04 campaign.** The mix now runs first, on a
   fresh store; it ran last then. PostgreSQL and SQLite were measured again here
   so that every row of a table shares one day, host and order.
@@ -145,8 +133,9 @@ All matrices are 36 cells (3 client counts × 6 scenarios × 2 topologies) excep
 
 `context.json` in each Mac folder records the first invocation, including the
 failures above; `context-*.json` records the reruns. Request errors: 3 SQLite
-compactions on the VPS (30 s busy deadline), 2 PostgreSQL compactions per tier
-on the Mac (retry budget), and the ScyllaDB and ClickHouse errors shown above.
+compactions on the VPS (30 s busy deadline), 2 PostgreSQL compactions in the
+relaxed tier on the Mac (retry budget), and the ScyllaDB and ClickHouse errors
+shown above.
 Every completed cell was checked row for row in Rust, and its representative
 histories were replayed through Pulsify.
 

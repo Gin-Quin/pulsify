@@ -1,14 +1,14 @@
 # PostgreSQL storage measurements
 
-For the newer native Rust load suite with real Pulsify documents, all three
-databases on the host and in Docker, vector reads and compaction, see the
+For the newer native Rust load suite with real Pulsify documents, vector reads
+and compaction, see the
 [database benchmark results](../benchmarks/database/RESULTS.md). The historical
 measurements below exercise the public PostgreSQL adapter with opaque bytes;
 the new suite uses separate reference adapters and is not directly comparable.
 
 Measured locally on 2026-11-04 with Bun 1.4.4, PostgreSQL 16.15 in an isolated
-Docker container on macOS/ARM64. Logged tables, ordinary durable commits and
-128-byte opaque operation payloads were used. The script performs two warmups
+Docker container on an Apple Silicon host. Logged tables, ordinary durable
+commits and 128-byte opaque operation payloads were used. The script performs two warmups
 and six measured runs per size; the statistic is the upper middle observed
 sample of the six (called `UpperMedianMs` in the JSON output). These are local
 database measurements, not a comparison with other CRDT engines.
@@ -49,7 +49,7 @@ installation and cleanup are outside the timers. The delta query uses remote
 clock `max(1, batchSize - 9)`, producing one or ten rows as shown above.
 
 PostgreSQL 16.15 ran in a new disposable `postgres:16-alpine` container over
-localhost TCP on macOS/ARM64, with Bun 1.4.4. The captured server settings were
+localhost TCP, with Bun 1.4.4. The captured server settings were
 `fsync=on`, `synchronous_commit=on` and `full_page_writes=on`; server JIT was on
 and the append function retained its local `jit=off` declaration. No durability
 setting was changed. The container was removed after measurement. No SQLite or

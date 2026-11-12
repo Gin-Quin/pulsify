@@ -1,9 +1,7 @@
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir, cpus, totalmem } from "node:os";
 import { resolve, join } from "node:path";
-import { createServer } from "node:net";
 import {
-	embedded,
 	engines,
 	pgSettings,
 	relaxedOnly,
@@ -14,7 +12,6 @@ import {
 const root = new URL("../../", import.meta.url).pathname;
 const argv = process.argv.slice(2);
 const valueFlags = new Set([
-	"--environment",
 	"--profile",
 	"--requests",
 	"--concurrency",
@@ -41,7 +38,7 @@ const arg = (name: string, fallback: string) => {
 };
 if (argv.includes("--help")) {
 	console.log(`Native Rust database load benchmark
- bun run bench:database [--environment both|bare-metal|docker] [--quick] [--contract-only]
+ bun run bench:database [--quick] [--contract-only]
  [--profile small|medium|large] [--requests 400] [--concurrency 1,16,64]
  [--documents 8] [--topologies spread,hot] [--modes burst,saturation]
  [--databases ${Object.keys(engines).join(",")}]
@@ -50,15 +47,13 @@ if (argv.includes("--help")) {
  [--sqlite-busy jitter|timeout] [--sqlite-mmap-bytes 67108864]
  [--durability strict|relaxed]  strict flushes every commit before its acknowledgement;
    relaxed lets each engine acknowledge first (see README). One tier per results directory.
- Native: PG_BIN for PostgreSQL; PGRUST_BIN for the verified official 0.4-beta release.
- AlloyDB Omni and OrioleDB run in Docker on this Mac. Unsupported native deployments
- are recorded explicitly. Each engine gets fresh isolated data; no cloud resources.`);
+ Every engine runs in Docker, alone, on fresh isolated data; no cloud resources.
+ On a dedicated Linux server, use benchmarks/database/dedicated/campaign.sh instead.`);
 	process.exit(0);
 }
 const quick = argv.includes("--quick"),
 	contractOnly = argv.includes("--contract-only");
-const environment = arg("--environment", "both"),
-	profile = arg("--profile", quick ? "small" : "medium");
+const profile = arg("--profile", quick ? "small" : "medium");
 const requests = arg("--requests", quick ? "20" : "400"),
 	concurrency = arg("--concurrency", quick ? "4" : "1,16,64");
 const selectedDatabases = arg("--databases", "postgres,sqlite").split(
@@ -70,8 +65,6 @@ if (
 	selectedDatabases.some((db) => !Object.hasOwn(engines, db))
 )
 	throw new Error("Unknown or duplicate database");
-if (!["both", "bare-metal", "docker"].includes(environment))
-	throw new Error("Unknown environment");
 const durability = arg("--durability", "strict");
 if (!["strict", "relaxed"].includes(durability))
 	throw new Error("Unknown durability tier");
@@ -128,13 +121,6 @@ async function run(
 		);
 	return stdout.trim();
 }
-async function port(): Promise<number> {
-	const server = createServer();
-	await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-	const p = (server.address() as { port: number }).port;
-	await new Promise<void>((r) => server.close(() => r()));
-	return p;
-}
 const common = [
 	"--concurrency",
 	concurrency,
@@ -165,10 +151,7 @@ const context = {
 	completedAt: "",
 	sourceSha256: "",
 	orchestrationSha256: "",
-	compiler:
-		environment === "docker"
-			? "rust:1.95-slim-bookworm"
-			: await run(["rustc", "--version"], true),
+	compiler: "rust:1.95-slim-bookworm",
 	memorySnapshots: {} as Record<string, unknown>,
 	fixtureSha256: "",
 	host: {
@@ -355,138 +338,7 @@ try {
 	context.fixtureSha256 = new Bun.CryptoHasher("sha256")
 		.update(new Uint8Array(await Bun.file(fixture).arrayBuffer()))
 		.digest("hex");
-	if (environment !== "docker") {
-		await run([
-			"cargo",
-			"build",
-			"--release",
-			"--locked",
-			"--manifest-path",
-			"crates/pulsify-db-bench/Cargo.toml",
-		]);
-		for (const backend of selectedDatabases) {
-			await memorySnapshot(
-				`${environment !== "docker" && !context.databases["docker"] ? "bare-metal" : "docker"}/${backend}/before`,
-			);
-			const native = engines[backend].native,
-				key = `bare-metal/${backend}`;
-			if (!native) {
-				context.unsupported[key] =
-					"No macOS native deployment configured; use Docker (Linux).";
-				continue;
-			}
-			if (durability === "strict" && relaxedOnly.has(backend)) {
-				context.unsupported[key] =
-					"No flush-before-acknowledge mode; relaxed tier only.";
-				continue;
-			}
-			let stop: (() => Promise<unknown>) | undefined;
-			try {
-				let url = "";
-				if (!embedded.has(native)) {
-					const bin =
-						native === "postgres"
-							? (env["PG_BIN"] ?? "/opt/homebrew/opt/postgresql@16/bin")
-							: env["PGRUST_BIN"];
-					if (!bin || !(await Bun.file(join(bin, "initdb")).exists()))
-						throw new Error(
-							`Set ${native === "pgrust" ? "PGRUST_BIN" : "PG_BIN"} to installed native binaries`,
-						);
-					const data = join(temporary, backend),
-						n = await port(),
-						log = join(output, `${backend}-server.log`);
-					await run(
-						[
-							join(bin, "initdb"),
-							"-D",
-							data,
-							"--locale=C",
-							"--encoding=UTF8",
-							"--auth=trust",
-							"-U",
-							"postgres",
-						],
-						true,
-					);
-					url = `postgresql://postgres@127.0.0.1:${n}/postgres`;
-					const child = Bun.spawn(
-						[
-							"/bin/zsh",
-							"-c",
-							'ulimit -s 65520; exec "$@"',
-							"pulsify-server",
-							join(bin, "postgres"),
-							"-D",
-							data,
-							"-h",
-							"127.0.0.1",
-							"-p",
-							String(n),
-							"-k",
-							temporary,
-							...pgSettings,
-						],
-						{
-							env: { ...env, RUST_MIN_STACK: "33554432" },
-							stdout: Bun.file(log),
-							stderr: Bun.file(`${log}.stderr`),
-						},
-					);
-					stop = async () => {
-						if (child.exitCode === null) child.kill("SIGINT");
-						const timer = setTimeout(() => {
-							if (child.exitCode === null) child.kill("SIGKILL");
-						}, 20000);
-						await child.exited;
-						clearTimeout(timer);
-						await rm(data, { recursive: true, force: true });
-					};
-					cleanupTasks.push(stop);
-					let ready = false;
-					for (let i = 0; i < 120; i++) {
-						if (child.exitCode !== null)
-							throw new Error(`Server exited; see ${log}.stderr`);
-						const check = Bun.spawn(
-							[
-								"/opt/homebrew/opt/postgresql@16/bin/psql",
-								url,
-								"-Atc",
-								"SELECT 1",
-							],
-							{ stdout: "pipe", stderr: "pipe" },
-						);
-						await Promise.all([
-							new Response(check.stdout).text(),
-							new Response(check.stderr).text(),
-						]);
-						if ((await check.exited) === 0) {
-							ready = true;
-							break;
-						}
-						await Bun.sleep(250);
-					}
-					if (!ready) throw new Error(`Server readiness timed out; see ${log}`);
-				}
-				await measure(
-					backend,
-					"bare-metal",
-					["crates/pulsify-db-bench/target/release/pulsify-db-bench"],
-					url,
-					false,
-				);
-			} catch (error) {
-				context.backendFailures[key] = String(error);
-				console.error(error);
-			} finally {
-				if (stop) {
-					await stop();
-					cleanupTasks.pop();
-				}
-			}
-			await saveContext();
-		}
-	}
-	if (environment !== "bare-metal") {
+	{
 		const project = `pulsify-native-${process.pid}-${Date.now()}`;
 		const compose = [
 			"docker",

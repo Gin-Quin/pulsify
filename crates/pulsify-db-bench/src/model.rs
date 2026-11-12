@@ -99,7 +99,8 @@ pub fn frame(rows: Vec<PatchRow>) -> Result<String> {
 #[derive(Deserialize)]
 pub struct Fixture {
     pub profile: String,
-    pub seed: String,
+    /// The whole history, in frames of bounded row count.
+    pub seed: Vec<String>,
     pub initial: String,
     pub remote: VersionVector,
     pub streams: Vec<Vec<String>>,
@@ -114,7 +115,14 @@ pub struct Prepared {
 }
 impl Prepared {
     pub fn new(f: Fixture) -> Result<Self> {
-        let seed_rows = frame_rows(&f.seed)?;
+        let seed_rows: Vec<PatchRow> = f
+            .seed
+            .iter()
+            .map(|frame| frame_rows(frame))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect();
         let pack = |rows: Vec<PatchRow>| {
             rows.into_iter()
                 .map(|r| Segment::pack(vec![r], false))

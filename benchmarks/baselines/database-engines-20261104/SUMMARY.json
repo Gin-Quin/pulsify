@@ -2,21 +2,21 @@
   "freshAttemptGroups": 15,
   "failedFreshAttemptGroups": 2,
   "main": {
-    "cells": 934,
-    "requests": 934000,
-    "errors": 584,
-    "replays": 1558,
-    "exactHistories": 255074
+    "cells": 561,
+    "requests": 561000,
+    "errors": 0,
+    "replays": 936,
+    "exactHistories": 152928
   },
   "freshProbes": {
-    "cells": 23,
-    "requests": 23000,
+    "cells": 13,
+    "requests": 13000,
     "errors": 0,
-    "replays": 36,
-    "exactHistories": 886
+    "replays": 20,
+    "exactHistories": 448
   },
-  "completedMatrices": 18,
-  "reportedMatrices": 20,
-  "plannedMatrices": 20,
-  "plannedMainRequests": 960000
+  "completedMatrices": 11,
+  "reportedMatrices": 12,
+  "plannedMatrices": 12,
+  "plannedMainRequests": 576000
 }

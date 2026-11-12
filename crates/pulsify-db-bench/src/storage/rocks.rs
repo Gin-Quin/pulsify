@@ -2,25 +2,76 @@ use super::kv::{self, Key, Kv};
 use super::{Output, Session, Work};
 use anyhow::Result;
 use rocksdb::{
-    DBAccess, DBRawIteratorWithThreadMode, Options, ReadOptions, SnapshotWithThreadMode,
-    TransactionDB, TransactionDBOptions, TransactionOptions, WriteBatch, WriteOptions, DB,
+    BlockBasedOptions, Cache, DBAccess, DBCompressionType, DBRawIteratorWithThreadMode, Options,
+    ReadOptions, SnapshotWithThreadMode, TransactionDBOptions, TransactionOptions, WriteBatch,
+    WriteOptions, DB,
 };
 use std::sync::Arc;
 
+/// The multi-threaded handle only differs in column-family bookkeeping; it is the
+/// one that exposes the engine's properties.
+type Db = rocksdb::TransactionDB<rocksdb::MultiThreaded>;
 /// One process-wide database; every worker gets its own handle and transactions.
-pub struct Rocks(pub Arc<TransactionDB>, pub bool);
-pub fn open(path: &str) -> Result<Arc<TransactionDB>> {
+pub struct Rocks(pub Arc<Db>, pub bool);
+/// Values from this size live in blob files: a 266 KiB document is then written
+/// once instead of being rewritten at every level of the tree.
+pub const MIN_BLOB_BYTES: u64 = 4096;
+/// The tuning RocksDB's own guide recommends for this shape of data. Background
+/// flushes and compactions get as many threads as the process has cores.
+fn options(cache_bytes: usize) -> Options {
     let mut options = Options::default();
     options.create_if_missing(true);
+    options
+        .increase_parallelism(std::thread::available_parallelism().map_or(1, |n| n.get()) as i32);
+    options.set_bytes_per_sync(1 << 20);
+    options.set_compression_type(DBCompressionType::Lz4);
+    options.set_bottommost_compression_type(DBCompressionType::Zstd);
+    let cache = Cache::new_lru_cache(cache_bytes);
+    let mut table = BlockBasedOptions::default();
+    table.set_block_cache(&cache);
+    table.set_bloom_filter(10.0, false);
+    options.set_block_based_table_factory(&table);
+    options.set_enable_blob_files(true);
+    options.set_min_blob_size(MIN_BLOB_BYTES);
+    options.set_blob_compression_type(DBCompressionType::Lz4);
+    options.set_enable_blob_gc(true);
+    options.set_blob_cache(&cache);
+    options
+}
+pub fn metadata(engine: &str, cache_bytes: usize, sync: bool) -> serde_json::Value {
+    serde_json::json!({"engine":engine,"walSyncOnCommit":sync,"backgroundThreads":std::thread::available_parallelism().map_or(1, |n| n.get()),"blockCacheBytes":cache_bytes,"bloomBitsPerKey":10,"compression":"LZ4, ZSTD on the last level","blobFiles":{"minBlobBytes":MIN_BLOB_BYTES,"compression":"LZ4","garbageCollection":true},"bytesPerSync":1 << 20})
+}
+/// Like CHECKPOINT on the SQL engines: once the memtable is flushed, wait for the
+/// flushes and compactions still pending, for five minutes at most.
+fn idle(property: impl Fn(&str) -> Result<Option<u64>, rocksdb::Error>) -> Result<()> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
+    loop {
+        let mut busy = 0;
+        for name in [
+            "rocksdb.mem-table-flush-pending",
+            "rocksdb.num-running-flushes",
+            "rocksdb.compaction-pending",
+            "rocksdb.num-running-compactions",
+        ] {
+            busy += property(name)?.unwrap_or(0);
+        }
+        if busy == 0 || std::time::Instant::now() > deadline {
+            return Ok(());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+pub fn open(path: &str, cache_bytes: usize) -> Result<Arc<Db>> {
+    let options = options(cache_bytes);
     let mut locks = TransactionDBOptions::default();
     locks.set_default_lock_timeout(30_000);
     locks.set_txn_lock_timeout(30_000);
-    Ok(Arc::new(TransactionDB::open(&options, &locks, path)?))
+    Ok(Arc::new(Db::open(&options, &locks, path)?))
 }
 
 enum Access<'a> {
-    Write(rocksdb::Transaction<'a, TransactionDB>),
-    Read(SnapshotWithThreadMode<'a, TransactionDB>),
+    Write(rocksdb::Transaction<'a, Db>),
+    Read(SnapshotWithThreadMode<'a, Db>),
 }
 struct Tx<'a> {
     access: Access<'a>,
@@ -88,7 +139,7 @@ impl Kv for Tx<'_> {
     }
 }
 impl Tx<'_> {
-    fn write(&self) -> Result<&rocksdb::Transaction<'_, TransactionDB>> {
+    fn write(&self) -> Result<&rocksdb::Transaction<'_, Db>> {
         match &self.access {
             Access::Write(tx) => Ok(tx),
             Access::Read(_) => anyhow::bail!("write in a read-only transaction"),
@@ -108,9 +159,11 @@ impl Session for Rocks {
             }
             cursor.status()?;
         }
-        // Like CHECKPOINT on the SQL engines: persist the memtable outside the timer.
-        self.0.flush()?;
         Ok(())
+    }
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        self.0.flush()?;
+        idle(|name| self.0.property_int_value(name))
     }
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output> {
         if !write {
@@ -145,11 +198,9 @@ pub struct Plain {
     locks: kv::Locks,
 }
 pub struct RocksMutex(pub Arc<Plain>, pub bool);
-pub fn open_plain(path: &str) -> Result<Arc<Plain>> {
-    let mut options = Options::default();
-    options.create_if_missing(true);
+pub fn open_plain(path: &str, cache_bytes: usize) -> Result<Arc<Plain>> {
     Ok(Arc::new(Plain {
-        db: DB::open(&options, path)?,
+        db: DB::open(&options(cache_bytes), path)?,
         locks: kv::Locks::default(),
     }))
 }
@@ -222,8 +273,11 @@ impl Session for RocksMutex {
             batch.delete_range(from, to);
             db.write(batch)?;
         }
-        // Like CHECKPOINT on the SQL engines: persist the memtable outside the timer.
-        Ok(db.flush()?)
+        Ok(())
+    }
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        self.0.db.flush()?;
+        idle(|name| self.0.db.property_int_value(name))
     }
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output> {
         let db = &self.0.db;

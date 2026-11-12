@@ -2,3 +2,5 @@
 # the minimum that CMake 4 accepts.
 [env]
 CMAKE_POLICY_VERSION_MINIMUM = "3.5"
+# SQLite caps memory-mapped I/O at 2 GiB unless told otherwise at compile time.
+LIBSQLITE3_FLAGS = "-DSQLITE_MAX_MMAP_SIZE=1099511627776"

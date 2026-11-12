@@ -1,15 +1,14 @@
 {
   "at": "2026-11-04T21:24:04.272609+00:00",
   "rustSourceSha256": "65cef0e135247c9dbd2e740239b249eb11b522d0fd0f123088af8908361e28a8",
-  "contextsChecked": 18,
   "largeFixtureIdenticalAcrossInvocations": true,
   "dockerLargeServerLimitsVerifiedBytes": 4294967296,
   "columnarAccessMethodAndPointIndexVerified": true,
   "orioledbAccessMethodVerified": true,
   "finalTypecheck": "passed after summary-tool formatting and removal of stale legacy bridge text",
-  "recordedRequestsIncludingFreshProbes": 957000,
-  "recordedRequestErrors": 584,
-  "fullMainMatricesCompleted": "18/20",
+  "recordedRequestsIncludingFreshProbes": 574000,
+  "recordedRequestErrors": 0,
+  "fullMainMatricesCompleted": "11/12",
   "freshProbeGroups": "13 passed, 2 reproduced OOM",
   "checksPassed": [
     "bun run check: 332 core + 14 CRDT + 7 benchmark, one optional PostgreSQL skip",

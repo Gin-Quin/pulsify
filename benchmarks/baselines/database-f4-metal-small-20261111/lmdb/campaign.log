@@ -1,0 +1,361 @@
+campaign: lmdb-1cpu-edits-100-strict 22:30:33
+lmdb/mixed/hot/saturation/c1: 3377.8 req/s, p99 0.97 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 76722.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4217.3 req/s, p99 0.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 12629.3 req/s, p99 0.16 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 128272.6 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2256.2 req/s, p99 0.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 2837.5 req/s, p99 98.69 ms, 0 errors, 30 retries, 136/64 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 73083.8 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 3980.5 req/s, p99 38.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 9467.0 req/s, p99 1.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 106050.1 req/s, p99 3.13 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2216.8 req/s, p99 243.88 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 2922.5 req/s, p99 622.34 ms, 0 errors, 54 retries, 118/82 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 68145.6 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 3989.7 req/s, p99 77.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8543.4 req/s, p99 221.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 99152.3 req/s, p99 0.02 ms, 0 errors, 11 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2258.8 req/s, p99 840.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-1cpu-edits-100-relaxed 22:30:43
+lmdb/mixed/hot/saturation/c1: 4349.2 req/s, p99 0.97 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 75208.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4175.3 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 106459.3 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 127595.5 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6806.0 req/s, p99 0.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 3389.4 req/s, p99 63.89 ms, 0 errors, 21 retries, 136/64 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 72448.1 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 4023.8 req/s, p99 32.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 95649.3 req/s, p99 3.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 124489.1 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6725.8 req/s, p99 40.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 3741.9 req/s, p99 497.13 ms, 0 errors, 32 retries, 126/74 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 65796.9 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 3984.5 req/s, p99 64.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 76290.4 req/s, p99 22.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 115396.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6552.6 req/s, p99 258.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-1cpu-edits-1000-strict 22:30:51
+lmdb/mixed/hot/saturation/c1: 2308.0 req/s, p99 1.33 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 8367.0 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 706.2 req/s, p99 1.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 9443.7 req/s, p99 0.18 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 126627.7 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2286.5 req/s, p99 0.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 1843.4 req/s, p99 85.97 ms, 0 errors, 51 retries, 128/72 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 7796.6 req/s, p99 32.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 695.5 req/s, p99 61.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8772.8 req/s, p99 1.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 106917.9 req/s, p99 3.00 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2273.2 req/s, p99 157.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 1912.5 req/s, p99 692.92 ms, 0 errors, 54 retries, 106/94 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 7685.0 req/s, p99 42.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 651.4 req/s, p99 390.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8240.5 req/s, p99 229.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 107347.9 req/s, p99 0.01 ms, 0 errors, 3 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2263.9 req/s, p99 834.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-1cpu-edits-1000-relaxed 22:31:11
+lmdb/mixed/hot/saturation/c1: 2789.3 req/s, p99 1.33 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 8321.2 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 705.0 req/s, p99 1.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 92698.8 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 130161.4 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6693.9 req/s, p99 0.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 1935.4 req/s, p99 111.61 ms, 0 errors, 33 retries, 132/68 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 7811.9 req/s, p99 32.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 702.0 req/s, p99 61.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 84408.6 req/s, p99 5.00 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 127176.7 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6687.5 req/s, p99 34.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 2099.1 req/s, p99 685.49 ms, 0 errors, 53 retries, 125/75 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 7734.4 req/s, p99 44.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 659.8 req/s, p99 378.80 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 71027.5 req/s, p99 25.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 111591.8 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6563.0 req/s, p99 240.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-1cpu-edits-10000-strict 22:31:29
+lmdb/mixed/hot/saturation/c1: 1052.4 req/s, p99 5.03 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 757.7 req/s, p99 1.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 76.8 req/s, p99 12.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8981.0 req/s, p99 0.18 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 117293.0 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2307.1 req/s, p99 0.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 563.6 req/s, p99 379.37 ms, 0 errors, 136 retries, 138/62 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 759.4 req/s, p99 59.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 44.9 req/s, p99 421.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8543.6 req/s, p99 1.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 100008.8 req/s, p99 3.67 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2265.0 req/s, p99 270.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 392.1 req/s, p99 3476.37 ms, 0 errors, 126 retries, 99/101 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 749.5 req/s, p99 281.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 27.7 req/s, p99 12881.97 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 7478.1 req/s, p99 250.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 81328.2 req/s, p99 0.01 ms, 0 errors, 4 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2237.2 req/s, p99 848.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-1cpu-edits-10000-relaxed 22:34:46
+lmdb/mixed/hot/saturation/c1: 1142.2 req/s, p99 4.96 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 760.6 req/s, p99 1.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 76.9 req/s, p99 12.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 82874.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 108585.0 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6562.3 req/s, p99 0.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 537.0 req/s, p99 472.29 ms, 0 errors, 124 retries, 144/56 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 757.6 req/s, p99 59.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 44.8 req/s, p99 425.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 75912.1 req/s, p99 6.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 119370.3 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6592.2 req/s, p99 40.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 324.7 req/s, p99 3991.26 ms, 0 errors, 157 retries, 115/85 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 747.9 req/s, p99 397.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 27.7 req/s, p99 11671.88 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 56782.9 req/s, p99 29.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 95618.5 req/s, p99 0.02 ms, 0 errors, 1 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6290.1 req/s, p99 240.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-100-strict 22:38:04
+lmdb/mixed/hot/saturation/c1: 3125.2 req/s, p99 0.98 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 74041.7 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4158.9 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8553.4 req/s, p99 0.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 124652.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2139.5 req/s, p99 0.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 6156.9 req/s, p99 30.78 ms, 0 errors, 211 retries, 126/74 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 279958.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 16186.0 req/s, p99 12.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8509.0 req/s, p99 67.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 399388.5 req/s, p99 0.01 ms, 0 errors, 14 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2118.4 req/s, p99 2.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 6223.3 req/s, p99 239.77 ms, 0 errors, 234 retries, 83/117 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 262387.0 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 15553.2 req/s, p99 83.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8315.4 req/s, p99 237.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 402697.3 req/s, p99 0.01 ms, 0 errors, 7 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2112.6 req/s, p99 936.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-100-relaxed 22:38:13
+lmdb/mixed/hot/saturation/c1: 4362.2 req/s, p99 0.95 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 73897.7 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4183.0 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 93160.7 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 124418.6 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6698.2 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 10433.0 req/s, p99 17.05 ms, 0 errors, 65 retries, 133/67 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 258967.4 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 16047.1 req/s, p99 12.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 73725.4 req/s, p99 4.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 464191.5 req/s, p99 0.01 ms, 0 errors, 4 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6606.0 req/s, p99 0.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 11413.2 req/s, p99 153.43 ms, 0 errors, 99 retries, 108/92 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 257553.8 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 15521.7 req/s, p99 65.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 64475.7 req/s, p99 29.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 348195.2 req/s, p99 0.01 ms, 0 errors, 3 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6535.1 req/s, p99 301.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-1000-strict 22:38:19
+lmdb/mixed/hot/saturation/c1: 2212.4 req/s, p99 1.40 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 8347.1 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 704.8 req/s, p99 1.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8572.2 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 124015.7 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2133.0 req/s, p99 0.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 5100.4 req/s, p99 44.08 ms, 0 errors, 156 retries, 125/75 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 31469.7 req/s, p99 9.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 2868.5 req/s, p99 13.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8720.8 req/s, p99 63.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 443524.6 req/s, p99 0.01 ms, 0 errors, 5 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2110.1 req/s, p99 0.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 4752.9 req/s, p99 280.60 ms, 0 errors, 172 retries, 98/102 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 30336.5 req/s, p99 40.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 2385.9 req/s, p99 141.61 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8298.5 req/s, p99 237.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 384939.0 req/s, p99 0.01 ms, 0 errors, 6 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2107.7 req/s, p99 938.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-1000-relaxed 22:38:33
+lmdb/mixed/hot/saturation/c1: 2788.8 req/s, p99 1.31 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 8346.2 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 710.4 req/s, p99 1.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 86243.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 128852.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6710.5 req/s, p99 0.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 7807.6 req/s, p99 23.36 ms, 0 errors, 51 retries, 136/64 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 31414.7 req/s, p99 9.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 2851.4 req/s, p99 13.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 74097.6 req/s, p99 8.07 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 448096.3 req/s, p99 0.01 ms, 0 errors, 5 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6528.2 req/s, p99 0.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 7946.0 req/s, p99 200.55 ms, 0 errors, 91 retries, 101/99 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 30639.4 req/s, p99 33.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 2345.5 req/s, p99 191.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 60385.9 req/s, p99 32.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 357682.6 req/s, p99 0.01 ms, 0 errors, 4 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6456.0 req/s, p99 304.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-10000-strict 22:38:44
+lmdb/mixed/hot/saturation/c1: 1044.4 req/s, p99 5.01 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 762.6 req/s, p99 1.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 77.2 req/s, p99 12.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8609.2 req/s, p99 0.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 126381.4 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2126.6 req/s, p99 0.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 2071.5 req/s, p99 109.13 ms, 0 errors, 153 retries, 126/74 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 3068.6 req/s, p99 13.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 176.7 req/s, p99 94.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8344.2 req/s, p99 49.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 391411.9 req/s, p99 0.01 ms, 0 errors, 9 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2128.6 req/s, p99 0.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 1558.4 req/s, p99 925.89 ms, 0 errors, 147 retries, 90/110 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 2905.3 req/s, p99 121.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 114.5 req/s, p99 2821.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8166.2 req/s, p99 241.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 378920.6 req/s, p99 0.01 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2097.9 req/s, p99 942.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-4cpu-edits-10000-relaxed 22:40:22
+lmdb/mixed/hot/saturation/c1: 1142.9 req/s, p99 4.99 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 766.2 req/s, p99 1.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 76.9 req/s, p99 12.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 81358.2 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 126347.8 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 6552.1 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 2307.6 req/s, p99 97.35 ms, 0 errors, 125 retries, 135/65 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 3066.9 req/s, p99 13.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 176.7 req/s, p99 102.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 63192.8 req/s, p99 8.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 391257.8 req/s, p99 0.01 ms, 0 errors, 3 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 6549.6 req/s, p99 0.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 1287.4 req/s, p99 1202.89 ms, 0 errors, 180 retries, 107/93 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 2908.8 req/s, p99 114.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 116.6 req/s, p99 3239.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 59463.4 req/s, p99 32.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 399569.2 req/s, p99 0.01 ms, 0 errors, 5 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6374.3 req/s, p99 308.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-100-strict 22:41:59
+lmdb/mixed/hot/saturation/c1: 3544.2 req/s, p99 0.83 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 75760.4 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4746.0 req/s, p99 0.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8695.6 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 138369.7 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2306.9 req/s, p99 0.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 7146.6 req/s, p99 23.81 ms, 0 errors, 434 retries, 113/87 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 501760.8 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 30964.8 req/s, p99 6.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8469.6 req/s, p99 73.94 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 504730.7 req/s, p99 0.02 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2299.1 req/s, p99 0.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 6797.0 req/s, p99 202.58 ms, 0 errors, 499 retries, 70/130 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 381388.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 32202.5 req/s, p99 9.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8430.7 req/s, p99 233.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 397738.9 req/s, p99 2.40 ms, 0 errors, 25 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2235.1 req/s, p99 883.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-100-relaxed 22:42:07
+lmdb/mixed/hot/saturation/c1: 4924.7 req/s, p99 0.83 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 77372.9 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 4747.3 req/s, p99 0.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 89710.4 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 125403.2 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 7507.4 req/s, p99 0.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 16130.0 req/s, p99 12.14 ms, 0 errors, 188 retries, 126/74 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 384854.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 30954.8 req/s, p99 6.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 73393.1 req/s, p99 7.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 544159.8 req/s, p99 0.02 ms, 0 errors, 10 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 7343.2 req/s, p99 0.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 14686.9 req/s, p99 106.66 ms, 0 errors, 275 retries, 103/97 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 381974.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 30986.0 req/s, p99 10.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 66022.8 req/s, p99 29.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 548856.2 req/s, p99 0.02 ms, 0 errors, 11 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 7105.9 req/s, p99 276.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-1000-strict 22:42:13
+lmdb/mixed/hot/saturation/c1: 2561.5 req/s, p99 1.15 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 9098.6 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 820.3 req/s, p99 1.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8818.3 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 118320.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2338.9 req/s, p99 0.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 7095.4 req/s, p99 22.43 ms, 0 errors, 296 retries, 114/86 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 55761.6 req/s, p99 6.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 5706.0 req/s, p99 7.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8441.9 req/s, p99 68.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 506875.0 req/s, p99 0.02 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2331.0 req/s, p99 0.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 5811.8 req/s, p99 212.08 ms, 0 errors, 419 retries, 66/134 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 54659.2 req/s, p99 32.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 4543.2 req/s, p99 141.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8433.9 req/s, p99 233.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 355594.8 req/s, p99 4.08 ms, 0 errors, 58 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2209.3 req/s, p99 893.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-1000-relaxed 22:42:24
+lmdb/mixed/hot/saturation/c1: 3169.8 req/s, p99 1.14 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 9234.5 req/s, p99 0.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 824.8 req/s, p99 1.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 93511.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 119468.5 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 7370.5 req/s, p99 0.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 12618.2 req/s, p99 13.02 ms, 0 errors, 135 retries, 133/67 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 62022.7 req/s, p99 3.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 5720.2 req/s, p99 7.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 74427.5 req/s, p99 7.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 637759.0 req/s, p99 0.02 ms, 0 errors, 5 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 7199.1 req/s, p99 0.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 11404.5 req/s, p99 128.74 ms, 0 errors, 177 retries, 111/89 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 56983.0 req/s, p99 20.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 4585.6 req/s, p99 251.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 68439.5 req/s, p99 28.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 445197.2 req/s, p99 0.02 ms, 0 errors, 12 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 6994.1 req/s, p99 280.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-10000-strict 22:42:34
+lmdb/mixed/hot/saturation/c1: 1204.1 req/s, p99 4.27 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 886.2 req/s, p99 1.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 86.0 req/s, p99 11.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 8947.7 req/s, p99 0.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 136978.4 req/s, p99 0.01 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 2352.1 req/s, p99 0.46 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 3536.2 req/s, p99 59.35 ms, 0 errors, 324 retries, 130/70 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 6106.7 req/s, p99 7.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 478.9 req/s, p99 40.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 8441.6 req/s, p99 75.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 551648.5 req/s, p99 0.03 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 2351.2 req/s, p99 0.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 2370.5 req/s, p99 570.73 ms, 0 errors, 327 retries, 88/112 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 5133.2 req/s, p99 106.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 373.7 req/s, p99 1771.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 8558.0 req/s, p99 229.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 425335.3 req/s, p99 3.64 ms, 0 errors, 33 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 2234.6 req/s, p99 881.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb-8cpu-edits-10000-relaxed 22:43:44
+lmdb/mixed/hot/saturation/c1: 1317.4 req/s, p99 4.28 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+lmdb/read_delta/hot/saturation/c1: 883.3 req/s, p99 1.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c1: 87.1 req/s, p99 11.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c1: 84291.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c1: 123760.0 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c1: 7359.4 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c16: 5088.1 req/s, p99 45.87 ms, 0 errors, 120 retries, 141/59 useful/noop compactions
+lmdb/read_delta/hot/saturation/c16: 6126.6 req/s, p99 7.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c16: 476.3 req/s, p99 39.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c16: 68539.7 req/s, p99 8.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c16: 441147.9 req/s, p99 0.35 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c16: 7208.4 req/s, p99 0.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/mixed/hot/saturation/c128: 3155.9 req/s, p99 477.18 ms, 0 errors, 183 retries, 109/91 useful/noop compactions
+lmdb/read_delta/hot/saturation/c128: 5140.5 req/s, p99 94.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/read_full/hot/saturation/c128: 365.5 req/s, p99 1999.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/write_patch/hot/saturation/c128: 65107.1 req/s, p99 29.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+lmdb/compact/hot/saturation/c128: 501816.5 req/s, p99 0.01 ms, 0 errors, 9 retries, 1/1999 useful/noop compactions
+lmdb/write_full/hot/saturation/c128: 7141.8 req/s, p99 275.72 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: lmdb done 22:44:53 {"engine":"lmdb","bytes":33206812800,"allocatedBytes":33206804480}

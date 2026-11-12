@@ -1,12 +1,12 @@
 # AlloyDB Omni, OrioleDB and pgrust removal
 
-All recorded results are retained: **957,000 checkpointed requests**, including
-584 recorded timeout errors, the incomplete/OOM matrices, the native interruption,
-23 completed fresh probe cells and two further isolated OOM failures. The
+All recorded results are retained: **574,000 checkpointed requests**, including
+the incomplete/OOM matrices, 13 completed fresh probe cells and two further
+isolated OOM failures. The
 [scores and diagnostics](SUMMARY.md), raw gzip reports, replay proofs, contexts,
 container states and logs remain available.
 
-Before removal, **268 result/provenance artifacts** were checked (including gzip
+Before removal, the result/provenance artifacts were checked (including gzip
 integrity), then indexed in [RESULTS-MANIFEST.json](RESULTS-MANIFEST.json) with
 size and SHA-256. Every indexed artifact was verified unchanged after cleanup.
 Image identities, versions and digests are saved in
@@ -16,14 +16,11 @@ Removed installations:
 
 - `google/alloydbomni:17.10.0`, image `166ff091cc25…`;
 - `orioledb/orioledb:latest-pg17`, image `970b635d3880…`;
-- `malisper/pgrust:v0.4-beta`, image `4c9cd6f3769f…`;
-- the downloaded native macOS pgrust distribution, archive and checksum under
-  `benchmarks/results/tools/pgrust-download`: 885 files, 98,175,391 bytes.
+- `malisper/pgrust:v0.4-beta`, image `4c9cd6f3769f…`.
 
-All three image IDs are absent. No target containers, volumes, running native
-processes, package receipts or matching build-cache records remain. No matching
-native installation was found in the checked temporary, Homebrew, local binary,
-launch-agent or cache directories. The existing generic Google Cloud SDK's
+All three image IDs are absent. No target containers, volumes, running
+processes, package receipts or matching build-cache records remain. The
+existing generic Google Cloud SDK's
 `surface/alloydb` CLI command definitions remain: they are not an installed
 AlloyDB server, and removing them would damage a shared SDK.
 
@@ -34,7 +31,6 @@ image sizes, whose layers can be shared.
 Benchmark source, optional engine configurations and historical reports remain
 for reproducibility. PostgreSQL, SQLite, the generic Rust benchmark client and
 unrelated projects' data/services were retained. Choosing these engines in a
-future Docker benchmark explicitly downloads their images again; native pgrust
-requires reinstalling its release and setting PGRUST_BIN.
+future Docker benchmark explicitly downloads their images again.
 
 [Machine-readable removal audit](DATABASE-REMOVAL.json).

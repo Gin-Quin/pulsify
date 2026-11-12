@@ -5,54 +5,6 @@
   "orchestrationSha256": "50938b9f9a65468717aacdc344c4afb09f7844a5490500e61479a265ce3c142e",
   "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
   "memorySnapshots": {
-    "bare-metal/postgres/before": {
-      "at": "2026-11-11T08:49:30.054Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 83973 \nPages purgeable: 68 \nPages purged: 36670365 \n\nSwap I/O:\nSwapins: 1613860 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 370141 \nPages inactive: 624205 \nPages speculative: 10922 \nPages throttled: 0 \nPages wired down: 246183 \n\nCompressor Stats:\nPages used by compressor: 721193 \nPages decompressed: 334279222 \nPages compressed: 373851210 \n\nFile I/O:\nPageins: 34506844 \nPageouts: 9169446 \n\nSystem-wide memory free percentage: 52%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10212.62M  free = 1051.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  22447708    35%  453127 224477080    0%   /"
-    },
-    "bare-metal/sqlite/before": {
-      "at": "2026-11-11T08:50:49.633Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 156160 \nPages purgeable: 1332 \nPages purged: 36670445 \n\nSwap I/O:\nSwapins: 1614047 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 498354 \nPages inactive: 496551 \nPages speculative: 1722 \nPages throttled: 0 \nPages wired down: 256992 \n\nCompressor Stats:\nPages used by compressor: 646742 \nPages decompressed: 334497853 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34551985 \nPageouts: 9170411 \n\nSystem-wide memory free percentage: 56%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10212.62M  free = 1051.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  26155916    32%  453127 261559160    0%   /"
-    },
-    "bare-metal/rocksdb/before": {
-      "at": "2026-11-11T08:51:46.187Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 119403 \nPages purgeable: 365 \nPages purged: 36671481 \n\nSwap I/O:\nSwapins: 1614126 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 523560 \nPages inactive: 525220 \nPages speculative: 1371 \nPages throttled: 0 \nPages wired down: 255755 \n\nCompressor Stats:\nPages used by compressor: 631718 \nPages decompressed: 334523207 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34558123 \nPageouts: 9170421 \n\nSystem-wide memory free percentage: 56%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25825228    32%  453127 258252280    0%   /"
-    },
-    "bare-metal/lmdb/before": {
-      "at": "2026-11-11T08:52:16.393Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 92683 \nPages purgeable: 887 \nPages purged: 36671485 \n\nSwap I/O:\nSwapins: 1614250 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 545086 \nPages inactive: 543889 \nPages speculative: 975 \nPages throttled: 0 \nPages wired down: 251446 \n\nCompressor Stats:\nPages used by compressor: 622433 \nPages decompressed: 334544921 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34560343 \nPageouts: 9170443 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25763376    32%  453127 257633760    0%   /"
-    },
-    "bare-metal/valkey/before": {
-      "at": "2026-11-11T08:52:42.137Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 73353 \nPages purgeable: 287 \nPages purged: 36671555 \n\nSwap I/O:\nSwapins: 1614358 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 554734 \nPages inactive: 531852 \nPages speculative: 28050 \nPages throttled: 0 \nPages wired down: 251011 \n\nCompressor Stats:\nPages used by compressor: 617806 \nPages decompressed: 334554825 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34561910 \nPageouts: 9170449 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25320944    33%  453127 253209440    0%   /"
-    },
-    "bare-metal/dragonfly/before": {
-      "at": "2026-11-11T08:52:42.139Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 73142 \nPages purgeable: 287 \nPages purged: 36671555 \n\nSwap I/O:\nSwapins: 1614358 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 554676 \nPages inactive: 531852 \nPages speculative: 28052 \nPages throttled: 0 \nPages wired down: 251006 \n\nCompressor Stats:\nPages used by compressor: 617806 \nPages decompressed: 334554825 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34561911 \nPageouts: 9170449 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25320944    33%  453127 253209440    0%   /"
-    },
-    "bare-metal/scylla/before": {
-      "at": "2026-11-11T08:52:42.141Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 72911 \nPages purgeable: 287 \nPages purged: 36671555 \n\nSwap I/O:\nSwapins: 1614358 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 554705 \nPages inactive: 531852 \nPages speculative: 28052 \nPages throttled: 0 \nPages wired down: 251007 \n\nCompressor Stats:\nPages used by compressor: 617806 \nPages decompressed: 334554826 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34561914 \nPageouts: 9170449 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25320944    33%  453127 253209440    0%   /"
-    },
-    "bare-metal/clickhouse/before": {
-      "at": "2026-11-11T08:52:42.143Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 72943 \nPages purgeable: 287 \nPages purged: 36671555 \n\nSwap I/O:\nSwapins: 1614358 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 554705 \nPages inactive: 531852 \nPages speculative: 28052 \nPages throttled: 0 \nPages wired down: 251008 \n\nCompressor Stats:\nPages used by compressor: 617806 \nPages decompressed: 334554826 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34561917 \nPageouts: 9170449 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10204.62M  free = 1059.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25320944    33%  453127 253209440    0%   /"
-    },
     "docker/postgres/before": {
       "at": "2026-11-11T08:52:43.854Z",
       "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 64355 \nPages purgeable: 297 \nPages purged: 36671555 \n\nSwap I/O:\nSwapins: 1614358 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 559309 \nPages inactive: 533051 \nPages speculative: 31516 \nPages throttled: 0 \nPages wired down: 251066 \n\nCompressor Stats:\nPages used by compressor: 617287 \nPages decompressed: 334555941 \nPages compressed: 373905080 \n\nFile I/O:\nPageins: 34574452 \nPageouts: 9170449 \n\nSystem-wide memory free percentage: 57%",
@@ -637,10 +589,6 @@
     }
   },
   "requestErrors": {
-    "bare-metal/postgres": 0,
-    "bare-metal/sqlite": 0,
-    "bare-metal/rocksdb": 0,
-    "bare-metal/lmdb": 0,
     "docker/postgres": 2,
     "docker/sqlite": 0,
     "docker/rocksdb": 0,
@@ -650,10 +598,5 @@
   "backendFailures": {
     "docker/dragonfly": "Error: docker compose -p pulsify-native-99070-1794387162143 failed (1): "
   },
-  "unsupported": {
-    "bare-metal/valkey": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/dragonfly": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/scylla": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/clickhouse": "No macOS native deployment configured; use Docker (Linux)."
-  }
+  "unsupported": {}
 }

@@ -54,16 +54,6 @@
   ],
   "rust": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
   "databases": {
-    "bare-metal": {
-      "postgres": {
-        "version": "PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.3.34.2), 64-bit",
-        "fsync": "on",
-        "synchronous_commit": "on",
-        "full_page_writes": "on"
-      },
-      "foundationdb": "FoundationDB 7.3 (v7.3.77)\nsource version 3ea44ce1d9003ad095e408039e1f755c319c4dfb\nprotocol fdb00b073000000",
-      "client": "FoundationDB C API 730 / foundationdb-rs 0.11.0"
-    },
     "docker": {
       "runnerImage": "sha256:88e30c447de1e520ccc3e1bf053260e58076f7c31fa01c835eabd2e5759ff267",
       "project": "pulsify-native-31558-1793817374880",
@@ -72,8 +62,6 @@
     }
   },
   "requestErrors": {
-    "bare-metal/foundationdb": 0,
-    "bare-metal/sqlite": 0,
     "docker/foundationdb": 0,
     "docker/sqlite": 0
   },

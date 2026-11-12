@@ -10,7 +10,6 @@ Retry counts are a lower bound when a request exhausts its retry budget; failed 
 
 | Environment | Database | Scenario | Topology | Mode | Clients | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|bare-metal|pgrust-columnar|read_delta|spread|burst|128|3332.7|35.059|69.352|75.421|297.077|0|0|0/0|
 |docker|pgrust-columnar|read_delta|spread|burst|128|3046.1|35.006|88.679|114.459|324.753|0|0|0/0|
 
 ## Operations within the mixed workload
@@ -20,4 +19,4 @@ Per-operation req/s is its completed share over the entire mixed cell duration. 
 | Environment | Database | Topology | Mode | Clients | Operation | Count | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |
 |---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 
-2 completed cells, 2000 requests, 0 errors, 4 representative histories materialized through Pulsify. All accepted history was compared row-for-row in Rust.
+1 completed cells, 1000 requests, 0 errors, 2 representative histories materialized through Pulsify. All accepted history was compared row-for-row in Rust.

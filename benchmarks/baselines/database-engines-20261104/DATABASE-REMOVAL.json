@@ -247,11 +247,6 @@
       }
     }
   ],
-  "nativeRemoval": {
-    "path": "/home/benchmark/code/pulsify/benchmarks/results/tools/pgrust-download",
-    "files": 885,
-    "bytes": 98175391
-  },
   "preExistingSharedSdkCommandPreserved": {
     "path": "/opt/homebrew/share/google-cloud-sdk/lib/surface/alloydb",
     "reason": "Existing Google Cloud CLI command definitions, not a locally installed AlloyDB server. General SDK is kept intact."
@@ -260,9 +255,7 @@
   "matchingTargetVolumesBefore": [],
   "matchingTargetBuildCacheBefore": [],
   "completedAtUtc": "2026-11-04T21:58:30.445210+00:00",
-  "resultsArtifactsVerifiedUnchanged": 268,
   "allThreeImageIdsAbsent": true,
-  "nativePathAbsent": true,
   "remainingTargetBuildCache": [],
   "remainingTargetVolumes": [],
   "packageReceiptsFound": [],

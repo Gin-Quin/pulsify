@@ -23,25 +23,26 @@ export interface TimingRun {
 }
 
 export interface DatabaseSummary {
-	success: number;
 	errors: number;
 	throughput_per_sec: number;
 	service: Record<"p50_ms" | "p99_ms", number>;
 }
 
 export interface DatabaseRun {
-	backend: string;
-	environment: string;
-	profile: string;
+	engine: string;
+	/** Cores online on the server: the clients and the database share them. */
+	cores: number;
+	/** Edits in the history of the document the clients work on. */
+	edits: number;
 	/** strict: flushed to disk before the acknowledgement. relaxed: acknowledged first. */
 	durability: string;
-	/** Date of the campaign that measured this run. Campaigns differ in scenario order. */
-	campaign: string;
-	/** Measured in a later session than the rest of its table. */
-	separateSession: boolean;
-	/** The series stopped on a backend failure before every planned cell ran. */
-	incomplete: boolean;
-	cells: { scenario: string; concurrency: number; summary: DatabaseSummary }[];
+	cells: { scenario: string; clients: number; summary: DatabaseSummary }[];
+}
+
+export interface DatabaseCampaign {
+	runs: DatabaseRun[];
+	/** Per engine: its data directory after the last cell, and the payload it holds. */
+	sizes: Record<string, { bytes: number; storedBytes: number }>;
 }
 
 export interface ComparisonColumn {
@@ -56,7 +57,8 @@ export interface ComparisonValue {
 	value?: number;
 	detail?: JSX.Element;
 	missing?: string;
-	failed?: boolean;
+	/** The cell had errors: shown as a fail icon whose tooltip is this text. */
+	failed?: string;
 }
 
 export interface ComparisonRow {
@@ -158,7 +160,7 @@ export const scenarioHelp: Record<string, string> = {
 	"upstream-map-conflict":
 		"16 peers change the same key at the same time. One peer imports all 16 updates and resolves the conflict.",
 	compact:
-		"Rewrites a document’s stored history into fewer segments, without losing any edit.",
+		"Rewrites a document’s stored history into fewer segments, without losing any edit. On a single document nearly every attempt finds the work already done, so this row mostly times that check.",
 	read_delta:
 		"Reads only the edits a client is missing, given the versions it already has.",
 	mixed:

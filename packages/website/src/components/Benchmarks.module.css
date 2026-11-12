@@ -290,6 +290,7 @@
 	margin-top: var(--space-4);
 	overflow: auto;
 	isolation: isolate;
+	position: relative;
 	border: var(--border-width) solid var(--color-border);
 	border-radius: var(--radius-md);
 	background: var(--color-bg-raised);
@@ -404,7 +405,6 @@
 	background: rgb(255 122 122 / 0.055);
 }
 
-.table td[data-failed="true"] small,
 .table td[data-failed="true"] {
 	color: var(--color-no);
 }
@@ -434,6 +434,13 @@
 		serif;
 	vertical-align: 0.1em;
 	cursor: help;
+}
+
+.info.fail {
+	border-color: var(--color-no);
+	color: var(--color-no);
+	font-style: normal;
+	font-weight: var(--font-weight-bold, 700);
 }
 
 .info span {
@@ -509,6 +516,11 @@
 	.sectionNav a {
 		padding: var(--space-2);
 	}
+}
+
+/* The wrap is its own stacking context: lift it while a bubble is open so later sections cannot paint over it. */
+.tableWrap:has(.info:hover, .info:focus) {
+	z-index: 10;
 }
 
 /* Lift the row header holding an open bubble above the sticky headers of the rows below. */

@@ -10,7 +10,7 @@ use model::{Fixture, Prepared};
 use pulsify_protocol::{PatchLog, PatchRow};
 use serde::Serialize;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fs,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -31,7 +31,7 @@ struct Args {
     fixture: String,
     #[arg(long)]
     output: String,
-    #[arg(long, default_value = "bare-metal")]
+    #[arg(long, default_value = "local")]
     environment: String,
     #[arg(long, default_value = "1,16,64")]
     concurrency: String,
@@ -66,6 +66,16 @@ struct Args {
     /// Address of a non-PostgreSQL server (Valkey, Dragonfly, ScyllaDB, ClickHouse).
     #[arg(long, default_value = "")]
     server_url: String,
+    /// Keep every document after its cell instead of deleting it. The database
+    /// then holds the whole campaign, and its final size means something.
+    #[arg(long)]
+    keep_data: bool,
+    /// Block cache of the LSM engines (RocksDB, LevelDB), in MiB.
+    #[arg(long, default_value_t = 1024)]
+    cache_mib: usize,
+    /// Leave the per-request events out of the report; summaries remain.
+    #[arg(long)]
+    no_events: bool,
 }
 type Connect = Arc<dyn Fn() -> Result<Box<dyn Session>> + Send + Sync>;
 #[derive(Clone)]
@@ -87,6 +97,7 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
         "unknown durability tier"
     );
     let args = args.clone();
+    let cache = args.cache_mib << 20;
     Ok(match args.backend.as_str() {
         "postgres" | "alloydb" | "orioledb" | "pgrust-row" | "pgrust-columnar" => {
             use storage::pg::Pg;
@@ -119,29 +130,30 @@ fn open(args: &Args) -> Result<(Connect, serde_json::Value)> {
             (Arc::new(move || Ok(Box::new(session()?.0))), metadata)
         }
         "rocksdb" => {
-            let db = storage::rocks::open(&args.data_path)?;
-            let metadata = serde_json::json!({"engine":"RocksDB TransactionDB","walSyncOnCommit":!relaxed,"lockTimeoutMs":30000,"options":"library defaults"});
+            let db = storage::rocks::open(&args.data_path, cache)?;
+            let metadata = storage::rocks::metadata("RocksDB TransactionDB", cache, !relaxed);
             let connect: Connect =
                 Arc::new(move || Ok(Box::new(storage::rocks::Rocks(db.clone(), !relaxed))));
             (connect, metadata)
         }
         "rocksdb-mutex" => {
-            let db = storage::rocks::open_plain(&args.data_path)?;
-            let metadata = serde_json::json!({"engine":"RocksDB DB (no TransactionDB)","walSyncOnCommit":!relaxed,"options":"library defaults","documentLock":"striped mutex in the runner"});
+            let db = storage::rocks::open_plain(&args.data_path, cache)?;
+            let metadata =
+                storage::rocks::metadata("RocksDB DB (no TransactionDB)", cache, !relaxed);
             let connect: Connect =
                 Arc::new(move || Ok(Box::new(storage::rocks::RocksMutex(db.clone(), !relaxed))));
             (connect, metadata)
         }
         "leveldb" => {
-            let db = storage::leveldb::open(&args.data_path)?;
-            let metadata = serde_json::json!({"engine":"LevelDB 1.22 (leveldb-sys 2.0.9)","syncOnCommit":!relaxed,"writeBufferBytes":storage::leveldb::WRITE_BUFFER_BYTES,"compression":"none","documentLock":"striped mutex in the runner: LevelDB has no lock manager"});
+            let db = storage::leveldb::open(&args.data_path, cache)?;
+            let metadata = serde_json::json!({"engine":"LevelDB 1.22 (leveldb-sys 2.0.9)","syncOnCommit":!relaxed,"writeBufferBytes":storage::leveldb::WRITE_BUFFER_BYTES,"blockCacheBytes":cache,"maxOpenFiles":storage::leveldb::MAX_OPEN_FILES,"compression":"Snappy","documentLock":"striped mutex in the runner: LevelDB has no lock manager"});
             let connect: Connect =
                 Arc::new(move || Ok(Box::new(storage::leveldb::LevelDb(db.clone(), !relaxed))));
             (connect, metadata)
         }
         "lmdb" => {
             let lmdb = storage::lmdb::open(&args.data_path, relaxed)?;
-            let metadata = serde_json::json!({"engine":"LMDB","noSync":relaxed,"mapSizeBytes":8u64 << 30,"maxReaders":512});
+            let metadata = serde_json::json!({"engine":"LMDB","noSync":relaxed,"mapSizeBytes":storage::lmdb::MAP_BYTES,"maxReaders":512});
             (Arc::new(move || Ok(Box::new(lmdb.clone()))), metadata)
         }
         "valkey" | "dragonfly" => {
@@ -268,6 +280,9 @@ struct Cell {
     documents: usize,
     seconds: f64,
     maximum_active: usize,
+    /// What the cell's documents hold once it ends, read back during verification.
+    stored_segments: usize,
+    stored_payload_bytes: usize,
     summary: Summary,
     operations: BTreeMap<String, Summary>,
     events: Vec<Event>,
@@ -277,6 +292,8 @@ struct Cell {
 struct Verification {
     doc: String,
     exact_rows: usize,
+    segments: usize,
+    payload_bytes: usize,
     frames: Vec<String>,
 }
 #[derive(Serialize)]
@@ -386,6 +403,8 @@ fn verify(
     Ok(Verification {
         doc: doc.into(),
         exact_rows: rows.len(),
+        segments: output.segments.len(),
+        payload_bytes: output.segments.iter().map(|s| s.payload.len()).sum(),
         frames: encoded,
     })
 }
@@ -429,6 +448,7 @@ fn run_cell(
                 .collect(),
         );
     }
+    setup.settle(prefix)?;
     let barrier = Arc::new(Barrier::new(concurrency + 1));
     let next = Arc::new(AtomicUsize::new(0));
     let active = Arc::new(AtomicUsize::new(0));
@@ -460,6 +480,7 @@ fn run_cell(
                 let origin = *epoch.get().unwrap();
                 let mut events = Vec::new();
                 let mut writes = Vec::new();
+                let mut sent: HashMap<String, usize> = HashMap::new();
                 let mut stream = 0;
                 loop {
                     let id = next.fetch_add(1, Ordering::SeqCst);
@@ -489,15 +510,18 @@ fn run_cell(
                                     .context("fixture stream exhausted")?;
                                 // Each worker has its own actor stream per document; avoid causal gaps
                                 // when a worker alternates documents under the spread workload.
-                                let prior =
-                                    writes.iter().filter(|(doc, _)| *doc == job.doc).count();
-                                let segment = &p.streams[worker][prior];
+                                if !sent.contains_key(&job.doc) {
+                                    sent.insert(job.doc.clone(), 0);
+                                }
+                                let prior = sent.get_mut(&job.doc).unwrap();
+                                let segment = &p.streams[worker][*prior];
                                 output = storage::append(
                                     &mut *session,
                                     &job.doc,
                                     std::slice::from_ref(segment),
                                 )?;
                                 writes.push((job.doc.clone(), segment.clone()));
+                                *prior += 1;
                                 stream += 1;
                             }
                             "read_full" | "read_delta" => {
@@ -592,7 +616,10 @@ fn run_cell(
             (!selected.is_empty()).then(|| (op.to_string(), summarize(&selected, seconds)))
         })
         .collect();
-    setup.cleanup(prefix)?;
+    if !factory.args.keep_data {
+        setup.cleanup(prefix)?;
+    }
+    setup.settle(prefix)?;
     let summary = summarize(&events, seconds);
     eprintln!("{}/{scenario}/{topology}/{mode}/c{concurrency}: {:.1} req/s, p99 {:.2} ms, {} errors, {} retries, {}/{} useful/noop compactions",factory.args.backend,summary.throughput_per_sec,summary.service.p99_ms,summary.errors,summary.retries,summary.useful_compactions,summary.noop_compactions);
     Ok(Cell {
@@ -603,9 +630,15 @@ fn run_cell(
         documents: seeded.len(),
         seconds,
         maximum_active: maximum.load(Ordering::SeqCst),
+        stored_segments: verification.iter().map(|v| v.segments).sum(),
+        stored_payload_bytes: verification.iter().map(|v| v.payload_bytes).sum(),
         summary,
         operations,
-        events,
+        events: if factory.args.no_events {
+            vec![]
+        } else {
+            events
+        },
         verification,
     })
 }
@@ -641,7 +674,7 @@ fn main() -> Result<()> {
     let mut report = Report {
         format: 2,
         arguments: args.clone(),
-        metadata: serde_json::json!({"database":database_metadata,"profile":p.profile,"durability":args.durability,"platform":std::env::consts::OS,"architecture":std::env::consts::ARCH,"benchmarkVersion":env!("CARGO_PKG_VERSION"),"sqliteVersion":rusqlite::version(),"commit":std::env::var("BENCH_COMMIT").unwrap_or_default()}),
+        metadata: serde_json::json!({"database":database_metadata,"profile":p.profile,"durability":args.durability,"platform":std::env::consts::OS,"cpus":thread::available_parallelism().map_or(0, |n| n.get()),"architecture":std::env::consts::ARCH,"benchmarkVersion":env!("CARGO_PKG_VERSION"),"sqliteVersion":rusqlite::version(),"commit":std::env::var("BENCH_COMMIT").unwrap_or_default()}),
         cells: Vec::new(),
     };
     let run = std::time::SystemTime::now()

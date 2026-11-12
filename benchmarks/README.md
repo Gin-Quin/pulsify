@@ -10,10 +10,12 @@ with the compact single-write frame (envelope 4). The
 limits; its numbers are those of the previous campaign.
 Competitor dependencies belong only to this private benchmark workspace.
 
-The [native Rust database benchmark](database/README.md) runs PostgreSQL, AlloyDB Omni, OrioleDB, pgrust (row/columnar)
-and file-backed SQLite on the host and in Docker. It exercises
+The [native Rust database benchmark](database/README.md) exercises
 concurrent full writes/reads, patch appends, lossless compaction, vector reads
-and the 45/25/10/10/10 mix, with burst queues and contention measurements:
+and the 45/25/10/10/10 mix. Its [reference results](database/RESULTS.md)
+compare PostgreSQL, SQLite, RocksDB, LevelDB and LMDB on one dedicated Linux
+server, with 1, 4 and 8 cores. In Docker it also runs AlloyDB Omni, OrioleDB
+and pgrust (row/columnar), with burst queues and contention measurements:
 
 ```sh
 bun run bench:database --quick
@@ -87,8 +89,8 @@ The suite does not time rich-text editing, schema migrations, materializers,
 constants, database ingestion or database queries. Those features have separate
 correctness/integration checks. Historical PostgreSQL measurements are in
 [STORAGE-BENCHMARKS.md](../docs/STORAGE-BENCHMARKS.md). The separate
-[database suite](database/README.md) measures all three reference storage
-implementations and their transports; it is not a backend optimization campaign.
+[database suite](database/README.md) compares storage engines under one storage
+policy; its [results](database/RESULTS.md) come from a dedicated server.
 
 ## Supplementary protocol and connector suite
 

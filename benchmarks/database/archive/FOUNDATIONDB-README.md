@@ -7,8 +7,8 @@ clients for PostgreSQL, FoundationDB and SQLite. FoundationDB uses
 `foundationdb-rs` 0.11.0 and the official C API 730. There is no Python bridge,
 per-key IPC, global client queue or single shared SQLite connection.
 
-The [recorded results](FOUNDATIONDB-RESULTS.md) cover native macOS ARM64 and Docker Linux
-ARM64. The earlier sequential Python-bridge suite is retained as
+The [recorded results](FOUNDATIONDB-RESULTS.md) cover Docker Linux ARM64. The
+earlier sequential Python-bridge suite is retained as
 [legacy methodology](../LEGACY.md) and [legacy results](../LEGACY-RESULTS.md);
 its timings cannot be compared directly with the concurrent Rust suite.
 
@@ -17,25 +17,25 @@ its timings cannot be compared directly with the concurrent Rust suite.
 From the repository root, with Rust/Cargo, Bun and Docker Compose installed:
 
 ```sh
-# Both deployments, small fixture, 4 clients and 20 requests per cell.
-bun run bench:database --quick
+# Small fixture, 4 clients and 20 requests per cell.
+bun run bench:database --environment docker --quick
 
-# Full matrix: both deployments, medium history, 1/16/64 clients,
+# Full matrix: medium history, 1/16/64 clients,
 # five operations plus the exact requested mix, spread/hot, burst/saturation.
-bun run bench:database
+bun run bench:database --environment docker
 
 # Heavy campaign, writing into a fresh directory.
-bun run bench:database --environment both --profile medium \
+bun run bench:database --environment docker --profile medium \
   --concurrency 1,16,64 --requests 1000 \
   --results-dir benchmarks/results/native-medium
 
 # Larger histories and 128 concurrent clients.
-bun run bench:database --environment both --profile large \
+bun run bench:database --environment docker --profile large \
   --concurrency 128 --requests 1000 \
   --results-dir benchmarks/results/native-large
 
 # Filter a workload without changing its implementation.
-bun run bench:database --environment bare-metal --concurrency 64 \
+bun run bench:database --environment docker --concurrency 64 \
   --scenarios mixed --topologies hot --modes burst --requests 1000
 ```
 
@@ -51,28 +51,16 @@ matrices are recorded in `context.json`; remaining independent backends still
 run. Only a completed orchestration writes `context.json`
 and the final `REPORT.md`. Use a new directory for each campaign.
 
-Native macOS requires PostgreSQL 16 binaries, normally installed with
-`brew install postgresql@16`; override their directory with `PG_BIN`. On ARM64,
-missing FoundationDB 7.3.77 tools are downloaded from the official GitHub
-release, checked against a pinned SHA-256, and extracted to a local tools
-folder. The system installer and launch daemons are never invoked. Override
-`FDB_TOOLS_DIR` with a folder containing `bin/fdbserver`, `bin/fdbcli` and
-`lib/libfdb_c.dylib`. A Linux native run requires corresponding installed tools
-and library paths; this campaign verified macOS native and Docker Linux.
-
-Both native servers use fresh temporary directories and unused localhost
-ports. Docker uses an isolated network and fresh volumes, without published
-ports. SQLite is file-backed in both deployments. Servers, containers, volumes
-and benchmark data are removed after success, failure, SIGINT or SIGTERM;
-reports and build artifacts remain. Existing databases/services are untouched.
-Only one measured backend stays active at a time; native PostgreSQL and
-FoundationDB both stop before Docker measurement.
+Docker uses an isolated network and fresh volumes, without published ports.
+SQLite is file-backed. Containers, volumes and benchmark data are removed after
+success, failure, SIGINT or SIGTERM; reports and build artifacts remain.
+Existing databases/services are untouched. Only one measured backend stays
+active at a time.
 
 `PULSIFY_NATIVE_IMAGE` can select an already built Docker runner and skip its
 build. Otherwise the orchestrator builds `native.Dockerfile`. Compilation
 outputs and compiler temporary files use a build-only RAM mount; database data
-never uses tmpfs. Native binaries compile with `FDB_CLIENT_LIB_PATH` and load
-with the tools directory's library path. Cargo.lock pins the complete graph.
+never uses tmpfs. Cargo.lock pins the complete graph.
 
 ## Work and concurrency
 
@@ -169,7 +157,7 @@ a lower bound when errors occur. A vector inside a compressed segment requires d
 then filtering known rows. Compaction is not a state-only overwrite.
 
 PostgreSQL keeps fsync, synchronous commits and full-page writes enabled.
-Both deployments use 180 allowed connections, 128 MiB shared buffers, a 128 MiB
+The server uses 180 allowed connections, 128 MiB shared buffers, a 128 MiB
 WAL target, 32 MiB minimum WAL and a 60-second checkpoint interval. Cleanup
 checkpoints run outside cell timing to bound retained WAL on the test machine.
 FoundationDB uses disk-backed `single ssd`, a configurable 4 GiB resident-memory limit,
@@ -191,7 +179,7 @@ the native FDB client library is available.
 
 | File | Responsibility |
 | --- | --- |
-| `native.ts` | Native/Docker setup, builds, provenance and cleanup |
+| `native.ts` | Docker setup, builds, provenance and cleanup |
 | `native-fixtures.ts` | Real Pulsify actor streams and model replay |
 | `native-report.ts` | Human-readable report from raw request records |
 | `crates/pulsify-db-bench/src/model.rs` | Shared binary segments and integrity |
@@ -201,6 +189,4 @@ the native FDB client library is available.
 | `crates/pulsify-db-bench/src/tests.rs` | Concurrency, losslessness and exact mix contracts |
 
 The legacy TypeScript suite is still available as `bun run bench:database:legacy`.
-Its historical tests and baseline are intentionally preserved. Comparisons
-between native macOS and Docker Linux include operating-system, filesystem,
-server-version and VM differences; they do not isolate a universal Docker cost.
+Its historical tests and baseline are intentionally preserved.

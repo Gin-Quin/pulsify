@@ -27,7 +27,7 @@ fn scratch(name: &str) -> String {
 #[test]
 fn rocksdb_parallel_contract() {
     let path = scratch("rocksdb");
-    let db = storage::rocks::open(&path).unwrap();
+    let db = storage::rocks::open(&path, 64 << 20).unwrap();
     contract(|| Box::new(storage::rocks::Rocks(db.clone(), true)));
     drop(db);
     fs::remove_dir_all(path).unwrap();
@@ -35,7 +35,7 @@ fn rocksdb_parallel_contract() {
 #[test]
 fn rocksdb_mutex_parallel_contract() {
     let path = scratch("rocksdb-mutex");
-    let db = storage::rocks::open_plain(&path).unwrap();
+    let db = storage::rocks::open_plain(&path, 64 << 20).unwrap();
     contract(|| Box::new(storage::rocks::RocksMutex(db.clone(), true)));
     drop(db);
     fs::remove_dir_all(path).unwrap();
@@ -43,7 +43,7 @@ fn rocksdb_mutex_parallel_contract() {
 #[test]
 fn leveldb_parallel_contract() {
     let path = scratch("leveldb");
-    let db = storage::leveldb::open(&path).unwrap();
+    let db = storage::leveldb::open(&path, 64 << 20).unwrap();
     contract(|| Box::new(storage::leveldb::LevelDb(db.clone(), true)));
     drop(db);
     fs::remove_dir_all(path).unwrap();

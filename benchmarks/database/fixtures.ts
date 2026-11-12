@@ -32,6 +32,10 @@ export const profiles = {
 	small: { paragraphs: 8, textBytes: 256, patches: 20 },
 	medium: { paragraphs: 64, textBytes: 512, patches: 100 },
 	large: { paragraphs: 256, textBytes: 1024, patches: 1000 },
+	// One document, three history lengths: only the number of edits differs.
+	"edits-100": { paragraphs: 256, textBytes: 1024, patches: 100 },
+	"edits-1000": { paragraphs: 256, textBytes: 1024, patches: 1000 },
+	"edits-10000": { paragraphs: 256, textBytes: 1024, patches: 10000 },
 };
 export type Profile = keyof typeof profiles;
 const options = (sessionId: number) => ({

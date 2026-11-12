@@ -10,7 +10,6 @@ Retry counts are a lower bound when a request exhausts its retry budget; failed 
 
 | Environment | Database | Scenario | Topology | Mode | Clients | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|bare-metal|pgrust-columnar|mixed|hot|saturation|128|734.7|121.541|542.963|596.795|596.795|0|121|5/95|
 |docker|pgrust-columnar|mixed|hot|saturation|128|516.7|182.865|564.162|993.120|993.120|0|161|5/95|
 
 ## Operations within the mixed workload
@@ -19,15 +18,10 @@ Per-operation req/s is its completed share over the entire mixed cell duration. 
 
 | Environment | Database | Topology | Mode | Clients | Operation | Count | req/s | service p50 ms | service p95 ms | service p99 ms | end-to-end p99 ms | errors | retries | useful/noop compactions |
 |---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|bare-metal|pgrust-columnar|hot|saturation|128|compact|100|73.5|503.759|602.548|609.461|609.461|0|121|5/95|
-|bare-metal|pgrust-columnar|hot|saturation|128|read_delta|250|183.7|1.637|29.309|32.813|32.813|0|0|0/0|
-|bare-metal|pgrust-columnar|hot|saturation|128|read_full|100|73.5|3.988|65.771|70.691|70.691|0|0|0/0|
-|bare-metal|pgrust-columnar|hot|saturation|128|write_full|100|73.5|3.684|48.336|60.169|60.169|0|0|0/0|
-|bare-metal|pgrust-columnar|hot|saturation|128|write_patch|450|330.6|181.227|542.092|544.511|544.511|0|0|0/0|
 |docker|pgrust-columnar|hot|saturation|128|compact|100|51.7|564.162|1080.769|1100.626|1100.626|0|161|5/95|
 |docker|pgrust-columnar|hot|saturation|128|read_delta|250|129.2|1.594|62.096|81.499|81.499|0|0|0/0|
 |docker|pgrust-columnar|hot|saturation|128|read_full|100|51.7|3.011|102.781|125.438|125.438|0|0|0/0|
 |docker|pgrust-columnar|hot|saturation|128|write_full|100|51.7|4.929|53.147|86.549|86.549|0|0|0/0|
 |docker|pgrust-columnar|hot|saturation|128|write_patch|450|232.5|350.600|535.447|541.791|541.791|0|0|0/0|
 
-2 completed cells, 2000 requests, 0 errors, 4 representative histories materialized through Pulsify. All accepted history was compared row-for-row in Rust.
+1 completed cells, 1000 requests, 0 errors, 2 representative histories materialized through Pulsify. All accepted history was compared row-for-row in Rust.

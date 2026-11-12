@@ -37,7 +37,6 @@ impl Sqlite {
         Self::open_with(path, "jitter", 64 * 1024 * 1024, false)
     }
     pub fn open_with(path: &str, busy_mode: &str, mmap_bytes: u64, relaxed: bool) -> Result<Self> {
-        ensure!(mmap_bytes <= 1024 * 1024 * 1024, "mmap limit is 1 GiB");
         let db = Connection::open(path)?;
         match busy_mode {
             "jitter" => db.busy_handler(Some(busy))?,
@@ -48,6 +47,11 @@ impl Sqlite {
         // last commits, never corrupt the file.
         db.pragma_update(None, "synchronous", if relaxed { "NORMAL" } else { "FULL" })?;
         db.pragma_update(None, "mmap_size", mmap_bytes as i64)?;
+        // Per connection: 64 MiB of page cache for what the map does not cover, and a
+        // 64 MiB log before a checkpoint folds it back, like the LSM write buffers.
+        db.pragma_update(None, "cache_size", -65536)?;
+        db.pragma_update(None, "wal_autocheckpoint", 16384)?;
+        db.pragma_update(None, "journal_size_limit", 64 << 20)?;
         Ok(Self(db))
     }
     pub fn metadata(&self, busy_mode: &str, relaxed: bool) -> Result<serde_json::Value> {
@@ -200,6 +204,11 @@ impl Session for Sqlite {
             "DELETE FROM native_vectors WHERE doc >= ? AND doc < ?",
             params![prefix, upper],
         )?;
+        Ok(())
+    }
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        self.0
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
         Ok(())
     }
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output> {

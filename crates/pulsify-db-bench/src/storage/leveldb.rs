@@ -34,10 +34,15 @@ pub struct Shared {
 }
 /// One process-wide database; every worker shares it.
 pub struct LevelDb(pub Arc<Shared>, pub bool);
-pub fn open(path: &str) -> Result<Arc<Shared>> {
+/// Each table file is 2 MiB: enough open tables for the 20 GiB written last.
+pub const MAX_OPEN_FILES: i32 = 10_000;
+pub fn open(path: &str, cache_bytes: usize) -> Result<Arc<Shared>> {
     let mut options = Options::new();
     options.create_if_missing = true;
     options.write_buffer_size = Some(WRITE_BUFFER_BYTES);
+    options.max_open_files = Some(MAX_OPEN_FILES);
+    options.compression = leveldb_sys::Compression::Snappy;
+    options.cache = Some(leveldb::database::cache::Cache::new(cache_bytes));
     Ok(Arc::new(Shared {
         db: Database::open(std::path::Path::new(path), options)?,
         locks: kv::Locks::default(),
@@ -108,8 +113,14 @@ impl Session for LevelDb {
                 batch.delete(key);
             }
             db.write(WriteOptions::new(), &batch)?;
-            // Like CHECKPOINT on the SQL engines: settle tombstones outside the timer.
-            db.compact(&from, &to);
+        }
+        Ok(())
+    }
+    fn settle(&mut self, prefix: &str) -> Result<()> {
+        // Like CHECKPOINT on the SQL engines: LevelDB has no flush call, but
+        // compacting the cell's key range writes its memtable and tombstones out.
+        for (from, to) in kv::cleanup_ranges(prefix) {
+            self.0.db.compact(&Bytes(from), &Bytes(to));
         }
         Ok(())
     }

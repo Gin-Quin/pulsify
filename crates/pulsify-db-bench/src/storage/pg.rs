@@ -252,8 +252,10 @@ impl Session for Pg {
             "DELETE FROM native_vectors WHERE doc >= $1 AND doc < $2",
             &[&prefix, &upper],
         )?;
-        self.0.batch_execute("CHECKPOINT")?;
         Ok(())
+    }
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        Ok(self.0.batch_execute("CHECKPOINT")?)
     }
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output> {
         let tx = self

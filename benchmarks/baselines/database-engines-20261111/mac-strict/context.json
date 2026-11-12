@@ -5,48 +5,6 @@
   "orchestrationSha256": "a5c793b88fe545ac324c00c38d75831c40af954a08612d638bc3bd56b09ac4cd",
   "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
   "memorySnapshots": {
-    "bare-metal/postgres/before": {
-      "at": "2026-11-11T08:17:22.102Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 47067 \nPages purgeable: 1843 \nPages purged: 36264391 \n\nSwap I/O:\nSwapins: 1572336 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 541078 \nPages inactive: 536000 \nPages speculative: 6893 \nPages throttled: 0 \nPages wired down: 250228 \n\nCompressor Stats:\nPages used by compressor: 675520 \nPages decompressed: 322673572 \nPages compressed: 360609570 \n\nFile I/O:\nPageins: 33863971 \nPageouts: 8998144 \n\nSystem-wide memory free percentage: 54%",
-      "swap": "vm.swapusage: total = 12288.00M  used = 10561.50M  free = 1726.50M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25203100    33%  453127 252031000    0%   /"
-    },
-    "bare-metal/sqlite/before": {
-      "at": "2026-11-11T08:18:33.728Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 159777 \nPages purgeable: 670 \nPages purged: 36265889 \n\nSwap I/O:\nSwapins: 1572612 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 469477 \nPages inactive: 464960 \nPages speculative: 4326 \nPages throttled: 0 \nPages wired down: 250117 \n\nCompressor Stats:\nPages used by compressor: 707960 \nPages decompressed: 322950643 \nPages compressed: 360982722 \n\nFile I/O:\nPageins: 33877822 \nPageouts: 8999373 \n\nSystem-wide memory free percentage: 53%",
-      "swap": "vm.swapusage: total = 12288.00M  used = 10561.50M  free = 1726.50M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25228696    33%  453127 252286960    0%   /"
-    },
-    "bare-metal/rocksdb/before": {
-      "at": "2026-11-11T08:19:21.327Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 108538 \nPages purgeable: 445 \nPages purged: 36265929 \n\nSwap I/O:\nSwapins: 1572680 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 513336 \nPages inactive: 511440 \nPages speculative: 1425 \nPages throttled: 0 \nPages wired down: 255725 \n\nCompressor Stats:\nPages used by compressor: 666279 \nPages decompressed: 323043636 \nPages compressed: 361004779 \n\nFile I/O:\nPageins: 33885603 \nPageouts: 8999446 \n\nSystem-wide memory free percentage: 55%",
-      "swap": "vm.swapusage: total = 12288.00M  used = 10553.50M  free = 1734.50M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24905372    33%  453127 249053720    0%   /"
-    },
-    "bare-metal/lmdb/before": {
-      "at": "2026-11-11T08:19:47.612Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 94300 \nPages purgeable: 1239 \nPages purged: 36265939 \n\nSwap I/O:\nSwapins: 1572716 \nSwapouts: 2678222 \n\nPage Q counts:\nPages active: 526505 \nPages inactive: 524153 \nPages speculative: 2166 \nPages throttled: 0 \nPages wired down: 250808 \n\nCompressor Stats:\nPages used by compressor: 658319 \nPages decompressed: 323058041 \nPages compressed: 361004779 \n\nFile I/O:\nPageins: 33889856 \nPageouts: 8999483 \n\nSystem-wide memory free percentage: 55%",
-      "swap": "vm.swapusage: total = 12288.00M  used = 10553.50M  free = 1734.50M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  24892800    33%  453127 248928000    0%   /"
-    },
-    "bare-metal/valkey/before": {
-      "at": "2026-11-11T08:21:39.867Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51536 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566935 \nPages inactive: 565072 \nPages speculative: 1629 \nPages throttled: 0 \nPages wired down: 248733 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151128 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895062 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
-    },
-    "bare-metal/scylla/before": {
-      "at": "2026-11-11T08:21:39.868Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51605 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566944 \nPages inactive: 565072 \nPages speculative: 1631 \nPages throttled: 0 \nPages wired down: 248732 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151130 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895069 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
-    },
-    "bare-metal/clickhouse/before": {
-      "at": "2026-11-11T08:21:39.870Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 51366 \nPages purgeable: 1644 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603886 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 566921 \nPages inactive: 565072 \nPages speculative: 1631 \nPages throttled: 0 \nPages wired down: 248728 \n\nCompressor Stats:\nPages used by compressor: 622677 \nPages decompressed: 323151130 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33895072 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
-      "swap": "vm.swapusage: total = 11264.00M  used = 10372.62M  free = 891.38M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  25479236    33%  453127 254792360    0%   /"
-    },
     "docker/postgres/before": {
       "at": "2026-11-11T08:21:41.497Z",
       "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 44329 \nPages purgeable: 1396 \nPages purged: 36266447 \n\nSwap I/O:\nSwapins: 1603910 \nSwapouts: 2708028 \n\nPage Q counts:\nPages active: 571003 \nPages inactive: 567970 \nPages speculative: 3177 \nPages throttled: 0 \nPages wired down: 248775 \n\nCompressor Stats:\nPages used by compressor: 621732 \nPages decompressed: 323153820 \nPages compressed: 361040024 \n\nFile I/O:\nPageins: 33904310 \nPageouts: 8999567 \n\nSystem-wide memory free percentage: 57%",
@@ -811,10 +769,6 @@
     }
   },
   "requestErrors": {
-    "bare-metal/postgres": 2,
-    "bare-metal/sqlite": 0,
-    "bare-metal/rocksdb": 0,
-    "bare-metal/lmdb": 0,
     "docker/postgres": 0,
     "docker/sqlite": 0,
     "docker/rocksdb": 0,
@@ -825,9 +779,5 @@
     "docker/scylla": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/results/engines-20261111/mac-strict/docker-scylla.json",
     "docker/clickhouse": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/results/engines-20261111/mac-strict/docker-clickhouse.json"
   },
-  "unsupported": {
-    "bare-metal/valkey": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/scylla": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/clickhouse": "No macOS native deployment configured; use Docker (Linux)."
-  }
+  "unsupported": {}
 }

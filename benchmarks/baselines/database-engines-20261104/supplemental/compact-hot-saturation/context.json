@@ -5,12 +5,6 @@
   "orchestrationSha256": "708be13e02540156f424cc5f3bf713804269bfc9e2c76f56b08228a0236b5a48",
   "compiler": "rustc 1.95.0 (59807616e 2026-04-14) (Homebrew)",
   "memorySnapshots": {
-    "bare-metal/pgrust-columnar/before": {
-      "at": "2026-11-04T21:15:45.306Z",
-      "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 18490 \nPages purgeable: 4041 \nPages purged: 150388 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 698839 \nPages inactive: 694980 \nPages speculative: 3549 \nPages throttled: 0 \nPages wired down: 182769 \n\nCompressor Stats:\nPages used by compressor: 457903 \nPages decompressed: 757353 \nPages compressed: 1910163 \n\nFile I/O:\nPageins: 1940086 \nPageouts: 70465 \n\nSystem-wide memory free percentage: 68%",
-      "swap": "vm.swapusage: total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)",
-      "disk": "Filesystem     1024-blocks      Used Available Capacity iused     ifree %iused  Mounted on\n/dev/disk3s1s1   482797652  12012164  53023692    19%  453127 530236920    0%   /"
-    },
     "docker/pgrust-columnar/before": {
       "at": "2026-11-04T21:15:47.151Z",
       "pressure": "The system has 34359738368 (2097152 pages with a page size of 16384).\n\nStats: \nPages free: 63492 \nPages purgeable: 2927 \nPages purged: 150549 \n\nSwap I/O:\nSwapins: 0 \nSwapouts: 0 \n\nPage Q counts:\nPages active: 674434 \nPages inactive: 670367 \nPages speculative: 4594 \nPages throttled: 0 \nPages wired down: 185520 \n\nCompressor Stats:\nPages used by compressor: 457772 \nPages decompressed: 757826 \nPages compressed: 1910496 \n\nFile I/O:\nPageins: 1947348 \nPageouts: 70468 \n\nSystem-wide memory free percentage: 68%",
@@ -499,7 +493,6 @@
     }
   },
   "requestErrors": {
-    "bare-metal/pgrust-columnar": 0,
     "docker/pgrust-columnar": 0
   },
   "backendFailures": {},

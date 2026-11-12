@@ -1,0 +1,2 @@
+3580755968	/data/sqlite
+3580755968	/data/sqlite/pulsify.sqlite

@@ -8,7 +8,7 @@ import {
 import styles from "./Benchmarks.module.css";
 
 /** An info button whose bubble is placed in viewport coordinates, so the scrolling table cannot clip it. */
-export function Info(props: { text: string }) {
+export function Info(props: { text: string; fail?: boolean }) {
 	let bubble!: HTMLSpanElement;
 	const place = (event: { currentTarget: HTMLElement }) => {
 		const box = event.currentTarget.getBoundingClientRect();
@@ -19,11 +19,12 @@ export function Info(props: { text: string }) {
 		<button
 			type="button"
 			class={styles.info}
+			classList={{ [styles.fail]: props.fail }}
 			aria-label={props.text}
 			onMouseEnter={place}
 			onFocus={place}
 		>
-			i
+			{props.fail ? "!" : "i"}
 			<span ref={bubble} aria-hidden="true">
 				{props.text}
 			</span>
@@ -37,32 +38,38 @@ export function BenchmarkTable(props: {
 	columns: ComparisonColumn[];
 	rows: ComparisonRow[];
 	direction?: "lower" | "higher";
+	/** Keep `columns` in the given order instead of ranking them by this table's values. */
+	fixedOrder?: boolean;
 	/** A caveat about the whole table, shown in an info bubble after the caption. */
 	note?: string;
 }) {
 	// Use the unrounded mean of available results in the currently displayed table.
 	const columns = createMemo(() =>
-		props.columns
-			.map((column) => {
-				const values = props.rows
-					.map((row) => row.values[column.id]?.value)
-					.filter(
-						(value): value is number =>
-							value !== undefined && Number.isFinite(value),
-					);
-				return {
-					column,
-					mean: values.length
-						? values.reduce((sum, value) => sum + value, 0) / values.length
-						: undefined,
-				};
-			})
-			.sort((a, b) => {
-				if (a.mean === undefined) return b.mean === undefined ? 0 : 1;
-				if (b.mean === undefined) return -1;
-				return props.direction === "higher" ? b.mean - a.mean : a.mean - b.mean;
-			})
-			.map(({ column }) => column),
+		props.fixedOrder
+			? props.columns
+			: props.columns
+					.map((column) => {
+						const values = props.rows
+							.map((row) => row.values[column.id]?.value)
+							.filter(
+								(value): value is number =>
+									value !== undefined && Number.isFinite(value),
+							);
+						return {
+							column,
+							mean: values.length
+								? values.reduce((sum, value) => sum + value, 0) / values.length
+								: undefined,
+						};
+					})
+					.sort((a, b) => {
+						if (a.mean === undefined) return b.mean === undefined ? 0 : 1;
+						if (b.mean === undefined) return -1;
+						return props.direction === "higher"
+							? b.mean - a.mean
+							: a.mean - b.mean;
+					})
+					.map(({ column }) => column),
 	);
 	return (
 		<div
@@ -119,7 +126,7 @@ export function BenchmarkTable(props: {
 										return (
 											<td
 												data-rank={rank()}
-												data-failed={cell()?.failed || undefined}
+												data-failed={cell()?.failed ? "true" : undefined}
 											>
 												<Show
 													when={cell()?.value !== undefined}
@@ -133,6 +140,9 @@ export function BenchmarkTable(props: {
 													}
 												>
 													{formatScore(cell()!.value!)}
+													<Show when={cell()?.failed}>
+														{(failed) => <Info fail text={failed()} />}
+													</Show>
 													<Show when={cell()?.detail}>
 														<small>{cell()?.detail}</small>
 													</Show>

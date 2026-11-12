@@ -1,1 +1,0 @@
-882bb8db37bd7053821d72d75084b9a98b3383117beb7ddc13cff6725c9431f2  pgrust-0.4-beta-macos-arm64.tar.gz

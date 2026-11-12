@@ -7,89 +7,32 @@ import {
 	scenarioHelp,
 	scenarioNames,
 	type ComparisonRow,
-	type DatabaseRun,
+	type DatabaseCampaign,
 	type DatabaseSummary,
 } from "~/data/benchmarks";
 import data from "~/data/generated/database-results.json";
 import styles from "./Benchmarks.module.css";
 
-const allRuns = data as DatabaseRun[];
+const { runs: allRuns, sizes } = data as DatabaseCampaign;
 const versions: Record<string, string> = {
-	postgres: "16",
-	alloydb: "17.10",
-	orioledb: "PG 17.11 · beta 19",
-	"pgrust-row": "0.4-beta",
-	"pgrust-columnar": "0.4-beta",
+	postgres: "18.6",
+	sqlite: "3.51",
 	rocksdb: "11.8",
-	"rocksdb-mutex": "11.8 · no TransactionDB",
 	leveldb: "1.22",
 	lmdb: "0.9.70",
 };
-const backends = [
-	"postgres",
-	"sqlite",
-	"rocksdb",
-	"rocksdb-mutex",
-	"leveldb",
-	"lmdb",
-	"alloydb",
-	"orioledb",
-	"pgrust-row",
-	"pgrust-columnar",
-];
-const deployments: Record<string, string> = {
-	docker: "Docker · Linux",
-	"bare-metal": "Native · macOS",
-	vps: "VPS · Linux",
-	unikraft: "Unikraft Cloud · 1 vCPU",
-	"docker-1cpu": "Docker · 1 core",
-};
+const backends = ["postgres", "sqlite", "rocksdb", "leveldb", "lmdb"];
 const tierNames: Record<string, string> = {
 	strict: "Strict",
 	relaxed: "Relaxed",
 };
-
-/** What skews one engine's column against its neighbours. Nothing when the column is a fair comparison. */
-function columnBias(run: DatabaseRun, mixedCampaigns: boolean) {
-	const notes: string[] = [];
-	if (
-		run.backend === "lmdb" &&
-		run.environment === "bare-metal" &&
-		run.durability === "strict"
-	)
-		notes.push(
-			"Only LMDB asks macOS for a full flush to the drive; the other engines’ fsync stops at the drive cache. LMDB pays a cost here that they skip.",
-		);
-	if (run.backend === "leveldb")
-		notes.push(
-			"LevelDB has no transactions: its adapter adds a mutex and one write batch per transaction. It runs with RocksDB’s 64 MiB write buffer and without compression.",
-		);
-	if (run.backend === "rocksdb-mutex")
-		notes.push(
-			"RocksDB without its transaction layer: a mutex and one write batch per transaction, like the LevelDB adapter.",
-		);
-	if (run.separateSession)
-		notes.push(
-			"Measured in a later session than its neighbours, with a rebuilt runner. Compare it with RocksDB on the one-core deployment, where they ran together.",
-		);
-	if (mixedCampaigns && run.campaign === "2026-11-04")
-		notes.push(
-			"Measured on 4 November in another scenario order: the mix ran last, on a used store. Measured again on 11 November with the mix first, PostgreSQL and SQLite scored 5% to 86% higher on it.",
-		);
-	return notes.join(" ") || undefined;
-}
-
-/** What skews a whole deployment's table. */
-function tableBias(environment: string, durability: string) {
-	if (environment === "bare-metal" && durability === "strict")
-		return "On macOS, fsync stops at the drive cache: the strict tier is fully strict on Linux only.";
-	if (environment === "vps")
-		return "A shared VPS with other workloads and a nearly full disk. It runs no database server, so only embedded engines were measured.";
-	if (environment === "unikraft")
-		return "One vCPU shared by the clients and the database. Whether fsync reaches stable storage on its volume is not established.";
-	if (environment === "docker-1cpu")
-		return "One Linux container pinned to a single core of the Mac.";
-}
+/** What sets one engine's column apart from its neighbours. */
+const columnNotes: Record<string, string> = {
+	postgres:
+		"The only server here: its clients reach it through a Unix socket and share the cores with it. The other engines run inside the client process.",
+	leveldb:
+		"LevelDB has no transactions: its adapter adds a mutex and one write batch per transaction.",
+};
 const operations = [
 	"write_full",
 	"read_full",
@@ -153,72 +96,65 @@ function Choice<T extends string | number>(props: {
 	);
 }
 
+const unique = (values: number[]) => [...new Set(values)].sort((a, b) => a - b);
+const coreCounts = unique(allRuns.map((r) => r.cores));
+const histories = unique(allRuns.map((r) => r.edits));
+const clientCounts = unique(
+	allRuns.flatMap((r) => r.cells.map((c) => c.clients)),
+);
+/** Geometric mean of an engine's throughput over every option: scenarios span orders of magnitude, so an arithmetic mean would only rank compaction. */
+const overall = (engine: string) => {
+	const logs = allRuns
+		.filter((r) => r.engine === engine)
+		.flatMap((r) => r.cells.map((c) => c.summary.throughput_per_sec))
+		.filter((v) => v > 0)
+		.map(Math.log);
+	return logs.reduce((sum, v) => sum + v, 0) / logs.length;
+};
+/** Fixed whatever the filters: best overall engine first. */
+const columns = backends
+	.filter((id) => allRuns.some((r) => r.engine === id))
+	.sort((a, b) => overall(b) - overall(a))
+	.map((id) => ({
+		id,
+		label: engineNames[id],
+		detail: versions[id],
+		help: columnNotes[id],
+	}));
+const sizeRows: ComparisonRow[] = [
+	{
+		id: "size",
+		label: "Size on disk",
+		help: "The engine’s whole data directory after the last batch. Nothing is deleted during the campaign, so every engine holds the same documents.",
+		values: Object.fromEntries(
+			Object.entries(sizes).map(([engine, size]) => [
+				engine,
+				{
+					value: size.bytes / 2 ** 30,
+					detail: `${(size.bytes / size.storedBytes).toFixed(2)} × the stored payload`,
+				},
+			]),
+		),
+	},
+];
+
 export function DatabaseBenchmarks() {
-	const [profile, setProfile] = createSignal("large");
-	const [requestedEnvironment, setEnvironment] = createSignal("docker");
-	const [requestedDurability, setDurability] = createSignal("strict");
-	const [requestedClients, setClients] = createSignal(128);
+	const [cores, setCores] = createSignal(coreCounts.at(-1)!);
+	const [edits, setEdits] = createSignal(
+		histories.includes(1000) ? 1000 : histories[0]!,
+	);
+	const [durability, setDurability] = createSignal("strict");
+	const [clients, setClients] = createSignal(clientCounts.at(-1)!);
 	const [metricId, setMetric] = createSignal<Metric>("throughput");
 	const metric = () => metrics[metricId()];
-	// Each choice falls back to what the choices before it leave available.
-	// Memos, not plain functions: each table cell reads these, and a plain function would re-filter every run per cell.
-	const inProfile = createMemo(() => {
-		const id = profile();
-		return allRuns.filter((r) => r.profile === id);
-	});
-	const environments = createMemo(() =>
-		Object.keys(deployments).filter((id) =>
-			inProfile().some((r) => r.environment === id),
-		),
-	);
-	const environment = createMemo(() =>
-		environments().includes(requestedEnvironment())
-			? requestedEnvironment()
-			: environments()[0]!,
-	);
-	const inDeployment = createMemo(() =>
-		inProfile().filter((r) => r.environment === environment()),
-	);
-	const tiers = createMemo(() =>
-		Object.keys(tierNames).filter((id) =>
-			inDeployment().some((r) => r.durability === id),
-		),
-	);
-	const durability = createMemo(() =>
-		tiers().includes(requestedDurability())
-			? requestedDurability()
-			: tiers()[0]!,
-	);
+	// A memo, not a plain function: each table cell reads it, and a plain function would re-filter every run per cell.
 	const runs = createMemo(() =>
-		inDeployment().filter((r) => r.durability === durability()),
-	);
-	const clientCounts = createMemo(() =>
-		[...new Set(runs().flatMap((r) => r.cells.map((c) => c.concurrency)))].sort(
-			(a, b) => a - b,
+		allRuns.filter(
+			(r) =>
+				r.cores === cores() &&
+				r.edits === edits() &&
+				r.durability === durability(),
 		),
-	);
-	const clients = createMemo(() =>
-		clientCounts().includes(requestedClients())
-			? requestedClients()
-			: clientCounts().at(-1)!,
-	);
-	const mixedCampaigns = createMemo(
-		() => new Set(runs().map((r) => r.campaign)).size > 1,
-	);
-	const columns = createMemo(() =>
-		backends.flatMap((id) => {
-			const run = runs().find((r) => r.backend === id);
-			return run
-				? [
-						{
-							id,
-							label: engineNames[id],
-							detail: versions[id],
-							help: columnBias(run, mixedCampaigns()),
-						},
-					]
-				: [];
-		}),
 	);
 	const rows = createMemo((): ComparisonRow[] =>
 		operations.map((scenario) => ({
@@ -228,15 +164,13 @@ export function DatabaseBenchmarks() {
 			values: Object.fromEntries(
 				runs().map((run) => {
 					const summary = run.cells.find(
-						(c) => c.scenario === scenario && c.concurrency === clients(),
+						(c) => c.scenario === scenario && c.clients === clients(),
 					)?.summary;
 					return [
-						run.backend,
+						run.engine,
 						{
 							value: summary && metric().read(summary),
-							missing: run.incomplete ? "Backend failed" : undefined,
-							failed: !!summary?.errors,
-							detail: summary?.errors
+							failed: summary?.errors
 								? `${formatCount(summary.errors)} errors`
 								: undefined,
 						},
@@ -258,44 +192,41 @@ export function DatabaseBenchmarks() {
 				</SourceLink>
 			</div>
 			<p class={styles.lead}>
-				Each storage backend serving real Pulsify histories: batches of 1,000
-				requests from concurrent clients on one document. Strict flushes every
-				commit to disk before acknowledging it; relaxed acknowledges first.
+				Each storage backend serving real Pulsify histories on the same
+				dedicated server (12-core AMD EPYC 4484PX, 96 GB, NVMe, Ubuntu 24.04):
+				batches of 2,000 requests from concurrent clients on one document.
+				Strict flushes every commit to disk before acknowledging it; relaxed
+				acknowledges first.
 			</p>
 			<div class={styles.toolbar}>
 				<Choice
-					label="Document history"
-					value={profile()}
-					onChange={setProfile}
-					options={[
-						["medium", "100 edits"],
-						["large", "1,000 edits"],
-					]}
+					label="Cores"
+					help="Cores online on the server. The clients and the database share them."
+					value={cores()}
+					onChange={setCores}
+					options={coreCounts.map((n) => [n, String(n)])}
 				/>
 				<Choice
-					label="Deployment"
-					value={environment()}
-					onChange={setEnvironment}
-					options={environments().map((id) => [id, deployments[id]!])}
+					label="Document history"
+					help="Edits already stored for the document the clients work on. The document itself is the same: 256 paragraphs, 266 KiB."
+					value={edits()}
+					onChange={setEdits}
+					options={histories.map((n) => [n, `${formatCount(n)} edits`])}
 				/>
-				<Show when={tiers().length > 1}>
-					<Choice
-						label="Durability"
-						help="Strict flushes each commit to disk before confirming it. Relaxed confirms writes before flushing: a crash can lose recently confirmed writes. Compare engines within the same durability tier."
-						value={durability()}
-						onChange={setDurability}
-						options={tiers().map((id) => [id, tierNames[id]!])}
-					/>
-				</Show>
-				<Show when={clientCounts().length > 1}>
-					<Choice
-						label="Concurrent clients"
-						help="Number of clients sending requests to the same document at once. Each client waits for its previous request to finish before sending the next. More clients increase contention on the database."
-						value={clients()}
-						onChange={setClients}
-						options={clientCounts().map((c) => [c, String(c)])}
-					/>
-				</Show>
+				<Choice
+					label="Durability"
+					help="Strict flushes each commit to disk before confirming it. Relaxed confirms writes before flushing: a crash can lose recently confirmed writes. Compare engines within the same durability tier."
+					value={durability()}
+					onChange={setDurability}
+					options={Object.entries(tierNames)}
+				/>
+				<Choice
+					label="Concurrent clients"
+					help="Number of clients sending requests to the same document at once. Each client waits for its previous request to finish before sending the next. More clients increase contention on the database."
+					value={clients()}
+					onChange={setClients}
+					options={clientCounts.map((c) => [c, String(c)])}
+				/>
 				<Choice
 					label="Metric"
 					value={metricId()}
@@ -307,12 +238,20 @@ export function DatabaseBenchmarks() {
 				/>
 			</div>
 			<BenchmarkTable
-				caption={`${metric().label} · ${clients()} concurrent clients`}
-				note={tableBias(environment(), durability())}
+				caption={`${metric().label} · ${cores()} ${cores() === 1 ? "core" : "cores"} · ${clients()} concurrent clients`}
 				unit={metric().unit}
 				direction={metric().direction}
-				columns={columns()}
+				columns={columns}
+				fixedOrder
 				rows={rows()}
+			/>
+			<BenchmarkTable
+				caption="Database size after every batch"
+				unit="GiB"
+				direction="lower"
+				columns={columns}
+				fixedOrder
+				rows={sizeRows}
 			/>
 		</section>
 	);

@@ -290,8 +290,10 @@ or RocksDB for local embedded storage.
 ## Reproducible Database Benchmark
 
 Run `bun run bench:database` to exercise real Pulsify documents against
-PostgreSQL and file-backed SQLite on the host and inside Docker, plus AlloyDB
-Omni, OrioleDB and pgrust 0.4-beta (row and columnar tables).
+PostgreSQL and file-backed SQLite inside Docker, plus AlloyDB
+Omni, OrioleDB and pgrust 0.4-beta (row and columnar tables). The reference
+results for PostgreSQL, SQLite, RocksDB, LevelDB and LMDB come from a dedicated
+Linux server: see the [results](benchmarks/database/RESULTS.md).
 The Rust suite uses native clients and covers concurrent full writes/reads,
 patch appends, lossless compaction, vector reads and a weighted mixed workload.
 See the [benchmark guide](benchmarks/database/README.md) for architecture,

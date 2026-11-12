@@ -800,10 +800,6 @@
     }
   },
   "requestErrors": {
-    "bare-metal/postgres": 0,
-    "bare-metal/sqlite": 0,
-    "bare-metal/pgrust-row": 0,
-    "bare-metal/pgrust-columnar": 0,
     "docker/postgres": 0,
     "docker/sqlite": 0,
     "docker/alloydb": 0,
@@ -812,12 +808,9 @@
   },
   "backendFailures": {
     "docker/pgrust-columnar": "Error: Incomplete backend campaign: /home/benchmark/code/pulsify/benchmarks/baselines/database-engines-20261104/medium/docker-pgrust-columnar.json",
-    "campaign": "Intentionally interrupted after nine complete backends; excluded from ranking due host memory pressure."
+    "campaign": "Intentionally interrupted after five complete Docker backends; excluded from ranking due host memory pressure."
   },
-  "unsupported": {
-    "bare-metal/alloydb": "No macOS native deployment configured; use Docker (Linux).",
-    "bare-metal/orioledb": "No macOS native deployment configured; use Docker (Linux)."
-  },
+  "unsupported": {},
   "excluded": "Host application caused >33 GiB swap and severe memory interference. User closed it; repeat the retained campaign under restored available memory.",
   "interrupted": true
 }

@@ -1,0 +1,41 @@
+campaign: sqlite-8cpu-edits-1000-strict 22:02:01
+sqlite/mixed/hot/saturation/c1: 1926.0 req/s, p99 1.26 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+sqlite/read_delta/hot/saturation/c1: 3687.4 req/s, p99 0.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c1: 724.3 req/s, p99 1.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c1: 7077.0 req/s, p99 0.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c1: 24313.5 req/s, p99 0.04 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c1: 1087.2 req/s, p99 0.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/hot/saturation/c16: 2247.4 req/s, p99 80.12 ms, 0 errors, 420 retries, 130/70 useful/noop compactions
+sqlite/read_delta/hot/saturation/c16: 4186.3 req/s, p99 4.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c16: 3643.3 req/s, p99 6.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c16: 4594.9 req/s, p99 95.59 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c16: 97855.8 req/s, p99 4.07 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c16: 967.6 req/s, p99 95.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/hot/saturation/c128: 1179.0 req/s, p99 1163.52 ms, 0 errors, 971 retries, 81/119 useful/noop compactions
+sqlite/read_delta/hot/saturation/c128: 3672.6 req/s, p99 53.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c128: 2804.0 req/s, p99 64.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c128: 2859.8 req/s, p99 308.07 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c128: 38844.3 req/s, p99 44.70 ms, 0 errors, 127 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c128: 781.5 req/s, p99 710.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: sqlite-8cpu-edits-1000-relaxed 22:02:23
+sqlite/mixed/hot/saturation/c1: 2044.2 req/s, p99 1.27 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+sqlite/read_delta/hot/saturation/c1: 3513.3 req/s, p99 0.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c1: 725.6 req/s, p99 1.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c1: 15529.7 req/s, p99 0.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c1: 19542.4 req/s, p99 0.07 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c1: 1073.0 req/s, p99 0.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/hot/saturation/c16: 2297.2 req/s, p99 98.18 ms, 0 errors, 583 retries, 135/65 useful/noop compactions
+sqlite/read_delta/hot/saturation/c16: 3736.6 req/s, p99 5.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c16: 2886.2 req/s, p99 7.73 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c16: 15264.1 req/s, p99 30.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c16: 29163.6 req/s, p99 5.98 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c16: 1043.8 req/s, p99 202.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/mixed/hot/saturation/c128: 1003.3 req/s, p99 1416.75 ms, 0 errors, 1103 retries, 85/115 useful/noop compactions
+sqlite/read_delta/hot/saturation/c128: 3169.8 req/s, p99 63.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/read_full/hot/saturation/c128: 2150.9 req/s, p99 80.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/write_patch/hot/saturation/c128: 3233.0 req/s, p99 292.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+sqlite/compact/hot/saturation/c128: 20399.7 req/s, p99 82.05 ms, 0 errors, 72 retries, 1/1999 useful/noop compactions
+sqlite/write_full/hot/saturation/c128: 727.1 req/s, p99 817.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: sqlite done 22:02:47 {"engine":"sqlite","bytes":3580755968,"allocatedBytes":3580760064}

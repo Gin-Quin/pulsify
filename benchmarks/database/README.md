@@ -1,13 +1,21 @@
 # Native database load benchmark
 
 The executable is Rust, using in-process `postgres` (PostgreSQL wire protocol)
-and `rusqlite` clients. Bun generates real Pulsify fixtures, orchestrates private
-servers and validates document replay. It is outside measured request execution.
-See [results](RESULTS.md), the [mixed-workload optimization campaign](../baselines/database-mix-optimization-20261104/README.md) and [archived FoundationDB results](archive/FOUNDATIONDB-RESULTS.md).
+and `rusqlite` clients. Bun generates real Pulsify fixtures and validates
+document replay. It is outside measured request execution.
+
+The reference results come from [a dedicated Linux server](#dedicated-server):
+PostgreSQL, SQLite, RocksDB, LevelDB and LMDB on the same machine, with 1, 4
+and 8 cores. The Docker orchestration below runs the other engines on a
+workstation.
+See the [results](RESULTS.md). Earlier campaigns, in Docker, on a VPS and on
+Unikraft Cloud, are archived: [2026-11-11](../baselines/database-engines-20261111/README.md),
+[2026-11-04](../baselines/database-engines-20261104/SUMMARY.md), the
+[mixed-workload optimization](../baselines/database-mix-optimization-20261104/README.md)
+and [FoundationDB](archive/FOUNDATIONDB-RESULTS.md).
 
 AlloyDB Omni, OrioleDB and pgrust were uninstalled after the recorded campaign
-at the user's request. Their Docker images and native pgrust download are no
-longer on this Mac. Results and optional benchmark configurations remain;
+at the user's request. Their Docker images are no longer on this Mac. Results and optional benchmark configurations remain;
 selecting those Docker engines again downloads their images. See the
 [removal audit](../baselines/database-engines-20261104/DATABASE-REMOVAL.md).
 
@@ -17,24 +25,24 @@ longer on this Mac, and nothing was ever installed on the VPS. Results and
 optional configurations remain; selecting those engines again downloads their
 images.
 
-## Engines and deployments
+## Engines
 
-| `--databases` name | Docker image | Native mode used in campaign | Table access method |
-|---|---|---|---|
-| postgres | postgres:16-alpine | PostgreSQL 16 | heap |
-| sqlite | Rust runner, bundled SQLite | bundled SQLite | WAL file |
-| alloydb | google/alloydbomni:17.10.0 | unavailable | heap, AlloyDB Omni server |
-| orioledb | orioledb/orioledb:latest-pg17 | unavailable | orioledb |
-| pgrust-row | malisper/pgrust:v0.4-beta | official macOS ARM64 release | heap |
-| pgrust-columnar | same version, separate fresh server | same release, fresh cluster | pgrcolumnar |
-| rocksdb | Rust runner, bundled RocksDB | bundled RocksDB | LSM tree, `TransactionDB` |
-| rocksdb-mutex | Rust runner, bundled RocksDB | bundled RocksDB | LSM tree, plain `DB`, write batches |
-| lmdb | Rust runner, bundled LMDB | bundled LMDB | copy-on-write B+tree, memory-mapped |
-| leveldb | Rust runner, bundled LevelDB 1.22 | bundled LevelDB | LSM tree, write batches |
-| valkey | valkey/valkey:9.0.3-alpine | unavailable | in memory, append-only file |
-| dragonfly | dragonflydb/dragonfly:v2.1.0 | unavailable | in memory, append-only file, relaxed tier only |
-| scylla | scylladb/scylla:latest | unavailable | wide-column partition per document |
-| clickhouse | clickhouse/clickhouse-server:25.7 | unavailable | ReplacingMergeTree |
+| `--databases` name | Docker image | Table access method |
+|---|---|---|
+| postgres | postgres:16-alpine | heap |
+| sqlite | Rust runner, bundled SQLite | WAL file |
+| alloydb | google/alloydbomni:17.10.0 | heap, AlloyDB Omni server |
+| orioledb | orioledb/orioledb:latest-pg17 | orioledb |
+| pgrust-row | malisper/pgrust:v0.4-beta | heap |
+| pgrust-columnar | same version, separate fresh server | pgrcolumnar |
+| rocksdb | Rust runner, bundled RocksDB | LSM tree, `TransactionDB` |
+| rocksdb-mutex | Rust runner, bundled RocksDB | LSM tree, plain `DB`, write batches |
+| lmdb | Rust runner, bundled LMDB | copy-on-write B+tree, memory-mapped |
+| leveldb | Rust runner, bundled LevelDB 1.22 | LSM tree, write batches |
+| valkey | valkey/valkey:9.0.3-alpine | in memory, append-only file |
+| dragonfly | dragonflydb/dragonfly:v2.1.0 | in memory, append-only file, relaxed tier only |
+| scylla | scylladb/scylla:latest | wide-column partition per document |
+| clickhouse | clickhouse/clickhouse-server:25.7 | ReplacingMergeTree |
 
 `alloydb` means **AlloyDB Omni locally**, not managed Google Cloud AlloyDB. The
 [official container guide](https://docs.cloud.google.com/alloydb/omni/containers/current/docs/quickstart)
@@ -44,7 +52,6 @@ is excluded: the requested open-source condition is not met; no AWS resources
 are created. OrioleDB is Apache-2.0/PostgreSQL licensed, pgrust is AGPL-3.0;
 AlloyDB Omni has Google's own terms. Only Aurora was conditional on open source.
 Image IDs, digests, engine versions, settings and architecture are captured.
-OrioleDB is measured in Docker here: its [official macOS development guide](https://www.orioledb.com/docs/contributing/local-builds) starts by disabling System Integrity Protection. This campaign leaves that system protection unchanged.
 
 ## Durability tiers
 
@@ -69,44 +76,37 @@ directory and compare engines within a tier only.
 | ClickHouse | `fsync_after_insert`, `fsync_part_directory` | no fsync on insert |
 
 The runner reads each engine's effective settings back and refuses a campaign
-whose settings do not match its tier. On macOS, `fsync` does not empty the
-drive cache: the strict tier is strict on Linux only. LMDB alone asks macOS for
-a full flush (`F_FULLFSYNC`), so its native macOS strict numbers measure a
-stronger guarantee than its neighbours'.
+whose settings do not match its tier.
 
 Valkey and Dragonfly keep the whole dataset in RAM. Their numbers belong to a
 separate category: they do not measure a store larger than memory.
 
-## Run
+## Run in Docker
 
-Install Bun, Rust/Cargo and Docker Compose. Native PostgreSQL needs
-`brew install postgresql@16` (or `PG_BIN`). Native pgrust needs the
-[official 0.4-beta download](https://pgrust.com/downloads/v0.4-beta/), verified
-with its adjacent SHA-256 file; set `PGRUST_BIN` to its extracted `bin` directory.
-No system installer or launch daemon is used.
+Install Bun and Docker Compose.
 
 ```sh
-# Defaults: PostgreSQL + SQLite, macOS native and Docker.
+# Defaults: PostgreSQL + SQLite.
 bun run bench:database --quick
 
 # Verify the new engines before investing in a full load run.
-bun run bench:database --environment docker --quick --contract-only \
+bun run bench:database --quick --contract-only \
   --databases alloydb,orioledb,pgrust-row,pgrust-columnar
 
 # Every operation + the exact mix; medium history; independent burst/saturation.
-bun run bench:database --environment both --profile medium \
+bun run bench:database --profile medium \
   --databases postgres,sqlite,alloydb,orioledb,pgrust-row,pgrust-columnar \
   --concurrency 1,16,64 --requests 1000 \
   --results-dir benchmarks/results/engines-medium
 
 # Large history and 128 simultaneous clients, bounded Docker containers.
-bun run bench:database --environment docker --profile large \
+bun run bench:database --profile large \
   --databases postgres,sqlite,alloydb,orioledb,pgrust-row,pgrust-columnar \
   --concurrency 128 --requests 1000 \
   --results-dir benchmarks/results/engines-large
 
 # Focused hot-document mixed burst.
-bun run bench:database --environment docker --databases pgrust-columnar \
+bun run bench:database --databases pgrust-columnar \
   --concurrency 64 --requests 1000 --scenarios mixed --topologies hot --modes burst \
   --results-dir benchmarks/results/pgrust-hot
 ```
@@ -114,8 +114,7 @@ bun run bench:database --environment docker --databases pgrust-columnar \
 Use `--help` for filters. Requests must be a multiple of 20. Each measured
 backend runs alone, with a fresh private cluster/file and no public Docker
 ports. Servers and only this invocation's volumes are removed on completion,
-failure, SIGINT or SIGTERM. Unsupported native deployments are recorded in
-`context.json`; a Linux container on macOS is never labelled bare metal.
+failure, SIGINT or SIGTERM.
 Use a fresh results directory per campaign. `PULSIFY_NATIVE_IMAGE` selects a
 prebuilt runner; otherwise it builds `native.Dockerfile` with a build-only RAM
 mount for compiler outputs. Database data is disk-backed. Cargo.lock is pinned.
@@ -125,6 +124,64 @@ JSON checkpoints completed cells and stores every request. The orchestrator
 continues independent backends after a failure, verifies complete matrices and
 Pulsify replay, writes `REPORT.md`, then exits nonzero if any backend or request
 failed. A partial report is diagnostic evidence, never a completed score.
+
+## Dedicated server
+
+The reference campaign runs on a bare-metal Linux server, one engine at a time,
+with nothing else on the machine. `dedicated/setup.sh` prepares an Ubuntu 24.04
+server: Rust, Clang, Bun, PostgreSQL 18 from its own repository, an empty disk
+formatted in ext4 and mounted on `/data` with `noatime`, SMT off and the
+`performance` frequency governor. `dedicated/campaign.sh` then runs one
+engine's matrix:
+
+| Axis | Values |
+|---|---|
+| Cores | 1, 4, 8 |
+| Document history | 100, 1,000, 10,000 edits (`edits-*` profiles) |
+| Durability | strict, relaxed |
+| Concurrent clients | 1, 16, 128 |
+| Scenario | the mix, then each of its five operations alone |
+
+Every cell is 2,000 requests on one hot document, in saturation mode: 324 cells
+per engine.
+
+```sh
+rsync -a --exclude node_modules --exclude target --exclude .git \
+  --exclude benchmarks/baselines --exclude benchmarks/results ./ server:pulsify/
+ssh server 'sudo sh pulsify/benchmarks/database/dedicated/setup.sh /dev/nvme1n1'
+ssh server 'cd pulsify && ~/.bun/bin/bun install --frozen-lockfile'
+ssh server 'cd pulsify && sh benchmarks/database/dedicated/campaign.sh postgres'
+# sqlite, rocksdb, leveldb, lmdb likewise; reports land in /data/results/<engine>
+bun benchmarks/database/dedicated/report.ts <campaign folder> benchmarks/database/RESULTS.md
+```
+
+- **Cores.** The script takes the other cores offline in the kernel
+  (`/sys/devices/system/cpu/cpuN/online`), so the limit covers the engine's
+  background threads, the PostgreSQL server and the kernel's own work alike.
+  The clients run on the same cores as the database: an engine inside the
+  client process and a server reached through a Unix socket share them the
+  same way.
+- **One database per engine.** It is created when the campaign starts and
+  nothing is deleted from it (`--keep-data`). Its directory is measured after
+  the last cell (`size.json`), next to the payload bytes read back from it
+  after each cell (`stored_payload_bytes`).
+- **A server restart per series.** PostgreSQL is stopped and started around
+  each (cores, history, durability) series, as an embedded engine closes and
+  reopens its files.
+- **One compiler.** The runner and every bundled engine are built with Clang.
+- **Reports.** Per-request events are left out (`--no-events`); summaries,
+  per-operation summaries and verification proofs remain.
+
+Each engine has the configuration that suits this workload on this machine,
+with one 16 GiB budget for the engines that have a cache of their own:
+
+| Engine | Configuration |
+|---|---|
+| PostgreSQL 18 | `shared_buffers` 16 GiB, `max_wal_size` 32 GiB, 15-minute checkpoints, LZ4 for TOAST and WAL, `jit` off, `C` locale, Unix socket; other settings in `campaign.sh` |
+| SQLite | WAL, memory-mapped reads (256 GiB limit), 64 MiB page cache per connection, checkpoint every 64 MiB of log |
+| RocksDB | `TransactionDB`, 16 GiB block cache, one background thread per core, LZ4 then ZSTD, Bloom filters, blob files from 4 KiB |
+| LevelDB | 16 GiB block cache, 64 MiB write buffer, Snappy, 10,000 open files |
+| LMDB | defaults: it has no cache of its own and reads through the page cache; 1 TiB map |
 
 ## Other hosts: one image, Unikraft Cloud or any x86-64 Linux
 
@@ -159,18 +216,12 @@ On a host with no Docker, the embedded engines only need the staged binary and
 fixture: `pulsify-db-bench --backend rocksdb --environment vps --fixture
 fixture.json --output vps-strict-rocksdb.json --data-path work/rocksdb ...`.
 
-## Memory limits and observed columnar failure
+## Docker memory limits
 
-Docker server and runner containers now have **4 GiB RAM and no swap** each.
+Docker server and runner containers have **4 GiB RAM and no swap** each.
 Effective limits and final server state (including OOMKilled) are saved before
 cleanup. The retained medium run predates this guard and used the VM defaults;
 its original Compose configuration is archived with the results.
-
-The full native pgrust columnar series at 128 clients produced severe query-memory
-amplification and 584 timeouts in spread compaction. The Mac subsequently
-rebooted; the reboot's cause is not established. Its matrix is explicitly partial.
-Use bounded Docker for reproducing this heavy configuration on a workstation.
-Native PostgreSQL, SQLite and pgrust row were also measured at 128 clients.
 
 After a fatal or interrupted series, fresh isolated probes test the remaining
 operation groups. Those scores stay separate: fresh table state can behave very
@@ -179,23 +230,27 @@ For example, a single fresh mixed cell can be run with `--scenarios mixed
 --topologies hot --modes saturation`; use a new results directory. Failed cells
 without a checkpoint are never counted as zero errors or successful requests.
 
-`bun benchmarks/database/native-summary.ts PATH` summarizes medium, large,
-large-docker and supplemental phase directories, including incomplete matrices
-and separate fresh-probe outcomes.
-
 ## Work and concurrency
 
 The fixture is produced by the real typed Pulsify API, not invented operation
 bytes. It uses the existing small/medium/large document profiles (20/100/1,000
-historical edits). Each worker has a genuine separate Pulsify actor and a
+historical edits, on documents of growing size) or the `edits-100`,
+`edits-1000` and `edits-10000` profiles, where the document is the same
+(256 paragraphs, 266 KiB) and only the length of its history changes. Each worker has a genuine separate Pulsify actor and a
 pre-generated causal scalar-patch stream. The database stores isolated scopes
 of the same logical fixture: repeated payloads are valid document copies, not
 changed envelope IDs surrounding incompatible initial data.
 
-Each cell has fresh logical state. Cleanup uses DELETE and CHECKPOINT outside
-timing; it does not reset physical files or remove all tombstones. Engine
-maintenance and accumulated physical history can affect later cells. Its prebuilt request schedule is deterministically
-shuffled. The mix is exactly:
+Each cell has fresh logical state: its own documents, seeded before the timer
+starts. Once they are seeded, and again when the cell ends, the engine finishes
+outside the timer the work it deferred: a checkpoint for PostgreSQL and SQLite,
+a memtable flush and the pending compactions for RocksDB, a compaction of the
+cell's key range for LevelDB, a sync for LMDB. A cell therefore reads documents
+that are persisted, and does not pay for its predecessor. By default a cell's
+documents are then deleted, which does not reset physical files or remove all
+tombstones; with `--keep-data` nothing is deleted and the database holds the
+whole campaign. Accumulated physical history can affect later cells either way.
+Its prebuilt request schedule is deterministically shuffled. The mix is exactly:
 
 | Task | Share |
 | --- | ---: |
@@ -262,6 +317,10 @@ engine supplies its own document lock and atomic commit:
 
 - **RocksDB:** `TransactionDB`. A writer takes the frontier row with
   `GetForUpdate`, which the database holds until commit; readers use a snapshot.
+  Tuned as its own guide recommends for this data: one background thread per
+  core, LZ4 compression with ZSTD on the last level, 10-bit Bloom filters, a
+  block cache (`--cache-mib`), and blob files for values of 4 KiB or more, so
+  that a 266 KiB document is written once instead of at every level.
 - **RocksDB with a mutex (`rocksdb-mutex`):** the plain `DB` without the
   transaction layer. The document lock is a striped mutex in the runner and a
   transaction's writes are one write batch, exactly like the LevelDB adapter.
@@ -269,8 +328,9 @@ engine supplies its own document lock and atomic commit:
 - **LevelDB:** atomic write batches and snapshots, but no transactions and no
   lock manager. The document lock is a striped mutex in the runner, which is
   what RocksDB's `TransactionDB` supplies inside the library. It runs with
-  RocksDB's default 64 MiB write buffer (its own default is 4 MiB) and without
-  compression: its bundled Snappy collides with RocksDB's at link time.
+  RocksDB's default 64 MiB write buffer (its own default is 4 MiB), its
+  standard Snappy compression, the same block cache size as RocksDB and 10,000
+  open table files. It has no Bloom filters or blob files in this binding.
 - **Valkey, Dragonfly:** one sorted set per document, scanned lexicographically.
   The lock is a one-token list a writer blocks on with `BLPOP`; its writes and
   the release are one `MULTI`/`EXEC`. A read is one server-side script.
@@ -295,7 +355,9 @@ SQL statements are cached per connection, and append reads/updates the complete
 frontier once per transaction. Full reads avoid an empty-vector join; SQLite
 materializes a nonempty remote-vector CTE once per query.
 SQLite uses WAL, `synchronous=FULL`, one connection per worker, immediate write
-transactions, deferred read transactions, a 64 MiB read-only mmap limit and a
+transactions, deferred read transactions, a 64 MiB read-only mmap limit by
+default (the library is compiled to accept up to 1 TiB), a 64 MiB page cache per
+connection, a checkpoint every 64 MiB of log and a
 busy handler with 100–999 µs jittered sleeps and a 30-second wall-clock deadline.
 Use `--sqlite-busy timeout` for SQLite's standard 30-second busy timeout and
 `--sqlite-mmap-bytes 0` to disable mmap. Effective PRAGMAs and the busy policy
@@ -332,9 +394,10 @@ a lower bound when errors occur. A vector inside a compressed segment requires d
 then filtering known rows. Compaction is not a state-only overwrite.
 
 PostgreSQL keeps fsync, synchronous commits and full-page writes enabled.
-Both deployments use 180 allowed connections, 128 MiB shared buffers, a 128 MiB
-WAL target, 32 MiB minimum WAL and a 60-second checkpoint interval. Cleanup
-checkpoints run outside cell timing to bound retained WAL on the test machine.
+In Docker it uses 180 allowed connections, 128 MiB shared buffers, a 128 MiB
+WAL target, 32 MiB minimum WAL and a 60-second checkpoint interval; the
+dedicated server has its own settings, listed above. Checkpoints run outside
+cell timing.
 SQLite uses its bundled Rust library, whose exact version is recorded. All
 PostgreSQL-compatible deployments use the same connection/buffer/WAL settings,
 including AlloyDB Omni (whose image otherwise auto-sizes a much larger buffer
@@ -356,9 +419,12 @@ The optional Rust PostgreSQL unit test runs only with `PULSIFY_NATIVE_PG_URL`.
 
 | File | Responsibility |
 | --- | --- |
-| `engines.ts` | Engine identities and supported deployment modes |
+| `engines.ts` | Engine identities and Docker images |
 | `native-compose.yaml` | Isolated Docker server configuration |
-| `native.ts` | Native/Docker setup, builds, provenance and cleanup |
+| `native.ts` | Docker setup, builds, provenance and cleanup |
+| `dedicated/setup.sh` | Prepare a dedicated Linux server |
+| `dedicated/campaign.sh` | One engine's whole matrix on that server |
+| `dedicated/report.ts`, `dedicated/campaign.ts` | `RESULTS.md` from a campaign's raw reports and `RESULTS.intro.md` |
 | `native-fixtures.ts` | Real Pulsify actor streams and model replay |
 | `native-report.ts` | Human-readable report from raw request records |
 | `mix-comparison.ts` | Audit repeated mixed campaigns and enforce the 30% median-throughput target |
@@ -370,6 +436,4 @@ The optional Rust PostgreSQL unit test runs only with `PULSIFY_NATIVE_PG_URL`.
 | `crates/pulsify-db-bench/src/tests.rs` | Concurrency, losslessness and exact mix contracts |
 
 The legacy TypeScript suite is still available as `bun run bench:database:legacy`.
-Its historical tests and baseline are intentionally preserved. Comparisons
-between native macOS and Docker Linux include operating-system, filesystem,
-server-version and VM differences; they do not isolate a universal Docker cost.
+Its historical tests and baseline are intentionally preserved.

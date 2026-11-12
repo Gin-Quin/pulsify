@@ -1,0 +1,18 @@
+2026-11-11T22:30:32Z
+Linux 6.8.0-147-generic x86_64
+Ubuntu 24.04.5 LTS
+CPU(s):                                  24
+On-line CPU(s) list:                     0-11
+Off-line CPU(s) list:                    12-23
+Model name:                              AMD EPYC 4484PX 12-Core Processor
+Thread(s) per core:                      1
+CPU(s) scaling MHz:                      75%
+L3 cache:                                128 MiB (2 instances)
+MemTotal:       97938760 kB
+nvme0n1 894.3G SAMSUNG MZQL2960HCJR-00A07
+nvme1n1 894.3G SAMSUNG MZQL2960HCJR-00A07
+/dev/nvme1n1 /data ext4 rw,noatime,stripe=32 0 0
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+1.4.4
+postgres (PostgreSQL) 18.6 (Ubuntu 18.6-1.pgdg24.04+2)
+commit e4a071e011a9571c35d0e4e6413ba862886b746d

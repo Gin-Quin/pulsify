@@ -42,7 +42,7 @@ const reports: Report[] = [];
 const filenames = (await readdir(directory)).sort();
 for (const name of filenames)
 	if (
-		/^(docker|bare-metal|vps|unikraft)-.*\.json(?:\.gz)?$/.test(name) &&
+		/^(docker|vps|unikraft)-.*\.json(?:\.gz)?$/.test(name) &&
 		!/-contract\.json(?:\.gz)?$/.test(name)
 	) {
 		if (name.endsWith(".gz") && filenames.includes(name.slice(0, -3))) continue;

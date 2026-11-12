@@ -1,0 +1,3 @@
+32896	/data/lmdb/lock.mdb
+33206779904	/data/lmdb/data.mdb
+33206812800	/data/lmdb

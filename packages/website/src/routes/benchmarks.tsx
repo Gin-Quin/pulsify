@@ -69,22 +69,33 @@ export default function Benchmarks() {
 						</div>
 						<ul class={styles.method}>
 							<li>
-								Every sample starts from fresh replicas, in a shuffled engine
-								order. Setup, GC and verification are outside the timed work.
+								CRDT engines: every sample starts from fresh replicas, in a
+								shuffled engine order. Setup, GC and verification are outside
+								the timed work.
 							</li>
 							<li>
-								Scores are medians of per-sample averages. Differences below 1
-								µs can be noise.
+								CRDT scores are medians of per-sample averages. Differences
+								below 1 µs can be noise.
 							</li>
 							<li>
-								Database batches are finite: they compare backends under the
-								same load, within one durability tier, and are not capacity
-								estimates.
+								Databases: one engine at a time on the same server, each with a
+								configuration tuned for this workload. The unused cores are
+								taken offline; the clients share the others with the database.
+							</li>
+							<li>
+								Each database score is one batch of 2,000 requests, measured
+								once. Its documents are stored before the timer starts, and
+								every history is checked row for row afterwards.
+							</li>
+							<li>
+								A difference under 10% between two databases is not a ranking.
+								Compare them within one durability tier; a batch is not a
+								capacity estimate.
 							</li>
 						</ul>
 						<CodeBlock
 							title="Reproduce from the repository root"
-							code={`bun run bench:crdt      # CRDT engines\nbun run bench:database  # databases`}
+							code={`bun run bench:crdt  # CRDT engines\n# Databases, on a dedicated Ubuntu server\nsudo sh benchmarks/database/dedicated/setup.sh /dev/nvme1n1\nsh benchmarks/database/dedicated/campaign.sh postgres`}
 						/>
 					</section>
 				</div>

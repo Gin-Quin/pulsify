@@ -10,10 +10,12 @@ type Env = heed::Env<WithoutTls>;
 /// One process-wide environment; LMDB itself admits a single writer at a time.
 #[derive(Clone)]
 pub struct Lmdb(pub Env, pub Table);
+pub const MAP_BYTES: usize = 1 << 40;
 pub fn open(path: &str, relaxed: bool) -> Result<Lmdb> {
     std::fs::create_dir_all(path)?;
     let mut options = EnvOpenOptions::new().read_txn_without_tls();
-    options.map_size(8 << 30).max_readers(512);
+    // The map is address space, not memory or disk: it only bounds the file.
+    options.map_size(MAP_BYTES).max_readers(512);
     // Safety: this process opens the environment once, and NO_SYNC only trades
     // the last commits for speed on a system crash (no writable map is used).
     let env = unsafe {
@@ -96,6 +98,10 @@ impl Session for Lmdb {
             self.1.delete_range(&mut tx, &range)?;
         }
         Ok(tx.commit()?)
+    }
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        // A no-op in the strict tier; flushes what NO_SYNC left in the page cache.
+        Ok(self.0.force_sync()?)
     }
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output> {
         let access = if write {

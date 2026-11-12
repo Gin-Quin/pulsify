@@ -3,15 +3,13 @@
 Start with [the interpreted results](../../database/RESULTS.md) or
 [the generated complete summary](SUMMARY.md).
 
-- `medium/`: 1/16/64 clients; 720 completed cells, 720,000 requests, zero errors.
-- `large/`: native 128-client checkpoints; columnar series interrupted after
-  memory amplification/timeouts and a host reboot. Other native matrices completed.
+- `medium/`: 1/16/64 clients; 432 completed cells, 432,000 requests, zero errors.
 - `large-docker/`: 128 clients, 4 GiB/no swap per container; columnar series
   OOM-killed a server process. Other matrices completed.
 - `supplemental/`: fresh isolated columnar probes, kept separate from the main
-  series. 23 completed cells and two further OOM failures without a cell checkpoint.
-- `failures/`: excluded setup/interference trials, plus preserved interruption
-  diagnostics. Actual retained stress failures remain visible in the main summaries.
+  series. 13 completed cells and two further OOM failures without a cell checkpoint.
+- `failures/`: the excluded trial that ran under host memory pressure. Actual
+  retained stress failures remain visible in the main summaries.
 - `provenance/`: original uncapped Compose and orchestration snapshot.
 - `validation/`, `VALIDATION.json`: test evidence and provenance/schema checks.
 

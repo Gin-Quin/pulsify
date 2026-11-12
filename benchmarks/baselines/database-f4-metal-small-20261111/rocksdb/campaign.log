@@ -1,0 +1,361 @@
+campaign: rocksdb-1cpu-edits-100-strict 22:30:17
+rocksdb/mixed/hot/saturation/c1: 2732.5 req/s, p99 1.07 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 38842.8 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 3978.8 req/s, p99 0.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 8759.0 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 57375.2 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1304.8 req/s, p99 2.86 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1720.6 req/s, p99 76.92 ms, 0 errors, 235 retries, 105/95 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 31433.7 req/s, p99 16.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 3785.6 req/s, p99 37.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7692.8 req/s, p99 40.76 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 43433.1 req/s, p99 12.09 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1418.7 req/s, p99 21.90 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 1192.2 req/s, p99 1045.43 ms, 0 errors, 555 retries, 79/121 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 42615.1 req/s, p99 4.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 3783.6 req/s, p99 64.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 2360.5 req/s, p99 231.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 48263.9 req/s, p99 16.95 ms, 0 errors, 7 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1448.2 req/s, p99 123.92 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-1cpu-edits-100-relaxed 22:30:33
+rocksdb/mixed/hot/saturation/c1: 3551.2 req/s, p99 1.06 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 36099.1 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 3946.2 req/s, p99 0.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 102075.1 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 58708.7 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1291.0 req/s, p99 5.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 2662.1 req/s, p99 49.41 ms, 0 errors, 48 retries, 130/70 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 44425.1 req/s, p99 4.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 3808.0 req/s, p99 36.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 83757.7 req/s, p99 4.06 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 60061.8 req/s, p99 0.09 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1669.5 req/s, p99 58.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 2793.8 req/s, p99 534.28 ms, 0 errors, 102 retries, 110/90 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 29570.9 req/s, p99 25.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 3777.7 req/s, p99 64.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 67466.9 req/s, p99 24.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 54177.8 req/s, p99 0.57 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1625.5 req/s, p99 138.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-1cpu-edits-1000-strict 22:30:49
+rocksdb/mixed/hot/saturation/c1: 1859.0 req/s, p99 1.56 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 6968.8 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 651.9 req/s, p99 1.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 8595.0 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 60529.0 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1332.2 req/s, p99 2.63 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1303.8 req/s, p99 98.66 ms, 0 errors, 227 retries, 120/80 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 6727.7 req/s, p99 32.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 648.0 req/s, p99 91.06 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7617.8 req/s, p99 41.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 49318.3 req/s, p99 10.04 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1478.6 req/s, p99 20.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 949.3 req/s, p99 1403.64 ms, 0 errors, 559 retries, 86/114 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 6233.9 req/s, p99 56.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 607.4 req/s, p99 1649.07 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 2379.9 req/s, p99 226.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 46452.4 req/s, p99 17.05 ms, 0 errors, 6 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 925.6 req/s, p99 190.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-1cpu-edits-1000-relaxed 22:31:23
+rocksdb/mixed/hot/saturation/c1: 2163.5 req/s, p99 1.58 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 7094.8 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 643.6 req/s, p99 1.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 93015.8 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 62430.0 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1680.7 req/s, p99 3.21 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1649.0 req/s, p99 82.14 ms, 0 errors, 68 retries, 132/68 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 6446.9 req/s, p99 32.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 646.0 req/s, p99 85.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 87722.5 req/s, p99 4.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 58648.4 req/s, p99 0.07 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1246.8 req/s, p99 88.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 1645.5 req/s, p99 518.22 ms, 0 errors, 100 retries, 114/86 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 6390.3 req/s, p99 46.16 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 608.0 req/s, p99 2714.86 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 57158.3 req/s, p99 31.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 53728.3 req/s, p99 4.06 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1642.6 req/s, p99 155.36 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-1cpu-edits-10000-strict 22:31:58
+rocksdb/mixed/hot/saturation/c1: 737.8 req/s, p99 6.87 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 683.6 req/s, p99 1.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 68.7 req/s, p99 14.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 8562.7 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 62180.4 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1312.5 req/s, p99 2.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 399.4 req/s, p99 445.74 ms, 0 errors, 244 retries, 122/78 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 675.6 req/s, p99 78.77 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 42.2 req/s, p99 483.51 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7656.3 req/s, p99 39.39 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 46562.4 req/s, p99 10.05 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1478.6 req/s, p99 20.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 193.8 req/s, p99 6559.75 ms, 0 errors, 1082 retries, 66/134 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 659.7 req/s, p99 2310.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 27.1 req/s, p99 7833.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 2342.4 req/s, p99 241.66 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 31925.5 req/s, p99 19.15 ms, 0 errors, 7 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1431.7 req/s, p99 124.95 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-1cpu-edits-10000-relaxed 22:35:48
+rocksdb/mixed/hot/saturation/c1: 784.4 req/s, p99 6.99 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 665.6 req/s, p99 1.55 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 68.2 req/s, p99 14.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 83869.8 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 60148.2 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1690.1 req/s, p99 3.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 401.2 req/s, p99 444.53 ms, 0 errors, 272 retries, 123/77 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 671.9 req/s, p99 89.30 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 42.1 req/s, p99 476.74 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 82699.0 req/s, p99 5.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 53208.2 req/s, p99 0.54 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1712.7 req/s, p99 53.85 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 185.2 req/s, p99 8396.97 ms, 0 errors, 803 retries, 53/147 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 655.9 req/s, p99 2636.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 27.1 req/s, p99 7500.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 35115.8 req/s, p99 44.19 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 46201.8 req/s, p99 2.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1604.6 req/s, p99 157.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-100-strict 22:39:44
+rocksdb/mixed/hot/saturation/c1: 2627.1 req/s, p99 1.10 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 38843.3 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 3965.4 req/s, p99 0.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 8575.4 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 55902.5 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1626.5 req/s, p99 1.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 3596.3 req/s, p99 39.20 ms, 0 errors, 304 retries, 133/67 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 132834.8 req/s, p99 0.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 14960.0 req/s, p99 12.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7274.0 req/s, p99 8.60 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 176745.8 req/s, p99 2.02 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1998.0 req/s, p99 10.79 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 3227.9 req/s, p99 350.40 ms, 0 errors, 412 retries, 96/104 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 112217.9 req/s, p99 11.71 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 14559.4 req/s, p99 79.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4574.3 req/s, p99 115.16 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 54755.5 req/s, p99 30.69 ms, 0 errors, 126 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1948.1 req/s, p99 73.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-100-relaxed 22:39:56
+rocksdb/mixed/hot/saturation/c1: 3487.5 req/s, p99 1.05 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 38558.3 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 3972.4 req/s, p99 0.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 86015.8 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 55157.4 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2371.2 req/s, p99 0.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 7009.1 req/s, p99 17.02 ms, 0 errors, 97 retries, 139/61 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 145518.2 req/s, p99 0.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 14961.8 req/s, p99 9.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 55437.6 req/s, p99 0.96 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 197839.2 req/s, p99 0.53 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2457.4 req/s, p99 42.44 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 6944.0 req/s, p99 195.60 ms, 0 errors, 166 retries, 122/78 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 127500.8 req/s, p99 0.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 14285.6 req/s, p99 67.28 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 39140.3 req/s, p99 10.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 185488.9 req/s, p99 2.38 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2457.2 req/s, p99 72.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-1000-strict 22:40:10
+rocksdb/mixed/hot/saturation/c1: 1855.5 req/s, p99 1.56 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 6668.0 req/s, p99 0.16 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 652.3 req/s, p99 1.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 9313.2 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 55578.3 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1627.2 req/s, p99 1.34 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 2954.9 req/s, p99 42.38 ms, 0 errors, 232 retries, 126/74 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 24693.0 req/s, p99 9.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 2578.2 req/s, p99 19.20 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7163.7 req/s, p99 8.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 151631.6 req/s, p99 0.07 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2062.4 req/s, p99 10.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 2524.7 req/s, p99 425.27 ms, 0 errors, 413 retries, 95/105 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 25418.0 req/s, p99 43.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 2347.4 req/s, p99 466.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4550.8 req/s, p99 115.40 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 102932.4 req/s, p99 14.20 ms, 0 errors, 41 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1954.5 req/s, p99 70.81 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-1000-relaxed 22:40:35
+rocksdb/mixed/hot/saturation/c1: 2232.8 req/s, p99 1.53 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 6955.0 req/s, p99 0.18 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 651.8 req/s, p99 1.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 84254.0 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 46598.0 req/s, p99 0.03 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2426.4 req/s, p99 0.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 5297.2 req/s, p99 23.53 ms, 0 errors, 102 retries, 135/65 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 25841.7 req/s, p99 9.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 2583.9 req/s, p99 22.42 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 54434.3 req/s, p99 0.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 196333.0 req/s, p99 0.83 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2440.5 req/s, p99 40.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 5058.4 req/s, p99 215.96 ms, 0 errors, 96 retries, 110/90 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 24072.7 req/s, p99 49.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 2295.1 req/s, p99 386.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 37146.1 req/s, p99 9.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 180510.9 req/s, p99 1.64 ms, 0 errors, 9 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2391.2 req/s, p99 84.32 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-10000-strict 22:41:02
+rocksdb/mixed/hot/saturation/c1: 728.8 req/s, p99 6.99 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 677.9 req/s, p99 1.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 68.4 req/s, p99 14.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 7828.8 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 49473.2 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1630.7 req/s, p99 1.38 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1241.0 req/s, p99 134.15 ms, 0 errors, 388 retries, 132/68 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 2747.8 req/s, p99 16.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 169.8 req/s, p99 131.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7158.9 req/s, p99 8.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 158587.0 req/s, p99 0.06 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1980.0 req/s, p99 11.13 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 911.1 req/s, p99 1165.41 ms, 0 errors, 564 retries, 110/90 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 2551.4 req/s, p99 364.64 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 125.4 req/s, p99 2110.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4573.5 req/s, p99 130.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 139883.5 req/s, p99 2.60 ms, 0 errors, 12 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1928.5 req/s, p99 71.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-4cpu-edits-10000-relaxed 22:43:10
+rocksdb/mixed/hot/saturation/c1: 810.9 req/s, p99 7.46 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 681.6 req/s, p99 1.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 69.0 req/s, p99 14.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 93988.9 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 56351.9 req/s, p99 0.03 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2397.3 req/s, p99 0.59 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1591.7 req/s, p99 131.68 ms, 0 errors, 293 retries, 144/56 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 2716.5 req/s, p99 17.37 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 167.8 req/s, p99 126.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 52908.3 req/s, p99 1.22 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 206099.4 req/s, p99 0.03 ms, 0 errors, 5 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2487.7 req/s, p99 44.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 1073.9 req/s, p99 1172.19 ms, 0 errors, 317 retries, 107/93 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 2650.2 req/s, p99 281.45 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 123.1 req/s, p99 2182.08 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 34260.0 req/s, p99 12.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 190028.7 req/s, p99 0.38 ms, 0 errors, 8 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2469.9 req/s, p99 78.83 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-100-strict 22:45:05
+rocksdb/mixed/hot/saturation/c1: 2933.9 req/s, p99 0.99 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 33018.1 req/s, p99 0.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 4314.5 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 9861.7 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 60906.3 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1724.8 req/s, p99 1.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 4098.2 req/s, p99 26.10 ms, 0 errors, 179 retries, 129/71 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 201422.9 req/s, p99 0.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 28917.2 req/s, p99 5.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 6372.3 req/s, p99 9.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 228545.2 req/s, p99 0.86 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1916.3 req/s, p99 11.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 3853.7 req/s, p99 288.06 ms, 0 errors, 265 retries, 100/100 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 163400.9 req/s, p99 2.18 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 27678.3 req/s, p99 30.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4898.5 req/s, p99 102.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 189984.9 req/s, p99 5.54 ms, 0 errors, 21 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1876.6 req/s, p99 74.33 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-100-relaxed 22:45:15
+rocksdb/mixed/hot/saturation/c1: 3891.2 req/s, p99 0.95 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 32478.1 req/s, p99 0.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 4311.2 req/s, p99 0.25 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 86880.3 req/s, p99 0.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 54647.9 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2489.7 req/s, p99 0.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 8871.6 req/s, p99 9.95 ms, 0 errors, 112 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 202346.1 req/s, p99 0.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 29293.0 req/s, p99 6.27 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 45977.5 req/s, p99 2.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 197615.8 req/s, p99 0.07 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2404.5 req/s, p99 63.93 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 7655.4 req/s, p99 104.06 ms, 0 errors, 133 retries, 115/85 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 154972.5 req/s, p99 3.04 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 27150.4 req/s, p99 40.98 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 27570.0 req/s, p99 10.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 229776.3 req/s, p99 2.69 ms, 0 errors, 17 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2267.7 req/s, p99 110.09 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-1000-strict 22:45:24
+rocksdb/mixed/hot/saturation/c1: 2079.7 req/s, p99 1.44 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 7241.0 req/s, p99 0.16 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 731.7 req/s, p99 1.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 9690.1 req/s, p99 0.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 56218.9 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1703.8 req/s, p99 1.50 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 3380.9 req/s, p99 31.86 ms, 0 errors, 185 retries, 139/61 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 44387.7 req/s, p99 3.67 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 5059.3 req/s, p99 10.91 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7108.9 req/s, p99 25.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 224247.7 req/s, p99 0.54 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1875.4 req/s, p99 14.75 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 3079.3 req/s, p99 338.85 ms, 0 errors, 324 retries, 114/86 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 47179.3 req/s, p99 14.10 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 4916.9 req/s, p99 49.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4847.3 req/s, p99 106.14 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 164605.8 req/s, p99 8.41 ms, 0 errors, 28 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1896.1 req/s, p99 74.69 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-1000-relaxed 22:45:58
+rocksdb/mixed/hot/saturation/c1: 2478.5 req/s, p99 1.35 ms, 0 errors, 0 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 7477.5 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 723.6 req/s, p99 1.41 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 95974.2 req/s, p99 0.01 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 51070.1 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2421.3 req/s, p99 0.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 7276.2 req/s, p99 13.38 ms, 0 errors, 155 retries, 148/52 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 44347.4 req/s, p99 3.86 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 5037.5 req/s, p99 7.58 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 45742.6 req/s, p99 2.52 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 249475.3 req/s, p99 0.80 ms, 0 errors, 13 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2356.3 req/s, p99 66.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 7139.9 req/s, p99 117.13 ms, 0 errors, 151 retries, 118/82 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 42658.8 req/s, p99 16.82 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 4797.8 req/s, p99 113.65 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 27700.1 req/s, p99 10.78 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 237967.6 req/s, p99 0.49 ms, 0 errors, 12 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2282.5 req/s, p99 108.62 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-10000-strict 22:46:14
+rocksdb/mixed/hot/saturation/c1: 816.3 req/s, p99 6.26 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 777.6 req/s, p99 1.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 75.3 req/s, p99 13.31 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 9217.5 req/s, p99 0.15 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 59008.6 req/s, p99 0.02 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 1697.1 req/s, p99 1.54 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 1933.0 req/s, p99 79.36 ms, 0 errors, 432 retries, 143/57 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 5246.8 req/s, p99 9.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 443.3 req/s, p99 57.23 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 7292.3 req/s, p99 11.26 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 153006.5 req/s, p99 0.03 ms, 0 errors, 15 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 1908.5 req/s, p99 14.17 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 1539.5 req/s, p99 622.58 ms, 0 errors, 585 retries, 127/73 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 5163.6 req/s, p99 55.86 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 402.3 req/s, p99 905.05 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 4964.8 req/s, p99 109.89 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 175678.8 req/s, p99 4.57 ms, 0 errors, 20 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 1859.6 req/s, p99 76.47 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb-8cpu-edits-10000-relaxed 22:47:43
+rocksdb/mixed/hot/saturation/c1: 878.5 req/s, p99 6.55 ms, 0 errors, 0 retries, 147/53 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c1: 759.4 req/s, p99 1.35 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c1: 75.5 req/s, p99 13.29 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c1: 92885.6 req/s, p99 0.02 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c1: 56732.7 req/s, p99 0.03 ms, 0 errors, 0 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c1: 2478.1 req/s, p99 0.49 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c16: 2622.5 req/s, p99 83.33 ms, 0 errors, 567 retries, 122/78 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c16: 5211.0 req/s, p99 11.03 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c16: 455.5 req/s, p99 59.87 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c16: 60521.6 req/s, p99 3.11 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c16: 268749.8 req/s, p99 0.56 ms, 0 errors, 11 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c16: 2405.2 req/s, p99 65.70 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/mixed/hot/saturation/c128: 2077.6 req/s, p99 560.47 ms, 0 errors, 565 retries, 110/90 useful/noop compactions
+rocksdb/read_delta/hot/saturation/c128: 4968.8 req/s, p99 182.99 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/read_full/hot/saturation/c128: 400.2 req/s, p99 769.53 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/write_patch/hot/saturation/c128: 31100.1 req/s, p99 9.24 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+rocksdb/compact/hot/saturation/c128: 265290.0 req/s, p99 2.63 ms, 0 errors, 13 retries, 1/1999 useful/noop compactions
+rocksdb/write_full/hot/saturation/c128: 2369.2 req/s, p99 111.12 ms, 0 errors, 0 retries, 0/0 useful/noop compactions
+Verified 24 new representative histories; 24 retained materialization proofs
+campaign: rocksdb done 22:49:24 {"engine":"rocksdb","bytes":8206612761,"allocatedBytes":8206950400}

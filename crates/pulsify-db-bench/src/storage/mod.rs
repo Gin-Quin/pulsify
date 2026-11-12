@@ -50,6 +50,12 @@ pub type Work<'a> = dyn FnMut(&mut dyn Transaction) -> Result<Output> + 'a;
 pub trait Session: Send {
     fn transact(&mut self, doc: &str, write: bool, work: &mut Work<'_>) -> Result<Output>;
     fn cleanup(&mut self, prefix: &str) -> Result<()>;
+    /// Outside the timer, once a cell's documents are seeded and again when it
+    /// ends: finish the work the engine deferred (checkpoint, flush, compaction),
+    /// so that no cell pays for another one.
+    fn settle(&mut self, _prefix: &str) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub fn append(session: &mut dyn Session, doc: &str, segments: &[Segment]) -> Result<Output> {
