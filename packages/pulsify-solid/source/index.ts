@@ -4,6 +4,7 @@ import {
 	subscribePulse,
 	type AnyPulseDefinition,
 	type LoadPulseOptions,
+	type ModelFromDefinition,
 	type PresenceDefinition,
 	type PresencePeer,
 	type Pulse,
@@ -14,6 +15,8 @@ import {
 	createSignal,
 	getOwner,
 	onCleanup,
+	type Accessor,
+	type ResourceReturn,
 	type ResourceSource,
 } from "solid-js";
 import { isServer } from "solid-js/web";
@@ -41,7 +44,7 @@ export function createPulseResource<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	id: ResourceSource<string>,
 	options?: LoadPulseOptions,
-) {
+): ResourceReturn<Pulse<ModelFromDefinition<Definition>>> {
 	return createResource(id, async (id) => {
 		if (isServer)
 			throw new Error(
@@ -52,7 +55,9 @@ export function createPulseResource<Definition extends AnyPulseDefinition>(
 }
 
 /** A signal of a pulse, which it stores as a view from `createMutablePulse`. */
-export function createPulseSignal<P extends Pulse<any>>(initial?: P) {
+export function createPulseSignal<P extends Pulse<any>>(
+	initial?: P,
+): readonly [Accessor<P | undefined>, (next: P | undefined) => void] {
 	const [pulse, setPulse] = createSignal(
 		initial && createMutablePulse(initial),
 	);

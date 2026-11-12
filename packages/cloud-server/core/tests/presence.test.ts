@@ -18,7 +18,7 @@ import {
 async function wake(
 	connections: string[],
 	subscribed = connections,
-	/** Sockets whose client never sent presence: a client before version 9. */
+	/** Sockets whose client never sent presence: a client before version 10. */
 	old: string[] = [],
 ) {
 	const storage = new SqliteCloudStorage(new Database(":memory:"));

@@ -1,5 +1,5 @@
 import { getDOMTextNode, type LexicalEditor } from "lexical";
-import type { Presence } from "pulsify-core";
+import { type Presence } from "pulsify-core";
 import type { Point } from "./document.js";
 
 export type SelectionState = {

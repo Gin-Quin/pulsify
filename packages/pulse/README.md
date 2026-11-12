@@ -478,7 +478,7 @@ viewers.leave();                                // undo this joinPresence
 - **Readers** publish presence: it is not a write to the document.
 - **Where.** Presence goes through relays: the memory connector,
   `createWebSocketConnector(url, factory, { presence: true })` for a relay
-  running version 9 or later, and Pulsify Cloud. Local stores (IndexedDB,
+  running version 10 or later, and Pulsify Cloud. Local stores (IndexedDB,
   Electron, Tauri) do not relay it. A pulse uses one relay for presence: the
   first connector, in order, whose session relays it, until that session
   fails. A custom connector sets `ConnectorSession.presence` once its
@@ -535,7 +535,7 @@ for (const other of othersOf(docId, socket))
 ```
 
 Forward presence only to sessions that have sent a presence frame themselves:
-clients older than version 9 reject it. A relay stores nothing; it may drop
+clients older than version 10 reject it. A relay stores nothing; it may drop
 frames beyond a rate with `createPresenceBudget()`. The wire format is in the
 [protocol specification](../../docs/PROTOCOL.md#presence-kind-7).
 

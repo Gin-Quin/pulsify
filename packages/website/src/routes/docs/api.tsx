@@ -92,7 +92,7 @@ const groups: { title: string; items: [string, string][] }[] = [
 			],
 			[
 				"createWebSocketConnector(url, factory?, { presence: true })",
-				"Opt in for a relay running version 9 or later. Pulsify Cloud needs nothing.",
+				"Opt in for a relay running version 10 or later. Pulsify Cloud needs nothing.",
 			],
 		],
 	},

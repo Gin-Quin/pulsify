@@ -78,7 +78,7 @@ type PresencePeer<State> = {
 
 const optIn = `import { createWebSocketConnector } from "pulsify-core";
 
-// The server runs pulsify-core 9 or later.
+// The server runs pulsify-core 10 or later.
 const relay = createWebSocketConnector(url, undefined, { presence: true });`;
 
 const anchors = `const caret = note.body.anchorAt(5); // a string that follows the character before index 5
@@ -441,7 +441,7 @@ export default function Presence() {
 				</li>
 				<li>
 					<strong>Forward presence only to sessions that sent some.</strong> A
-					client older than version 9 rejects a frame it does not know, and
+					client older than version 10 rejects a frame it does not know, and
 					would stop synchronizing.
 				</li>
 				<li>
@@ -496,7 +496,7 @@ export default function Presence() {
 			</table>
 			<CodeBlock title="connectors.ts" code={optIn} />
 			<p>
-				The option is explicit because a relay older than version 9 rejects
+				The option is explicit because a relay older than version 10 rejects
 				frames it does not know. Without it, <code>joinPresence</code> still
 				works and <code>others</code> stays empty.
 			</p>

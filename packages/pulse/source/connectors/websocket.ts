@@ -6,7 +6,7 @@ import { PulseError } from "../protocol/errors.js";
  * Supply a factory for runtimes without a global WebSocket or custom authentication.
  * A `{docId}` placeholder in the URL is replaced by the encoded document ID, for
  * servers that route a session before its first frame. Pass `presence: true`
- * for a relay that forwards presence frames (pulsify-core 9 or later).
+ * for a relay that forwards presence frames (pulsify-core 10 or later).
  */
 export function createWebSocketConnector(
 	template: string,
