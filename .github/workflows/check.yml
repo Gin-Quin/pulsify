@@ -58,8 +58,8 @@ jobs:
             ~/.cargo/registry
             packages/connectors/Tauri/crates/*/target
           key: tauri-${{ hashFiles('packages/connectors/Tauri/crates/*/Cargo.lock') }}
-      # tauri links GTK on Linux even without a webview.
-      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+      # tauri links GTK and WebKitGTK (JavaScriptCore) on Linux even without a webview.
+      - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
       - run: |
           for crate in pulsify-sqlite tauri-plugin-pulsify; do
             manifest=packages/connectors/Tauri/crates/$crate/Cargo.toml
