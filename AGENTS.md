@@ -15,6 +15,7 @@
 ## Releasing
 
 - Packages are published to npm as unscoped `pulsify-*` names and to JSR as `@pulsify/*`.
-- To release, bump every package to the same version, merge to `main`, then tag that commit with the version: `git tag vX.Y.Z && git push --tags`. The `Publish` workflow builds and publishes every version not yet on npm through trusted publishing; no npm token is needed.
+- To release, bump every package to the same version, merge to `main`, then push the commit and its version tag: `git push origin main && git tag vX.Y.Z && git push origin vX.Y.Z`. The `Publish` workflow verifies that the tagged commit belongs to `main` and that the tag matches the core package version, then deploys the website and publishes every version not yet on npm through trusted publishing. A push to `main` without a version tag only runs checks.
+- Website releases require the `CLOUDFLARE_API_TOKEN` GitHub Actions secret, scoped to the Pulsify account and the `pulsify.cloud` zone. npm uses trusted publishing and needs no npm token.
 - Publish to JSR with `bun scripts/publish-jsr.ts`.
 - A new package must be published once by hand (`npm publish --access public` in its directory), then trusted with `npx npm@latest trust github <name> --repo Gin-Quin/pulsify --file publish.yml --allow-publish`, and added to the directory lists in `.github/workflows/publish.yml` and `scripts/publish-jsr.ts`.

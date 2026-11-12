@@ -100,6 +100,25 @@ per root pulse, one multiplexed socket per user and root, and per-root grant
 tables applied live to open sockets. The benchmark reports describe measured workloads and retained
 history differences; they do not claim a universal performance ranking.
 
+## Releases
+
+Push the release commit to `main`, then push its matching version tag:
+
+```sh
+git push origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The `Publish` workflow checks that the tagged commit belongs to `main` and that
+the tag matches the package version, then deploys [pulsify.cloud](https://pulsify.cloud)
+and publishes the npm packages. Versions already on npm are skipped when retrying.
+A push to `main` without a version tag runs checks only.
+
+Website deployment needs the `CLOUDFLARE_API_TOKEN` GitHub Actions secret, scoped
+to the Pulsify account and the `pulsify.cloud` zone. npm uses trusted publishing
+through GitHub Actions and needs no npm token.
+
 ## License
 
 [Apache-2.0](LICENSE), except `packages/cloud-server` (the Pulsify Cloud
