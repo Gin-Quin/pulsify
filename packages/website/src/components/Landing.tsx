@@ -452,13 +452,113 @@ export function Compare() {
 
 /* ------------------------------------------------------------- Everywhere */
 
-const runtimes = [
-	"Browsers",
-	"Bun",
-	"Node 22+",
-	"Deno 2",
-	"Cloudflare Workers",
+const runtimes = ["Browsers", "Bun", "Node 22+", "Cloudflare Workers"];
+
+/** The schema beside the text: a 2×2 grid of nodes, in viewBox units. */
+const schemaNodes: {
+	x: number;
+	y: number;
+	icon: IconName;
+	name: string;
+	detail: string;
+	tone: string;
+}[] = [
+	{
+		x: 20,
+		y: 20,
+		icon: "window",
+		name: "Your app",
+		detail: "Pulsify CRDT",
+		tone: "var(--color-accent)",
+	},
+	{
+		x: 340,
+		y: 20,
+		icon: "server",
+		name: "Sync server",
+		detail: "Relays frames",
+		tone: "var(--color-violet)",
+	},
+	{
+		x: 20,
+		y: 236,
+		icon: "database",
+		name: "Local database",
+		detail: "Instant rendering",
+		tone: "var(--color-accent-2)",
+	},
+	{
+		x: 340,
+		y: 236,
+		icon: "database",
+		name: "Your database",
+		detail: "Durability",
+		tone: "var(--color-secondary)",
+	},
 ];
+
+/** Links between the nodes, and the label beside each. */
+const schemaLinks = [
+	{ d: "M220 62H340", x: 280, y: 50, anchor: "middle", label: "WebSocket" },
+	{
+		d: "M120 104V236",
+		x: 132,
+		y: 175,
+		anchor: "start",
+		label: "Local connector",
+	},
+	{ d: "M440 104V236", x: 428, y: 175, anchor: "end", label: "Database row" },
+] as const;
+
+function SyncSchema() {
+	return (
+		<svg
+			class={styles.diagram}
+			viewBox="0 0 560 340"
+			role="img"
+			aria-label="Your app syncs with its local database through a local connector, and over WebSocket with a sync server that stores the same frames in your database"
+		>
+			<For each={schemaLinks}>
+				{(link) => (
+					<>
+						<path class={styles.schemaLink} d={link.d} />
+						<text
+							class={styles.schemaLabel}
+							x={link.x}
+							y={link.y}
+							text-anchor={link.anchor}
+						>
+							{link.label}
+						</text>
+					</>
+				)}
+			</For>
+			<For each={schemaNodes}>
+				{(node) => (
+					<g style={{ color: node.tone }}>
+						<rect
+							class={styles.schemaNode}
+							x={node.x}
+							y={node.y}
+							width="200"
+							height="84"
+							rx="16"
+						/>
+						<g transform={`translate(${node.x + 18} ${node.y + 28})`}>
+							<Icon name={node.icon} size="28" />
+						</g>
+						<text class={styles.schemaName} x={node.x + 58} y={node.y + 40}>
+							{node.name}
+						</text>
+						<text class={styles.schemaDetail} x={node.x + 58} y={node.y + 62}>
+							{node.detail}
+						</text>
+					</g>
+				)}
+			</For>
+		</svg>
+	);
+}
 
 export function Everywhere() {
 	return (
@@ -482,8 +582,7 @@ export function Everywhere() {
 							<strong>Pulsify Cloud is coming.</strong>
 							<span class={styles.text}>
 								{" "}
-								A serverless sync backend on Cloudflare Durable Objects. One
-								connector, no database to run.
+								A managed sync backend. One connector, no database to run.
 							</span>
 						</div>
 						<Button href="/cloud" variant="outline" icon="arrow" size="sm">
@@ -491,12 +590,7 @@ export function Everywhere() {
 						</Button>
 					</div>
 				</div>
-				<img
-					class={styles.diagram}
-					src="/images/diagram-sync.png"
-					alt="Web, mobile, local database, remote PostgreSQL and cloud storage synchronized through Pulsify"
-					loading="lazy"
-				/>
+				<SyncSchema />
 			</div>
 		</section>
 	);

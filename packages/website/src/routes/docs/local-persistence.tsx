@@ -43,7 +43,6 @@ import { createElectronConnector } from "pulsify-electron";
 const local = createElectronConnector();
 const notebook = await loadPulse(Notebook, "notebook", {
   connectors: [local, remote],
-  include: true,
 });`;
 
 const tauriRust = `# src-tauri/Cargo.toml
@@ -65,7 +64,6 @@ import { createTauriConnector } from "pulsify-tauri";
 const local = createTauriConnector();
 const notebook = await loadPulse(Notebook, userId, {
   connectors: [local, remote],
-  include: true,
 });`;
 
 const cloud = `import { createCloudConnector } from "pulsify-cloud";
@@ -76,7 +74,6 @@ const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });
 
 const notebook = await loadPulse(Notebook, user.id, {
   connectors: [local, cloud],
-  include: true,
 });`;
 
 export default function LocalPersistence() {

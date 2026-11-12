@@ -73,6 +73,10 @@ export default function Why() {
 					Arrays with move, trees with reparenting, tuples, optionals, unions.
 				</li>
 				<li>Offline edits that merge on reconnection.</li>
+				<li>
+					<a href="/docs/presence">Presence</a>: cursors and who is here, shared
+					live and never stored.
+				</li>
 				<li>Browsers, Bun, Node 22+, Deno 2 and Cloudflare Workers.</li>
 				<li>A versioned binary protocol, also implemented in Rust.</li>
 			</ul>

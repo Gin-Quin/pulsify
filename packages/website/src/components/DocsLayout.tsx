@@ -7,16 +7,16 @@ import {
 	Show,
 	type JSX,
 } from "solid-js";
-import { docsNav } from "./docsNav";
+import { docsNav, docsPages, type DocsPage } from "./docsNav";
 import { Icon } from "./Icon";
 import styles from "./Docs.module.css";
 
 export function DocsLayout(props: { children: JSX.Element }) {
 	const location = useLocation();
 	const path = () => location.pathname.replace(/\/$/, "") || "/";
-	const index = () => docsNav.findIndex((page) => page.href === path());
-	const previous = () => docsNav[index() - 1];
-	const next = () => docsNav[index() + 1];
+	const index = () => docsPages.findIndex((page) => page.href === path());
+	const previous = () => docsPages[index() - 1];
+	const next = () => docsPages[index() + 1];
 	const [sections, setSections] = createSignal<{ id: string; title: string }[]>(
 		[],
 	);
@@ -59,44 +59,53 @@ export function DocsLayout(props: { children: JSX.Element }) {
 			window.removeEventListener("scroll", track);
 		});
 	});
+	const sectionLinks = () => (
+		<For each={sections()}>
+			{(section, i) => (
+				<a
+					style={{ "--i": i() }}
+					href={`#${section.id}`}
+					aria-current={active() === section.id ? "location" : undefined}
+				>
+					{section.title}
+				</a>
+			)}
+		</For>
+	);
+	const link = (page: DocsPage) => (
+		<>
+			<a
+				href={page.href}
+				aria-current={path() === page.href ? "page" : undefined}
+			>
+				{page.title}
+			</a>
+			{/* Narrow screens: the sections unfold under the current page. */}
+			<Show when={path() === page.href && sections().length}>
+				<div class={styles.sections}>{sectionLinks()}</div>
+			</Show>
+		</>
+	);
 	return (
 		<div class={styles.layout}>
 			<nav class={styles.sidebar} aria-label="Documentation">
 				<For each={docsNav}>
-					{(page, i) => (
-						<>
-							<Show
-								when={
-									page.section !== docsNav[i() - 1]?.section && page.section
-								}
+					{(entry) =>
+						"group" in entry ? (
+							// Only the group of the current page is unfolded on arrival.
+							<details
+								class={styles.group}
+								open={entry.pages.some((page) => page.href === path())}
 							>
-								{(section) => <span class={styles.section}>{section()}</span>}
-							</Show>
-							<a
-								href={page.href}
-								aria-current={path() === page.href ? "page" : undefined}
-							>
-								{page.title}
-							</a>
-							<Show when={path() === page.href && sections().length}>
-								<div class={styles.sections}>
-									<For each={sections()}>
-										{(section, i) => (
-											<a
-												style={{ "--i": i() }}
-												href={`#${section.id}`}
-												aria-current={
-													active() === section.id ? "location" : undefined
-												}
-											>
-												{section.title}
-											</a>
-										)}
-									</For>
+								<summary>{entry.group}</summary>
+								<div class={styles.pages}>
+									<For each={entry.pages}>{link}</For>
 								</div>
-							</Show>
-						</>
-					)}
+							</details>
+						) : (
+							link(entry)
+						)
+					}
 				</For>
 			</nav>
 			<article ref={article} class={styles.content}>
@@ -109,7 +118,7 @@ export function DocsLayout(props: { children: JSX.Element }) {
 									<Icon name="arrow" size="1em" class={styles.flipped} />
 									Previous
 								</small>
-								{page().title}
+								{pagerTitle(page())}
 							</a>
 						)}
 					</Show>
@@ -120,23 +129,38 @@ export function DocsLayout(props: { children: JSX.Element }) {
 									Next
 									<Icon name="arrow" size="1em" />
 								</small>
-								{page().title}
+								{pagerTitle(page())}
 							</a>
 						)}
 					</Show>
 				</nav>
 			</article>
+			{/* Wide screens: the sections of the page stay in view on the right. */}
+			<aside class={styles.toc} aria-label="On this page">
+				<Show when={sections().length}>
+					<span>On this page</span>
+					<div>{sectionLinks()}</div>
+				</Show>
+			</aside>
 		</div>
 	);
 }
 
 /** Callout for a short note or warning inside the docs. */
-export function Note(props: { kind?: "info" | "warn"; children: JSX.Element }) {
+export function Note(props: {
+	kind?: "info" | "warn" | "danger";
+	children: JSX.Element;
+}) {
 	return (
 		<aside class={styles.note} data-kind={props.kind ?? "info"}>
 			{props.children}
 		</aside>
 	);
+}
+
+/** "Authentication" exists twice: the pager names the group too. */
+function pagerTitle(page: DocsPage & { group?: string }) {
+	return page.group ? `${page.group} · ${page.title}` : page.title;
 }
 
 function slug(text: string) {

@@ -2,7 +2,7 @@ import { useLocation } from "@solidjs/router";
 import { Show } from "solid-js";
 import { Button } from "./Button";
 import { Logo } from "./Logo";
-import { GITHUB_URL, JSR_URL } from "./links";
+import { GITHUB_URL } from "./links";
 import styles from "./Footer.module.css";
 
 /** Call to action closing every page except the docs. */
@@ -30,9 +30,6 @@ export function Footer() {
 							external
 						>
 							View on GitHub
-						</Button>
-						<Button href={JSR_URL} variant="outline" icon="external" external>
-							jsr.io
 						</Button>
 						<Button href="/docs" icon="arrow">
 							Get Started

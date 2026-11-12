@@ -138,6 +138,14 @@ export default function Auth() {
 				session options.
 			</p>
 			<CodeBlock title="store.ts" code={store} />
+			<p>
+				Both relays also carry <a href="/docs/presence">presence</a>. Pass{" "}
+				<code>subject</code> next to <code>docId</code> and every peer knows
+				which user is behind a cursor. <code>PulseRelay</code> needs nothing
+				else; a relay built on <code>relayStoreMessage</code> forwards the
+				frames itself, as{" "}
+				<a href="/docs/presence#your-own-relay">Your own relay</a> shows.
+			</p>
 
 			<h2>Errors and revocation</h2>
 			<ul>

@@ -27,6 +27,14 @@ const fix = `export const Person = definePulse("Person", personV1)
   .migrateTo(personV2, (before) => ({ displayName: before.displayName.trim() }))
   .materialize();`;
 
+const modifiers = `const Article = definePulse("Article", object({
+  origin: object({ source: "string" }),
+}))
+  .migrateTo(object({
+    origin: constant(object({ source: "string" })), // ok: tighter
+  }), (before) => before)
+  .materialize();`;
+
 const drift = `import { MigrationDriftError } from "pulsify-core";
 
 try {
@@ -106,12 +114,25 @@ export default function Migrations() {
 				fix forward.
 			</Note>
 
+			<h2>Constant and frozen fields</h2>
+			<p>
+				A migration may make a field{" "}
+				<a href="/docs/modifiers">
+					<code>constant</code> or <code>frozen</code>
+				</a>
+				; the value it holds at that point becomes the fixed one, and concurrent
+				upgrades converge on the same value. The reverse is rejected: a
+				migration can neither make a constant mutable nor rewrite its value.
+			</p>
+			<CodeBlock title="article.ts" code={modifiers} />
+
 			<h2>Removing fields</h2>
 			<p>
 				You can drop a field from the schema, but its history stays in every
 				replica and old clients may still write it. The clean way to retire a
 				field is to keep it stored and hide it from the public type. That is{" "}
-				<a href="/docs/materialization">materialization</a>.
+				<a href="/docs/materialization">materialization</a>. A constant removed
+				from the schema stays immutable legacy data.
 			</p>
 		</>
 	);

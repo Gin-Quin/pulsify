@@ -35,6 +35,25 @@ export const Invoice = definePulse("Invoice", invoiceSchema)
     },
   }));`;
 
+const keepStored = `const taskV1 = object({ title: "string", done: "boolean" });
+const taskV2 = object({ title: "string", done: "boolean", status: "string" });
+
+type Task = PulseProperties<"Task"> & { title: string; status: string };
+
+export const Task = definePulse("Task", taskV1)
+  .migrateTo(taskV2, (before) => ({ status: before.done ? "done" : "todo" }))
+  .materialize<Task>(() => ({
+    status: {
+      // A late write from a V1 client still counts.
+      get: (data) => (data.done ? "done" : data.status === "done" ? "todo" : data.status),
+      // Keep done in sync so V1 clients stay correct.
+      set: (data, value) => {
+        data.status = value;
+        data.done = value === "done";
+      },
+    },
+  }));`;
+
 export default function Materialization() {
 	return (
 		<>
@@ -53,6 +72,17 @@ export default function Materialization() {
 				migration may need to read it. Store what you must; expose what you
 				want.
 			</p>
+			<p>
+				Say V2 replaces a <code>done</code> checkbox with a <code>status</code>.
+				A phone still on V1 is offline and ticks a task. Meanwhile a laptop
+				upgrades, and the migration sets <code>status</code> to{" "}
+				<code>"todo"</code>. When the phone reconnects, its{" "}
+				<code>done = true</code> arrives after the migration has already run. If
+				V2 dropped <code>done</code>, nothing reads that write: the laptop shows
+				the task as todo, the phone shows it as done. Keep <code>done</code>{" "}
+				stored and leave it out of the public type instead:
+			</p>
+			<CodeBlock title="task.ts" code={keepStored} />
 
 			<h2>Aliases with bind</h2>
 			<p>

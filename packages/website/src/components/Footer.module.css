@@ -2,7 +2,6 @@
 	position: relative;
 	overflow: hidden;
 	padding: var(--space-8) var(--space-5) calc(100vw * 0.18 + var(--space-6));
-	border-top: var(--border-width) solid var(--color-divider);
 	text-align: center;
 }
 

@@ -72,11 +72,36 @@ const groups: { title: string; items: [string, string][] }[] = [
 		],
 	},
 	{
+		title: "Presence",
+		items: [
+			[
+				"definePresence(name, schema, { throttleMs })",
+				"A typed channel of live state that is shared and never stored.",
+			],
+			[
+				"joinPresence(pulse, Channel)",
+				"Returns { others, mine, set, subscribe, leave } for that pulse.",
+			],
+			[
+				"RichTextSelection",
+				"The channel of text selections that the editor bindings share: { anchor, head, name, color }.",
+			],
+			[
+				"field.anchorAt(index) / field.indexOf(anchor)",
+				"A position in a richText() field as a string that survives every edit.",
+			],
+			[
+				"createWebSocketConnector(url, factory?, { presence: true })",
+				"Opt in for a relay running version 9 or later. Pulsify Cloud needs nothing.",
+			],
+		],
+	},
+	{
 		title: "Server",
 		items: [
 			[
 				"new PulseRelay()",
-				"In-memory relay; open(send, { protocolVersion }) returns a peer.",
+				"In-memory relay; open(send, { protocolVersion, subject }) returns a peer.",
 			],
 			[
 				"PostgresPatchStore / SqlitePatchStore",
@@ -85,6 +110,14 @@ const groups: { title: string; items: [string, string][] }[] = [
 			[
 				"PatchStore",
 				"The interface to implement for any other database: append, appendEncoded, vector, missing.",
+			],
+			[
+				"relayStoreMessage(store, bytes, session)",
+				"pulsify-core/protocol: serve one frame from a store. Returns responses, broadcast and presence to forward.",
+			],
+			[
+				"encodePresenceLeave(docId, peer)",
+				"pulsify-core/protocol: the frame to send the others when a session ends.",
 			],
 			[
 				"exportPulseUpdates / applyPulseUpdates",

@@ -16,32 +16,30 @@ const connector = `import { createCloudConnector } from "pulsify-cloud";
 import { loadPulse } from "pulsify-core";
 
 const cloud = createCloudConnector({
-  url: "https://pulsify.example.com",                // Cloudflare or Unikraft: same URL scheme
+  url: "https://pulsify.example.com",
   token: () => fetch("/api/pulsify-token").then((response) => response.text()),
 });
 
-const notebook = await loadPulse(Notebook, "alice", { connectors: [cloud], include: true });
+const notebook = await loadPulse(Notebook, "alice", { connectors: [cloud] });
 cloud.connections; // [{ root: "alice", state: "open", documents: ["alice", "alice/notes/n1", …], … }]`;
 
-const subscriptions = `// The root document only
+const subscriptions = `// Everything reachable from the root: sub-pulses load by default
 await loadPulse(Notebook, "alice", { connectors: [cloud] });
 
-// One sub-document, without its parent
-await loadPulse(Note, "alice/notes/n1", { connectors: [cloud] });
+// The root document only
+await loadPulse(Notebook, "alice", { connectors: [cloud], subPulses: false });
 
-// Everything reachable from the root
-await loadPulse(Notebook, "alice", { connectors: [cloud], include: true });
+// One sub-document and all its children, without its parent
+await loadPulse(Folder, "alice/work", { connectors: [cloud] });
 
-// A sub-document and all its children
-await loadPulse(Folder, "alice/work", { connectors: [cloud], include: true });
-
-// Selected fields only
-await loadPulse(Notebook, "alice", { connectors: [cloud], include: { notes: true } });
+// Selected sub-documents: load the root alone, then the references you need
+const root = await loadPulse(Notebook, "alice", { connectors: [cloud], subPulses: false });
+await Promise.all(root.notes.map((ref) => ref.load({ subPulses: false })));
 
 // Unsubscribe: the socket stays open for the other documents of the root
 destroyPulse(note); // or disconnectPulse(note)`;
 
-const heartbeat = `import { createCloudConnector, createPresence } from "pulsify-cloud";
+const heartbeat = `import { createCloudConnector, createUserActivity } from "pulsify-cloud";
 
 const cloud = createCloudConnector({
   url,
@@ -51,41 +49,41 @@ const cloud = createCloudConnector({
     timeoutMs: 5_000,  // no frame this long after a ping: the socket is dead
     intervalMs: 2_000, // background check while someone is there; false = on demand only
   },                   // defaults; heartbeat: false relies on transport errors
-  // Optional: by default every connector of the page shares \`presence\`.
-  presence: createPresence({
+  // Optional: by default every connector of the page shares \`userActivity\`.
+  activity: createUserActivity({
     activeMs: 300_000,   // "someone is there": input within this long, page not hidden
     unfocusedMs: 30_000, // ...or within this long when the window lost focus
   }),
 });`;
 
-const tauriPresence = `// Tauri, desktop and mobile: minimized or hidden means away, shown or focused means back.
-import { presence } from "pulsify-cloud";
-import { watchTauriPresence } from "pulsify-tauri";
+const tauriActivity = `// Tauri, desktop and mobile: minimized or hidden means away, shown or focused means back.
+import { userActivity } from "pulsify-cloud";
+import { watchTauriActivity } from "pulsify-tauri";
 
-const stop = await watchTauriPresence(presence);`;
+const stop = await watchTauriActivity(userActivity);`;
 
-const electrobunPresence = `// Electrobun, main process (Bun): report the native window state.
-const report = (present: boolean) => sendToWebview("presence", present); // your RPC message
+const electrobunActivity = `// Electrobun, main process (Bun): report the native window state.
+const report = (present: boolean) => sendToWebview("activity", present); // your RPC message
 const update = () => report(win.isVisible() && !win.isMinimized());
 win.on("resize", update);
 win.on("blur", update);
 win.on("focus", () => report(true));
 
-// Webview: hand it to the page presence, shared by every connector.
-import { presence } from "pulsify-cloud";
+// Webview: hand it to the page's user activity, shared by every connector.
+import { userActivity } from "pulsify-cloud";
 
-onPresenceMessage((present) => presence.set(present));`;
+onActivityMessage((present) => userActivity.set(present));`;
 
-const debug = `import { presence } from "pulsify-cloud";
+const debug = `import { userActivity } from "pulsify-cloud";
 import { subscribePulseStatus } from "pulsify-core";
 
 // The window: called now, then on every change. It involves no server.
-presence.on("change", (p) => {
+userActivity.on("change", (p) => {
   // { present, reason: "blur" | "idle" | "focus" | "native" | …, visible, focused, away, lastActivity }
-  presenceBadge.textContent = p.present ? "here" : \`away (\${p.reason})\`;
+  activityBadge.textContent = p.present ? "here" : \`away (\${p.reason})\`;
 });
 
-// The servers: one connection per root, to its Durable Object or Unikraft machine.
+// The servers: one connection per root, to the instance that hosts it.
 // Called with the current connections, then with each new one (reconnections included).
 cloud.onConnection((connection) => {
   const { root } = connection;
@@ -99,7 +97,7 @@ cloud.onConnection((connection) => {
 });
 
 cloud.connections; // the current ones, without listening: root, state, server, documents, latencyMs, error
-presence.state;    // the same for the window
+userActivity.state; // the same for the window
 
 // Documents: idle | syncing | ready | synced | offline | error.
 subscribePulseStatus(notebook, (status) => (statusBadge.textContent = status));`;
@@ -127,7 +125,8 @@ export default function CloudOverview() {
 			<p>
 				Pulsify Cloud is the managed, paid backend for your pulses: a CRDT
 				database you never operate. The client code is the one you already write
-				with <code>pulsify-core</code>; only the connector changes.
+				with <code>pulsify-core</code>; only the connector changes. It runs on
+				Cloudflare: each root is a Durable Object with its own SQLite database.
 			</p>
 			<ul>
 				<li>
@@ -136,13 +135,12 @@ export default function CloudOverview() {
 					small actors, not one big database.
 				</li>
 				<li>
-					<strong>Global distribution.</strong> On Cloudflare, a root lives near
-					its first user and is reachable from every location.
+					<strong>Global distribution.</strong> A root lives near its first user
+					and is reachable from every location.
 				</li>
 				<li>
-					<strong>Pay as you go.</strong> Idle sockets hibernate and idle
-					instances scale to zero. You pay for activity and storage, not for
-					capacity.
+					<strong>Pay as you go.</strong> Idle sockets hibernate. You pay for
+					activity and storage, not for capacity.
 				</li>
 				<li>
 					<strong>Built-in authentication.</strong> Users connect with a token
@@ -249,11 +247,9 @@ export default function CloudOverview() {
 			</ul>
 			<CodeBlock title="cloud.ts" code={heartbeat} />
 			<p>
-				On Cloudflare the runtime answers pings itself: a hibernated root stays
-				asleep and no duration is billed. Each ping still counts as an incoming
-				WebSocket message, billed as 1/20 of a request. On Unikraft Cloud, a
-				ping wakes a scaled-to-zero instance for a moment: only pages in use
-				ping in the background, so instances sleep when users walk away.
+				Pings are answered without waking the root: a hibernated root stays
+				asleep. Only pages in use ping in the background, so a root costs
+				nothing once its users walk away.
 			</p>
 			<p>
 				A screen nobody touches, such as a dashboard on an office TV or a kiosk,
@@ -264,7 +260,7 @@ export default function CloudOverview() {
 
 			<h3>Desktop and mobile apps</h3>
 			<p>
-				Presence works in every webview because it relies on what they all
+				User activity works in every webview because it relies on what they all
 				report: input events (pointer, keyboard, wheel, touch) and timers. When
 				timers run late, the process was suspended (laptop sleep, mobile app in
 				the background), and every socket is checked on resume. Visibility,
@@ -311,19 +307,19 @@ export default function CloudOverview() {
 				A window that loses focus (another app in front, or minimized) counts as
 				away 30 seconds after the last input instead of 5 minutes. Every webview
 				reports focus, including WebView2. To react the moment a window is
-				minimized or hidden, forward the native state to the page{" "}
-				<code>presence</code>, which every connector shares:
+				minimized or hidden, forward the native state to the page's{" "}
+				<code>userActivity</code>, which every connector shares:
 			</p>
 			<Tabs
 				tabs={[
 					{
 						label: "Tauri",
-						content: <CodeBlock title="presence.ts" code={tauriPresence} />,
+						content: <CodeBlock title="activity.ts" code={tauriActivity} />,
 					},
 					{
 						label: "Electrobun",
 						content: (
-							<CodeBlock title="presence.ts" code={electrobunPresence} />
+							<CodeBlock title="activity.ts" code={electrobunActivity} />
 						),
 					},
 				]}
@@ -336,21 +332,20 @@ export default function CloudOverview() {
 			<h2>Debugging and status displays</h2>
 			<p>
 				A client talks to several servers at once: each root it uses has its own
-				socket, served by that root's Durable Object or Unikraft machine. So
-				events are reported where they happen:
+				socket, served by the instance that hosts that root. So events are
+				reported where they happen:
 			</p>
 			<ul>
 				<li>
-					<strong>Presence</strong> belongs to the window, not to any server:
-					whether someone is there, and why.
+					<strong>User activity</strong> belongs to the window, not to any
+					server: whether someone is there, and why.
 				</li>
 				<li>
 					<strong>Each connection</strong> reports its own server (the first
-					frame of every socket names the backend, the Durable Object ID or
-					machine instance, and the Cloudflare edge or Unikraft metro), its
-					lifecycle, every ping with why it was sent, round trips, a dead socket
-					and process suspensions. A reconnection is a new connection; a new
-					server ID means a new instance.
+					frame of every socket names the backend, the instance ID and its
+					location), its lifecycle, every ping with why it was sent, round
+					trips, a dead socket and process suspensions. A reconnection is a new
+					connection; a new server ID means a new instance.
 				</li>
 				<li>
 					<strong>Each pulse</strong> reports its synchronization status.
@@ -377,7 +372,7 @@ export default function CloudOverview() {
 				</li>
 			</ul>
 
-			<h2>Packages and backends</h2>
+			<h2>Packages</h2>
 			<table>
 				<thead>
 					<tr>
@@ -392,8 +387,8 @@ export default function CloudOverview() {
 							<code>pulsify-cloud</code>
 						</td>
 						<td>
-							The client: connector, presence, management client, tokens, roles
-							and the session protocol.
+							The client: connector, user activity, management client, tokens,
+							roles and the session protocol.
 						</td>
 						<td>Apache-2.0</td>
 					</tr>
@@ -402,71 +397,16 @@ export default function CloudOverview() {
 							<code>pulsify-cloud-server</code>
 						</td>
 						<td>
-							The gateway and <code>CloudRoot</code>, the runtime-independent
-							state machine of a root.
+							The server: the gateway and <code>CloudRoot</code>, the
+							runtime-independent state machine of a root.
 						</td>
-						<td rowSpan={3}>
+						<td>
 							FSL-1.1-ALv2: any use except a competing service; Apache-2.0 two
 							years after each release
 						</td>
 					</tr>
-					<tr>
-						<td>
-							<code>pulsify-cloud-server/cloudflare</code>
-						</td>
-						<td>A Worker and one Durable Object per root.</td>
-					</tr>
-					<tr>
-						<td>
-							<code>pulsify-cloud-server/unikraft-cloud</code>
-						</td>
-						<td>
-							A Rust server and PostgreSQL in one Unikraft Cloud image, plus its
-							schema.
-						</td>
-					</tr>
 				</tbody>
 			</table>
-			<table>
-				<thead>
-					<tr>
-						<th />
-						<th>Cloudflare</th>
-						<th>Unikraft Cloud</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<th scope="row">Gateway</th>
-						<td>Worker</td>
-						<td>Rust server</td>
-					</tr>
-					<tr>
-						<th scope="row">One root</th>
-						<td>One Durable Object</td>
-						<td>One actor in the server process</td>
-					</tr>
-					<tr>
-						<th scope="row">Storage</th>
-						<td>SQLite, one database per root</td>
-						<td>PostgreSQL beside the server, one database per instance</td>
-					</tr>
-					<tr>
-						<th scope="row">Idle cost</th>
-						<td>WebSocket hibernation</td>
-						<td>Stateful scale-to-zero</td>
-					</tr>
-					<tr>
-						<th scope="row">Placement</th>
-						<td>Near the first user of each root</td>
-						<td>The metro of the instance</td>
-					</tr>
-				</tbody>
-			</table>
-			<p>
-				Both backends pass the same conformance suite: same URLs, same errors,
-				same live role changes. Switching is a URL change.
-			</p>
 
 			<h2>Wire protocol</h2>
 			<CodeBlock title="cloud session protocol 1" code={wire} />

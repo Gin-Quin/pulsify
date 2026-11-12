@@ -64,14 +64,6 @@ const combined = `object({
   snapshot: optional(frozen(object({ x: "float64", y: "float64" }))),
 })`;
 
-const migration = `const Article = definePulse("Article", object({
-  origin: object({ source: "string" }),
-}))
-  .migrateTo(object({
-    origin: constant(object({ source: "string" })), // ok: tighter
-  }), (before) => before)
-  .materialize();`;
-
 export default function Modifiers() {
 	return (
 		<>
@@ -173,17 +165,6 @@ export default function Modifiers() {
 				constant.
 			</p>
 			<CodeBlock title="combined.ts" code={combined} />
-
-			<h2>Migrations</h2>
-			<p>
-				A <a href="/docs/migrations">migration</a> may make a field{" "}
-				<code>constant</code> or <code>frozen</code>; the value it holds at that
-				point becomes the fixed one, and concurrent upgrades converge on the
-				same value. The reverse is rejected: a migration can neither make a
-				constant mutable nor rewrite its value. A constant removed from the
-				schema stays immutable legacy data.
-			</p>
-			<CodeBlock title="article.ts" code={migration} />
 
 			<Note>
 				Rejected writes throw before anything is committed, and replicas reject

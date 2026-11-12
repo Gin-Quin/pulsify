@@ -43,9 +43,16 @@
 	opacity: 0.7;
 	font-size: var(--font-size-xs);
 }
+.details {
+	display: grid;
+}
+.details > * {
+	grid-area: 1 / 1;
+}
+.inactive {
+	visibility: hidden;
+}
 .detail {
-	/* Room for two lines, so the page below never moves. */
-	min-height: calc(2em * var(--line-height-base));
 	margin-top: var(--space-3);
 	color: #fff;
 	font-size: var(--font-size-md);

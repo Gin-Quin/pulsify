@@ -1,24 +1,31 @@
 import { For } from "solid-js";
 import styles from "./CodeBlock.module.css";
 
-const TOKEN =
-	/(\/\/.*$|#.*$)|("[^"]*"|'[^']*'|`[^`]*`)|\b(import|from|const|let|new|await|async|export|type|function|return|if|else|as|default|interface|extends|typeof)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_$][\w$]*)(?=\()/gm;
+// Tiny highlighter for TS, JSX, Svelte and Vue snippets. The first group that matches names the kind.
+// - comment: `//`, `<!-- -->`, and shell `#` followed by a space (so `{#each}` and `#slot` stay code).
+// - tag: `<input`, `</ul`, `<ProjectPage`; not `Promise<T>`: an opening tag never follows a word.
+// - attr: `bind:value=`, `@click=`, `:key=`, `v-for=`, `onClick=`, and Vue's `#fallback`.
+// - keyword: also Svelte blocks `{#each`, `{:else`, `{/if`, `{@html`.
+// - fn: `$derived(` keeps its `$`, and `useState<T>(` counts as a call.
+const TOKEN = new RegExp(
+	[
+		String.raw`(?<comment>(?<!:)\/\/.*$|<!--.*?-->|(?<!\S)#(?!\S).*$)`,
+		String.raw`(?<string>"[^"]*"|'[^']*'|${"`"}[^${"`"}]*${"`"})`,
+		String.raw`(?<tag><\/[A-Za-z][\w.-]*|(?<![\w$])<[A-Za-z][\w.-]*)`,
+		String.raw`(?<attr>(?<=\s)(?:[@:]?[A-Za-z][\w:.-]*(?==(?![=>]))|#[\w-]+))`,
+		String.raw`(?<keyword>\{[#:/@][a-z]+|\b(?:import|from|const|let|new|await|async|export|type|function|return|if|else|as|default|interface|extends|typeof)\b)`,
+		String.raw`(?<number>\b(?:\d+(?:\.\d+)?|true|false|null|undefined)\b)`,
+		String.raw`(?<fn>(?<![\w$])[A-Za-z_$][\w$]*(?=(?:<[^()]*>)?\())`,
+	].join("|"),
+	"gm",
+);
 
-// Tiny highlighter: comments, strings, keywords, numbers and calls. Enough for snippets.
 function highlight(line: string) {
 	const parts: { text: string; kind?: string }[] = [];
 	let last = 0;
 	for (const m of line.matchAll(TOKEN)) {
 		if (m.index > last) parts.push({ text: line.slice(last, m.index) });
-		const kind = m[1]
-			? "comment"
-			: m[2]
-				? "string"
-				: m[3]
-					? "keyword"
-					: m[4]
-						? "number"
-						: "fn";
+		const kind = Object.keys(m.groups!).find((k) => m.groups![k] !== undefined);
 		parts.push({ text: m[0], kind });
 		last = m.index + m[0].length;
 	}

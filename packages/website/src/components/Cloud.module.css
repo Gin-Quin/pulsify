@@ -1,10 +1,33 @@
 .hero {
 	position: relative;
-	overflow: hidden;
-	padding: var(--space-9) var(--space-5) var(--space-8);
+	/* Clip sideways only, so the border glow can spill below. */
+	overflow-x: clip;
+	padding: var(--space-9) var(--space-5) calc(var(--space-9) * 1.2);
 	background: url("/images/stars.png") center / cover no-repeat;
 	border-bottom: var(--border-width) solid var(--color-divider);
 	text-align: center;
+}
+
+.hero::after {
+	content: "";
+	position: absolute;
+	right: 0;
+	bottom: calc(-1 * var(--border-width));
+	left: 0;
+	/* Pink to violet to cyan, bright at both ends and faint in between; the drop-shadow follows the alpha, so the ends glow most. */
+	height: calc(var(--border-width) * 2);
+	background: linear-gradient(
+		90deg,
+		var(--color-secondary),
+		rgb(167 139 250 / 0.25) 20%,
+		rgb(167 139 250 / 0.12) 50%,
+		rgb(61 245 224 / 0.25) 80%,
+		var(--color-accent)
+	);
+	filter: drop-shadow(0 0 6px var(--color-secondary))
+		drop-shadow(0 0 18px var(--color-secondary))
+		drop-shadow(0 0 18px var(--color-accent));
+	pointer-events: none;
 }
 
 .inner {

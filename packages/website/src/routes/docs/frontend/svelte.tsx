@@ -1,72 +1,94 @@
 import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
-import { ClientOnly, NoteDefinition } from "~/components/Frontend";
+import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
 
-const helper = `import { createSubscriber } from "svelte/reactivity";
-import { subscribePulse, type Pulse } from "pulsify-core";
+const install = `bun add pulsify-core pulsify-svelte`;
 
-/** A view of the pulse whose reads Svelte tracks. Writes go to the pulse. */
-export function pulseState<P extends Pulse<any>>(pulse: P): P {
-  const track = createSubscriber((update) => subscribePulse(pulse, update));
-  const views = new WeakMap<object, object>();
-  const view = (value: object): object => {
-    let proxy = views.get(value);
-    if (!proxy) {
-      proxy = new Proxy(value, {
-        get(target, key) {
-          track();
-          const item = Reflect.get(target, key);
-          return typeof item === "object" && item !== null && !ArrayBuffer.isView(item)
-            ? view(item)
-            : item;
-        },
-      });
-      views.set(value, proxy);
-    }
-    return proxy;
-  };
-  return view(pulse) as P;
+const config = `export default {
+  compilerOptions: { experimental: { async: true } }, // await in components
+};`;
+
+const load = `<script lang="ts">
+  import { loadSveltePulse } from "pulsify-svelte";
+  import { page } from "$app/state";
+  // Project has documents: array(sub(Document)).
+  import { Project } from "$lib/project";
+
+  // Loaded with its sub-pulses, and again when the ID changes.
+  const project = $derived(await loadSveltePulse(Project, page.params.id));
+</script>
+
+<input bind:value={project.name} />
+<ul>
+  {#each project.documents as document (document.id)}
+    <li>{document.pulse?.title}</li>
+  {/each}
+</ul>
+<button onclick={() => project.documents.pop()}>Remove the last one</button>`;
+
+const create = `<script lang="ts">
+  import { createSveltePulse } from "pulsify-svelte";
+  import { Project, type ProjectPulse } from "$lib/project";
+
+  // $state.raw, not $state: Svelte must not copy the pulse into its own state.
+  let project = $state.raw<ProjectPulse>();
+
+  function create() {
+    project = createSveltePulse(Project, { name: "Untitled", documents: [] });
+  }
+</script>
+
+<button onclick={create}>New project</button>
+{#if project}
+  <input bind:value={project.name} />
+{/if}`;
+
+const wrap = `import { loadPulse } from "pulsify-core";
+import { SveltePulse } from "pulsify-svelte";
+import { Project } from "$lib/project";
+
+// A plain pulse: what reads it never re-renders.
+const pulse = await loadPulse(Project, id);
+
+// The reactive view of that pulse. A write to either one reaches the same
+// document and re-renders what reads the view.
+const project = new SveltePulse(pulse);
+
+new SveltePulse(pulse) === project; // true: one view per pulse
+new SveltePulse(project) === project; // true: a view is returned as is`;
+
+const presence = `<script lang="ts">
+  import { SveltePresence } from "pulsify-svelte";
+  import { Cursor } from "$lib/presence";
+  import type { ProjectPulse } from "$lib/project";
+
+  let { project }: { project: ProjectPulse } = $props();
+
+  // Joins now, leaves when the component is destroyed.
+  const cursors = new SveltePresence(project, Cursor);
+</script>
+
+<div
+  class="board"
+  onpointermove={(e) => cursors.set({ x: e.clientX, y: e.clientY })}
+  onpointerleave={() => cursors.set(undefined)}
+>
+  {#each cursors.others as { peer, state } (peer)}
+    <i class="cursor" style:left="{state.x}px" style:top="{state.y}px"></i>
+  {/each}
+</div>`;
+
+const never = `import { loadPulse, snapshotPulse } from "pulsify-core";
+import { Project } from "$lib/project";
+
+// DANGEROUS: a load function runs on the server.
+export async function load({ params }) {
+  const project = await loadPulse(Project, params.id);
+  return { project: snapshotPulse(project) };
 }`;
 
-const editor = `<script lang="ts">
-  import type { NotePulse } from "$lib/note";
-
-  let { note }: { note: NotePulse } = $props();
-</script>
-
-<input bind:value={note.title} />
-<p>by {note.author.name}</p>
-<ul>
-  {#each note.tags as tag}<li>{tag}</li>{/each}
-</ul>
-<button onclick={() => note.tags.push("new")}>Add tag</button>`;
-
-const page = `<script lang="ts">
-  import { onMount } from "svelte";
-  import { disconnectPulse, loadPulse } from "pulsify-core";
-  import { page } from "$app/state";
-  import { Note, remote, type NotePulse } from "$lib/note";
-  import { pulseState } from "$lib/pulseState";
-  import Editor from "./Editor.svelte";
-
-  let note = $state.raw<NotePulse>();
-
-  // onMount never runs during server rendering.
-  onMount(() => {
-    let pulse: NotePulse | undefined;
-    loadPulse(Note, page.params.id, { connectors: [remote] }).then((loaded) => {
-      pulse = loaded;
-      note = pulseState(loaded);
-    });
-    return () => pulse && disconnectPulse(pulse);
-  });
-</script>
-
-{#if note}<Editor {note} />{:else}<p>Loading…</p>{/if}`;
-
-const noSsr = `// src/routes/notes/[id]/+page.ts
-export const ssr = false;`;
+const noSsr = `export const ssr = false;`;
 
 export default function Svelte() {
 	return (
@@ -74,41 +96,84 @@ export default function Svelte() {
 			<Title>Svelte · Docs</Title>
 			<h1>Svelte</h1>
 			<p>
-				Wrap a pulse with a small helper built on Svelte's{" "}
-				<code>createSubscriber</code>. Templates read and write it like any
-				object, and remote changes update them.
+				<code>pulsify-svelte</code> makes pulses reactive, as{" "}
+				<code>SvelteMap</code> does for a <code>Map</code>: what reads them
+				re-renders after a local or remote change.
 			</p>
+			<CodeBlock title="terminal" code={install} />
 
-			<h2>The definition</h2>
-			<NoteDefinition />
+			<DefaultConnectors file="src/hooks.client.ts" />
 
-			<h2>The helper</h2>
-			<CodeBlock title="src/lib/pulseState.ts" code={helper} />
+			<h2>Load a pulse</h2>
 			<p>
-				Every template expression that reads the pulse re-runs after a change of
-				that pulse, and Svelte only touches the DOM nodes whose value changed.
-				Nested objects and arrays are wrapped too, so components receiving{" "}
-				<code>note.author</code> or an item of <code>note.tags</code> stay up to
-				date.
+				Await <code>loadSveltePulse</code> directly in the component. Templates
+				read and write the pulse like any object: <code>bind:value</code>,
+				assignments and array methods go straight to the pulse, which syncs them
+				to every peer.
 			</p>
-			<Note>
-				Do not use <code>$state(pulse)</code>: Svelte copies the object into its
-				own state, so remote changes never show and writes never reach the
-				pulse.
+			<CodeBlock title="src/routes/projects/[id]/+page.svelte" code={load} />
+			<p>
+				A sub-pulse read through the project, <code>document.pulse</code>, is
+				reactive too. In Svelte 5, <code>await</code> in a component needs the
+				async option; a <code>&lt;svelte:boundary&gt;</code> with a{" "}
+				<code>pending</code> snippet shows a placeholder while it loads.
+			</p>
+			<CodeBlock title="svelte.config.js" code={config} />
+
+			<h2>Create a pulse</h2>
+			<p>
+				<code>createSveltePulse</code> is synchronous, so an event handler can
+				create a pulse and show it at once.
+			</p>
+			<CodeBlock title="NewProject.svelte" code={create} />
+			<Note kind="warn">
+				Never pass a pulse to <code>$state</code>, wrapped or not. Svelte copies
+				what <code>$state</code> holds into its own state: remote changes never
+				show and writes never reach the pulse. Use <code>SveltePulse</code>, and{" "}
+				<code>$state.raw</code> for a variable that holds one.
 			</Note>
 
-			<h2>Render and edit</h2>
-			<CodeBlock title="Editor.svelte" code={editor} />
+			<h2>Wrap a pulse you already have</h2>
 			<p>
-				<code>bind:value</code>, assignments and array methods write straight to
-				the pulse, which syncs them to every peer.
+				<code>loadSveltePulse</code> and <code>createSveltePulse</code> are
+				shortcuts for one primitive, <code>new SveltePulse(pulse)</code>. Call
+				it yourself for a pulse that comes from code that does not know Svelte:
+				a module shared with another app, a library, an editor binding.
+			</p>
+			<CodeBlock title="example.ts" code={wrap} />
+			<p>
+				It can be called anywhere, as often as needed: the view is created once
+				per pulse, and its nested objects, arrays and sub-pulses are views too.
 			</p>
 
-			<h2>Load on the client</h2>
-			<ClientOnly how="In SvelteKit, load the pulse in onMount, or turn server rendering off for the page." />
-			<CodeBlock title="src/routes/notes/[id]/+page.svelte" code={page} />
-			<p>Or render the whole page in the browser:</p>
-			<CodeBlock title="src/routes/notes/[id]/+page.ts" code={noSsr} />
+			<h2>Presence</h2>
+			<p>
+				<code>new SveltePresence(pulse, Channel)</code> joins a{" "}
+				<a href="/docs/presence">presence channel</a> of a pulse. Its{" "}
+				<code>others</code> and <code>mine</code> are reactive, and{" "}
+				<code>set</code> publishes your state.
+			</p>
+			<CodeBlock title="Cursors.svelte" code={presence} />
+			<p>
+				Created in a component, it leaves the channel when the component is
+				destroyed. Created anywhere else, call <code>leave()</code> yourself.
+			</p>
+			<p>
+				It needs a connector that relays presence: Pulsify Cloud, or your own
+				relay with <code>presence: true</code>.{" "}
+				<a href="/docs/presence#where-it-works">Where it works →</a>
+			</p>
+
+			<NeverOnTheServer
+				file="src/routes/projects/[id]/+page.server.ts"
+				code={never}
+			>
+				The same goes for <code>+page.ts</code>, <code>+layout.ts</code>, hooks,
+				and a component that SvelteKit renders on the server, where a top-level{" "}
+				<code>await</code> runs too. Turn server rendering off for the pages
+				that show pulses:
+			</NeverOnTheServer>
+			<CodeBlock title="src/routes/projects/[id]/+page.ts" code={noSsr} />
 		</>
 	);
 }

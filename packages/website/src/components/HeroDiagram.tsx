@@ -4,8 +4,9 @@ import styles from "./HeroDiagram.module.css";
 
 /*
  * The hero illustration. An app is a sandwich: the app itself between two
- * slabs of the same CRDT layer. That layer talks to everything around the
- * app: its local database, a remote database, and the other apps. Geometry
+ * slabs of the same CRDT layer. That layer talks to its local database and
+ * to a sync server; the other apps are only reached through that server,
+ * which stores every patch and forwards it. Geometry
  * is in viewBox units; the animation is one SMIL timeline, in seconds,
  * scripted by the scenarios below.
  */
@@ -23,24 +24,27 @@ const PAUSE = 1.9;
 
 // ---------------------------------------------------------------- geometry
 
-/** A diamond with rounded corners: an isometric slab seen from above. */
-function diamond(cx: number, cy: number, rx: number, ry: number) {
-	const corners = [
-		[cx, cy - ry],
-		[cx + rx, cy],
-		[cx, cy + ry],
-		[cx - rx, cy],
-	];
+/** A polygon with rounded corners. */
+function rounded(corners: number[][]) {
 	const toward = (from: number[], to: number[]) =>
 		`${from[0] + (to[0] - from[0]) * 0.14} ${from[1] + (to[1] - from[1]) * 0.14}`;
 	return `${corners
 		.map((corner, i) => {
-			const before = corners[(i + 3) % 4];
-			const after = corners[(i + 1) % 4];
+			const before = corners[(i + corners.length - 1) % corners.length];
+			const after = corners[(i + 1) % corners.length];
 			return `${i ? "L" : "M"}${toward(corner, before)}Q${corner[0]} ${corner[1]} ${toward(corner, after)}`;
 		})
 		.join("")}Z`;
 }
+
+/** A diamond with rounded corners: an isometric slab seen from above. */
+const diamond = (cx: number, cy: number, rx: number, ry: number) =>
+	rounded([
+		[cx, cy - ry],
+		[cx + rx, cy],
+		[cx, cy + ry],
+		[cx - rx, cy],
+	]);
 
 /** Where an app's top slab sits, and how its slabs are spaced. */
 type Stack = { x: number; y: number; rx: number; ry: number; gap: number };
@@ -51,7 +55,6 @@ const slabsOf = (stack: Stack) =>
 		diamond(stack.x, stack.y + depth * stack.gap, stack.rx, stack.ry),
 	);
 const slabClasses = [styles.crdt, styles.app, styles.crdt];
-const bottomOf = (stack: Stack) => stack.y + 2 * stack.gap + stack.ry;
 
 type Database = {
 	class: string;
@@ -97,12 +100,40 @@ const databaseAt = (x: number, name: string): Database => ({
 	height: 66,
 	bands: 2,
 });
-const localDatabase = databaseAt(200, styles.local);
-const remoteDatabase = databaseAt(520, styles.remote);
+const localDatabase = databaseAt(APP.x, styles.local);
+/** Where the labels above the diagram sit. */
+const TOP_LABEL = 40;
+
+/**
+ * The sync server, above the app: the hub every app connects to. An
+ * isometric box, `y` being the center of its top face.
+ */
+const server = { x: APP.x, y: 80, rx: 54, ry: 18, height: 40 };
+const serverBody = rounded([
+	[server.x, server.y - server.ry],
+	[server.x + server.rx, server.y],
+	[server.x + server.rx, server.y + server.height],
+	[server.x, server.y + server.ry + server.height],
+	[server.x - server.rx, server.y + server.height],
+	[server.x - server.rx, server.y],
+]);
+const serverTop = diamond(server.x, server.y, server.rx, server.ry);
+/** The box's front edge, between its rounded corners. */
+const serverEdge = `M${server.x} ${server.y + server.ry * 0.93}V${server.y + server.ry * 0.93 + server.height}`;
+/** The server's database: beside it like an app's, but under the link to Mobile. */
+const serverDatabase: Database = {
+	class: styles.remote,
+	x: server.x + server.rx + 10 + 22,
+	y: 116,
+	rx: 22,
+	ry: 7,
+	height: 26,
+	bands: 1,
+};
 
 const links = {
 	local: wire(localDatabase.x, localDatabase.y - localDatabase.ry),
-	remote: wire(remoteDatabase.x, remoteDatabase.y - remoteDatabase.ry),
+	server: wire(server.x, server.y + server.ry + server.height - 1),
 };
 
 /** What a scenario can light up. */
@@ -111,12 +142,14 @@ type Node =
 	| { kind: "stack"; slabs: string[] }
 	| { kind: "database"; database: Database };
 
-/** The other apps, in an arc above. `side` is where each keeps its database. */
+/**
+ * The other apps, on each side of the server and wired to it, never to your
+ * app. `side` is where each sits, and keeps its database.
+ */
 const peers = (
 	[
-		{ x: 190, y: 141, side: -1, label: "Web", icon: "globe" },
-		{ x: 360, y: 58, side: 1, label: "Desktop", icon: "monitor" },
-		{ x: 530, y: 141, side: 1, label: "Mobile", icon: "phone" },
+		{ x: 150, y: 83, side: -1, label: "Web", icon: "globe" },
+		{ x: 570, y: 83, side: 1, label: "Mobile", icon: "phone" },
 	] as const
 ).map((peer) => {
 	const stack: Stack = { x: peer.x, y: peer.y, rx: 62, ry: 21, gap: 16 };
@@ -135,7 +168,11 @@ const peers = (
 		stack,
 		slabs,
 		database,
-		link: wire(peer.x, bottomOf(stack) - 2),
+		/** From the server's side to the app's inner corner. */
+		link: {
+			d: `M${server.x + peer.side * server.rx} ${peer.y + stack.gap}H${peer.x - peer.side * (stack.rx - 3)}`,
+			length: Math.abs(server.x - peer.x) - server.rx - stack.rx + 3,
+		} satisfies Link,
 		node: { kind: "stack", slabs } satisfies Node,
 		store: { kind: "database", database } satisfies Node,
 	};
@@ -146,11 +183,12 @@ type Peer = (typeof peers)[number];
 const crdt: Node = { kind: "slabs", indexes: [0, 2] };
 const app: Node = { kind: "slabs", indexes: [1] };
 const local: Node = { kind: "database", database: localDatabase };
-const remote: Node = { kind: "database", database: remoteDatabase };
+const hub: Node = { kind: "stack", slabs: [serverBody, serverTop] };
+const hubStore: Node = { kind: "database", database: serverDatabase };
 
 const databases = [
 	localDatabase,
-	remoteDatabase,
+	serverDatabase,
 	...peers.map((peer) => peer.database),
 ];
 
@@ -166,6 +204,10 @@ const shapes = [
 			d,
 		})),
 	),
+	...[serverBody, serverTop].map((d) => ({
+		class: `${styles.remote} ${styles.solid}`,
+		d,
+	})),
 	...databases.map((database) => ({
 		class: database.class,
 		d: cylinder(database),
@@ -174,7 +216,7 @@ const shapes = [
 
 const wires = [
 	links.local.d,
-	links.remote.d,
+	links.server.d,
 	...peers.flatMap((peer) => [
 		peer.link.d,
 		// An app to its own database.
@@ -204,14 +246,12 @@ function light(node: Node, at: number, tone: Tone = "patch") {
 	effects.push({ type: "light", node, at, tone });
 }
 
-/** The CRDT layer sends a patch to everyone but its sender. Returns when the last one has it. */
-function broadcast(at: number, sender?: Peer) {
-	light(local, pulse(links.local, at));
-	let done = pulse(links.remote, at);
-	light(remote, done);
+/** The server forwards a patch to every app but its sender. Returns when the last one has stored it. */
+function forward(at: number, sender?: Peer) {
+	let done = at;
 	for (const peer of peers) {
 		if (peer === sender) continue;
-		// The peer applies the patch, then stores it.
+		// The app applies the patch, then stores it.
 		const arrival = pulse(peer.link, at);
 		light(peer.node, arrival);
 		light(peer.store, arrival + 0.35);
@@ -220,30 +260,44 @@ function broadcast(at: number, sender?: Peer) {
 	return done;
 }
 
+/** The server receives a patch, or a question, and checks its database. Returns when it is done. */
+function serve(at: number, tone: Tone = "patch") {
+	light(hub, at, tone);
+	light(hubStore, at + 0.35, tone);
+	return at + 0.5;
+}
+
+/** Your app makes an edit: ripple, then the CRDT layer turns it into a patch. */
+function edit(at: number) {
+	light(app, at);
+	effects.push({
+		type: "ping",
+		x: APP.x,
+		y: APP.y + APP.gap + 18,
+		at,
+		tone: "patch",
+	});
+	light(crdt, at + 0.45);
+}
+
 /** Each scenario plays from `at` and returns when it is over. */
 const scenarios: { name: string; detail: string; play(at: number): number }[] =
 	[
 		{
 			name: "Send patch",
 			detail:
-				"The CRDT layer stores the patch in the local database and sends it to every connected app and to the remote database.",
+				"Your app applies the edit at once. The CRDT layer stores the patch in the local database and sends it to the sync server, which stores it and forwards it to every other connected app.",
 			play(at) {
-				light(app, at);
-				effects.push({
-					type: "ping",
-					x: APP.x,
-					y: APP.y + APP.gap + 18,
-					at,
-					tone: "patch",
-				});
-				light(crdt, at + 0.45);
-				return broadcast(at + 0.75);
+				edit(at);
+				const sent = at + 0.75;
+				light(local, pulse(links.local, sent));
+				return forward(serve(pulse(links.server, sent)));
 			},
 		},
 		{
 			name: "Receive patch",
 			detail:
-				"Your app receives the patch, applies it, stores it locally and passes it on to everyone else.",
+				"Another app sends its patch to the sync server, which forwards it to every other connected app. Yours merges it and stores it in its local database.",
 			play(at) {
 				const sender = peers[0];
 				light(sender.node, at);
@@ -255,32 +309,36 @@ const scenarios: { name: string; detail: string; play(at: number): number }[] =
 					tone: "patch",
 				});
 				light(sender.store, at + 0.35);
-				const arrival = pulse(sender.link, at + 0.5, "patch", true);
+				const out = serve(pulse(sender.link, at + 0.5, "patch", true));
+				const others = forward(out, sender);
+				const arrival = pulse(links.server, out, "patch", true);
 				light(crdt, arrival);
 				light(app, arrival + 0.3);
-				return broadcast(arrival + 0.4, sender);
+				const kept = pulse(links.local, arrival + 0.4);
+				light(local, kept);
+				return Math.max(others, kept);
 			},
 		},
 		{
 			name: "Synchronize",
 			detail:
-				"Your app catches up with its local database first, then with the remote database.",
+				"Back online, your app first reads its local database. Then it trades missing patches with the sync server, which passes your offline edits on to the other apps.",
 			play(at) {
-				let now = at;
-				// Ask each database what it has, and take what is missing.
-				for (const [link, database] of [
-					[links.local, local],
-					[links.remote, remote],
-				] as const) {
-					light(crdt, now, "sync");
-					const asked = pulse(link, now + 0.25, "sync");
-					light(database, asked, "sync");
-					const answered = pulse(link, asked + 0.5, "sync", true);
-					light(crdt, answered, "sync");
-					light(app, answered + 0.3, "sync");
-					now = answered + 1.1;
-				}
-				return now - 0.8;
+				// Local database first: load what it holds.
+				light(crdt, at, "sync");
+				const asked = pulse(links.local, at + 0.25, "sync");
+				light(local, asked, "sync");
+				const loaded = pulse(links.local, asked + 0.5, "patch", true);
+				light(crdt, loaded);
+				light(app, loaded + 0.3);
+				// Then the server: compare versions, download, upload.
+				const now = loaded + 1.1;
+				light(crdt, now, "sync");
+				const compared = serve(pulse(links.server, now + 0.25, "sync"), "sync");
+				const missed = pulse(links.server, compared, "patch", true);
+				light(crdt, missed);
+				light(app, missed + 0.3);
+				return forward(serve(pulse(links.server, missed + 0.9)));
 			},
 		},
 	];
@@ -463,7 +521,7 @@ export function HeroDiagram() {
 			<div
 				class={styles.canvas}
 				role="img"
-				aria-label="Your app sits inside the Pulsify CRDT layer, which keeps it in sync with its local database, a remote database, and web, desktop and mobile apps that each have their own local database"
+				aria-label="Your app sits inside the Pulsify CRDT layer, which keeps it in sync with its local database and with a sync server; web and mobile apps, each with its own local database, exchange patches with your app through that server"
 			>
 				{/* Still layer: everything that carries a blur filter, painted once. */}
 				<svg class={styles.layer} viewBox={VIEW_BOX} aria-hidden="true">
@@ -585,19 +643,31 @@ export function HeroDiagram() {
 							</text>
 						</>
 					))}
-					{[
-						[localDatabase, "Local database"] as const,
-						[remoteDatabase, "Remote database"] as const,
-					].map(([database, label]) => (
-						<text
-							class={styles.label}
-							x={database.x}
-							y={database.y + database.height + database.ry + 38}
-							text-anchor="middle"
-						>
-							{label}
-						</text>
-					))}
+					<text
+						class={styles.label}
+						x={localDatabase.x}
+						y={localDatabase.y + localDatabase.height + localDatabase.ry + 38}
+						text-anchor="middle"
+					>
+						Local database
+					</text>
+					<g class={styles.remote}>
+						<path class={styles.rim} d={serverEdge} />
+					</g>
+					<g
+						class={styles.badge}
+						transform={`translate(${server.x - 13} ${server.y - 13})`}
+					>
+						<Icon name="server" size="26" />
+					</g>
+					<text
+						class={styles.label}
+						x={server.x}
+						y={TOP_LABEL}
+						text-anchor="middle"
+					>
+						Sync server
+					</text>
 				</svg>
 
 				{/* Moving layer: no filters, so each frame is cheap to repaint. */}
@@ -650,7 +720,17 @@ export function HeroDiagram() {
 					</button>
 				))}
 			</div>
-			<p class={styles.detail}>{scenes[active()].detail}</p>
+			{/* Every text in one cell, so the longest sets the height. */}
+			<div class={styles.details}>
+				{scenes.map((scene, i) => (
+					<p
+						class={styles.detail}
+						classList={{ [styles.inactive]: active() !== i }}
+					>
+						{scene.detail}
+					</p>
+				))}
+			</div>
 		</div>
 	);
 }

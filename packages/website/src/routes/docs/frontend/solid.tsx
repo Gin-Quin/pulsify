@@ -1,62 +1,119 @@
 import { Title } from "@solidjs/meta";
 import { CodeBlock } from "~/components/CodeBlock";
-import { Note } from "~/components/DocsLayout";
-import { ClientOnly, NoteDefinition } from "~/components/Frontend";
+import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
 
-const helper = `import { onCleanup } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
-import { snapshotPulse, subscribePulse, type Pulse } from "pulsify-core";
+const install = `bun add pulsify-core pulsify-solid`;
 
-/** A read-only store that follows the pulse. Write to the pulse itself. */
-export function createPulseStore<P extends Pulse<any>>(pulse: P) {
-  const [store, setStore] = createStore(snapshotPulse(pulse));
-  onCleanup(subscribePulse(pulse, (p) => setStore(reconcile(snapshotPulse(p)))));
-  return store;
+const load = `import { For, Show } from "solid-js";
+import { createPulseResource } from "pulsify-solid";
+// Project has documents: array(sub(Document)).
+import { Document, Project } from "./project";
+
+export default function ProjectPage(props: { id: string }) {
+  // Loaded again when the ID changes.
+  const [project] = createPulseResource(Project, () => props.id);
+  return (
+    <Show when={project()} fallback={<p>Loading…</p>}>
+      {(project) => (
+        <>
+          <input
+            value={project().name}
+            onInput={(e) => (project().name = e.currentTarget.value)}
+          />
+          <ul>
+            <For each={project().documents}>
+              {(document) => <DocumentRow id={document.id} />}
+            </For>
+          </ul>
+          <button onClick={() => project().documents.pop()}>Remove the last one</button>
+        </>
+      )}
+    </Show>
+  );
+}
+
+// Loaded with the project, so at once; a document added later loads here.
+function DocumentRow(props: { id: string }) {
+  const [document] = createPulseResource(Document, () => props.id);
+  return <li>{document()?.title}</li>;
 }`;
 
-const editor = `import { For } from "solid-js";
-import { createPulseStore } from "./createPulseStore";
-import type { NotePulse } from "./note";
+const create = `import { Show } from "solid-js";
+import { createPulse } from "pulsify-core";
+import { createPulseSignal } from "pulsify-solid";
+import { Project, type ProjectPulse } from "./project";
 
-export function Editor(props: { pulse: NotePulse }) {
-  const note = createPulseStore(props.pulse);
+export function NewProject() {
+  const [project, setProject] = createPulseSignal<ProjectPulse>();
+  const create = () => setProject(createPulse(Project, { name: "Untitled", documents: [] }));
   return (
     <>
-      <input value={note.title} onInput={(e) => (props.pulse.title = e.currentTarget.value)} />
-      <p>by {note.author.name}</p>
-      <ul>
-        <For each={note.tags}>{(tag) => <li>{tag}</li>}</For>
-      </ul>
-      <button onClick={() => props.pulse.tags.push("new")}>Add tag</button>
+      <button onClick={create}>New project</button>
+      <Show when={project()}>
+        {(project) => (
+          <input
+            value={project().name}
+            onInput={(e) => (project().name = e.currentTarget.value)}
+          />
+        )}
+      </Show>
     </>
   );
 }`;
 
-const page = `// src/components/NotePage.tsx: imported with clientOnly, so it never runs on the server.
-import { useParams } from "@solidjs/router";
-import { createResource, onCleanup, Show } from "solid-js";
-import { disconnectPulse, loadPulse } from "pulsify-core";
-import { Editor } from "./Editor";
-import { Note, remote } from "./note";
+const wrap = `import { loadPulse } from "pulsify-core";
+import { createMutablePulse } from "pulsify-solid";
+import { Project } from "./project";
 
-export default function NotePage() {
-  const params = useParams();
-  const [pulse] = createResource(() => params.id, (id) => loadPulse(Note, id, { connectors: [remote] }));
-  onCleanup(() => pulse() && disconnectPulse(pulse()!));
+// A plain pulse: what reads it never re-renders.
+const pulse = await loadPulse(Project, id);
+
+// The reactive view of that pulse. A write to either one reaches the same
+// document and re-renders what reads the view.
+const project = createMutablePulse(pulse);
+
+createMutablePulse(pulse) === project; // true: one view per pulse
+createMutablePulse(project) === project; // true: a view is returned as is`;
+
+const presence = `import { For } from "solid-js";
+import { createPulsePresence } from "pulsify-solid";
+import { Cursor } from "./presence";
+import type { ProjectPulse } from "./project";
+
+export function Cursors(props: { project: ProjectPulse }) {
+  // Joins now, leaves when its owner is disposed.
+  const cursors = createPulsePresence(props.project, Cursor);
   return (
-    <Show when={pulse()} keyed fallback={<p>Loading…</p>}>
-      {(note) => <Editor pulse={note} />}
-    </Show>
+    <div
+      class="board"
+      onPointerMove={(e) => cursors.set({ x: e.clientX, y: e.clientY })}
+      onPointerLeave={() => cursors.set(undefined)}
+    >
+      <For each={cursors.others}>
+        {({ state }) => <i class="cursor" style={{ left: state.x + "px", top: state.y + "px" }} />}
+      </For>
+    </div>
   );
 }`;
 
-const route = `// src/routes/notes/[id].tsx
+const never = `import { query } from "@solidjs/router";
+import { loadPulse, snapshotPulse } from "pulsify-core";
+import { Project } from "~/project";
+
+// DANGEROUS: "use server" runs on the server.
+const getProject = query(async (id: string) => {
+  "use server";
+  return snapshotPulse(await loadPulse(Project, id));
+}, "project");`;
+
+const route = `import { useParams } from "@solidjs/router";
 import { clientOnly } from "@solidjs/start";
 
-const NotePage = clientOnly(() => import("~/components/NotePage"));
+const ProjectPage = clientOnly(() => import("~/components/ProjectPage"));
 
 export default function Route() {
-  return <NotePage fallback={<p>Loading…</p>} />;
+  const params = useParams();
+  return <ProjectPage id={params.id} fallback={<p>Loading…</p>} />;
 }`;
 
 export default function Solid() {
@@ -65,39 +122,76 @@ export default function Solid() {
 			<Title>Solid · Docs</Title>
 			<h1>Solid</h1>
 			<p>
-				No extra package: a Solid store mirrors the pulse, and{" "}
-				<code>reconcile</code> updates only the fields that changed. Every
-				effect and DOM node depends on exactly what it reads.
+				<code>pulsify-solid</code> makes pulses reactive, as{" "}
+				<code>createMutable</code> does for a plain object: what reads them
+				re-renders after a local or remote change.
 			</p>
+			<CodeBlock title="terminal" code={install} />
 
-			<h2>The definition</h2>
-			<NoteDefinition />
+			<DefaultConnectors file="src/entry-client.tsx" />
 
-			<h2>The helper</h2>
-			<CodeBlock title="createPulseStore.ts" code={helper} />
+			<h2>Load a pulse</h2>
 			<p>
-				Each local or remote change takes a snapshot and reconciles it into the
-				store. Rich text reads as its plain text, a sub-pulse as its ID. The
-				cost is one snapshot per change; split very large documents into
-				sub-pulses.
+				<code>createPulseResource</code> is <code>createResource</code> for a
+				pulse: it loads the pulse of an ID, and again when the ID changes. JSX
+				reads and writes it like any object: assignments and array methods go
+				straight to the pulse, which syncs them to every peer.
 			</p>
-
-			<h2>Render and edit</h2>
-			<CodeBlock title="Editor.tsx" code={editor} />
+			<CodeBlock title="src/components/ProjectPage.tsx" code={load} />
 			<p>
-				Read from the store, write to the pulse. A write commits, notifies the
-				store synchronously and syncs to every peer.
+				Objects keep their identity, so <code>&lt;For&gt;</code> keeps its rows.
 			</p>
-			<Note>
-				<code>createPulseStore</code> reads <code>props.pulse</code> once. Use a
-				keyed <code>&lt;Show&gt;</code>, as below, so a new pulse mounts a new
-				editor.
-			</Note>
 
-			<h2>Load on the client</h2>
-			<ClientOnly how="In SolidStart, render the component that loads the pulse with clientOnly." />
-			<CodeBlock title="src/components/NotePage.tsx" code={page} />
-			<CodeBlock title="src/routes/notes/[id].tsx" code={route} />
+			<h2>Create a pulse</h2>
+			<p>
+				<code>createPulse</code> is synchronous, so an event handler can create
+				a pulse and show it at once. Keep it in a <code>createPulseSignal</code>
+				, which makes the pulses it holds reactive.
+			</p>
+			<CodeBlock title="NewProject.tsx" code={create} />
+
+			<h2>Wrap a pulse you already have</h2>
+			<p>
+				<code>createPulseResource</code> and <code>createPulseSignal</code> are
+				shortcuts for one primitive, <code>createMutablePulse(pulse)</code>.
+				Call it yourself for a pulse that comes from code that does not know
+				Solid: a module shared with another app, a library, an editor binding.
+			</p>
+			<CodeBlock title="example.ts" code={wrap} />
+			<p>
+				It can be called anywhere, as often as needed: the view is created once
+				per pulse, and its nested objects, arrays and sub-pulses are views too.
+			</p>
+
+			<h2>Presence</h2>
+			<p>
+				<code>createPulsePresence(pulse, Channel)</code> joins a{" "}
+				<a href="/docs/presence">presence channel</a> of a pulse. Reads of its{" "}
+				<code>others</code> and <code>mine</code> are tracked, and{" "}
+				<code>set</code> publishes your state.
+			</p>
+			<CodeBlock title="Cursors.tsx" code={presence} />
+			<p>
+				It leaves the channel when its owner is disposed, as{" "}
+				<code>onCleanup</code> does. A peer whose state did not change keeps the
+				same object, so <code>&lt;For&gt;</code> keeps its row.
+			</p>
+			<p>
+				It needs a connector that relays presence: Pulsify Cloud, or your own
+				relay with <code>presence: true</code>.{" "}
+				<a href="/docs/presence#where-it-works">Where it works →</a>
+			</p>
+
+			<NeverOnTheServer
+				file="src/routes/projects/[id].tsx (SolidStart)"
+				code={never}
+			>
+				The same goes for API routes, route preloads, and a component that
+				SolidStart renders on the server, where a resource runs too:{" "}
+				<code>createPulseResource</code> fails there. Import the components that
+				load pulses with <code>clientOnly</code>:
+			</NeverOnTheServer>
+			<CodeBlock title="src/routes/projects/[id].tsx" code={route} />
 		</>
 	);
 }

@@ -32,6 +32,8 @@
 	--color-code-string: #f5e27a;
 	--color-code-fn: #3df5e0;
 	--color-code-comment: #5f8791;
+	--color-code-tag: var(--color-sky);
+	--color-code-attr: var(--color-violet);
 
 	/* Gradients */
 	--gradient-accent: linear-gradient(

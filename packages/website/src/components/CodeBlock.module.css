@@ -75,3 +75,11 @@
 [data-kind="number"] {
 	color: var(--color-accent-2);
 }
+
+[data-kind="tag"] {
+	color: var(--color-code-tag);
+}
+
+[data-kind="attr"] {
+	color: var(--color-code-attr);
+}

@@ -33,7 +33,7 @@ export type NotebookPulse = Pulse<ModelFromDefinition<typeof Notebook>>;`;
 const backend = `import { createCloudClient, signCloudToken } from "pulsify-cloud";
 
 const cloud = createCloudClient({
-  url: process.env.PULSIFY_URL!,            // your Worker or Unikraft instance
+  url: process.env.PULSIFY_URL!,            // your Pulsify Cloud URL
   credential: process.env.PULSIFY_API_KEY!,  // server side only
 });
 
@@ -61,14 +61,14 @@ export const fetchToken = () =>
 // One connector for the whole app. It opens one socket per root, on demand.
 export const cloud = createCloudConnector({ url: PULSIFY_URL, token: fetchToken });`;
 
-const notebook = `import { connectPulse, createPulse, loadPulse, PulseError, subPulse } from "pulsify-core";
+const notebook = `import { connectPulse, createPulse, loadPulse, PulseError, pulseRef } from "pulsify-core";
 import { cloud } from "./cloud";
 import { Note, Notebook, type NotebookPulse, type NotePulse } from "./schema";
 
 export async function openNotebook(userId: string): Promise<NotebookPulse> {
   try {
-    // include: true subscribes to the root and every note, over one socket.
-    return await loadPulse(Notebook, userId, { connectors: [cloud], include: true });
+    // Loads the root and every note, its sub-pulses, over one socket.
+    return await loadPulse(Notebook, userId, { connectors: [cloud] });
   } catch (error) {
     if (!(error instanceof PulseError) || error.code !== "NOT_FOUND") throw error;
     // First visit: create the root. Alice's owner grant allows it.
@@ -86,7 +86,7 @@ export async function addNote(notebook: NotebookPulse, title: string): Promise<N
   // { parent } gives the note the ID "<userId>/<uuid>": same root, same socket.
   const note = createPulse(Note, { title, body: "" }, { parent: notebook });
   await connectPulse(note).synced;      // store the note first,
-  notebook.notes.push(subPulse(note));  // then link it: no one loads a dangling ID
+  notebook.notes.push(pulseRef(note));  // then link it: no one loads a dangling ID
   return note;
 }`;
 
@@ -128,19 +128,19 @@ let closeEditor: (() => void) | undefined;
 
 function render() {
   list.replaceChildren(
-    ...notebook.notes.map((handle) => {
+    ...notebook.notes.map((ref) => {
       const item = document.createElement("li");
-      item.textContent = handle.pulse?.title ?? "…";
-      item.onclick = () => open(handle.id);
+      item.textContent = ref.pulse?.title ?? "…";
+      item.onclick = () => open(ref.id);
       return item;
     }),
   );
 }
 
 async function open(noteId: string) {
-  const handle = notebook.notes.find((note) => note.id === noteId)!;
-  // Loaded by include: true; a note added on another device loads here.
-  const note = handle.pulse ?? (await handle.load());
+  const ref = notebook.notes.find((note) => note.id === noteId)!;
+  // Loaded with the notebook; a note added on another device loads here.
+  const note = ref.pulse ?? (await ref.load());
   closeEditor?.();
   closeEditor = openEditor(note, editor);
 }
@@ -178,9 +178,8 @@ const close = openEditor(note, document.querySelector("#editor")!);
 
 cloud.roleOf(note.id); // "editor", or "reader": the editor is then read-only`;
 
-const check = `cloud.connections.map(({ root, server, documents }) => ({ root, server, documents }));
-// [{ root: "alice", server: { backend: "cloudflare", id: "8c1e…", location: "CDG" },
-//    documents: ["alice", "alice/3f2c…", "alice/9a71…"] }]
+const check = `cloud.connections.map(({ root, documents }) => ({ root, documents }));
+// [{ root: "alice", documents: ["alice", "alice/3f2c…", "alice/9a71…"] }]
 
 await adminClient.usage("alice");
 // { root: "alice", documents: 3, rows: 42, bytes: 5120, connections: 2 }`;
@@ -199,10 +198,8 @@ export default function CloudTutorial() {
 			</p>
 			<CodeBlock title="documents" code={layout} />
 			<p>
-				The code is the same for both backends. Deploy one first:{" "}
-				<a href="/docs/cloud/cloudflare">Cloudflare</a> or{" "}
-				<a href="/docs/cloud/unikraft-cloud">Unikraft Cloud</a>. You need its
-				URL, <code>PULSIFY_TOKEN_SECRET</code> and <code>PULSIFY_API_KEY</code>.
+				You need your Pulsify Cloud URL, <code>PULSIFY_TOKEN_SECRET</code> and{" "}
+				<code>PULSIFY_API_KEY</code>.
 			</p>
 
 			<h2>1. Install</h2>

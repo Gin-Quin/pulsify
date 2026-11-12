@@ -438,6 +438,37 @@
 .diagram {
 	width: 100%;
 	filter: drop-shadow(0 0 40px rgb(61 245 224 / 0.12));
+	overflow: visible;
+	font-family: var(--font-sans);
+}
+.schemaNode {
+	fill: color-mix(in srgb, currentColor 10%, var(--color-bg-raised));
+	stroke: currentColor;
+	stroke-width: 2;
+	filter: drop-shadow(0 0 10px currentColor);
+}
+.schemaName {
+	fill: var(--color-text);
+	font-size: 18px;
+	font-weight: var(--font-weight-bold);
+}
+.schemaDetail {
+	fill: currentColor;
+	font-size: 14px;
+	font-weight: var(--font-weight-medium);
+}
+.schemaLink {
+	fill: none;
+	stroke: var(--color-accent);
+	stroke-width: 2.5;
+	stroke-opacity: 0.6;
+	stroke-linecap: round;
+	stroke-dasharray: 0.01 9;
+}
+.schemaLabel {
+	fill: var(--color-text-muted);
+	font-family: var(--font-mono);
+	font-size: 13px;
 }
 
 @media (max-width: 960px) {
