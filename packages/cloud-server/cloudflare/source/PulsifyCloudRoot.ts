@@ -5,6 +5,7 @@ import {
 	CloudError,
 	welcomeMessage,
 	type CloudEnvelope,
+	type CloudRole,
 } from "pulsify-cloud";
 import {
 	callerFromHeaders,
@@ -33,6 +34,11 @@ type Attachment = {
 	envelope: CloudEnvelope;
 	/** The client has sent a presence frame; kept here so it survives hibernation. */
 	presence?: boolean;
+	/**
+	 * Document → role, kept here for the same reason and at no storage cost. An
+	 * attachment holds 16,384 serialized bytes: the root stores what is over.
+	 */
+	subscriptions?: ReadonlyMap<string, CloudRole>;
 };
 declare const WebSocketPair: new () => { 0: WebSocket; 1: WebSocket };
 declare const WebSocketRequestResponsePair:
@@ -47,8 +53,9 @@ export const ROOT_HEADERS = {
 } as const;
 
 /**
- * One Durable Object per root. Its SQLite database holds the root's documents,
- * its grant table and the subscriptions of its hibernating WebSockets.
+ * One Durable Object per root. Its SQLite database holds the root's documents
+ * and its grant table. Its hibernating WebSockets carry their subscriptions in
+ * their attachment; SQLite only takes those that do not fit there.
  */
 export class PulsifyCloudRoot {
 	private engine: CloudRoot | undefined;
@@ -126,7 +133,7 @@ export class PulsifyCloudRoot {
 		reason: string,
 	): Promise<void> {
 		const peer = this.peer(socket);
-		await this.root(peer.root).disconnect(peer.id);
+		await this.root(peer.root).disconnect(peer);
 		try {
 			socket.close(code === 1005 || code === 1006 ? 1000 : code, reason);
 		} catch {
@@ -136,7 +143,7 @@ export class PulsifyCloudRoot {
 
 	async webSocketError(socket: WebSocket): Promise<void> {
 		const peer = this.peer(socket);
-		await this.root(peer.root).disconnect(peer.id);
+		await this.root(peer.root).disconnect(peer);
 	}
 
 	/** The engine survives hibernation only in storage; rebuild it on wake. */
@@ -159,17 +166,32 @@ export class PulsifyCloudRoot {
 	}
 
 	private peer(socket: WebSocket): CloudPeer & { root: string } {
-		const attachment = (
-			socket as HibernatableSocket
-		).deserializeAttachment() as Attachment;
+		const hibernatable = socket as HibernatableSocket;
+		const attachment = hibernatable.deserializeAttachment() as Attachment;
+		const keep = (change: Partial<Attachment>) => {
+			// Read again: the attachment may be newer than this peer.
+			const current = hibernatable.deserializeAttachment() as Attachment;
+			hibernatable.serializeAttachment({
+				...current,
+				// Always there, so that using presence never grows a full attachment.
+				presence: current.presence === true,
+				...change,
+			});
+		};
 		return {
 			...attachment,
 			presence: attachment.presence === true,
-			usePresence: () =>
-				(socket as HibernatableSocket).serializeAttachment({
-					...attachment,
-					presence: true,
-				}),
+			subscriptions: attachment.subscriptions ?? new Map(),
+			usePresence: () => keep({ presence: true }),
+			keepSubscriptions: (subscriptions) => {
+				try {
+					keep({ subscriptions });
+					return true;
+				} catch {
+					// Over the size limit: the runtime keeps the previous attachment.
+					return false;
+				}
+			},
 			send: (data) => socket.send(data as string | Uint8Array<ArrayBuffer>),
 			close: (code, reason) => socket.close(code, reason),
 		};

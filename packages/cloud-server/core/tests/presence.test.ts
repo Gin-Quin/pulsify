@@ -39,6 +39,8 @@ async function wake(
 			envelope: 2,
 			presence: !old.includes(id),
 			usePresence: () => void peers.set(id, { ...peer, presence: true }),
+			subscriptions: new Map(),
+			keepSubscriptions: () => true,
 			send: (data) => void sent.get(id)!.push(data),
 			close: () => {},
 		};
@@ -142,7 +144,7 @@ test("a client that never sent presence receives none, until it does", async () 
 	expect(presence("b")).toHaveLength(1);
 	expect(sentTo("old")).toEqual([]);
 	// Its departure is not announced to it either.
-	await root.disconnect("a");
+	await root.disconnect(peers.get("a")!);
 	expect(presence("b").at(-1)).toMatchObject({ event: PresenceEvent.leave });
 	expect(sentTo("old")).toEqual([]);
 	// Once it uses presence, it is a recipient like the others.

@@ -32,7 +32,13 @@ import {
 	type CloudConnectorOptions,
 } from "pulsify-cloud";
 
-export type CloudBackend = { url: string; tokenSecret: string; apiKey: string };
+export type CloudBackend = {
+	url: string;
+	tokenSecret: string;
+	apiKey: string;
+	/** How long a root stays idle before the host evicts it, sockets open. */
+	hibernatesAfterMs?: number;
+};
 
 export const Note = definePulse(
 	"CloudNote",
@@ -431,6 +437,48 @@ export function describeCloudBackend(
 			await Bun.sleep(50);
 			expect(workspace.name).toBe("Alice");
 		});
+
+		test("keeps the subscriptions of an idle root, however many a socket has", async () => {
+			const { root, first } = await seed("idle");
+			await admin().grant({ subject: "bob", prefix: root, role: "reader" });
+			const probe = await raw(root, "bob");
+			// More than a socket can carry by itself where idle roots are evicted.
+			const documents = [
+				first.id,
+				...Array.from(
+					{ length: 40 },
+					(_, index) => `${root}/${"d".repeat(900)}${index}`,
+				),
+			].sort();
+			documents.forEach((docId, index) =>
+				probe.socket.send(
+					encodeMessage({ kind: 1, docId, requestId: index + 1, vv: [] }),
+				),
+			);
+			const told = (role: string | null) =>
+				(probe.texts as { docId: string; role: string | null }[])
+					.filter((text) => text.role === role)
+					.map((text) => text.docId)
+					.sort();
+			await eventually(() => expect(told("reader")).toEqual(documents));
+
+			await Bun.sleep(backend().hibernatesAfterMs ?? 0);
+			await admin().grant({ subject: "bob", prefix: root, role: "editor" });
+			await eventually(() => expect(told("editor")).toEqual(documents));
+			first.title = "After the nap";
+			await eventually(() =>
+				expect(
+					probe.frames.some(
+						(frame) => frame.kind === 4 && frame.docId === first.id,
+					),
+				).toBe(true),
+			);
+
+			await Bun.sleep(backend().hibernatesAfterMs ?? 0);
+			await admin().revoke({ subject: "bob", prefix: root });
+			await eventually(() => expect(told(null)).toEqual(documents));
+			expect(probe.socket.readyState).toBe(WebSocket.OPEN);
+		}, 60_000);
 
 		test("relays presence between the sessions of a document and announces departures", async () => {
 			const { root, first, second, workspace } = await seed("presence");

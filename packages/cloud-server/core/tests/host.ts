@@ -89,6 +89,9 @@ export function startCloudHost(secrets: CloudSecrets) {
 						presence: false,
 						usePresence: () =>
 							rootFor(root).peers.set(id, { ...peer, presence: true }),
+						// Never evicted: the root's memory is enough.
+						subscriptions: new Map(),
+						keepSubscriptions: () => true,
 						send: (data) => socket.send(data),
 						close: (code, reason) => socket.close(code, reason),
 					};
@@ -109,8 +112,9 @@ export function startCloudHost(secrets: CloudSecrets) {
 				close(socket) {
 					const { id, root } = socket.data;
 					const entry = rootFor(root);
+					const peer = entry.peers.get(id);
 					entry.peers.delete(id);
-					void entry.engine.disconnect(id);
+					if (peer) void entry.engine.disconnect(peer);
 				},
 			},
 		});

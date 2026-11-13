@@ -43,6 +43,13 @@ export type CloudPeer = {
 	readonly presence: boolean;
 	/** Remember that for the life of the socket, hibernation included. */
 	usePresence(): void;
+	/** The subscriptions last kept with the socket: what a root that wakes up reads. */
+	readonly subscriptions: ReadonlyMap<string, CloudRole>;
+	/**
+	 * Keep these with the socket instead, hibernation included. False when they
+	 * do not fit: the previous ones stay, and the root stores the rest.
+	 */
+	keepSubscriptions(subscriptions: ReadonlyMap<string, CloudRole>): boolean;
 	send(data: Uint8Array | string): void;
 	close(code: number, reason: string): void;
 };
@@ -79,6 +86,8 @@ export class CloudRoot {
 	private bySubject = new Map<string, CloudGrant[]>();
 	/** connection → document → role last sent to that connection. */
 	private readonly subscriptions = new Map<string, Map<string, CloudRole>>();
+	/** connection → documents whose subscription did not fit with the socket and is in storage. */
+	private readonly stored = new Map<string, Set<string>>();
 	/** What each connection may still send this second; lost on hibernation. */
 	private readonly presenceBudgets = new Map<string, () => boolean>();
 	private queue: Promise<unknown> = Promise.resolve();
@@ -106,7 +115,7 @@ export class CloudRoot {
 			try {
 				if (typeof data === "string") {
 					const message = parseClientMessage(data);
-					await this.unsubscribe(peer.id, message.docId);
+					await this.unsubscribe(peer, message.docId);
 				} else
 					await this.frame(
 						peer,
@@ -115,13 +124,17 @@ export class CloudRoot {
 			} catch (error) {
 				const reason = error instanceof Error ? error.message : "Invalid frame";
 				safely(() => peer.close(1008, reason.slice(0, 120)));
-				await this.forget(peer.id);
+				await this.forget(peer);
 			}
 		});
 	}
 
-	disconnect(connection: string): Promise<void> {
-		return this.run(() => this.forget(connection));
+	disconnect(peer: CloudPeer): Promise<void> {
+		return this.run(() => {
+			// A host may stop listing a socket before it reports that it closed.
+			this.adopt(peer);
+			return this.forget(peer);
+		});
 	}
 
 	/** The management API of this root: `grants` and `usage`. */
@@ -176,15 +189,19 @@ export class CloudRoot {
 
 	private async load(): Promise<void> {
 		if (this.grants) return;
-		const [grants, subscriptions] = await Promise.all([
+		const [grants, stored] = await Promise.all([
 			this.storage.loadGrants(),
 			this.storage.loadSubscriptions(),
 		]);
 		this.setGrants(grants);
-		const live = new Set(Array.from(this.peers.all(), (peer) => peer.id));
+		const live = new Set<string>();
+		for (const peer of this.peers.all()) {
+			live.add(peer.id);
+			this.adopt(peer);
+		}
 		const stale = new Set<string>();
 		const gone: [connection: string, docId: string][] = [];
-		for (const { connection, docId, role } of subscriptions) {
+		for (const { connection, docId, role } of stored) {
 			if (!live.has(connection)) {
 				stale.add(connection);
 				gone.push([connection, docId]);
@@ -194,11 +211,30 @@ export class CloudRoot {
 			if (!documents)
 				this.subscriptions.set(connection, (documents = new Map()));
 			documents.set(docId, role);
+			const overflow = this.stored.get(connection);
+			if (overflow) overflow.add(docId);
+			else this.stored.set(connection, new Set([docId]));
 		}
 		for (const connection of stale)
 			await this.storage.deleteConnection(connection);
 		// Sockets that closed while the root slept left without a goodbye.
 		for (const [connection, docId] of gone) this.leave(connection, docId);
+	}
+
+	/** Take the subscriptions a socket kept while its root was not there to know them. */
+	private adopt(peer: CloudPeer): void {
+		if (peer.subscriptions.size && !this.subscriptions.has(peer.id))
+			this.subscriptions.set(peer.id, new Map(peer.subscriptions));
+	}
+
+	/** Keep with the socket every subscription of it that is not in storage. */
+	private keep(peer: CloudPeer, documents: Map<string, CloudRole>): boolean {
+		const stored = this.stored.get(peer.id);
+		return peer.keepSubscriptions(
+			stored
+				? new Map([...documents].filter(([docId]) => !stored.has(docId)))
+				: documents,
+		);
 	}
 
 	/** The other sockets of a document that use presence. */
@@ -280,11 +316,11 @@ export class CloudRoot {
 		}
 		if (kind === 1) {
 			if (!role) {
-				if (subscribed) await this.unsubscribe(peer.id, docId);
+				if (subscribed) await this.unsubscribe(peer, docId);
 				sendRole(peer, docId, null);
 				return fail("FORBIDDEN", `No access to ${docId}`);
 			}
-			await this.subscribe(peer.id, docId, role);
+			await this.subscribe(peer, docId, role);
 			sendRole(peer, docId, role);
 		} else if (!subscribed)
 			return fail(
@@ -309,33 +345,54 @@ export class CloudRoot {
 		}
 	}
 
+	/**
+	 * A subscription lives with its socket, which costs no storage. Only one
+	 * that does not fit there is stored, and it stays stored until it ends.
+	 */
 	private async subscribe(
-		connection: string,
+		peer: CloudPeer,
 		docId: string,
 		role: CloudRole,
 	): Promise<void> {
+		const connection = peer.id;
 		let documents = this.subscriptions.get(connection);
 		if (!documents) this.subscriptions.set(connection, (documents = new Map()));
 		if (documents.get(docId) === role) return;
 		documents.set(docId, role);
+		let stored = this.stored.get(connection);
+		if (!stored?.has(docId)) {
+			if (this.keep(peer, documents)) return;
+			if (!stored) this.stored.set(connection, (stored = new Set()));
+			stored.add(docId);
+		}
 		await this.storage.saveSubscription({ connection, docId, role });
 	}
 
-	private async unsubscribe(connection: string, docId: string): Promise<void> {
+	private async unsubscribe(peer: CloudPeer, docId: string): Promise<void> {
+		const connection = peer.id;
 		const documents = this.subscriptions.get(connection);
 		if (!documents?.delete(docId)) return;
 		if (!documents.size) this.subscriptions.delete(connection);
 		this.leave(connection, docId);
+		// Also for a stored one: the socket may hold an older copy of it.
+		this.keep(peer, documents);
+		const stored = this.stored.get(connection);
+		if (!stored?.delete(docId)) return;
+		if (!stored.size) this.stored.delete(connection);
 		await this.storage.deleteSubscription(connection, docId);
 	}
 
-	private async forget(connection: string): Promise<void> {
+	private async forget(peer: CloudPeer): Promise<void> {
+		const connection = peer.id;
 		this.presenceBudgets.delete(connection);
 		const documents = this.subscriptions.get(connection);
 		if (!documents) return;
 		this.subscriptions.delete(connection);
 		for (const docId of documents.keys()) this.leave(connection, docId);
-		await this.storage.deleteConnection(connection);
+		// A socket closed for a violation is still there until its close event.
+		safely(() => peer.keepSubscriptions(new Map()));
+		if (this.stored.delete(connection))
+			await this.storage.deleteConnection(connection);
 	}
 
 	private visibleGrants(caller: CloudCaller, url: URL): CloudGrant[] {
@@ -403,10 +460,10 @@ export class CloudRoot {
 				if (role === previous) continue;
 				sendRole(peer, docId, role ?? null);
 				if (role) {
-					await this.subscribe(peer.id, docId, role);
+					await this.subscribe(peer, docId, role);
 					continue;
 				}
-				await this.unsubscribe(peer.id, docId);
+				await this.unsubscribe(peer, docId);
 				safely(() =>
 					peer.send(
 						encodeMessage({

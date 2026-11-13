@@ -212,10 +212,16 @@ Patch rows use the Pulsify stores of [STORAGE.md](STORAGE.md) unchanged.
 
 One SQLite database per root (Durable Object storage) holds the SQLite patch
 schema, `pulsify_cloud_grants(subject, prefix, role)` and
-`pulsify_cloud_subscriptions(connection, doc_id, role)`. Subscriptions are
-persisted because a hibernated object loses its memory while its sockets stay
-open; rows of sockets that no longer exist are deleted on wake-up. Socket
-attachments hold the connection ID, root, subject and envelope.
+`pulsify_cloud_subscriptions(connection, doc_id, role)`.
+
+A hibernated object loses its memory while its sockets stay open, so
+subscriptions are kept with their socket: its attachment holds the connection
+ID, root, subject, envelope and the role of every document it is subscribed
+to. Subscribing, unsubscribing and closing a socket therefore write nothing. An
+attachment is limited to 16,384 serialized bytes: a subscription that does not
+fit is written to `pulsify_cloud_subscriptions` instead, and stays there until
+it ends. On wake-up the root reads both; rows of sockets that no longer exist
+are deleted.
 
 A Cloudflare Worker forwards to the object named after the root (optionally in
 `PULSIFY_JURISDICTION`) with internal headers `x-pulsify-root`,

@@ -26,6 +26,10 @@ sub-document with its children.
   (`SqliteCloudStorage` works with any `SqliteConnection`) and the root's
   sockets; feed it socket messages and management requests. It serializes
   every event, like a Durable Object.
+- Subscriptions: a `CloudPeer` keeps them with its socket
+  (`keepSubscriptions()`, the socket attachment on Cloudflare) and gives them
+  back (`subscriptions`) to a root that wakes up. What it refuses to keep goes
+  to `CloudRootStorage`. A host that never evicts a root can keep nothing.
 - Presence: `CloudRoot` relays it and stores nothing. A `CloudPeer` says
   whether its client uses presence (`presence`) and remembers it for the life
   of the socket (`usePresence()`), in the socket attachment on Cloudflare.

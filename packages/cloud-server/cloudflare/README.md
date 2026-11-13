@@ -1,8 +1,8 @@
 # pulsify-cloud-server/cloudflare
 
 Pulsify Cloud on Cloudflare: a Worker authenticates and routes, and **one
-Durable Object per root** stores the root's documents, grants and socket
-subscriptions in its SQLite database. Sockets use the hibernation API.
+Durable Object per root** stores the root's documents and grants in its SQLite
+database. Sockets use the hibernation API and carry their own subscriptions.
 
 ```ts
 // worker.ts

@@ -5,7 +5,7 @@ import {
 } from "pulsify-core/storage";
 import { isCloudRole, type CloudGrant, type CloudRole } from "pulsify-cloud";
 
-/** A connection's subscription to one document, with the role it was told. */
+/** A stored subscription of a connection to one document, with the role it was told. */
 export type CloudSubscription = {
 	readonly connection: string;
 	readonly docId: string;
@@ -15,9 +15,10 @@ export type CloudUsage = { documents: number; rows: number; bytes: number };
 
 /**
  * Everything one root persists. Patch rows use the shared Pulsify stores;
- * grants are the root's access table. Subscriptions only need to survive a
- * host that evicts the root while its sockets stay open (Durable Object
- * hibernation); other hosts may keep them in memory.
+ * grants are the root's access table. Subscriptions live with their socket
+ * (`CloudPeer.keepSubscriptions`); only those that do not fit there are stored,
+ * to survive a host that evicts the root while its sockets stay open (Durable
+ * Object hibernation).
  */
 export interface CloudRootStorage {
 	readonly patches: PatchStore;

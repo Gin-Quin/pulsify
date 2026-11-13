@@ -115,6 +115,8 @@ try {
 			...secrets,
 			PULSIFY_CLOUD_URL: url,
 			PULSIFY_CLOUD_BACKEND: "Cloudflare",
+			// workerd evicts a Durable Object whose sockets hibernate after 10 s.
+			PULSIFY_CLOUD_HIBERNATES_MS: "12000",
 		},
 	});
 	status = await tests.exited;
