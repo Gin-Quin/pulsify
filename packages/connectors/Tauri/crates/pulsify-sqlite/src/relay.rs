@@ -120,8 +120,12 @@ fn serve(
             ))
         }
     };
-    let inserted = store.append(&rows)?.inserted;
-    let vv = store.vector(&doc_id)?;
+    let result = store.append(&rows)?;
+    let inserted = result.inserted;
+    let vv = match result.vector {
+        Some(vector) => vector,
+        None => store.vector(&doc_id)?,
+    };
     output
         .responses
         .push(frame(request_id, Body::Ack { vv: vv.clone() })?);

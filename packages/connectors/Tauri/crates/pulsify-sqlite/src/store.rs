@@ -30,11 +30,13 @@ CREATE VIEW IF NOT EXISTS pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_r
 pub const PACKED_MIGRATION: &str =
     "ALTER TABLE pulsify_op_rows ADD COLUMN packed INTEGER NOT NULL DEFAULT 0";
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppendResult {
     pub inserted: usize,
     pub ready: usize,
     pub pending: usize,
+    /// The committed vector of the document; `None` for an empty append.
+    pub vector: Option<VersionVector>,
 }
 
 /// Immutable rows keyed by `(doc_id, sid, time_start)`. Rows stay pending until
@@ -265,11 +267,65 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
  OR time_start=(SELECT MIN(time_start) FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND time_start>?3))",
     )?;
     let mut insert = tx.prepare_cached(
-        "INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES(?,?,?,?,?,?,?)",
     )?;
-    let mut inserted = 0;
+    let mut frontier: BTreeMap<u64, u64> = read_vector(tx, doc_id)?.into_iter().collect();
+    // Pending rows are few: read them through the partial index, which the
+    // planner would otherwise skip for the primary key and read the whole
+    // document. Its entries end with the primary key, so they come sorted.
+    let mut pending = tx
+        .prepare_cached(
+            "SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows INDEXED BY pulsify_rows_pending WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
+        )?
+        .query_map([doc_id], |r| {
+            Ok((
+                r.get::<_, i64>(0)? as u64,
+                r.get::<_, i64>(1)? as u64,
+                r.get::<_, i64>(2)? as u64,
+                r.get::<_, String>(3)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .map(|(sid, start, end, dependencies)| {
+            Ok((sid, start, end, serde_json::from_str(&dependencies)?))
+        })
+        .collect::<Result<Vec<(u64, u64, u64, VersionVector)>>>()?;
+    let mut pending_actors: BTreeSet<u64> = pending.iter().map(|row| row.0).collect();
+    let mut changed_actors = BTreeSet::new();
+    let (mut inserted, mut ready) = (0, 0);
     'rows: for row in rows {
         let (sid, clock) = (row.sid as i64, row.clock as i64);
+        // A row that is ready on arrival (the common, in-order case) skips the
+        // pending index and the promotion UPDATE.
+        let ready_now = row.clock == frontier.get(&row.sid).copied().unwrap_or(1)
+            && row
+                .dependencies
+                .iter()
+                .all(|(actor, clock)| frontier.get(actor).copied().unwrap_or(0) >= *clock);
+        if ready_now && !pending_actors.contains(&row.sid) {
+            // Ready rows of an actor tile [1, frontier) and it has no pending
+            // row, so no stored row starts at or after this one: it is neither
+            // a duplicate nor overlapping, and the previous row ends exactly at
+            // the frontier. Only the fork check remains, without reading it.
+            if row.clock > 1 && own_clock(&row.dependencies, row.sid) < row.clock {
+                return Err(conflict("Actor history fork"));
+            }
+            insert.execute(params![
+                doc_id,
+                sid,
+                clock,
+                row.span as i64,
+                serde_json::to_string(&row.dependencies)?,
+                row.operations,
+                true,
+            ])?;
+            inserted += 1;
+            frontier.insert(row.sid, row.clock + row.span);
+            changed_actors.insert(row.sid);
+            ready += 1;
+            continue;
+        }
         // The stored row at a key: itself, or the rows packed inside it.
         let mut stored = |start: i64| -> Result<Option<Vec<PatchRow>>> {
             let Some((span, dependencies, operations, packed)) = get
@@ -351,32 +407,27 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
             row.span as i64,
             serde_json::to_string(&row.dependencies)?,
             row.operations,
+            ready_now,
         ])?;
         inserted += 1;
+        if ready_now {
+            frontier.insert(row.sid, row.clock + row.span);
+            changed_actors.insert(row.sid);
+            ready += 1;
+        } else {
+            pending.push((
+                row.sid,
+                row.clock,
+                row.clock + row.span,
+                row.dependencies.clone(),
+            ));
+            pending_actors.insert(row.sid);
+        }
     }
-    let mut frontier: BTreeMap<u64, u64> = read_vector(tx, doc_id)?.into_iter().collect();
-    let mut pending = tx
-        .prepare_cached(
-            "SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows INDEXED BY pulsify_rows_pending WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
-        )?
-        .query_map([doc_id], |r| {
-            Ok((
-                r.get::<_, i64>(0)? as u64,
-                r.get::<_, i64>(1)? as u64,
-                r.get::<_, i64>(2)? as u64,
-                r.get::<_, String>(3)?,
-            ))
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?
-        .into_iter()
-        .map(|(sid, start, end, dependencies)| {
-            Ok((sid, start, end, serde_json::from_str(&dependencies)?))
-        })
-        .collect::<Result<Vec<(u64, u64, u64, VersionVector)>>>()?;
     let actors: BTreeSet<u64> = frontier
         .keys()
+        .chain(pending_actors.iter())
         .copied()
-        .chain(pending.iter().map(|row| row.0))
         .collect();
     if actors.len() > MAX_VECTOR_ENTRIES {
         return Err(Error::new(
@@ -387,8 +438,7 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
     let mut promote = tx.prepare_cached(
         "UPDATE pulsify_op_rows SET ready=1 WHERE doc_id=? AND sid=? AND time_start=?",
     )?;
-    let mut ready = 0;
-    let mut changed_actors = BTreeSet::new();
+    pending.sort_by_key(|row| (row.0, row.1));
     loop {
         let mut changed = false;
         let mut waiting = Vec::new();
@@ -424,6 +474,7 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
         inserted,
         ready,
         pending: pending.len(),
+        vector: Some(frontier.into_iter().collect()),
     })
 }
 
@@ -531,7 +582,8 @@ pub(crate) mod tests {
             AppendResult {
                 inserted: 3,
                 ready: 3,
-                pending: 0
+                pending: 0,
+                vector: Some(vec![(A, 4), (B, 5)]),
             }
         );
         assert_eq!(store.vector("doc").unwrap(), vec![(A, 4), (B, 5)]);
@@ -744,6 +796,40 @@ pub(crate) mod tests {
             count(&store, "SELECT COUNT(*) FROM pulsify_op_rows WHERE ready=0"),
             0
         );
+    }
+
+    #[test]
+    fn in_order_rows_skip_pending_and_keep_every_check() {
+        let mut store = SqliteStore::open_in_memory().unwrap();
+        let batch: Vec<_> = (1..=5).map(|clock| next(A, clock, 1)).collect();
+        let result = store.append(&batch).unwrap();
+        assert_eq!((result.inserted, result.ready), (5, 5));
+        assert_eq!(result.vector, Some(vec![(A, 6)]));
+        assert_eq!(
+            count(&store, "SELECT COUNT(*) FROM pulsify_op_rows WHERE ready=0"),
+            0
+        );
+        // Resends stay idempotent, a different payload conflicts.
+        assert_eq!(store.append(&batch[1..3]).unwrap().inserted, 0);
+        let mut changed = next(A, 3, 1);
+        changed.operations.push(0);
+        let error = store.append(&[changed]).unwrap_err();
+        assert_eq!(error.message, "Conflicting storage segment");
+        // A fork at the frontier is caught without reading the previous row,
+        // and rolls back the whole batch.
+        for fork in [row(A, 6, 1, &[]), row(A, 6, 1, &[(A, 5)])] {
+            let error = store.append(&[next(B, 1, 1), fork]).unwrap_err();
+            assert_eq!(error.message, "Actor history fork");
+        }
+        assert_eq!(store.vector("doc").unwrap(), vec![(A, 6)]);
+        // In-order rows of A while B has a pending row; an overlap with it conflicts.
+        store.append(&[next(B, 3, 1)]).unwrap();
+        let both = store.append(&[next(A, 6, 1), next(B, 1, 2)]).unwrap();
+        assert_eq!((both.ready, both.pending), (3, 0));
+        assert_eq!(both.vector, Some(vec![(A, 7), (B, 4)]));
+        store.append(&[next(B, 6, 1)]).unwrap();
+        let error = store.append(&[next(B, 4, 3)]).unwrap_err();
+        assert_eq!(error.message, "Overlapping immutable storage segments");
     }
 
     #[test]
