@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  dependencies TEXT NOT NULL, operations BLOB NOT NULL, ready INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(doc_id, sid, time_start)
 ) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS pulsify_rows_frontier ON pulsify_op_rows(doc_id, sid, time_end);
+DROP INDEX IF EXISTS pulsify_rows_frontier;
 CREATE INDEX IF NOT EXISTS pulsify_rows_pending ON pulsify_op_rows(doc_id) WHERE ready = 0;
 CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, clock INTEGER NOT NULL,
@@ -332,10 +332,14 @@ fn read_missing(db: &Connection, doc_id: &str, remote: &VersionVector) -> Result
         .query_map([doc_id], map)?
         .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
+        // Same primary key seek per behind actor as `SqlitePatchStore.missing`.
         db.prepare_cached(
-            "WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?1))
- SELECT o.sid,o.time_start,o.span,o.dependencies,o.operations FROM pulsify_op_rows o LEFT JOIN remote r ON r.sid=o.sid
- WHERE o.doc_id=?2 AND o.ready=1 AND o.time_end>COALESCE(r.clock,0) ORDER BY o.sid,o.time_start",
+            "WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?1)),
+ actors(sid,since) AS (SELECT c.sid,COALESCE(r.clock,0) FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
+  WHERE c.doc_id=?2 AND c.clock>COALESCE(r.clock,0))
+ SELECT o.sid,o.time_start,o.span,o.dependencies,o.operations FROM actors a CROSS JOIN pulsify_op_rows o WHERE o.doc_id=?2 AND o.sid=a.sid
+ AND o.time_start>=COALESCE((SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=?2 AND sid=a.sid AND time_start<=a.since),0)
+ AND o.ready=1 AND o.time_end>a.since ORDER BY o.sid,o.time_start",
         )?
         .query_map(params![serde_json::to_string(remote)?, doc_id], map)?
         .collect::<rusqlite::Result<Vec<_>>>()?

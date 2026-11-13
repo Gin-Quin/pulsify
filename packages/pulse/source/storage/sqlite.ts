@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  dependencies TEXT NOT NULL, operations BLOB NOT NULL, ready INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(doc_id, sid, time_start)
 ) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS pulsify_rows_frontier ON pulsify_op_rows(doc_id, sid, time_end);
+DROP INDEX IF EXISTS pulsify_rows_frontier;
 CREATE INDEX IF NOT EXISTS pulsify_rows_pending ON pulsify_op_rows(doc_id) WHERE ready = 0;
 CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, clock INTEGER NOT NULL,
@@ -212,12 +212,19 @@ export class SqlitePatchStore implements PatchStore {
 		validateVector(remote);
 		// One JSON parameter: some hosts (Durable Objects) bind at most 100 values.
 		const bindings: SqliteBinding[] = remote.length
-			? [JSON.stringify(remote), docId]
+			? [JSON.stringify(remote), docId, docId, docId]
 			: [docId];
+		// Ready actors are exactly those in pulsify_doc_clocks. Rows of one actor never
+		// overlap, so every row ending after the remote clock starts at or after the
+		// last row starting at or before it: one primary key seek per behind actor.
+		// CROSS JOIN keeps that loop order; without statistics SQLite would scan the doc.
 		const sql = remote.length
-			? `WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?))
- SELECT o.* FROM pulsify_op_rows o LEFT JOIN remote r ON r.sid=o.sid
- WHERE o.doc_id=? AND o.ready=1 AND o.time_end>COALESCE(r.clock,0) ORDER BY o.sid,o.time_start`
+			? `WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?)),
+ actors(sid,since) AS (SELECT c.sid,COALESCE(r.clock,0) FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
+  WHERE c.doc_id=? AND c.clock>COALESCE(r.clock,0))
+ SELECT o.* FROM actors a CROSS JOIN pulsify_op_rows o WHERE o.doc_id=? AND o.sid=a.sid
+ AND o.time_start>=COALESCE((SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=a.sid AND time_start<=a.since),0)
+ AND o.ready=1 AND o.time_end>a.since ORDER BY o.sid,o.time_start`
 			: "SELECT * FROM pulsify_op_rows WHERE doc_id=? AND ready=1 ORDER BY sid,time_start";
 		return (this.db.query(sql).all(...bindings) as RecordRow[]).map(unpack);
 	}

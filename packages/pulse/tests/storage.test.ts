@@ -9,7 +9,10 @@ import {
 } from "../source/index.js";
 import { afterAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { SqlitePatchStore } from "../source/storage/sqlite.js";
+import {
+	SQLITE_PATCH_SCHEMA,
+	SqlitePatchStore,
+} from "../source/storage/sqlite.js";
 import {
 	encodeStoredRow,
 	decodeStoredRow,
@@ -454,4 +457,68 @@ test("SQLite causal batch promotion agrees with an independent dependency closur
 	expect(await store.vector(docId)).toEqual(
 		[...frontier].sort((a, b) => a[0] - b[0]),
 	);
+});
+test("SQLite missing seeks each actor from the row holding the remote clock", async () => {
+	const db = new Database(":memory:");
+	// Databases created before the frontier index was dropped still carry it.
+	db.exec(
+		SQLITE_PATCH_SCHEMA.replace(
+			"DROP INDEX IF EXISTS pulsify_rows_frontier;",
+			"CREATE INDEX pulsify_rows_frontier ON pulsify_op_rows(doc_id, sid, time_end);",
+		),
+	);
+	const index =
+		"SELECT name FROM sqlite_master WHERE name='pulsify_rows_frontier'";
+	expect(db.query(index).all()).toHaveLength(1);
+	const store = new SqlitePatchStore(db);
+	expect(db.query(index).all()).toEqual([]);
+	const docId = crypto.randomUUID(),
+		third = 70003;
+	const span = (
+		sid: number,
+		clock: number,
+		length: number,
+	): StoredPatchRow => ({
+		...row(docId, clock, sid),
+		span: length,
+	});
+	const ready = [
+		span(actor, 1, 1),
+		span(actor, 2, 3),
+		span(actor, 5, 1),
+		span(other, 1, 2),
+		span(third, 1, 1),
+		span(third, 2, 2),
+	];
+	// The gap keeps this row pending: it is never returned.
+	await store.append([...ready, span(actor, 7, 1)]);
+	expect(await store.vector(docId)).toEqual([
+		[actor, 6],
+		[other, 3],
+		[third, 4],
+	]);
+	const expected = (remote: Array<[number, number]>) =>
+		ready.filter(
+			(stored) =>
+				stored.clock + stored.span >
+				(remote.find(([sid]) => sid === stored.sid)?.[1] ?? 0),
+		);
+	// Before, inside (straddling), at the end of and past the multi-span row.
+	for (const clock of [1, 2, 3, 4, 5, 6, 9])
+		for (const remote of [
+			[[actor, clock]],
+			[
+				[actor, clock],
+				[other, 3],
+			],
+			[
+				[actor, clock],
+				[other, 2],
+				[third, clock],
+				[70009, 5],
+			],
+		] as Array<Array<[number, number]>>)
+			expect(await store.missing(docId, remote)).toEqual(expected(remote));
+	expect(await store.missing(docId, [])).toEqual(ready);
+	db.close();
 });

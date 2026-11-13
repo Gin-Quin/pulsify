@@ -81,8 +81,12 @@ drivers do not encode a JSON string a second time.
 ## SQLite
 
 Pass a compatible connection (for example `new Database(path)` from
-`bun:sqlite`) to `SqlitePatchStore`. Tables use `WITHOUT ROWID`, the same actor
-range indexes and a partial pending index. The append uses an immediate
+`bun:sqlite`) to `SqlitePatchStore`. Tables use `WITHOUT ROWID` and a partial
+pending index; there is no `time_end` index. `missing` seeks the primary key once
+per actor behind the remote vector, starting at the last row that begins at or
+before the remote clock, so each write updates only the row, the pending index
+and the actor clock. Opening an older database drops its
+`pulsify_rows_frontier` index. The append uses an immediate
 transaction so competing writers cannot race between duplicate checks and
 inserts. Only pending metadata and actor neighbors are read. SQLite 3.32+ is
 recommended for its larger default bound-parameter limit when vectors contain
