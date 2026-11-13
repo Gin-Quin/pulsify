@@ -357,7 +357,7 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
     let mut frontier: BTreeMap<u64, u64> = read_vector(tx, doc_id)?.into_iter().collect();
     let mut pending = tx
         .prepare_cached(
-            "SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
+            "SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows INDEXED BY pulsify_rows_pending WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
         )?
         .query_map([doc_id], |r| {
             Ok((
