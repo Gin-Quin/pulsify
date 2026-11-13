@@ -160,7 +160,9 @@ export default function Cloud() {
 					</div>
 					<p class={styles.footnote}>
 						Prices exclude VAT, added at checkout for your country. Need more, a
-						dedicated deployment or SSO? Enterprise is custom.
+						dedicated deployment or SSO? Enterprise is custom. The CRDT engine
+						itself is free and open source:{" "}
+						<a href="/pricing">compare what each option includes</a>.
 					</p>
 				</section>
 
@@ -204,7 +206,7 @@ export default function Cloud() {
 								</tr>
 								<tr>
 									<th scope="row">Location</th>
-									<td>Closest to your users, with jurisdiction hints</td>
+									<td>Near the first user of each root, worldwide</td>
 									<td>Anywhere you deploy</td>
 								</tr>
 								<tr>

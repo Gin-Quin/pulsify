@@ -5,6 +5,16 @@
 	text-align: center;
 }
 
+/* The image alone, at its own size. */
+.bare {
+	padding: 0;
+}
+
+.bare .mountains {
+	position: static;
+	display: block;
+}
+
 .mountains {
 	position: absolute;
 	left: 0;
@@ -54,4 +64,9 @@
 	color: #fff;
 	font-size: var(--font-size-xs);
 	text-align: left;
+}
+
+.copyright a {
+	color: inherit;
+	text-decoration: underline;
 }

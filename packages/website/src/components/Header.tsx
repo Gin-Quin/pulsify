@@ -1,5 +1,5 @@
 import { useLocation } from "@solidjs/router";
-import { For, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -19,8 +19,32 @@ function toggleTheme() {
 	}
 }
 
+const [signedIn, storeSignedIn] = createSignal(false);
+
+/**
+ * The session cookie is HttpOnly on the API domain, so the dashboard records
+ * whether it found a session here, for the header of every page.
+ */
+export function setSignedIn(value: boolean) {
+	storeSignedIn(value);
+	try {
+		if (value) localStorage.setItem("signedIn", "1");
+		else localStorage.removeItem("signedIn");
+	} catch {
+		// Storage blocked: the header shows the signed-out button.
+	}
+}
+
 export function Header() {
 	const location = useLocation();
+	// After hydration, so the server and client markup match.
+	onMount(() => {
+		try {
+			storeSignedIn(localStorage.getItem("signedIn") === "1");
+		} catch {
+			// Storage blocked: keep the signed-out button.
+		}
+	});
 	return (
 		<header class={styles.header}>
 			<div class={styles.inner}>
@@ -30,8 +54,8 @@ export function Header() {
 						each={[
 							["/benchmarks", "Benchmarks"],
 							["/cloud", "Cloud"],
+							["/pricing", "Pricing"],
 							["/docs", "Docs"],
-							["/dashboard", "Dashboard"],
 						]}
 					>
 						{([href, label]) => (
@@ -71,9 +95,18 @@ export function Header() {
 						<Icon name="github" />
 						<span>GitHub</span>
 					</a>
-					<Button href="/docs/getting-started" size="sm" icon="arrow">
-						Get Started
-					</Button>
+					<Show
+						when={signedIn()}
+						fallback={
+							<Button href="/sign-in" size="sm" icon="arrow">
+								Get Started
+							</Button>
+						}
+					>
+						<Button href="/dashboard" size="sm" variant="outline">
+							Dashboard
+						</Button>
+					</Show>
 				</div>
 			</div>
 		</header>

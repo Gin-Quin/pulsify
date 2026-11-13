@@ -6,6 +6,8 @@ export type DurableStorage = {
 	sql: { exec(query: string, ...bindings: unknown[]): SqlCursor };
 	setAlarm(time: number): Promise<void> | void;
 	getAlarm(): Promise<number | null> | number | null;
+	deleteAlarm(): Promise<void> | void;
+	deleteAll(): Promise<void> | void;
 };
 export type DurableState = { storage: DurableStorage };
 export type DurableStub = { fetch(request: Request): Promise<Response> };

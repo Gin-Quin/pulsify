@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
 import { decodeMessage, encodeMessage } from "pulsify-core/protocol";
 import { PulsifyAccount } from "../source/Account.js";
 import { PulsifyProject, type Dashboard } from "../source/Project.js";
@@ -33,6 +33,13 @@ function durableState() {
 		transactionSync: <T>(work: () => T) => db.transaction(work)(),
 		setAlarm: (time: number) => void (alarm = time),
 		getAlarm: () => alarm,
+		deleteAlarm: () => void (alarm = null),
+		deleteAll: () => {
+			const tables = db
+				.query("SELECT name FROM sqlite_master WHERE type = 'table'")
+				.all() as { name: string }[];
+			for (const { name } of tables) db.run(`DROP TABLE "${name}"`);
+		},
 	};
 	return {
 		storage,
@@ -96,6 +103,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	globalThis.fetch = realFetch;
+	setSystemTime();
 });
 
 const post = (
@@ -212,6 +220,37 @@ test("a login link creates the project, its secrets and a session", async () => 
 	expect(after.status).toBe(401);
 });
 
+test("the emailed code signs in like the link, with a daily limit of wrong codes", async () => {
+	const { env } = environment();
+	const typed = (code: string, email = "ada@example.com") =>
+		handleServiceRequest(post("/account/code", { email, code }), env);
+	expect((await typed("444444")).status).toBe(400);
+	await handleServiceRequest(
+		post("/account/login", { email: "ada@example.com" }),
+		env,
+	);
+	const code = emails[0]!.subject.slice(0, 6);
+	expect(emails[0]!.text).toContain(code);
+	const wrong = code === "000000" ? "000001" : "000000";
+	const signedIn = await typed(code);
+	expect(signedIn.status).toBe(204);
+	const cookie = signedIn.headers.get("Set-Cookie")!.split(";")[0]!;
+	const dashboard = await handleServiceRequest(
+		new Request(`${API}/account`, { headers: { Cookie: cookie } }),
+		env,
+	);
+	expect(await dashboard.json()).toMatchObject({ email: "ada@example.com" });
+
+	for (let attempt = 0; attempt < 20; attempt++)
+		expect((await typed(wrong)).status).toBe(400);
+	expect((await typed(code)).status).toBe(400);
+
+	// The local service's fixed code works for any address that asked for one.
+	env.DEV_LOGIN_CODE = "444444";
+	expect((await typed("444444")).status).toBe(204);
+	expect((await typed("444444", "grace@example.com")).status).toBe(400);
+});
+
 test("bad links, other origins and missing sessions are refused", async () => {
 	const { env } = environment();
 	await signUp(env);
@@ -241,6 +280,17 @@ test("bad links, other origins and missing sessions are refused", async () => {
 		env,
 	);
 	expect(anonymous.status).toBe(401);
+});
+
+test("plain HTTP is refused, so no secret travels in clear", async () => {
+	const { env } = environment();
+	const insecure = await handleServiceRequest(
+		new Request("http://api.test/health"),
+		env,
+	);
+	expect(insecure.status).toBe(403);
+	const secure = await handleServiceRequest(new Request(`${API}/health`), env);
+	expect(secure.status).toBe(200);
 });
 
 test("each project serves its own roots with its own secrets", async () => {
@@ -335,8 +385,9 @@ test("a Free project over its limits refuses uploads and sockets", async () => {
 			env,
 		)
 	).json()) as Dashboard;
+	// The refused upload is counted with the root's next report.
 	expect(after.usage).toEqual({
-		messages: 1_000_001,
+		messages: 1_000_000,
 		bytes: 2000 + 4096,
 		connections: 101,
 	});
@@ -352,6 +403,70 @@ async function signUpCookie(
 	return `pulsify_session=${project}.${secret}`;
 }
 
+test("deleting a project wipes its roots, itself and the account", async () => {
+	const { env, projects, roots } = environment();
+	const { cookie, dashboard } = await signUp(env);
+	const { project, apiKey } = dashboard;
+	const grants = (method = "GET") =>
+		handleServiceRequest(
+			new Request(`${API}/${project}/v1/roots/alice/grants`, {
+				method,
+				headers: { Authorization: `Bearer ${apiKey}` },
+				body:
+					method === "PUT"
+						? JSON.stringify({ subject: "u1", prefix: "alice", role: "owner" })
+						: null,
+			}),
+			env,
+		);
+	// A root that no socket ever opened still reports, so the project lists it.
+	expect((await grants("PUT")).status).toBe(200);
+	const remove = () =>
+		handleServiceRequest(post("/account/delete", {}, { Cookie: cookie }), env);
+
+	// A subscription must end first: nothing is billed to a deleted project.
+	const object = projects.objects.get(project)!;
+	await object.setPlan("pro");
+	expect((await remove()).status).toBe(409);
+	expect((await grants()).status).toBe(200);
+	await object.setPlan("free");
+
+	const removed = await remove();
+	expect(removed.status).toBe(204);
+	expect(removed.headers.get("Set-Cookie")).toContain("Max-Age=0");
+	// At once: no session, no project, whatever the secret.
+	const session = await handleServiceRequest(
+		new Request(`${API}/account`, { headers: { Cookie: cookie } }),
+		env,
+	);
+	expect(session.status).toBe(401);
+	expect((await grants()).status).toBe(404);
+
+	// The alarm wipes the roots; the root refuses whatever still reaches it.
+	const root = roots.objects.get(`${project}/alice`)!;
+	const tables = () =>
+		(root as any).durable.storage.sql
+			.exec("SELECT name FROM sqlite_master WHERE type = 'table'")
+			.toArray().length;
+	expect(tables()).toBeGreaterThan(0);
+	await object.alarm();
+	expect(tables()).toBe(0);
+	// Then, once no gateway can still route to it, the project itself.
+	const late = { root: "late", messages: 0, bytes: 0, connections: 0 };
+	expect((await object.report(late)).writable).toBe(false);
+	setSystemTime(new Date(Date.now() + 3 * 60_000));
+	await object.alarm(); // wipes "late", woken during the deletion
+	await object.alarm();
+	expect(object.dashboard()).toBeNull();
+	expect(
+		(object as any).state.storage.sql.exec("SELECT * FROM roots").toArray(),
+	).toEqual([]);
+
+	// The address is free again: signing in starts a new, empty project.
+	const again = await signUp(env);
+	expect(again.dashboard.project).not.toBe(project);
+	expect(again.dashboard.usage.bytes).toBe(0);
+});
 test("Polar webhooks set the plan; Pro usage is sent to Polar", async () => {
 	const { env, projects } = environment();
 	const { cookie, dashboard } = await signUp(env);
@@ -419,7 +534,7 @@ test("Polar webhooks set the plan; Pro usage is sent to Polar", async () => {
 	expect(
 		polarCalls.find((call) => call.path === "/v1/checkouts/")!.body,
 	).toMatchObject({
-		products: ["pro-yearly"],
+		products: ["pro-yearly", "pro-monthly"],
 		external_customer_id: dashboard.project,
 		customer_email: "ada@example.com",
 	});

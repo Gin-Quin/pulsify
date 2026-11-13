@@ -1,6 +1,7 @@
 import { Title } from "@solidjs/meta";
 import { useSearchParams } from "@solidjs/router";
 import {
+	createEffect,
 	createSignal,
 	For,
 	Match,
@@ -9,69 +10,22 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import {
+	api,
+	type Account,
+	ApiError,
+	messageOf,
+	takeUpgrade,
+} from "~/components/account";
 import { Button } from "~/components/Button";
 import { Card } from "~/components/Card";
 import { CodeBlock } from "~/components/CodeBlock";
+import { setSignedIn } from "~/components/Header";
 import { Icon } from "~/components/Icon";
-import { PULSIFY_API } from "~/components/links";
 import { Sky } from "~/components/Sky";
 import cloud from "~/components/Cloud.module.css";
 import styles from "~/components/Dashboard.module.css";
-
-type Usage = { messages: number; bytes: number; connections: number };
-
-type Account = {
-	project: string;
-	email: string;
-	plan: "free" | "pro";
-	tokenSecret: string;
-	apiKey: string;
-	url: string;
-	usage: Usage;
-	limits: Usage;
-};
-
-class ApiError extends Error {
-	constructor(
-		readonly status: number,
-		message: string,
-	) {
-		super(message);
-	}
-}
-
-/** `/account/<action>`: a GET without a body, a JSON POST with one. */
-async function api<T>(action: string, body?: object): Promise<T> {
-	let response: Response;
-	try {
-		response = await fetch(`${PULSIFY_API}/account${action && `/${action}`}`, {
-			method: body ? "POST" : "GET",
-			credentials: "include",
-			headers: body ? { "Content-Type": "application/json" } : undefined,
-			body: body && JSON.stringify(body),
-		});
-	} catch {
-		throw new ApiError(
-			0,
-			"Pulsify Cloud is unreachable. Check your connection and try again.",
-		);
-	}
-	if (response.status === 204) return undefined as T;
-	const data = await response.json().catch(() => undefined);
-	if (!response.ok) {
-		const error = data?.error;
-		throw new ApiError(
-			response.status,
-			typeof error === "string"
-				? error
-				: (error?.message ?? `Request failed with status ${response.status}`),
-		);
-	}
-	return data as T;
-}
-
-const messageOf = (error: unknown) =>
-	error instanceof Error ? error.message : String(error);
+import { SignInCard } from "./sign-in";
 
 const count = new Intl.NumberFormat("en");
 const decimal = new Intl.NumberFormat("en", { maximumFractionDigits: 2 });
@@ -82,14 +36,46 @@ const formatBytes = (bytes: number) =>
 		? `${decimal.format(bytes / 1e9)} GB`
 		: `${decimal.format(bytes / 1e6)} MB`;
 
+const installCode = "npm install pulsify-core pulsify-cloud";
+
+const envCode = (url: string) => `PULSIFY_URL=${url}
+PULSIFY_TOKEN_SECRET=<copy it from Project above>
+PULSIFY_API_KEY=<copy it from Project above>`;
+
+const backendCode = `import { createCloudClient, signCloudToken } from "pulsify-cloud";
+
+const cloud = createCloudClient({
+  url: process.env.PULSIFY_URL!,
+  credential: process.env.PULSIFY_API_KEY!,
+});
+
+// Where your app creates a user: they own the documents under their ID.
+export async function onSignUp(user: { id: string }) {
+  await cloud.grant({ subject: user.id, prefix: user.id, role: "owner" });
+}
+
+// GET /api/pulsify-token, behind your session middleware.
+export async function pulsifyToken(user: { id: string }) {
+  const token = await signCloudToken(
+    { subject: user.id },
+    process.env.PULSIFY_TOKEN_SECRET!,
+    { expiresIn: "15m" },
+  );
+  return new Response(token);
+}`;
+
 const connectorCode = (
 	url: string,
 ) => `import { createCloudConnector } from "pulsify-cloud";
+import { loadPulse } from "pulsify-core";
 
-const cloud = createCloudConnector({
+export const cloud = createCloudConnector({
   url: "${url}",
   token: () => fetch("/api/pulsify-token").then((response) => response.text()),
-});`;
+});
+
+// Any pulse loaded or created with this connector syncs live.
+const notebook = await loadPulse(Notebook, user.id, { connectors: [cloud] });`;
 
 export default function Dashboard() {
 	const [params, setParams] = useSearchParams();
@@ -100,6 +86,9 @@ export default function Dashboard() {
 	const [busy, setBusy] = createSignal<string>();
 	const [expired, setExpired] = createSignal(false);
 	const [upgraded, setUpgraded] = createSignal(false);
+	createEffect(() => {
+		if (account() !== undefined) setSignedIn(account() !== null);
+	});
 	const timers: ReturnType<typeof setTimeout>[] = [];
 	onCleanup(() => timers.forEach(clearTimeout));
 
@@ -141,6 +130,28 @@ export default function Dashboard() {
 		});
 	}
 
+	function remove() {
+		if (
+			!confirm(
+				"Delete this project? Every document it stores and your account are erased, and its URL and secrets stop working at once. This cannot be undone.",
+			)
+		)
+			return;
+		void run("delete", async () => {
+			await api("delete", {});
+			setExpired(false);
+			setAccount(null);
+		});
+	}
+
+	/** Loads the account; Pro picked on the pricing page while signed out goes on to the checkout. */
+	async function enter() {
+		await load();
+		if (!account()) return;
+		if (takeUpgrade() && account()?.plan === "free")
+			void redirect("checkout", "checkout", {});
+	}
+
 	const redirect = (name: string, action: string, body: object) =>
 		run(name, async () => {
 			location.href = (await api<{ url: string }>(action, body)).url;
@@ -151,7 +162,7 @@ export default function Dashboard() {
 		setUpgraded(params.upgraded === "1");
 		if (params.login || params.upgraded)
 			setParams({ login: undefined, upgraded: undefined }, { replace: true });
-		void load();
+		void enter();
 		// The payment webhook can land a few seconds after the redirect.
 		if (upgraded())
 			for (const delay of [3_000, 8_000])
@@ -163,319 +174,290 @@ export default function Dashboard() {
 	});
 
 	return (
-		<Sky>
-			<main class={styles.page}>
-				<Title>Dashboard · Pulsify Cloud</Title>
-				<header class={styles.head}>
-					<div>
-						<p class={cloud.eyebrow}>Pulsify Cloud</p>
-						<h1 class={styles.title}>Dashboard</h1>
-					</div>
-					<Show when={account()}>
-						{(current) => (
-							<div class={styles.who}>
-								<span>{current().email}</span>
-								<span class={styles.plan} data-plan={current().plan}>
-									{current().plan === "pro" ? "Pro" : "Free"}
-								</span>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={busy() === "logout"}
-									onClick={() =>
-										run("logout", async () => {
-											await api("logout", {});
-											setExpired(false);
-											setAccount(null);
-										})
-									}
-								>
-									Sign out
-								</Button>
-							</div>
-						)}
-					</Show>
-				</header>
-
-				<Show when={error()}>
-					<p class={styles.error} role="alert">
-						{error()}
-					</p>
-				</Show>
-
-				<Switch
-					fallback={
-						<Card>
-							<p class={cloud.text} role="status">
-								Loading your project…
-							</p>
-						</Card>
-					}
-				>
-					<Match when={account()}>
-						{(current) => (
-							<>
-								<Show when={upgraded()}>
-									<p class={styles.notice} role="status">
-										Thanks, your project is now on Pro. It can take a few
-										seconds to show.
-									</p>
-								</Show>
-
-								<Card class={styles.panel}>
-									<h2 class={styles.panelTitle}>Project</h2>
-									<p class={cloud.text}>
-										Your backend needs these three values. Keep both secrets
-										server side.
-									</p>
-									<Field
-										label="Cloud URL"
-										value={current().url}
-										hint="The url option of createCloudConnector and createCloudClient."
-									/>
-									<Field
-										label="PULSIFY_TOKEN_SECRET"
-										value={current().tokenSecret}
-										hint="Signs your users' tokens."
-										secret
-										rotating={busy() === "rotate-token"}
-										onRotate={() => rotate("token")}
-									/>
-									<Field
-										label="PULSIFY_API_KEY"
-										value={current().apiKey}
-										hint="Manages grants and reads usage. Never ship it to a browser."
-										secret
-										rotating={busy() === "rotate-api"}
-										onRotate={() => rotate("api")}
-									/>
-								</Card>
-
-								<Card class={styles.panel}>
-									<h2 class={styles.panelTitle}>
-										{current().plan === "pro" ? "Pro" : "Free"} plan, this month
-									</h2>
-									<For
-										each={[
-											{
-												label: "Messages",
-												used: current().usage.messages,
-												limit: current().limits.messages,
-												format: (n: number) => count.format(n),
-											},
-											{
-												label: "Storage",
-												used: current().usage.bytes,
-												limit: current().limits.bytes,
-												format: formatBytes,
-											},
-											{
-												label: "Live connections",
-												used: current().usage.connections,
-												limit: current().limits.connections,
-												format: (n: number) => count.format(n),
-											},
-										]}
-									>
-										{(meter) => (
-											<div class={styles.meter}>
-												<div class={styles.meterHead}>
-													<span>{meter.label}</span>
-													<span>
-														{meter.format(meter.used)} /{" "}
-														{meter.format(meter.limit)}
-													</span>
-												</div>
-												<div class={styles.bar} aria-hidden="true">
-													<span
-														data-full={meter.used >= meter.limit}
-														style={{
-															width: `${meter.limit > 0 ? Math.min(100, (meter.used / meter.limit) * 100) : 100}%`,
-														}}
-													/>
-												</div>
-											</div>
-										)}
-									</For>
-									<Show
-										when={current().plan === "pro"}
-										fallback={
-											<>
-												<p class={cloud.text}>
-													Free never bills. At the message or storage limit,
-													uploads stop with <code>LIMIT_EXCEEDED</code>; loading
-													and receiving keep working. Above the connection
-													limit, new sockets are refused. Pro prices exclude
-													VAT, added at checkout for your country.
-												</p>
-												<div class={styles.actions}>
-													<Button
-														icon="arrow"
-														disabled={busy() === "checkout-month"}
-														onClick={() =>
-															redirect("checkout-month", "checkout", {
-																interval: "month",
-															})
-														}
-													>
-														Upgrade, €25/month
-													</Button>
-													<Button
-														variant="outline"
-														disabled={busy() === "checkout-year"}
-														onClick={() =>
-															redirect("checkout-year", "checkout", {
-																interval: "year",
-															})
-														}
-													>
-														Yearly, €250/year
-													</Button>
-												</div>
-											</>
-										}
-									>
-										<p class={cloud.text}>
-											Usage above the included amounts is billed, not blocked:
-											€2 per million messages and €0.50 per GB-month, excluding
-											VAT. Above the connection limit, new sockets are refused.
-										</p>
-										<div class={styles.actions}>
-											<Button
-												variant="outline"
-												disabled={busy() === "billing"}
-												onClick={() => redirect("billing", "billing", {})}
-											>
-												Manage billing
-											</Button>
-										</div>
-									</Show>
-								</Card>
-
-								<Card class={styles.panel}>
-									<h2 class={styles.panelTitle}>Next steps</h2>
-									<ol class={cloud.steps}>
-										<li>
-											Follow the <a href="/docs/cloud/tutorial">tutorial</a> to
-											build a notes app on your project.
-										</li>
-										<li>
-											Grant roles and sign tokens from your backend: see{" "}
-											<a href="/docs/cloud/authentication">Authentication</a>.
-										</li>
-									</ol>
-									<CodeBlock
-										title="cloud.ts"
-										code={connectorCode(current().url)}
-									/>
-								</Card>
-							</>
-						)}
-					</Match>
-
-					<Match when={account() === null}>
-						<SignIn expired={expired()} />
-					</Match>
-
-					<Match when={loadError()}>
-						<Card class={styles.panel}>
-							<h2 class={styles.panelTitle}>Could not load your project</h2>
-							<p class={styles.error} role="alert">
-								{loadError()}
-							</p>
-							<div class={styles.actions}>
-								<Button variant="outline" onClick={() => void load()}>
-									Try again
-								</Button>
-							</div>
-						</Card>
-					</Match>
-				</Switch>
-			</main>
-		</Sky>
-	);
-}
-
-function SignIn(props: { expired: boolean }) {
-	const [email, setEmail] = createSignal("");
-	const [sentTo, setSentTo] = createSignal<string>();
-	const [error, setError] = createSignal<string>();
-	const [sending, setSending] = createSignal(false);
-
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		setSending(true);
-		setError(undefined);
-		try {
-			await api("login", { email: email().trim() });
-			setSentTo(email().trim());
-		} catch (cause) {
-			setError(messageOf(cause));
-		} finally {
-			setSending(false);
-		}
-	}
-
-	return (
-		<Card class={styles.panel}>
-			<Show
-				when={sentTo()}
+		<Sky class={styles.fullHeight}>
+			<Title>Dashboard · Pulsify Cloud</Title>
+			<Switch
 				fallback={
-					<>
-						<Show when={props.expired}>
-							<p class={styles.notice} role="alert">
-								That sign-in link is invalid or expired. Ask for a new one
-								below.
-							</p>
-						</Show>
-						<h2 class={styles.panelTitle}>Sign in</h2>
-						<p class={cloud.text}>
-							We email you a sign-in link, no password. A new address gets a
-							free project.
-						</p>
-						<form class={styles.form} onSubmit={submit}>
-							<label class={styles.label} for="dashboard-email">
-								Email
-							</label>
-							<div class={styles.row}>
-								<input
-									id="dashboard-email"
-									class={styles.input}
-									type="email"
-									name="email"
-									autocomplete="email"
-									placeholder="you@example.com"
-									required
-									value={email()}
-									onInput={(event) => setEmail(event.currentTarget.value)}
-								/>
-								<Button type="submit" icon="arrow" disabled={sending()}>
-									{sending() ? "Sending…" : "Email me a link"}
-								</Button>
+					<main class={styles.page}>
+						<span class={styles.loader} role="status" aria-label="Loading" />
+					</main>
+				}
+			>
+				<Match when={account() === null && !loadError()}>
+					<main class={`${styles.page} ${styles.signIn}`}>
+						<SignInCard
+							expired={expired()}
+							onSignIn={() => {
+								setExpired(false);
+								setAccount(undefined); // The loader, not the form, until the account is in.
+								void enter();
+							}}
+						/>
+					</main>
+				</Match>
+				<Match when={account() || loadError()}>
+					<main class={styles.page}>
+						<header class={styles.head}>
+							<div>
+								<p class={cloud.eyebrow}>Pulsify Cloud</p>
+								<h1 class={styles.title}>Dashboard</h1>
 							</div>
-						</form>
+							<Show when={account()}>
+								{(current) => (
+									<div class={styles.who}>
+										<span>{current().email}</span>
+										<span class={styles.plan} data-plan={current().plan}>
+											{current().plan === "pro" ? "Pro" : "Free"}
+										</span>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={busy() === "logout"}
+											onClick={() =>
+												run("logout", async () => {
+													await api("logout", {});
+													setExpired(false);
+													setAccount(null);
+												})
+											}
+										>
+											Sign out
+										</Button>
+									</div>
+								)}
+							</Show>
+						</header>
+
 						<Show when={error()}>
 							<p class={styles.error} role="alert">
 								{error()}
 							</p>
 						</Show>
-					</>
-				}
-			>
-				<h2 class={styles.panelTitle}>Check your inbox</h2>
-				<p class={cloud.text} role="status">
-					If <strong>{sentTo()}</strong> is a valid address, a sign-in link is
-					on its way. It works for 15 minutes. Nothing after a minute? Check
-					your spam folder, then ask for a new link: we send at most one per
-					minute.
-				</p>
-				<div class={styles.actions}>
-					<Button variant="outline" onClick={() => setSentTo(undefined)}>
-						Send another link
-					</Button>
-				</div>
-			</Show>
-		</Card>
+
+						<Switch>
+							<Match when={account()}>
+								{(current) => (
+									<>
+										<Show when={upgraded()}>
+											<p class={styles.notice} role="status">
+												Thanks, your project is now on Pro. It can take a few
+												seconds to show.
+											</p>
+										</Show>
+
+										<Card class={styles.panel}>
+											<h2 class={styles.panelTitle}>Project</h2>
+											<p class={cloud.text}>
+												Your backend needs these three values. Keep both secrets
+												server side.
+											</p>
+											<Field
+												label="Cloud URL"
+												value={current().url}
+												hint="The url option of createCloudConnector and createCloudClient."
+											/>
+											<Field
+												label="PULSIFY_TOKEN_SECRET"
+												value={current().tokenSecret}
+												hint="Signs your users' tokens."
+												secret
+												rotating={busy() === "rotate-token"}
+												onRotate={() => rotate("token")}
+											/>
+											<Field
+												label="PULSIFY_API_KEY"
+												value={current().apiKey}
+												hint="Manages grants and reads usage. Never ship it to a browser."
+												secret
+												rotating={busy() === "rotate-api"}
+												onRotate={() => rotate("api")}
+											/>
+										</Card>
+
+										<Card class={styles.panel}>
+											<h2 class={styles.panelTitle}>
+												{current().plan === "pro" ? "Pro" : "Free"} plan, this
+												month
+											</h2>
+											<For
+												each={[
+													{
+														label: "Messages",
+														used: current().usage.messages,
+														limit: current().limits.messages,
+														format: (n: number) => count.format(n),
+													},
+													{
+														label: "Storage",
+														used: current().usage.bytes,
+														limit: current().limits.bytes,
+														format: formatBytes,
+													},
+													{
+														label: "Live connections",
+														used: current().usage.connections,
+														limit: current().limits.connections,
+														format: (n: number) => count.format(n),
+													},
+												]}
+											>
+												{(meter) => (
+													<div class={styles.meter}>
+														<div class={styles.meterHead}>
+															<span>{meter.label}</span>
+															<span>
+																{meter.format(meter.used)} /{" "}
+																{meter.format(meter.limit)}
+															</span>
+														</div>
+														<div class={styles.bar} aria-hidden="true">
+															<span
+																data-full={meter.used >= meter.limit}
+																style={{
+																	width: `${meter.limit > 0 ? Math.min(100, (meter.used / meter.limit) * 100) : 100}%`,
+																}}
+															/>
+														</div>
+													</div>
+												)}
+											</For>
+											<Show
+												when={current().plan === "pro"}
+												fallback={
+													<>
+														<p class={cloud.text}>
+															Free never bills. At the message or storage limit,
+															uploads stop with <code>LIMIT_EXCEEDED</code>;
+															loading and receiving keep working. Above the
+															connection limit, new sockets are refused. Pro
+															prices exclude VAT, added at checkout for your
+															country. Polar, our reseller, sells the
+															subscription under our{" "}
+															<a href="/legal/terms">Terms of Service</a>.
+														</p>
+														<div class={styles.actions}>
+															<Button
+																icon="arrow"
+																disabled={busy() === "checkout"}
+																onClick={() =>
+																	redirect("checkout", "checkout", {})
+																}
+															>
+																Upgrade to Pro
+															</Button>
+														</div>
+													</>
+												}
+											>
+												<p class={cloud.text}>
+													Usage above the included amounts is billed, not
+													blocked: €2 per million messages and €0.50 per
+													GB-month, excluding VAT. Above the connection limit,
+													new sockets are refused.
+												</p>
+												<div class={styles.actions}>
+													<Button
+														variant="outline"
+														disabled={busy() === "billing"}
+														onClick={() => redirect("billing", "billing", {})}
+													>
+														Manage billing
+													</Button>
+												</div>
+											</Show>
+										</Card>
+
+										<Card class={styles.panel}>
+											<h2 class={styles.panelTitle}>Next steps</h2>
+											<ol class={`${cloud.steps} ${styles.steps}`}>
+												<li>
+													<p>
+														<strong>Install</strong> the packages in your app.
+													</p>
+													<CodeBlock title="terminal" code={installCode} />
+												</li>
+												<li>
+													<p>
+														<strong>Configure your backend</strong> with the
+														three values above. Never commit them.
+													</p>
+													<CodeBlock
+														title=".env"
+														code={envCode(current().url)}
+													/>
+												</li>
+												<li>
+													<p>
+														<strong>Grant and sign on your backend:</strong>{" "}
+														give each new user the owner role on their
+														documents, and serve signed-in users a short-lived
+														token.
+													</p>
+													<CodeBlock title="backend.ts" code={backendCode} />
+												</li>
+												<li>
+													<p>
+														<strong>Connect your client</strong> and load your
+														pulses through the connector.
+													</p>
+													<CodeBlock
+														title="cloud.ts"
+														code={connectorCode(current().url)}
+													/>
+												</li>
+											</ol>
+											<p class={cloud.text}>
+												The <a href="/docs/cloud/tutorial">tutorial</a> builds a
+												full notes app on these steps.{" "}
+												<a href="/docs/cloud/authentication">Authentication</a>{" "}
+												covers roles, sharing and public documents.
+											</p>
+										</Card>
+
+										<Card class={styles.panel}>
+											<h2 class={styles.panelTitle}>Delete project</h2>
+											<p class={cloud.text}>
+												Erases the project, every document it stores and your
+												account. It cannot be undone.{" "}
+												<Show when={current().plan === "pro"}>
+													Cancel your subscription from "Manage billing" first:
+													the project can be deleted once it is back on Free.
+												</Show>
+											</p>
+											<div class={styles.actions}>
+												<Button
+													variant="outline"
+													disabled={
+														busy() === "delete" || current().plan === "pro"
+													}
+													onClick={remove}
+												>
+													{busy() === "delete" ? "Deleting…" : "Delete project"}
+												</Button>
+											</div>
+										</Card>
+									</>
+								)}
+							</Match>
+
+							<Match when={loadError()}>
+								<Card class={styles.panel}>
+									<h2 class={styles.panelTitle}>Could not load your project</h2>
+									<p class={styles.error} role="alert">
+										{loadError()}
+									</p>
+									<div class={styles.actions}>
+										<Button variant="outline" onClick={() => void load()}>
+											Try again
+										</Button>
+									</div>
+								</Card>
+							</Match>
+						</Switch>
+					</main>
+				</Match>
+			</Switch>
+		</Sky>
 	);
 }
 

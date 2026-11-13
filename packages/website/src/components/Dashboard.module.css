@@ -1,3 +1,22 @@
+/* A page as tall as the viewport, its footer at the bottom. */
+.fullHeight {
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100dvh - var(--header-height));
+}
+
+.fullHeight > main {
+	flex: 1;
+	justify-content: center;
+	width: 100%;
+}
+
+/* The sign-in card alone: narrower than the dashboard, close to the footer. */
+.page.signIn {
+	max-width: 36rem;
+	padding-bottom: 0;
+}
+
 .page {
 	display: flex;
 	flex-direction: column;
@@ -72,6 +91,7 @@
 .actions {
 	display: flex;
 	flex-wrap: wrap;
+	justify-content: center;
 	gap: var(--space-4);
 }
 
@@ -84,6 +104,7 @@
 .row {
 	display: flex;
 	flex-wrap: wrap;
+	justify-content: center;
 	gap: var(--space-3);
 }
 
@@ -210,4 +231,35 @@
 
 .bar span[data-full="true"] {
 	background: var(--color-secondary);
+}
+
+.steps li > * + * {
+	margin-top: var(--space-3);
+}
+
+.steps li + li {
+	margin-top: var(--space-4);
+}
+
+/* While the account loads. */
+.loader {
+	width: 2.5rem;
+	height: 2.5rem;
+	margin: auto;
+	border: 3px solid var(--color-divider);
+	border-top-color: var(--color-accent);
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.loader {
+		animation-duration: 3s;
+	}
 }

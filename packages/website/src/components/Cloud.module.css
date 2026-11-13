@@ -123,6 +123,48 @@
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* The pricing page opens on its cards: one title, no hero. */
+.plansHead {
+	padding-top: var(--space-8);
+}
+
+.plansHead .title {
+	margin-bottom: var(--space-7);
+	/* Between a section heading and a hero title. */
+	font-size: clamp(2rem, 4vw, 3rem);
+	text-align: center;
+}
+
+/* Without a hero, the top of the page gets the hero's own stars, fading out downwards. */
+.starryTop {
+	position: relative;
+}
+
+.starryTop::before {
+	content: "";
+	position: absolute;
+	z-index: -1;
+	inset: 0 0 auto;
+	height: 44rem;
+	background: url("/images/stars.png") center top / cover no-repeat;
+	mask-image: linear-gradient(#000 50%, transparent);
+	pointer-events: none;
+}
+
+/* Pinned to the bottom and centered, so the buttons of neighbouring cards line up. */
+.planActions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--space-3);
+	margin-top: auto;
+	padding-top: var(--space-3);
+}
+
+.planActions > p {
+	flex-basis: 100%;
+}
+
 .feature {
 	display: flex;
 	flex-direction: column;
@@ -150,6 +192,19 @@
 
 .compare .text {
 	margin-top: var(--space-2);
+}
+
+.compare .actions {
+	margin-top: var(--space-5);
+}
+
+/* Four columns do not fit a phone: the table scrolls sideways instead. */
+.scroll {
+	overflow-x: auto;
+}
+
+.scroll .table {
+	min-width: 42rem;
 }
 
 .table {
@@ -187,18 +242,21 @@
 	text-transform: uppercase;
 }
 
-/* The Cloud column reads as one highlighted panel. */
-.table :is(th, td):nth-child(2) {
+/* One column reads as a highlighted panel: the second, or the last with .highlightLast. */
+.table:not(.highlightLast) :is(th, td):nth-child(2),
+.highlightLast :is(th, td):last-child {
 	background: rgb(61 245 224 / 0.06);
 	color: var(--color-text);
 }
 
-.table thead th:nth-child(2) {
+.table:not(.highlightLast) thead th:nth-child(2),
+.highlightLast thead th:last-child {
 	border-radius: var(--radius-md) var(--radius-md) 0 0;
 	color: var(--color-accent);
 }
 
-.table tbody tr:last-child td:nth-child(2) {
+.table:not(.highlightLast) tbody tr:last-child td:nth-child(2),
+.highlightLast tbody tr:last-child td:last-child {
 	border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 

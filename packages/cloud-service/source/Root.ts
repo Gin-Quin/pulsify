@@ -8,7 +8,7 @@ import {
 } from "pulsify-cloud-server/cloudflare";
 import { encodeMessage, PRESENCE_KIND } from "pulsify-core/protocol";
 import { call, first, type DurableNamespace } from "./durable.js";
-import type { RootReport, RootStatus } from "./Project.js";
+import { PURGE_ACTION, type RootReport, type RootStatus } from "./Project.js";
 
 /** Set by the gateway on every request it forwards to a root. */
 export const PROJECT_HEADER = "x-pulsify-project";
@@ -18,6 +18,8 @@ export const REPORT_EVERY_MS = 30_000;
 type RootState = DurableObjectStateLike & {
 	storage: DurableObjectStateLike["storage"] & {
 		sql: { databaseSize: number };
+		deleteAlarm(): Promise<void> | void;
+		deleteAll(): Promise<void> | void;
 	};
 };
 export type RootEnv = PulsifyCloudRootEnv & { PROJECTS: DurableNamespace };
@@ -32,6 +34,8 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 	private reportedAt = 0;
 	private writable = true;
 	private names: { project: string; root: string } | undefined;
+	/** The project was deleted: the tables are gone until this object restarts. */
+	private purged = false;
 
 	constructor(
 		private readonly durable: RootState,
@@ -44,6 +48,10 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 	}
 
 	override async fetch(request: Request): Promise<Response> {
+		const action = request.headers.get(ROOT_HEADERS.action);
+		if (action === PURGE_ACTION) return this.purge();
+		if (this.purged)
+			return errorResponse(new CloudError("NOT_FOUND", "Unknown project"));
 		const project = request.headers.get(PROJECT_HEADER);
 		const root = decodeURIComponent(
 			request.headers.get(ROOT_HEADERS.root) ?? "",
@@ -56,7 +64,7 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 			);
 			this.names = { project, root };
 		}
-		if (request.headers.get(ROOT_HEADERS.action) === "connect") {
+		if (action === "connect") {
 			const { connectable } = await this.report(1);
 			if (!connectable)
 				return errorResponse(
@@ -66,13 +74,26 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 					),
 				);
 		}
+		// A root used only over HTTP reports too: the project lists every root it must delete.
+		else if (!this.reportedAt) await this.report(0);
 		return super.fetch(request);
+	}
+
+	/** The project was deleted: close the sockets and wipe every table. */
+	private async purge(): Promise<Response> {
+		this.purged = true;
+		for (const socket of this.durable.getWebSockets())
+			socket.close(1008, "Project deleted");
+		await this.durable.storage.deleteAlarm();
+		await this.durable.storage.deleteAll();
+		return new Response(null, { status: 204 });
 	}
 
 	override async webSocketMessage(
 		socket: WebSocket,
 		message: ArrayBuffer | string,
 	): Promise<void> {
+		if (this.purged) return;
 		if (typeof message !== "string") {
 			let header: ReturnType<typeof peekFrameHeader> | undefined;
 			try {
@@ -107,12 +128,14 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		code: number,
 		reason: string,
 	): Promise<void> {
+		if (this.purged) return;
 		await super.webSocketClose(socket, code, reason);
 		// The runtime still lists the socket that is closing.
 		await this.report(-1);
 	}
 
 	override async webSocketError(socket: WebSocket): Promise<void> {
+		if (this.purged) return;
 		await super.webSocketError(socket);
 		await this.report(-1);
 	}

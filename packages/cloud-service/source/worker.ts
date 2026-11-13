@@ -25,6 +25,8 @@ export type ServiceEnv = PolarEnv & {
 	API_URL: string;
 	/** The dashboard page, `https://pulsify.cloud/dashboard`. */
 	DASHBOARD_URL: string;
+	/** `bun run dev:service` only: a login code that signs in any address that asked for one. */
+	DEV_LOGIN_CODE?: string;
 	PULSIFY_COMPACT_AFTER_MS?: string;
 };
 
@@ -109,15 +111,36 @@ function sessionCookie(value: string, maxAge: number): string {
 	return `${SESSION_COOKIE}=${value}; Path=/account; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
-async function sendLoginLink(env: ServiceEnv, email: string, link: string) {
+async function sendLoginLink(
+	env: ServiceEnv,
+	email: string,
+	link: string,
+	code: string,
+) {
+	// `bun run dev:service` only: the API is never served over plain HTTP.
+	if (env.API_URL.startsWith("http://"))
+		console.log(`Login for ${email}: code ${code}, link ${link}`);
 	await env.EMAIL.send({
 		to: email,
 		from: env.EMAIL_FROM,
-		subject: "Sign in to Pulsify Cloud",
-		text: `Sign in to Pulsify Cloud:\n\n${link}\n\nThe link works for 15 minutes. If you did not ask for it, ignore this email.`,
-		html: `<p>Sign in to Pulsify Cloud:</p><p><a href="${link}">Open the dashboard</a></p><p>The link works for 15 minutes. If you did not ask for it, ignore this email.</p>`,
+		subject: `${code} is your Pulsify Cloud sign-in code`,
+		text: `Your Pulsify Cloud sign-in code is ${code}. Or open this link:\n\n${link}\n\nBoth work for 15 minutes. If you did not ask for them, ignore this email.`,
+		html: `<p>Your Pulsify Cloud sign-in code is <strong>${code}</strong>.</p><p>Or <a href="${link}">open the dashboard</a>.</p><p>Both work for 15 minutes. If you did not ask for them, ignore this email.</p>`,
 	});
 }
+
+/** Starts a session in `project`, created on first sign-in; returns its cookie. */
+async function signIn(env: ServiceEnv, project: string, email: string) {
+	const stub = projectStub(env, project);
+	await call(stub, "create", project, email);
+	const secret = await call<string>(stub, "startSession");
+	return sessionCookie(`${project}.${secret}`, 30 * 86_400);
+}
+
+const emailOf = (value: unknown) =>
+	String(value ?? "")
+		.trim()
+		.toLowerCase();
 
 /** `/account/…`: login links, the dashboard's data, secrets and billing. */
 async function account(
@@ -144,14 +167,11 @@ async function account(
 			: null;
 		if (!project)
 			return Response.redirect(`${env.DASHBOARD_URL}?login=expired`, 302);
-		const stub = projectStub(env, project);
-		await call(stub, "create", project, email);
-		const secret = await call<string>(stub, "startSession");
 		return new Response(null, {
 			status: 302,
 			headers: {
 				Location: env.DASHBOARD_URL,
-				"Set-Cookie": sessionCookie(`${project}.${secret}`, 30 * 86_400),
+				"Set-Cookie": await signIn(env, project, email),
 			},
 		});
 	}
@@ -170,23 +190,41 @@ async function account(
 			: {};
 
 	if (action === "login" && request.method === "POST") {
-		const email = String(body["email"] ?? "")
-			.trim()
-			.toLowerCase();
+		const email = emailOf(body["email"]);
 		if (email.length > 254 || !EMAIL.test(email))
 			return json({ error: "Enter a valid email address" }, 400);
-		const token = await call<string | null>(
+		const login = await call<{ token: string; code: string } | null>(
 			env.ACCOUNTS.get(env.ACCOUNTS.idFromName(email)),
 			"login",
 		);
-		if (token)
+		if (login)
 			await sendLoginLink(
 				env,
 				email,
-				`${env.API_URL}/account/verify?email=${encodeURIComponent(email)}&token=${token}`,
+				`${env.API_URL}/account/verify?email=${encodeURIComponent(email)}&token=${login.token}`,
+				login.code,
 			);
 		// The same answer whether the address has an account or was just mailed.
 		return json({ ok: true });
+	}
+
+	if (action === "code" && request.method === "POST") {
+		const email = emailOf(body["email"]);
+		const code = String(body["code"] ?? "").trim();
+		const project =
+			EMAIL.test(email) && /^\d{6}$/.test(code)
+				? await call<string | null>(
+						env.ACCOUNTS.get(env.ACCOUNTS.idFromName(email)),
+						"verifyCode",
+						code,
+						code === env.DEV_LOGIN_CODE,
+					)
+				: null;
+		if (!project) return json({ error: "That code is wrong or expired" }, 400);
+		return new Response(null, {
+			status: 204,
+			headers: { ...headers, "Set-Cookie": await signIn(env, project, email) },
+		});
 	}
 
 	const session = readSession(request);
@@ -208,11 +246,11 @@ async function account(
 		case "POST checkout": {
 			const dashboard = (await call<Dashboard>(stub, "dashboard"))!;
 			const checkout = await polar<{ url: string }>(env, "/v1/checkouts/", {
-				products: [
+				// The checkout page offers both intervals; the first is preselected.
+				products:
 					body["interval"] === "year"
-						? env.POLAR_PRO_YEARLY
-						: env.POLAR_PRO_MONTHLY,
-				],
+						? [env.POLAR_PRO_YEARLY, env.POLAR_PRO_MONTHLY]
+						: [env.POLAR_PRO_MONTHLY, env.POLAR_PRO_YEARLY],
 				external_customer_id: session.project,
 				customer_email: dashboard.email,
 				success_url: `${env.DASHBOARD_URL}?upgraded=1`,
@@ -230,6 +268,23 @@ async function account(
 				},
 			);
 			return json({ url: portal.customer_portal_url });
+		}
+		case "POST delete": {
+			const email = await call<string | null>(stub, "delete");
+			if (!email)
+				return json(
+					{
+						error:
+							"Cancel your subscription from Manage billing first: a project can be deleted once it is back on Free.",
+					},
+					409,
+				);
+			await call(env.ACCOUNTS.get(env.ACCOUNTS.idFromName(email)), "delete");
+			configs.delete(session.project);
+			return new Response(null, {
+				status: 204,
+				headers: { ...headers, "Set-Cookie": sessionCookie("", 0) },
+			});
 		}
 		case "POST logout":
 			await call(stub, "endSession", session.secret);
@@ -277,6 +332,9 @@ export async function handleServiceRequest(
 	try {
 		const url = new URL(request.url);
 		const [, first = "", ...rest] = url.pathname.split("/");
+		// Secrets, tokens and documents travel with every request: never in clear.
+		if (url.protocol === "http:" && env.API_URL.startsWith("https:"))
+			return new Response("Use https://", { status: 403 });
 		if (url.pathname === "/health") return jsonResponse({ ok: true });
 		if (first === "account")
 			return await account(request, env, rest.join("/")).catch((error) => {

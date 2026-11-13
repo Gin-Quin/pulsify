@@ -381,7 +381,7 @@ export default function CloudOverview() {
 			<h2>Plans and limits</h2>
 			<p>
 				Each project is metered over the month on three quantities. See{" "}
-				<a href="/cloud">Pulsify Cloud</a> for the prices.
+				<a href="/pricing">Pricing</a> for the prices.
 			</p>
 			<ul>
 				<li>

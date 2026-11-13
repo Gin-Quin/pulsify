@@ -12,9 +12,9 @@ const stars = [
 ] as const;
 
 /** Faint starfield behind a page, down to and including its footer. */
-export function Sky(props: { children: JSX.Element }) {
+export function Sky(props: { class?: string; children: JSX.Element }) {
 	return (
-		<div class={styles.sky}>
+		<div class={`${styles.sky} ${props.class ?? ""}`}>
 			<div class={styles.stars} aria-hidden="true">
 				<For each={stars}>
 					{([n, left, top, size]) => (

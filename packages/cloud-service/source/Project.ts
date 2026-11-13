@@ -1,8 +1,10 @@
+import { ROOT_HEADERS } from "pulsify-cloud-server/cloudflare";
 import {
 	first,
 	randomToken,
 	serve,
 	sha256,
+	type DurableNamespace,
 	type DurableState,
 } from "./durable.js";
 import { ingestEvents, type PolarEnv, type PolarEvent } from "./polar.js";
@@ -39,6 +41,16 @@ export const LIVE_MS = 60 * 60 * 1000;
 /** How often pending messages are sent to Polar. */
 const INGEST_EVERY_MS = 5 * 60 * 1000;
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * The action a deleted project sends its roots. The gateway sets the action
+ * header of everything it forwards, so no client can send this one.
+ */
+export const PURGE_ACTION = "purge";
+/** Roots wiped per alarm: under the 50 subrequests of a free Workers invocation. */
+const PURGE_BATCH = 25;
+/** Gateways cache a project for a minute and may still wake a root: sweep again after. */
+const SWEEP_AFTER_MS = 2 * 60 * 1000;
+const PURGE_RETRY_MS = 60 * 1000;
 
 type Row = {
 	project: string;
@@ -64,6 +76,8 @@ const SCHEMA = [
  seen_at INTEGER NOT NULL) WITHOUT ROWID`,
 	"CREATE INDEX IF NOT EXISTS live_roots ON roots(seen_at) WHERE connections > 0",
 	"CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL) WITHOUT ROWID",
+	// One row once the owner deleted the project: the alarm is wiping it.
+	"CREATE TABLE IF NOT EXISTS deletion (id INTEGER PRIMARY KEY CHECK(id = 1), at INTEGER NOT NULL)",
 ];
 
 const month = (now: number) => new Date(now).toISOString().slice(0, 7);
@@ -87,11 +101,12 @@ export class PulsifyProject {
 		"dashboard",
 		"rotate",
 		"setPlan",
+		"delete",
 	] as const;
 
 	constructor(
 		private readonly state: DurableState,
-		private readonly env: PolarEnv,
+		private readonly env: PolarEnv & { ROOTS: DurableNamespace },
 	) {
 		for (const statement of SCHEMA) state.storage.sql.exec(statement);
 	}
@@ -127,8 +142,13 @@ export class PulsifyProject {
 		);
 	}
 
+	/** When the owner deleted the project, if they did. */
+	private deletedAt(): number | undefined {
+		return first<{ at: number }>(this.exec("SELECT at FROM deletion"))?.at;
+	}
+
 	config(): ProjectConfig | null {
-		const row = this.row();
+		const row = this.deletedAt() === undefined ? this.row() : undefined;
 		return row
 			? { tokenSecret: row.token_secret, apiKey: row.api_key, plan: row.plan }
 			: null;
@@ -149,6 +169,15 @@ export class PulsifyProject {
 		const row = this.row();
 		if (!row) return { writable: false, connectable: false };
 		const now = Date.now();
+		if (this.deletedAt() !== undefined) {
+			// A root woken during the deletion: list it, the alarm wipes it.
+			this.exec(
+				"INSERT OR REPLACE INTO roots VALUES (?, 0, 0, ?)",
+				report.root,
+				now,
+			);
+			return { writable: false, connectable: false };
+		}
 		const previous = first<{ bytes: number }>(
 			this.exec("SELECT bytes FROM roots WHERE root = ?", report.root),
 		);
@@ -235,7 +264,7 @@ export class PulsifyProject {
 
 	async setPlan(plan: Plan): Promise<void> {
 		const row = this.row();
-		if (!row || row.plan === plan) return;
+		if (!row || row.plan === plan || this.deletedAt() !== undefined) return;
 		// Bill what was used on Pro before leaving it.
 		if (row.plan === "pro") await this.alarm();
 		this.exec(
@@ -246,9 +275,62 @@ export class PulsifyProject {
 		if (plan === "pro") await this.state.storage.setAlarm(Date.now());
 	}
 
+	/**
+	 * The owner deletes the project: it stops answering at once, and the alarm
+	 * wipes its roots, then itself. Returns the owner's address, or null while
+	 * a subscription is active.
+	 */
+	async delete(): Promise<string | null> {
+		const row = this.row();
+		// ponytail: a cancelled subscription stays Pro until its period ends; revoke it in Polar to delete sooner.
+		if (!row || row.plan === "pro") return null;
+		this.exec("INSERT OR IGNORE INTO deletion VALUES (1, ?)", Date.now());
+		this.exec("DELETE FROM sessions");
+		await this.state.storage.setAlarm(Date.now());
+		return row.email;
+	}
+
+	/** Wipes a batch of roots; once none is left and no gateway routes here, this object. */
+	private async purge(project: string, deletedAt: number): Promise<void> {
+		let failed = false;
+		const roots = this.exec(
+			"SELECT root FROM roots LIMIT ?",
+			PURGE_BATCH,
+		).toArray();
+		for (const { root } of roots) {
+			const response = await this.env.ROOTS.get(
+				this.env.ROOTS.idFromName(`${project}/${root}`),
+			)
+				.fetch(
+					new Request("https://object/purge", {
+						method: "POST",
+						headers: { [ROOT_HEADERS.action]: PURGE_ACTION },
+					}),
+				)
+				.catch(() => undefined);
+			if (response?.ok) this.exec("DELETE FROM roots WHERE root = ?", root);
+			else failed = true;
+		}
+		const now = Date.now();
+		if (first(this.exec("SELECT 1 FROM roots LIMIT 1")))
+			// A root that failed is tried again later, not in a tight loop.
+			await this.state.storage.setAlarm(failed ? now + PURGE_RETRY_MS : now);
+		else if (now < deletedAt + SWEEP_AFTER_MS)
+			await this.state.storage.setAlarm(deletedAt + SWEEP_AFTER_MS);
+		else {
+			// Rows, not deleteAll: this object must still answer a late report.
+			for (const table of ["project", "roots", "sessions", "deletion"])
+				this.exec(`DELETE FROM ${table}`);
+			await this.state.storage.deleteAlarm();
+		}
+	}
+
 	/** Pro only: send pending messages, and the stored size once a day. */
 	async alarm(): Promise<void> {
 		const row = this.row();
+		const deletedAt = this.deletedAt();
+		if (row && deletedAt !== undefined)
+			return this.purge(row.project, deletedAt);
 		if (!row || row.plan !== "pro") return;
 		const now = Date.now();
 		const events: PolarEvent[] = [];

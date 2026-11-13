@@ -28,6 +28,9 @@ databases, and the live sockets across all roots. At the limits:
   `LIMIT_EXCEEDED` (413). Open sockets stay open.
 - Pro: usage beyond the included amounts is billed, never refused.
 
+Deleting a project from the dashboard closes its sockets with 1008 and erases
+its roots; its URL then answers `NOT_FOUND`.
+
 ## Roots
 
 A document belongs to the root named by the part of its ID before the first

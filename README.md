@@ -132,6 +132,8 @@ trusted GitHub publisher in its crates.io settings, without an environment restr
 ## License
 
 [Apache-2.0](LICENSE), except `packages/cloud-server` (the Pulsify Cloud
-server), under the [Functional Source License](packages/cloud-server/LICENSE.md)
-(`FSL-1.1-ALv2`): any use except a competing service, and Apache-2.0 two years
-after each release.
+server) and `packages/cloud-service` (the hosted service built on it), under the
+[Functional Source License](packages/cloud-server/LICENSE.md) (`FSL-1.1-ALv2`):
+any use except a competing service, and Apache-2.0 two years after each release.
+
+The hosted Pulsify Cloud has its own [terms](https://pulsify.cloud/legal).

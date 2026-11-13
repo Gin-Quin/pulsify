@@ -110,6 +110,8 @@ type Backend = {
 	apiKey: string;
 	/** The service only: the project's usage, as its dashboard shows it. */
 	usage?: () => Promise<{ messages: number; bytes: number }>;
+	/** The service only: delete the project from its dashboard; the status. */
+	remove?: () => Promise<number>;
 };
 
 async function bundle(entry: string, naming: string) {
@@ -219,6 +221,18 @@ const config :Workerd.Config = (
 					await fetch(`${url}/account`, { headers: { Cookie: cookie } })
 				).json()) as { usage: { messages: number; bytes: number } }
 			).usage,
+		remove: async () =>
+			(
+				await fetch(`${url}/account/delete`, {
+					method: "POST",
+					headers: {
+						Cookie: cookie,
+						Origin: "https://site.test",
+						"Content-Type": "application/json",
+					},
+					body: "{}",
+				})
+			).status,
 	};
 }
 
@@ -256,6 +270,14 @@ try {
 		const usage = await backend.usage();
 		console.log("Project usage after the suite:", usage);
 		if (!(usage.messages > 0 && usage.bytes > 0)) status = 1;
+	}
+	if (status === 0 && backend.remove) {
+		// Deleting the project stops it at once; its alarm then wipes the roots.
+		const removed = await backend.remove();
+		const health = (await fetch(`${url}/v1/health`)).status;
+		await Bun.sleep(2000);
+		console.log("Project deletion:", removed, "then its URL answers", health);
+		if (removed !== 204 || health !== 404) status = 1;
 	}
 } finally {
 	for (const cleanup of cleanups.reverse()) await cleanup();
