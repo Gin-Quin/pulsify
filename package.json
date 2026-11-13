@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "bun examples/server.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests packages/pulsify-vue/tests && bun test --conditions browser packages/pulsify-svelte/tests packages/pulsify-solid/tests",
+		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/cloud-service/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests packages/pulsify-vue/tests && bun test --conditions browser packages/pulsify-svelte/tests packages/pulsify-solid/tests",
 		"check": "bun run typecheck && bun run test && bun run test:crdt && bun run test:database",
 		"build": "bun scripts/build.ts",
 		"bench": "bun benchmarks/index.ts",
@@ -40,7 +40,8 @@
 		"dev:website": "bun run --cwd packages/website dev",
 		"build:website": "bun run --cwd packages/website build",
 		"deploy:website": "bun run build:website && bunx wrangler deploy -c packages/website/wrangler.jsonc",
-		"deploy:cloudflare": "bunx wrangler deploy -c packages/cloud-server/cloudflare/wrangler.jsonc"
+		"deploy:cloudflare": "bunx wrangler deploy -c packages/cloud-server/cloudflare/wrangler.jsonc",
+		"deploy:service": "bunx wrangler deploy -c packages/cloud-service/wrangler.jsonc"
 	},
 	"trustedDependencies": [
 		"better-sqlite3"

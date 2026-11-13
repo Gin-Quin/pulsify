@@ -9,7 +9,7 @@ export default defineConfig({
 		nitro({
 			preset: "static",
 			prerender: {
-				routes: ["/", "/docs", "/cloud", "/benchmarks"],
+				routes: ["/", "/docs", "/cloud", "/benchmarks", "/dashboard"],
 				crawlLinks: true,
 			},
 		}),

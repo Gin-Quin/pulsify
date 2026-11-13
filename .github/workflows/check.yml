@@ -43,6 +43,7 @@ jobs:
       - run: cargo fmt --manifest-path packages/cloud-server/unikraft-cloud/server/Cargo.toml --check
       - run: cargo test --manifest-path packages/cloud-server/unikraft-cloud/server/Cargo.toml
       - run: bun run test:cloud --backend cloudflare
+      - run: bun run test:cloud --backend service
   tauri:
     runs-on: ubuntu-latest
     steps:

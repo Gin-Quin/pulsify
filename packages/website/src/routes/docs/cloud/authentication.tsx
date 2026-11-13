@@ -3,7 +3,8 @@ import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
 
-const secrets = `PULSIFY_TOKEN_SECRET  shared by your backend and the cloud; signs user tokens (≥ 32 chars)
+const secrets = `PULSIFY_URL           https://api.pulsify.cloud/<your-project>
+PULSIFY_TOKEN_SECRET  shared by your backend and the cloud; signs user tokens (≥ 32 chars)
 PULSIFY_API_KEY       your backend only; manages grants and reads usage (≥ 32 chars)`;
 
 const sign = `import { signCloudToken } from "pulsify-cloud";
@@ -61,12 +62,12 @@ const access = createCloudClient({
 await access.grant({ subject: "bob", prefix: note.id, role: "editor" });
 await access.grants("alice"); // grants under the prefixes Alice owns, and her own`;
 
-const http = `curl -X PUT https://pulsify.example.com/v1/roots/alice/grants \\
+const http = `curl -X PUT "$PULSIFY_URL/v1/roots/alice/grants" \\
   -H "Authorization: Bearer $PULSIFY_API_KEY" \\
   -d '{"subject":"bob","prefix":"alice/notes/n1","role":"editor"}'
 # {"grant":{"subject":"bob","prefix":"alice/notes/n1","role":"editor"}}
 
-curl -X DELETE "https://pulsify.example.com/v1/roots/alice/grants?subject=bob&prefix=alice%2Fnotes%2Fn1" \\
+curl -X DELETE "$PULSIFY_URL/v1/roots/alice/grants?subject=bob&prefix=alice%2Fnotes%2Fn1" \\
   -H "Authorization: Bearer $PULSIFY_API_KEY"
 # {"removed":true}
 
@@ -109,6 +110,11 @@ export default function CloudAuthentication() {
 			/>
 
 			<h2>Secrets</h2>
+			<p>
+				Your project URL and its two secrets are on the{" "}
+				<a href="/dashboard">dashboard</a>. Each project has its own. Rotate a
+				secret there if it leaks: the old value stops working within a minute.
+			</p>
 			<CodeBlock title="environment" code={secrets} />
 
 			<h2>Sign tokens</h2>

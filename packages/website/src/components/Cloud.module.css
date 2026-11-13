@@ -39,18 +39,6 @@
 	margin: 0 auto;
 }
 
-.badge {
-	padding: var(--space-1) var(--space-4);
-	border: var(--border-width) solid var(--color-border-strong);
-	border-radius: var(--radius-pill);
-	color: var(--color-accent);
-	font-family: var(--font-mono);
-	font-size: var(--font-size-eyebrow);
-	letter-spacing: 0.18em;
-	text-transform: uppercase;
-	box-shadow: var(--shadow-glow);
-}
-
 .title {
 	font-size: var(--font-size-2xl);
 }
@@ -129,6 +117,10 @@
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: var(--space-5);
+}
+
+.plans {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .feature {

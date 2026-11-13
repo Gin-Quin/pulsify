@@ -54,7 +54,7 @@ export async function pulsifyToken(user: { id: string }) {
 
 const connector = `import { createCloudConnector } from "pulsify-cloud";
 
-export const PULSIFY_URL = "https://pulsify.example.com";
+export const PULSIFY_URL = "https://api.pulsify.cloud/<your-project>";
 export const fetchToken = () =>
   fetch("/api/pulsify-token").then((response) => response.text());
 
@@ -199,7 +199,9 @@ export default function CloudTutorial() {
 			<CodeBlock title="documents" code={layout} />
 			<p>
 				You need your Pulsify Cloud URL, <code>PULSIFY_TOKEN_SECRET</code> and{" "}
-				<code>PULSIFY_API_KEY</code>.
+				<code>PULSIFY_API_KEY</code>: sign in to the{" "}
+				<a href="/dashboard">dashboard</a> and copy them. The free plan is
+				enough for this tutorial.
 			</p>
 
 			<h2>1. Install</h2>

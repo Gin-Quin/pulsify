@@ -65,6 +65,10 @@
         "pulsify-core": "^11.0.0",
       },
     },
+    "packages/cloud-service": {
+      "name": "pulsify-cloud-service",
+      "version": "11.0.0",
+    },
     "packages/connectors/Electron": {
       "name": "pulsify-electron",
       "version": "11.0.0",
@@ -952,6 +956,8 @@
     "pulsify-cloud": ["pulsify-cloud@workspace:packages/cloud"],
 
     "pulsify-cloud-server": ["pulsify-cloud-server@workspace:packages/cloud-server"],
+
+    "pulsify-cloud-service": ["pulsify-cloud-service@workspace:packages/cloud-service"],
 
     "pulsify-core": ["pulsify-core@workspace:packages/pulse"],
 

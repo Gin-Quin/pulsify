@@ -31,6 +31,7 @@ export function Header() {
 							["/benchmarks", "Benchmarks"],
 							["/cloud", "Cloud"],
 							["/docs", "Docs"],
+							["/dashboard", "Dashboard"],
 						]}
 					>
 						{([href, label]) => (

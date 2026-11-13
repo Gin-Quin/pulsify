@@ -1,0 +1,32 @@
+// The hosted Pulsify Cloud: bun run deploy:service
+// Secrets: POLAR_ACCESS_TOKEN, POLAR_WEBHOOK_SECRET (bunx wrangler secret put … -c packages/cloud-service/wrangler.jsonc)
+{
+	"name": "pulsify-cloud-service",
+	"account_id": "0607b213538e700239aa5e3f48cc2737",
+	"main": "worker.ts",
+	"compatibility_date": "2026-11-05",
+	"routes": [{ "pattern": "api.pulsify.cloud", "custom_domain": true }],
+	"observability": { "enabled": true },
+	"vars": {
+		"API_URL": "https://api.pulsify.cloud",
+		"DASHBOARD_URL": "https://pulsify.cloud/dashboard",
+		"EMAIL_FROM": "Pulsify Cloud <login@pulsify.cloud>",
+		"POLAR_API_URL": "https://api.polar.sh",
+		"POLAR_PRO_MONTHLY": "dbc540da-8182-4481-a410-3eeb4f10d0eb",
+		"POLAR_PRO_YEARLY": "7cc7bd53-8f48-49fd-81c1-82d43dd5707e",
+	},
+	"send_email": [{ "name": "EMAIL" }],
+	"durable_objects": {
+		"bindings": [
+			{ "name": "ROOTS", "class_name": "PulsifyRoot" },
+			{ "name": "PROJECTS", "class_name": "PulsifyProject" },
+			{ "name": "ACCOUNTS", "class_name": "PulsifyAccount" },
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["PulsifyRoot", "PulsifyProject", "PulsifyAccount"],
+		},
+	],
+}

@@ -8,14 +8,23 @@
 	padding: var(--button-pad-y) var(--button-pad-x);
 	border: var(--border-width) solid transparent;
 	border-radius: var(--radius-sm);
+	font-family: inherit;
 	font-size: var(--font-size-sm);
 	font-weight: var(--font-weight-medium);
+	line-height: inherit;
 	white-space: nowrap;
+	cursor: pointer;
 	transition:
 		background var(--duration-fast) var(--easing),
 		box-shadow var(--duration-fast) var(--easing),
 		border-color var(--duration-fast) var(--easing),
 		transform var(--duration-fast) var(--easing);
+}
+
+.button:disabled {
+	opacity: 0.6;
+	cursor: progress;
+	pointer-events: none;
 }
 
 .button svg {

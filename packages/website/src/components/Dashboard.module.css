@@ -1,0 +1,213 @@
+.page {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-5);
+	max-width: var(--container-narrow);
+	margin: 0 auto;
+	padding: var(--space-8) var(--space-5) var(--section-gap);
+}
+
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+
+.title {
+	font-size: var(--font-size-xl);
+}
+
+.who {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	color: var(--color-text-muted);
+	font-size: var(--font-size-sm);
+}
+
+.plan {
+	padding: 0 var(--space-3);
+	border: var(--border-width) solid var(--color-border-strong);
+	border-radius: var(--radius-pill);
+	color: var(--color-accent);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-eyebrow);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.plan[data-plan="pro"] {
+	border-color: var(--color-secondary);
+	color: var(--color-secondary);
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+}
+
+.panelTitle {
+	font-size: var(--font-size-lg);
+}
+
+.notice,
+.error {
+	padding: var(--space-3) var(--space-4);
+	border: var(--border-width) solid var(--color-border-strong);
+	border-radius: var(--radius-md);
+	background: rgb(61 245 224 / 0.06);
+	font-size: var(--font-size-sm);
+}
+
+.error {
+	border-color: var(--color-no);
+	background: rgb(255 122 122 / 0.08);
+	color: var(--color-no);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-4);
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-3);
+}
+
+.label {
+	color: var(--color-text);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-xs);
+}
+
+.input {
+	flex: 1 1 16rem;
+	min-width: 0;
+	padding: var(--space-3) var(--space-4);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-code-bg);
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--font-size-sm);
+}
+
+.input:focus-visible {
+	outline: none;
+	border-color: var(--color-accent);
+	box-shadow: var(--shadow-glow);
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding-top: var(--space-4);
+	border-top: var(--border-width) solid var(--color-divider);
+}
+
+.valueRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+}
+
+.value {
+	flex: 1 1 18rem;
+	min-width: 0;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-sm);
+	background: var(--color-code-bg);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-xs);
+	overflow-wrap: anywhere;
+}
+
+.tools {
+	display: flex;
+	gap: var(--space-2);
+}
+
+.tool {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-3);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-pill);
+	background: none;
+	color: var(--color-text);
+	font: inherit;
+	font-size: var(--font-size-xs);
+	cursor: pointer;
+	transition:
+		color var(--duration-fast) var(--easing),
+		border-color var(--duration-fast) var(--easing);
+}
+
+.tool:hover {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+
+.tool:disabled {
+	opacity: 0.6;
+	cursor: progress;
+}
+
+.hint {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-xs);
+}
+
+.meter {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.meterHead {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-3);
+	font-size: var(--font-size-sm);
+}
+
+.meterHead span:last-child {
+	color: var(--color-text-muted);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-xs);
+}
+
+.bar {
+	height: 0.5rem;
+	border-radius: var(--radius-pill);
+	background: var(--color-divider);
+	overflow: hidden;
+}
+
+.bar span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--gradient-accent);
+	box-shadow: 0 0 12px var(--color-glow);
+}
+
+.bar span[data-full="true"] {
+	background: var(--color-secondary);
+}

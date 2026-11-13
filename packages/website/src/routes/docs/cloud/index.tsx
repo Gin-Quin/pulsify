@@ -16,7 +16,7 @@ const connector = `import { createCloudConnector } from "pulsify-cloud";
 import { loadPulse } from "pulsify-core";
 
 const cloud = createCloudConnector({
-  url: "https://pulsify.example.com",
+  url: "https://api.pulsify.cloud/<your-project>",
   token: () => fetch("/api/pulsify-token").then((response) => response.text()),
 });
 
@@ -127,6 +127,12 @@ export default function CloudOverview() {
 				database you never operate. The client code is the one you already write
 				with <code>pulsify-core</code>; only the connector changes. It runs on
 				Cloudflare: each root is a Durable Object with its own SQLite database.
+			</p>
+			<p>
+				Sign in to the <a href="/dashboard">dashboard</a> to get your project:
+				its URL, <code>https://api.pulsify.cloud/&lt;your-project&gt;</code>,
+				and its two secrets, <code>PULSIFY_TOKEN_SECRET</code> and{" "}
+				<code>PULSIFY_API_KEY</code>.
 			</p>
 			<ul>
 				<li>
@@ -372,6 +378,47 @@ export default function CloudOverview() {
 				</li>
 			</ul>
 
+			<h2>Plans and limits</h2>
+			<p>
+				Each project is metered over the month on three quantities. See{" "}
+				<a href="/cloud">Pulsify Cloud</a> for the prices.
+			</p>
+			<ul>
+				<li>
+					<strong>Messages</strong>: the binary frames clients send,{" "}
+					<code>connect</code>, <code>syncBack</code> and <code>update</code>.
+					Presence frames do not count, and broadcasts are free: delivering one
+					change to fifty peers is one message.
+				</li>
+				<li>
+					<strong>Storage</strong>: the size of the databases of your roots.
+				</li>
+				<li>
+					<strong>Live connections</strong>: open sockets across all your roots.
+				</li>
+			</ul>
+			<p>At the limits:</p>
+			<ul>
+				<li>
+					<strong>Free, over messages or storage</strong>: uploads fail with{" "}
+					<code>LIMIT_EXCEEDED</code>. Loading and receiving updates keep
+					working.
+				</li>
+				<li>
+					<strong>Any plan, over its connection limit</strong>: new sockets are
+					refused with <code>LIMIT_EXCEEDED</code> (HTTP 413). Open sockets stay
+					open.
+				</li>
+				<li>
+					<strong>Pro</strong>: messages and storage beyond the included amounts
+					are billed, never blocked.
+				</li>
+			</ul>
+			<Note>
+				Rotating a secret on the dashboard takes effect within a minute: update
+				your backend right away.
+			</Note>
+
 			<h2>Packages</h2>
 			<table>
 				<thead>
@@ -410,6 +457,10 @@ export default function CloudOverview() {
 
 			<h2>Wire protocol</h2>
 			<CodeBlock title="cloud session protocol 1" code={wire} />
+			<p>
+				Paths are relative to your project URL:{" "}
+				<code>https://api.pulsify.cloud/&lt;your-project&gt;/v1/health</code>.
+			</p>
 			<p>
 				The token travels as a WebSocket subprotocol because browsers cannot set
 				headers on a socket; the server answers with the envelope only. Envelope

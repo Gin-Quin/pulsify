@@ -9,6 +9,25 @@ suite in
 is the executable authority. Run it with
 `bun run test:cloud --backend cloudflare`.
 
+## Hosted service
+
+The hosted service serves projects at `https://api.pulsify.cloud/<project>`,
+where `<project>` is 16 characters of `[a-z2-7]`: `GET
+https://api.pulsify.cloud/<project>/v1/health`. The `/<project>` prefix is
+stripped before the protocol below applies. Each project has its own
+`PULSIFY_TOKEN_SECRET`, its own `PULSIFY_API_KEY` and its own roots; a rotated
+secret stops working within a minute.
+
+Plans meter the binary frames clients send (`connect`, `syncBack`, `update`;
+presence frames and broadcasts do not count), the size of the roots'
+databases, and the live sockets across all roots. At the limits:
+
+- Free, over messages or storage: `syncBack` and `update` get a
+  `LIMIT_EXCEEDED` error frame; `connect`, sync and broadcasts keep working.
+- Any plan, over its connection limit: the upgrade is refused with
+  `LIMIT_EXCEEDED` (413). Open sockets stay open.
+- Pro: usage beyond the included amounts is billed, never refused.
+
 ## Roots
 
 A document belongs to the root named by the part of its ID before the first

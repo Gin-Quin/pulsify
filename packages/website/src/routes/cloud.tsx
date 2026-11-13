@@ -4,7 +4,6 @@ import { Button } from "~/components/Button";
 import { Card } from "~/components/Card";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Icon, type IconName } from "~/components/Icon";
-import { GITHUB_URL } from "~/components/links";
 import { Sky } from "~/components/Sky";
 import styles from "~/components/Cloud.module.css";
 
@@ -14,7 +13,7 @@ import { Notebook } from "./schema";
 
 // One connector. No relay, no database, no migrations to run.
 const cloud = createCloudConnector({
-  url: "https://pulsify.example.com",
+  url: "https://api.pulsify.cloud/<your-project>",
   token: () => fetch("/api/pulsify-token").then((response) => response.text()),
 });
 
@@ -55,27 +54,21 @@ const features: { icon: IconName; title: string; text: string }[] = [
 	},
 ];
 
-// Draft prices: benchmarked against Pusher, Ably and Liveblocks, not final.
 const plans = [
 	{
 		name: "Free",
-		price: "$0",
-		text: "100 concurrent connections, 1M messages a month, 1 GB stored. Community support.",
+		price: "€0",
+		text: "100 concurrent connections, 1M messages a month, 1 GB stored. Stops at the limits, never bills.",
 	},
 	{
 		name: "Pro",
-		price: "$29/month",
-		text: "1,000 concurrent connections, 50M messages a month, 10 GB stored. Extra messages at $1 per million.",
-	},
-	{
-		name: "Scale",
-		price: "$149/month",
-		text: "10,000 concurrent connections, 1B messages a month, 100 GB stored, custom domain and a 99.9% SLA.",
+		price: "€25/month",
+		text: "Or €250/year. 1,000 concurrent connections, 5M messages a month and 10 GB included. Beyond: €2 per million messages, €0.50 per GB-month.",
 	},
 ];
 
 const steps = [
-	"Get your cloud URL and secrets.",
+	"Sign in and copy your project URL and secrets.",
 	"Grant roles and sign tokens from your backend.",
 	"Point the cloud connector at it and ship.",
 ];
@@ -87,7 +80,6 @@ export default function Cloud() {
 				<Title>Cloud · Pulsify</Title>
 				<section class={styles.hero}>
 					<div class={styles.inner}>
-						<span class={styles.badge}>Coming soon</span>
 						<h1 class={styles.title}>
 							Pulsify Cloud.
 							<br />
@@ -98,16 +90,11 @@ export default function Cloud() {
 							never manage a database again.
 						</p>
 						<div class={styles.actions}>
-							<Button href="/docs/cloud" variant="outline" icon="arrow">
-								Read the docs
+							<Button href="/dashboard" icon="arrow">
+								Start for free
 							</Button>
-							<Button
-								href={GITHUB_URL}
-								icon="github"
-								iconPosition="start"
-								external
-							>
-								Follow progress on GitHub
+							<Button href="/docs/cloud" variant="outline">
+								Read the docs
 							</Button>
 						</div>
 					</div>
@@ -156,10 +143,11 @@ export default function Cloud() {
 					<p class={styles.eyebrow}>Pricing</p>
 					<h2 class={styles.heading}>Pay for activity, not fan-out</h2>
 					<p class={styles.lead}>
-						Storage and relay are included. Only messages sent by clients count:
-						delivering one change to fifty peers is still one message.
+						Relay is included. Only messages sent by clients count: delivering
+						one change to fifty peers is still one message, and presence such as
+						cursors does not count.
 					</p>
-					<div class={styles.grid}>
+					<div class={`${styles.grid} ${styles.plans}`}>
 						<For each={plans}>
 							{(plan) => (
 								<Card class={styles.feature}>
