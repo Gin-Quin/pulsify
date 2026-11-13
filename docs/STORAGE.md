@@ -152,9 +152,11 @@ in exchange a cold read of 10,000 updates of one actor reads 1 row instead of
 
 Opening a database created before packed segments adds the `packed` column in
 place (`SQLITE_PACKED_MIGRATION`). The Rust `pulsify-sqlite` crate reads packed
-segments and migrates the same way, but does not compact. **Earlier versions of
-Pulsify cannot read a compacted database**: they would serve a packed segment
-as one row. Compact only once every process that opens the file is up to date.
+segments and migrates the same way, but does not compact. **Pulsify versions
+before 11 cannot read a compacted database**: they would serve a packed
+segment as one row. Compact only once every process that opens the file runs
+version 11 or later, and never roll a compacted Pulsify Cloud root back to an
+earlier version.
 
 ## Other databases
 
