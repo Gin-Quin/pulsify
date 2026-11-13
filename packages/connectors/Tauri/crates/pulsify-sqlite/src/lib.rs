@@ -9,7 +9,7 @@ mod store;
 pub use hub::{Hub, Sink};
 pub use pulsify_protocol::{PatchRow, VersionVector};
 pub use relay::{chunk_rows, relay_frame, RelayOutput};
-pub use store::{validate_doc_id, AppendResult, SqliteStore, SCHEMA};
+pub use store::{validate_doc_id, AppendResult, SqliteStore, PACKED_MIGRATION, SCHEMA};
 
 use std::fmt;
 

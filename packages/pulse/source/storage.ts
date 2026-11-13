@@ -6,12 +6,19 @@ export {
 export {
 	SqlitePatchStore,
 	SQLITE_PATCH_SCHEMA,
+	SQLITE_PACKED_MIGRATION,
+	type SqliteCompactCursor,
+	type SqliteCompactOptions,
+	type SqliteCompactResult,
 	type SqliteConnection,
 	type SqlitePatchStoreOptions,
 } from "./storage/sqlite.js";
 export {
 	encodeStoredRow,
 	decodeStoredRow,
+	encodePackedRow,
+	decodePackedRows,
+	MAX_PACKED_BYTES,
 	type PatchStore,
 	type StoredPatchRow,
 	type AppendResult,

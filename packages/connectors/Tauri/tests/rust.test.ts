@@ -261,6 +261,68 @@ describe.skipIf(!cargo)("Rust SQLite hub", () => {
 	);
 
 	test(
+		"a file compacted by SqlitePatchStore is read and extended by Rust",
+		async () => {
+			const path = join(directory, "compacted.sqlite");
+			const db = new Database(path);
+			const store = new SqlitePatchStore(db);
+			const { workspace, note } = createWorkspace(
+				"compacted",
+				createTauriConnector(createStorePlugin(store)),
+			);
+			await Promise.all([workspace, note].map((p) => connectPulse(p).synced));
+			await edit(note, workspace);
+			const expected = snapshotPulse(note);
+			const log = byKey(getPulseMeta(note).log.missing([]));
+			const noteId = note.id;
+			// The note and the workspace each become one packed segment.
+			expect(await store.compact({ minRows: 2 })).toMatchObject({
+				segments: 2,
+			});
+			expect(byKey(await store.missing(noteId, []))).toEqual(log);
+			destroyPulse(note);
+			destroyPulse(workspace);
+			db.close();
+
+			// Rust serves the rows inside the packed segment.
+			const rust = new RustPlugin(path);
+			const loaded = await loadWorkspace(
+				"compacted",
+				createTauriConnector(rust),
+			);
+			expect(snapshotPulse(loaded.note)).toEqual(expected);
+			expect(byKey(getPulseMeta(loaded.note).log.missing([]))).toEqual(log);
+			loaded.note.tags.push("from Rust");
+			// A fresh synchronization uploads every row again, the packed ones too.
+			await flush(loaded.note);
+			destroyPulse(loaded.note);
+			destroyPulse(loaded.workspace);
+			expect(await rust.stop()).toBe(0);
+
+			const reopened = new Database(path);
+			const rows = await new SqlitePatchStore(reopened).missing(noteId, []);
+			// Rust's rows come from another actor: the packed ones are still all there.
+			const packed = new Set(log.map((row) => `${row.sid} ${row.clock}`));
+			expect(
+				byKey(rows.filter((row) => packed.has(`${row.sid} ${row.clock}`))),
+			).toEqual(log);
+			expect(rows.length).toBeGreaterThan(log.length);
+			expect(
+				reopened
+					.query(
+						"SELECT packed, COUNT(*) AS count FROM pulsify_op_rows WHERE doc_id=? GROUP BY packed ORDER BY packed",
+					)
+					.all(noteId),
+			).toEqual([
+				{ packed: 0, count: rows.length - log.length },
+				{ packed: 1, count: 1 },
+			]);
+			reopened.close();
+		},
+		timeout,
+	);
+
+	test(
 		"rows stored through one session reach the document's other sessions",
 		async () => {
 			const rust = new RustPlugin(join(directory, "live.sqlite"));

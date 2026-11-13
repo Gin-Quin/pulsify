@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, time_start INTEGER NOT NULL,
  span INTEGER NOT NULL CHECK(span > 0), time_end INTEGER GENERATED ALWAYS AS (time_start + span) STORED,
  dependencies TEXT NOT NULL, operations BLOB NOT NULL, ready INTEGER NOT NULL DEFAULT 0,
+ packed INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(doc_id, sid, time_start)
 ) WITHOUT ROWID;
 DROP INDEX IF EXISTS pulsify_rows_frontier;
@@ -24,6 +25,10 @@ CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
 ) WITHOUT ROWID;
 CREATE VIEW IF NOT EXISTS pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_rows WHERE ready = 0;
 ";
+
+/// Byte-for-byte `SQLITE_PACKED_MIGRATION`: added to a table created before packed segments.
+pub const PACKED_MIGRATION: &str =
+    "ALTER TABLE pulsify_op_rows ADD COLUMN packed INTEGER NOT NULL DEFAULT 0";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct AppendResult {
@@ -52,6 +57,22 @@ impl SqliteStore {
     /// Installs the schema on an existing connection.
     pub fn new(db: Connection) -> Result<Self> {
         db.execute_batch(SCHEMA)?;
+        // CREATE TABLE IF NOT EXISTS leaves an older table as it is.
+        let packed = || -> Result<bool> {
+            Ok(db.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('pulsify_op_rows') WHERE name='packed'",
+                [],
+                |r| r.get(0),
+            )?)
+        };
+        if !packed()? {
+            if let Err(error) = db.execute_batch(PACKED_MIGRATION) {
+                // Another process that opened the file at the same time added it.
+                if !packed()? {
+                    return Err(error.into());
+                }
+            }
+        }
         Ok(Self { db })
     }
     pub fn connection(&self) -> &Connection {
@@ -172,12 +193,74 @@ fn assert_compatible(row: &PatchRow, other: &Segment) -> Result<()> {
     Ok(())
 }
 
+fn corrupt() -> Error {
+    Error::new("CONNECTION_FAILED", "Corrupt packed segment")
+}
+
+/// The rows of a packed segment, as `SqlitePatchStore.compact` folded them:
+/// for each, `span`, the dependencies and the operation bytes, numbers as
+/// LEB128 varuints. They are contiguous from the segment's clock to its end.
+fn unpack(doc_id: &str, sid: u64, clock: u64, span: u64, bytes: &[u8]) -> Result<Vec<PatchRow>> {
+    let mut offset = 0;
+    let read = |offset: &mut usize| -> Result<u64> {
+        let mut value = 0u64;
+        for shift in (0..).step_by(7) {
+            let byte = *bytes.get(*offset).ok_or_else(corrupt)?;
+            *offset += 1;
+            if shift > 49 {
+                return Err(corrupt());
+            }
+            value |= u64::from(byte & 127) << shift;
+            if byte < 128 {
+                break;
+            }
+        }
+        Ok(value)
+    };
+    let mut rows = Vec::new();
+    let mut next = clock;
+    while offset < bytes.len() {
+        let span = read(&mut offset)?;
+        let count = read(&mut offset)?;
+        let mut dependencies = VersionVector::new();
+        for _ in 0..count {
+            dependencies.push((read(&mut offset)?, read(&mut offset)?));
+        }
+        let length = read(&mut offset)? as usize;
+        let operations = offset
+            .checked_add(length)
+            .and_then(|end| bytes.get(offset..end))
+            .filter(|operations| span > 0 && !operations.is_empty())
+            .ok_or_else(corrupt)?;
+        rows.push(PatchRow {
+            doc_id: doc_id.to_owned(),
+            sid,
+            clock: next,
+            span,
+            dependencies,
+            operations: operations.to_vec(),
+        });
+        offset += length;
+        next = next.checked_add(span).ok_or_else(corrupt)?;
+    }
+    if rows.is_empty() || next != clock + span {
+        return Err(corrupt());
+    }
+    Ok(rows)
+}
+
+fn same_row(stored: &PatchRow, row: &PatchRow) -> bool {
+    stored.span == row.span
+        && stored.dependencies == row.dependencies
+        && stored.operations == row.operations
+}
+
 fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<AppendResult> {
     let mut get = tx.prepare_cached(
-        "SELECT span,dependencies,operations FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND time_start=?3",
+        "SELECT span,dependencies,operations,packed FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND time_start=?3",
     )?;
     let mut neighbours = tx.prepare_cached(
-        "SELECT time_start,span,dependencies FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND
+        "SELECT time_start,span,dependencies,packed FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND
  (time_start=(SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND time_start<?3)
  OR time_start=(SELECT MIN(time_start) FROM pulsify_op_rows WHERE doc_id=?1 AND sid=?2 AND time_start>?3))",
     )?;
@@ -185,23 +268,39 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
         "INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations) VALUES(?,?,?,?,?,?)",
     )?;
     let mut inserted = 0;
-    for row in rows {
+    'rows: for row in rows {
         let (sid, clock) = (row.sid as i64, row.clock as i64);
-        let existing = get
-            .query_row(params![doc_id, sid, clock], |r| {
-                Ok((
-                    r.get::<_, i64>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, Vec<u8>>(2)?,
-                ))
-            })
-            .optional()?;
-        if let Some((span, dependencies, operations)) = existing {
-            let dependencies: VersionVector = serde_json::from_str(&dependencies)?;
-            if span as u64 != row.span
-                || dependencies != row.dependencies
-                || operations != row.operations
-            {
+        // The stored row at a key: itself, or the rows packed inside it.
+        let mut stored = |start: i64| -> Result<Option<Vec<PatchRow>>> {
+            let Some((span, dependencies, operations, packed)) = get
+                .query_row(params![doc_id, sid, start], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, Vec<u8>>(2)?,
+                        r.get::<_, bool>(3)?,
+                    ))
+                })
+                .optional()?
+            else {
+                return Ok(None);
+            };
+            Ok(Some(if packed {
+                unpack(doc_id, row.sid, start as u64, span as u64, &operations)?
+            } else {
+                vec![PatchRow {
+                    doc_id: doc_id.to_owned(),
+                    sid: row.sid,
+                    clock: start as u64,
+                    span: span as u64,
+                    dependencies: serde_json::from_str(&dependencies)?,
+                    operations,
+                }]
+            }))
+        };
+        if let Some(existing) = stored(clock)? {
+            // A packed segment starts with the row that had its key.
+            if !same_row(&existing[0], row) {
                 return Err(conflict("Conflicting storage segment"));
             }
             continue;
@@ -212,15 +311,37 @@ fn append_rows(tx: &Transaction<'_>, doc_id: &str, rows: &[PatchRow]) -> Result<
                     r.get::<_, i64>(0)?,
                     r.get::<_, i64>(1)?,
                     r.get::<_, String>(2)?,
+                    r.get::<_, bool>(3)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        for (clock, span, dependencies) in found {
-            let segment = Segment {
-                clock: clock as u64,
+        for (start, span, dependencies, packed) in found {
+            let mut segment = Segment {
+                clock: start as u64,
                 span: span as u64,
                 dependencies: serde_json::from_str(&dependencies)?,
             };
+            // Seen from outside, a packed segment checks like its rows. A row
+            // that starts inside is compared to the row it hits.
+            if packed && segment.clock < row.clock && row.clock < segment.clock + segment.span {
+                let inner = stored(start)?.ok_or_else(corrupt)?;
+                if let Some(same) = inner.iter().find(|each| each.clock == row.clock) {
+                    if !same_row(same, row) {
+                        return Err(conflict("Conflicting storage segment"));
+                    }
+                    continue 'rows;
+                }
+                let hit = inner
+                    .into_iter()
+                    .rev()
+                    .find(|each| each.clock < row.clock)
+                    .ok_or_else(corrupt)?;
+                segment = Segment {
+                    clock: hit.clock,
+                    span: hit.span,
+                    dependencies: hit.dependencies,
+                };
+            }
             assert_compatible(row, &segment)?;
         }
         insert.execute(params![
@@ -323,11 +444,12 @@ fn read_missing(db: &Connection, doc_id: &str, remote: &VersionVector) -> Result
             r.get::<_, i64>(2)?,
             r.get::<_, String>(3)?,
             r.get::<_, Vec<u8>>(4)?,
+            r.get::<_, bool>(5)?,
         ))
     };
     let found = if remote.is_empty() {
         db.prepare_cached(
-            "SELECT sid,time_start,span,dependencies,operations FROM pulsify_op_rows WHERE doc_id=? AND ready=1 ORDER BY sid,time_start",
+            "SELECT sid,time_start,span,dependencies,operations,packed FROM pulsify_op_rows WHERE doc_id=? AND ready=1 ORDER BY sid,time_start",
         )?
         .query_map([doc_id], map)?
         .collect::<rusqlite::Result<Vec<_>>>()?
@@ -337,26 +459,36 @@ fn read_missing(db: &Connection, doc_id: &str, remote: &VersionVector) -> Result
             "WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?1)),
  actors(sid,since) AS (SELECT c.sid,COALESCE(r.clock,0) FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
   WHERE c.doc_id=?2 AND c.clock>COALESCE(r.clock,0))
- SELECT o.sid,o.time_start,o.span,o.dependencies,o.operations FROM actors a CROSS JOIN pulsify_op_rows o WHERE o.doc_id=?2 AND o.sid=a.sid
+ SELECT o.sid,o.time_start,o.span,o.dependencies,o.operations,o.packed FROM actors a CROSS JOIN pulsify_op_rows o WHERE o.doc_id=?2 AND o.sid=a.sid
  AND o.time_start>=COALESCE((SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=?2 AND sid=a.sid AND time_start<=a.since),0)
  AND o.ready=1 AND o.time_end>a.since ORDER BY o.sid,o.time_start",
         )?
         .query_map(params![serde_json::to_string(remote)?, doc_id], map)?
         .collect::<rusqlite::Result<Vec<_>>>()?
     };
-    found
-        .into_iter()
-        .map(|(sid, clock, span, dependencies, operations)| {
-            Ok(PatchRow {
+    let mut rows = Vec::with_capacity(found.len());
+    for (sid, clock, span, dependencies, operations, packed) in found {
+        let (sid, clock, span) = (sid as u64, clock as u64, span as u64);
+        if packed {
+            // Packed segments never reach a peer: it gets the rows inside.
+            let since = own_clock(remote, sid);
+            rows.extend(
+                unpack(doc_id, sid, clock, span, &operations)?
+                    .into_iter()
+                    .filter(|inner| inner.end() > since),
+            );
+        } else {
+            rows.push(PatchRow {
                 doc_id: doc_id.to_owned(),
-                sid: sid as u64,
-                clock: clock as u64,
-                span: span as u64,
+                sid,
+                clock,
+                span,
                 dependencies: serde_json::from_str(&dependencies)?,
                 operations,
-            })
-        })
-        .collect()
+            });
+        }
+    }
+    Ok(rows)
 }
 
 #[cfg(test)]
@@ -421,6 +553,133 @@ pub(crate) mod tests {
             )
             .unwrap();
         assert_eq!(stored, "[[65536,3]]");
+    }
+
+    fn varuint(out: &mut Vec<u8>, mut value: u64) {
+        while value >= 128 {
+            out.push((value % 128) as u8 | 128);
+            value /= 128;
+        }
+        out.push(value as u8);
+    }
+    /// Folds every row of `sid` into one packed segment, as the TypeScript store does.
+    fn pack(store: &SqliteStore, sid: u64) {
+        let rows: Vec<_> = store
+            .missing("doc", &vec![])
+            .unwrap()
+            .into_iter()
+            .filter(|row| row.sid == sid)
+            .collect();
+        let mut payload = Vec::new();
+        for row in &rows {
+            varuint(&mut payload, row.span);
+            varuint(&mut payload, row.dependencies.len() as u64);
+            for (sid, clock) in &row.dependencies {
+                varuint(&mut payload, *sid);
+                varuint(&mut payload, *clock);
+            }
+            varuint(&mut payload, row.operations.len() as u64);
+            payload.extend(&row.operations);
+        }
+        let (first, last) = (&rows[0], rows.last().unwrap());
+        let db = store.connection();
+        db.execute(
+            "DELETE FROM pulsify_op_rows WHERE sid=? AND time_start>?",
+            params![sid as i64, first.clock as i64],
+        )
+        .unwrap();
+        db.execute(
+            "UPDATE pulsify_op_rows SET span=?,operations=?,packed=1 WHERE sid=?",
+            params![(last.end() - first.clock) as i64, payload, sid as i64],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn packed_segments_read_and_check_like_their_rows() {
+        let mut store = SqliteStore::open_in_memory().unwrap();
+        let mut wide = row(A, 6, 1, &[(A, 6), (B, 2)]);
+        wide.operations = (0..300u32).map(|byte| byte as u8).collect();
+        let rows = vec![
+            next(A, 1, 2),
+            next(A, 3, 3),
+            wide,
+            next(A, 7, 1),
+            next(B, 1, 4),
+        ];
+        store.append(&rows).unwrap();
+        let remotes = [
+            vec![],
+            vec![(A, 2)],
+            vec![(A, 3)],
+            vec![(A, 4), (B, 9)],
+            vec![(A, 7)],
+            vec![(A, 8)],
+        ];
+        let expected: Vec<_> = remotes
+            .iter()
+            .map(|remote| store.missing("doc", remote).unwrap())
+            .collect();
+        pack(&store, A);
+        assert_eq!(count(&store, "SELECT COUNT(*) FROM pulsify_op_rows"), 2);
+        for (remote, expected) in remotes.iter().zip(&expected) {
+            assert_eq!(&store.missing("doc", remote).unwrap(), expected);
+        }
+        assert_eq!(store.vector("doc").unwrap(), vec![(A, 8), (B, 5)]);
+        // Resends of the first row of the segment and of rows inside it.
+        assert_eq!(store.append(&rows).unwrap().inserted, 0);
+        let mut changed_first = next(A, 1, 2);
+        changed_first.operations = vec![9];
+        let mut changed_inner = next(A, 7, 1);
+        changed_inner.operations = vec![9];
+        for (bad, message) in [
+            (changed_first, "Conflicting storage segment"),
+            (changed_inner, "Conflicting storage segment"),
+            (next(A, 3, 2), "Conflicting storage segment"),
+            (next(A, 4, 1), "Overlapping immutable storage segments"),
+            (row(A, 8, 1, &[(A, 7)]), "Actor history fork"),
+        ] {
+            let error = store.append(&[bad]).unwrap_err();
+            assert_eq!((error.code, error.message.as_str()), ("CONFLICT", message));
+        }
+        assert_eq!(store.append(&[next(A, 8, 2)]).unwrap().ready, 1);
+        assert_eq!(
+            store.missing("doc", &vec![(A, 7), (B, 5)]).unwrap(),
+            vec![next(A, 7, 1), next(A, 8, 2)]
+        );
+    }
+
+    #[test]
+    fn migrates_a_database_created_before_packed_segments() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(&SCHEMA.replace(" packed INTEGER NOT NULL DEFAULT 0,\n", ""))
+            .unwrap();
+        db.execute(
+            "INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES('doc',?,1,2,'[]',x'010203',1)",
+            [A as i64],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO pulsify_doc_clocks VALUES('doc',?,3)",
+            [A as i64],
+        )
+        .unwrap();
+        let mut store = SqliteStore::new(db).unwrap();
+        assert_eq!(store.missing("doc", &vec![]).unwrap().len(), 1);
+        assert_eq!(store.append(&[next(A, 3, 1)]).unwrap().ready, 1);
+        assert_eq!(
+            count(
+                &store,
+                "SELECT COUNT(*) FROM pulsify_op_rows WHERE packed=0"
+            ),
+            2
+        );
+        // Opening it again changes nothing.
+        let db = std::mem::replace(&mut store.db, Connection::open_in_memory().unwrap());
+        assert_eq!(
+            SqliteStore::new(db).unwrap().vector("doc").unwrap(),
+            vec![(A, 4)]
+        );
     }
 
     #[test]

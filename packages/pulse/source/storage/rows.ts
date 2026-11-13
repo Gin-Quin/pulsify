@@ -116,3 +116,77 @@ export function assertCompatible(a: StoredPatchRow, b: StoredPatchRow): void {
 	)
 		throw new PulseError("CONFLICT", "Actor history fork");
 }
+
+/** The most bytes one packed segment holds: far below any row or message limit. */
+export const MAX_PACKED_BYTES: number = 256 * 1024;
+
+function pushVaruint(out: number[], value: number): void {
+	// Clocks reach 2^53: no 32-bit operators.
+	for (; value >= 128; value = Math.floor(value / 128))
+		out.push((value % 128) | 128);
+	out.push(value);
+}
+
+/**
+ * One row of a packed segment: `span`, the dependencies in their order, then
+ * the operation bytes, each number as a LEB128 varuint. The document, the
+ * actor and the clock are those of the segment: its rows are contiguous.
+ * Encoded rows are simply concatenated, so a segment grows by appending.
+ */
+export function encodePackedRow(
+	row: Pick<StoredPatchRow, "span" | "dependencies" | "operations">,
+): Uint8Array {
+	const head: number[] = [];
+	pushVaruint(head, row.span);
+	pushVaruint(head, row.dependencies.length);
+	for (const [sid, clock] of row.dependencies) {
+		pushVaruint(head, sid);
+		pushVaruint(head, clock);
+	}
+	pushVaruint(head, row.operations.length);
+	const bytes = new Uint8Array(head.length + row.operations.length);
+	bytes.set(head);
+	bytes.set(row.operations, head.length);
+	return bytes;
+}
+
+/** The rows of a packed segment that starts at `clock`, exactly as they were appended. */
+export function decodePackedRows(
+	docId: string,
+	sid: number,
+	clock: number,
+	bytes: Uint8Array,
+): StoredPatchRow[] {
+	let offset = 0;
+	const read = (): number => {
+		let value = 0;
+		for (let scale = 1; ; scale *= 128) {
+			const byte = bytes[offset++];
+			if (byte === undefined || !Number.isSafeInteger(value + byte * scale))
+				throw new PulseError("INVALID_MESSAGE", "Corrupt packed segment");
+			value += (byte & 127) * scale;
+			if (byte < 128) return value;
+		}
+	};
+	const rows: StoredPatchRow[] = [];
+	while (offset < bytes.length) {
+		const span = read();
+		const dependencies: PulseVersionVector = [];
+		for (let count = read(); count > 0; count--)
+			dependencies.push([read(), read()]);
+		const length = read();
+		if (span < 1 || !length || offset + length > bytes.length)
+			throw new PulseError("INVALID_MESSAGE", "Corrupt packed segment");
+		rows.push({
+			docId,
+			sid,
+			clock,
+			span,
+			dependencies,
+			operations: bytes.slice(offset, offset + length),
+		});
+		offset += length;
+		clock += span;
+	}
+	return rows;
+}

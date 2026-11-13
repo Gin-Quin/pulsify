@@ -20,7 +20,9 @@ Durable Object SQLite to the `SqliteConnection` interface.
 Rows are atomic and immutable. Exact duplicates are idempotent. Reusing an ID
 with different bytes, overlapping immutable segments, or forking one actor's
 history is a conflict and rolls back the complete append batch. Peers must keep
-segment boundaries stable; storage does not resegment or compact their payloads.
+segment boundaries stable; storage never changes the rows a peer reads. The
+SQLite store can [pack](#compaction) old rows together on disk, and unpacks
+them on every read.
 New core transactions use one sequence number each, starting at 1; their
 Lamport order is carried separately inside the payload. Storage and the v2
 protocol journal both require contiguous actor sequences starting at 1. The
@@ -97,6 +99,62 @@ their actor neighbors. SQLite 3.32+ is
 recommended for its larger default bound-parameter limit when vectors contain
 hundreds of actors. Configure WAL/durability on the connection according to the
 application's requirements.
+
+### Compaction
+
+A document keeps one stored row per update, and a peer that connects with an
+empty vector reads them all. `SqlitePatchStore.compact()` folds runs of
+consecutive ready rows of one actor into **packed segments**, so that a long
+history is read as a few rows:
+
+```ts
+let after: SqliteCompactCursor | undefined;
+do after = (await store.compact({ after })).next;
+while (after);
+```
+
+Compaction is opt-in and internal to storage. A store that never calls it keeps
+one row per update. Nothing changes for peers: `missing` returns the rows inside
+a packed segment exactly as they were appended, including the complete row that
+straddles the remote clock; `vector` and the clocks table are untouched, since
+packing never moves the causal frontier; and `append` answers a resend of a
+packed row as before: idempotent when identical, a conflict when it differs,
+overlaps or forks. Packed segments never reach the wire, where a core row still
+spans one sequence number.
+
+A packed segment is one row of `pulsify_op_rows` with `packed = 1`. It keeps the
+key and the dependencies of its first row, spans all of them, and its
+`operations` hold each row in order: `span`, the number of dependencies, each
+`[sid, clock]`, the length of the operations and their bytes, every number as a
+LEB128 varuint. Rows inside are contiguous, so their clocks are not stored.
+Encoded rows are concatenated: a segment grows by appending.
+
+- **Only ready rows are packed.** Dangling rows stay as they are until promoted.
+- **Size.** A segment holds at most 256 KiB (`MAX_PACKED_BYTES`). A row larger
+  than that stays unpacked.
+- **Threshold.** A run of fewer than `minRows` unpacked rows of one actor
+  (default 64) is left alone, so small documents and short tails are not
+  rewritten.
+- **Extension.** A run that follows a packed segment is appended to it while it
+  has room. Repeated compactions therefore fill segments instead of leaving
+  one small segment each.
+- **Budget.** One call reads at most `maxRows` stored rows (default 4096) of
+  all documents in one immediate transaction, and returns in `next` where to
+  resume, or `undefined` once every row has been seen.
+
+Appending after a compaction costs the same: a row at its actor's frontier is
+still inserted without reading any row. Only a resend of a row that lies inside
+a segment decodes that segment.
+
+Packing a row deletes it, which is one more write per update over its lifetime;
+in exchange a cold read of 10,000 updates of one actor reads 1 row instead of
+10,000, and the database is smaller.
+
+Opening a database created before packed segments adds the `packed` column in
+place (`SQLITE_PACKED_MIGRATION`). The Rust `pulsify-sqlite` crate reads packed
+segments and migrates the same way, but does not compact. **Earlier versions of
+Pulsify cannot read a compacted database**: they would serve a packed segment
+as one row. Compact only once every process that opens the file is up to date.
 
 ## Other databases
 
