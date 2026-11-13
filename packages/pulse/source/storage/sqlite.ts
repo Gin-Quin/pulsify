@@ -112,42 +112,64 @@ export class SqlitePatchStore implements PatchStore {
 				const frontier = new Map(
 					this.vectors.get(docId) ?? this.readVector(docId),
 				);
+				// Pending rows are few: read them through the partial index, which the
+				// planner would otherwise skip for the primary key and read the whole
+				// document. Its entries end with the primary key, so they come sorted.
+				let pending = this.db
+					.query(
+						"SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows INDEXED BY pulsify_rows_pending WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
+					)
+					.all(docId) as PendingRow[];
+				const pendingActors = new Set(pending.map((row) => row.sid));
 				const changedActors = new Set<number>();
 				let inserted = 0,
 					ready = 0;
 				for (const row of rows) {
-					const existing = get.get(
-						docId,
-						row.sid,
-						row.clock,
-					) as RecordRow | null;
-					if (existing) {
-						if (!sameRow(unpack(existing), row))
-							throw new PulseError("CONFLICT", "Conflicting storage segment");
-						continue;
-					}
-					for (const neighbour of neighbours.all(
-						docId,
-						row.sid,
-						docId,
-						row.sid,
-						row.clock,
-						docId,
-						row.sid,
-						row.clock,
-					) as RecordRow[])
-						assertCompatible(row, unpack(neighbour));
 					// A row that is ready on arrival (the common, in-order case) skips the
 					// pending index and the promotion UPDATE: 3 billed rows instead of 5.
 					const readyNow =
 						row.clock === (frontier.get(row.sid) ?? 1) &&
 						covered(frontier, row.dependencies);
+					if (readyNow && !pendingActors.has(row.sid)) {
+						// Ready rows of an actor tile [1, frontier) and it has no pending
+						// row, so no stored row starts at or after this one: it is neither
+						// a duplicate nor overlapping, and the previous row ends exactly
+						// at the frontier. Only the fork check remains, without reading it.
+						if (
+							row.clock > 1 &&
+							(new Map(row.dependencies).get(row.sid) ?? 0) < row.clock
+						)
+							throw new PulseError("CONFLICT", "Actor history fork");
+					} else {
+						const existing = get.get(
+							docId,
+							row.sid,
+							row.clock,
+						) as RecordRow | null;
+						if (existing) {
+							if (!sameRow(unpack(existing), row))
+								throw new PulseError("CONFLICT", "Conflicting storage segment");
+							continue;
+						}
+						for (const neighbour of neighbours.all(
+							docId,
+							row.sid,
+							docId,
+							row.sid,
+							row.clock,
+							docId,
+							row.sid,
+							row.clock,
+						) as RecordRow[])
+							assertCompatible(row, unpack(neighbour));
+					}
+					const dependencies = JSON.stringify(row.dependencies);
 					insert.run(
 						docId,
 						row.sid,
 						row.clock,
 						row.span,
-						JSON.stringify(row.dependencies),
+						dependencies,
 						row.operations,
 						readyNow ? 1 : 0,
 					);
@@ -156,21 +178,25 @@ export class SqlitePatchStore implements PatchStore {
 						frontier.set(row.sid, row.clock + row.span);
 						changedActors.add(row.sid);
 						ready++;
+					} else {
+						pending.push({
+							sid: row.sid,
+							time_start: row.clock,
+							time_end: row.clock + row.span,
+							dependencies,
+						});
+						pendingActors.add(row.sid);
 					}
 				}
-				let pending = this.db
-					.query(
-						"SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
-					)
-					.all(docId) as PendingRow[];
 				if (
-					new Set([...frontier.keys(), ...pending.map((row) => row.sid)]).size >
+					new Set([...frontier.keys(), ...pendingActors]).size >
 					MAX_VECTOR_ENTRIES
 				)
 					throw new PulseError(
 						"LIMIT_EXCEEDED",
 						"Document actor limit exceeded",
 					);
+				pending.sort((a, b) => a.sid - b.sid || a.time_start - b.time_start);
 				const update = this.db.query(
 					"UPDATE pulsify_op_rows SET ready=1 WHERE doc_id=? AND sid=? AND time_start=?",
 				);

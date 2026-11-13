@@ -356,6 +356,84 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			expect(await store.vector(docId)).toEqual(frontier);
 			expect(await store.missing(docId, frontier)).toEqual([]);
 		}, 15000);
+		test("in-order batches store every row and resends stay idempotent", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			const rows = [1, 2, 3, 4, 5].map((clock) => row(docId, clock));
+			expect(await store.append(rows)).toMatchObject({
+				inserted: 5,
+				ready: 5,
+				pending: 0,
+			});
+			expect(await store.vector(docId)).toEqual([[actor, 6]]);
+			expect(await store.append([rows[4]!])).toMatchObject({
+				inserted: 0,
+				ready: 0,
+				pending: 0,
+			});
+			expect(await store.append([rows[0]!, rows[4]!])).toMatchObject({
+				inserted: 0,
+			});
+			await expect(
+				store.append([{ ...rows[4]!, operations: new Uint8Array([9]) }]),
+			).rejects.toMatchObject({
+				code: "CONFLICT",
+				message: "Conflicting storage segment",
+			});
+			expect(await store.missing(docId, [])).toEqual(rows);
+		});
+		test("an in-order row that does not depend on its predecessor forks", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			await store.append([row(docId), row(docId, 2)]);
+			for (const dependencies of [[], [[actor, 2]]] as Array<
+				Array<[number, number]>
+			>)
+				await expect(
+					store.append([
+						row(docId, 1, other),
+						row(docId, 3, actor, dependencies),
+					]),
+				).rejects.toMatchObject({
+					code: "CONFLICT",
+					message: "Actor history fork",
+				});
+			expect(await store.vector(docId)).toEqual([[actor, 3]]);
+			expect(await store.append([row(docId, 3)])).toMatchObject({ ready: 1 });
+		});
+		test("in-order rows are checked against pending rows of their actor", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			// The other actor's gap keeps its row pending beside in-order appends.
+			const gap = row(docId, 3, other, [[other, 3]]);
+			expect(await store.append([gap])).toMatchObject({ pending: 1 });
+			expect(await store.append([row(docId), row(docId, 2)])).toMatchObject({
+				inserted: 2,
+				ready: 2,
+				pending: 1,
+			});
+			const long = { ...row(docId, 1, other), span: 3 };
+			await expect(store.append([long])).rejects.toMatchObject({
+				code: "CONFLICT",
+				message: "Overlapping immutable storage segments",
+			});
+			// Pending rows inserted earlier in the same batch count too.
+			const mine = row(docId, 4, actor, [[actor, 4]]);
+			await expect(
+				store.append([mine, { ...row(docId, 3), span: 2 }]),
+			).rejects.toMatchObject({
+				code: "CONFLICT",
+				message: "Overlapping immutable storage segments",
+			});
+			expect(await store.vector(docId)).toEqual([[actor, 3]]);
+			expect(
+				await store.append([row(docId, 1, other), row(docId, 2, other)]),
+			).toMatchObject({ inserted: 2, ready: 3, pending: 0 });
+			expect(await store.vector(docId)).toEqual([
+				[actor, 3],
+				[other, 4],
+			]);
+		});
 	});
 }
 

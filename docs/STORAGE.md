@@ -88,7 +88,12 @@ before the remote clock, so each write updates only the row, the pending index
 and the actor clock. Opening an older database drops its
 `pulsify_rows_frontier` index. The append uses an immediate
 transaction so competing writers cannot race between duplicate checks and
-inserts. Only pending metadata and actor neighbors are read. SQLite 3.32+ is
+inserts. Each append reads the pending rows once, through the partial index.
+A ready actor's rows tile its history up to its clock, so a row that starts at
+that clock, has its dependencies covered and whose actor has no pending row
+cannot be a duplicate or overlap: it is inserted without reading any row, and
+only its dependency on the actor's previous row is checked. Other rows read
+their actor neighbors. SQLite 3.32+ is
 recommended for its larger default bound-parameter limit when vectors contain
 hundreds of actors. Configure WAL/durability on the connection according to the
 application's requirements.
