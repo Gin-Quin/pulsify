@@ -38,6 +38,8 @@ export type CloudBackend = {
 	apiKey: string;
 	/** How long a root stays idle before the host evicts it, sockets open. */
 	hibernatesAfterMs?: number;
+	/** How long after its last socket closed the host compacts a root, if it does. */
+	compactsAfterMs?: number;
 };
 
 export const Note = definePulse(
@@ -479,6 +481,48 @@ export function describeCloudBackend(
 			await eventually(() => expect(told(null)).toEqual(documents));
 			expect(probe.socket.readyState).toBe(WebSocket.OPEN);
 		}, 60_000);
+
+		test("compacts the history of a root nobody is connected to, unseen by clients", async () => {
+			const wait = backend().compactsAfterMs;
+			// Compaction is scheduled by the host: not every one does.
+			if (wait === undefined) return;
+			const { root, a, first } = await seed("compaction");
+			for (let index = 1; index <= 200; index++) first.title = `Title ${index}`;
+			const b = device("alice");
+			const copy = await loadPulse(Note, first.id, b.options);
+			await eventually(() => expect(copy.title).toBe("Title 200"));
+			const written = (await admin().usage(root)).rows;
+			expect(written).toBeGreaterThan(200);
+
+			// Someone comes back before the root stayed idle long enough: nothing moves.
+			a.connector.close();
+			b.connector.close();
+			const visitor = await raw(root, "alice");
+			await Bun.sleep(wait + 1000);
+			expect(await admin().usage(root)).toMatchObject({
+				rows: written,
+				connections: 1,
+			});
+
+			visitor.socket.close();
+			await eventually(
+				async () => expect((await admin().usage(root)).rows).toBeLessThan(20),
+				wait + 5_000,
+			);
+			const c = device("alice");
+			const workspace = await loadPulse(Workspace, root, c.options);
+			const loaded = workspace.notes[0]!.pulse!;
+			expect(loaded.title).toBe("Title 200");
+			expect(String(loaded.body)).toBe("Hello");
+			expect(getPulseMeta(loaded).log.missing([])).toEqual(
+				getPulseMeta(first).log.missing([]),
+			);
+			const packed = (await admin().usage(root)).rows;
+			loaded.title = "After the compaction";
+			await eventually(async () =>
+				expect((await admin().usage(root)).rows).toBe(packed + 1),
+			);
+		}, 30_000);
 
 		test("relays presence between the sessions of a document and announces departures", async () => {
 			const { root, first, second, workspace } = await seed("presence");

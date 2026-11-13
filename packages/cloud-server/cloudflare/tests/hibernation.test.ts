@@ -8,8 +8,10 @@ import {
 	isPresenceFrame,
 	PresenceEvent,
 } from "pulsify-core/protocol";
+import { SqlitePatchStore, type StoredPatchRow } from "pulsify-core/storage";
 import { callerToHeaders, presencePeer } from "pulsify-cloud-server";
 import {
+	COMPACT_AFTER_MS,
 	PulsifyCloudRoot,
 	ROOT_HEADERS,
 	type DurableObjectStateLike,
@@ -19,15 +21,29 @@ import {
 function durableState() {
 	const db = new Database(":memory:");
 	const sockets: FakeSocket[] = [];
+	/** When the object's alarm is due, once one is set. */
+	const alarm: { at?: number } = {};
 	const state: DurableObjectStateLike = {
 		storage: {
 			sql: {
 				exec: (query, ...bindings) => {
-					const rows = db.query(query).all(...(bindings as never[]));
-					return { toArray: () => rows as Record<string, unknown>[] };
+					const rows = db.query(query).all(...(bindings as never[])) as Record<
+						string,
+						unknown
+					>[];
+					// The runtime returns a BLOB as an ArrayBuffer.
+					for (const row of rows)
+						for (const [name, value] of Object.entries(row))
+							if (value instanceof Uint8Array)
+								row[name] = value.buffer.slice(
+									value.byteOffset,
+									value.byteOffset + value.byteLength,
+								);
+					return { toArray: () => rows };
 				},
 			},
 			transactionSync: (work) => db.transaction(work)(),
+			setAlarm: (time) => void (alarm.at = time),
 		},
 		acceptWebSocket: () => {},
 		getWebSockets: (tag) =>
@@ -44,7 +60,7 @@ function durableState() {
 				)
 				.all() as { connection: string; doc_id: string; role: string }[]
 		).map((row) => `${row.connection} ${row.doc_id} ${row.role}`);
-	return { state, sockets, db, stored };
+	return { state, sockets, db, stored, alarm };
 }
 const admin = (
 	root: PulsifyCloudRoot,
@@ -288,4 +304,128 @@ test("subscriptions stored by an earlier version are honoured until they end", a
 		event: PresenceEvent.leave,
 	});
 	expect(stored()).toEqual([]);
+});
+
+/** A history of two actors, written straight to the root's database. */
+async function seedHistory(db: Database, docId: string, length: number) {
+	const rows = (sid: number): StoredPatchRow[] =>
+		Array.from({ length }, (_, index) => ({
+			docId,
+			sid,
+			clock: index + 1,
+			span: 1,
+			dependencies: index ? [[sid, index + 1]] : [],
+			operations: new Uint8Array([sid & 255, index & 255, index >> 8]),
+		}));
+	const store = new SqlitePatchStore(db);
+	for (const sid of [70001, 70002]) await store.append(rows(sid));
+}
+const rowCount = (db: Database, where = "1") =>
+	(
+		db
+			.query(`SELECT COUNT(*) AS count FROM pulsify_op_rows WHERE ${where}`)
+			.get() as { count: number }
+	).count;
+/** Everything a fresh socket is sent when it asks for the whole document. */
+async function coldLoad(
+	root: PulsifyCloudRoot,
+	sockets: FakeSocket[],
+	id: string,
+) {
+	const fresh = socket(id, "ada");
+	sockets.push(fresh);
+	await send(root, fresh, connect("r/doc"));
+	return fresh;
+}
+
+test("the last disconnect arms an alarm that compacts the root's history once it stayed idle", async () => {
+	const { state, sockets, db, alarm } = durableState();
+	let root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "*", prefix: "r", role: "editor" });
+	await seedHistory(db, "r/doc", 3000);
+	await seedHistory(db, "r/small", 20);
+	const a = await coldLoad(root, sockets, "a"),
+		b = await coldLoad(root, sockets, "b");
+	expect(a.sent.length).toBeGreaterThan(2);
+
+	// Not the last socket: the root stays as it is.
+	b.closed = true;
+	await root.webSocketClose(b as never, 1000, "");
+	expect(alarm.at).toBeUndefined();
+	// The runtime still lists a socket while it reports that it closed.
+	const before = Date.now();
+	await root.webSocketClose(a as never, 1000, "");
+	a.closed = true;
+	expect(alarm.at).toBeGreaterThanOrEqual(before + COMPACT_AFTER_MS);
+	expect(alarm.at).toBeLessThanOrEqual(Date.now() + COMPACT_AFTER_MS);
+	expect(rowCount(db)).toBe(6040);
+
+	// The alarm wakes an evicted object. It works in bounded steps, each of
+	// which sets the next, until nothing is left.
+	root = new PulsifyCloudRoot(state);
+	let steps = 0;
+	for (; alarm.at !== undefined; steps++) {
+		if (steps) expect(alarm.at).toBeLessThan(Date.now() + 1000);
+		delete alarm.at;
+		await root.alarm();
+	}
+	expect(steps).toBe(2);
+	expect(rowCount(db, "doc_id='r/doc'")).toBe(2);
+	expect(rowCount(db, "doc_id='r/doc' AND packed=1")).toBe(2);
+	// A document with few rows is left alone.
+	expect(rowCount(db, "doc_id='r/small' AND packed=0")).toBe(40);
+
+	// A fresh client gets the very frames it got before the compaction.
+	const fresh = await coldLoad(root, sockets, "fresh");
+	expect(fresh.sent).toEqual(a.sent);
+	// Its updates go on, in order and resent.
+	const update = encodeMessage({
+		kind: 4,
+		docId: "r/doc",
+		requestId: 2,
+		vv: [[70001, 3002]],
+		rows: [
+			{
+				docId: "r/doc",
+				sid: 70001,
+				clock: 3001,
+				span: 1,
+				dependencies: [[70001, 3001]],
+				operations: new Uint8Array([1]),
+			},
+		],
+	});
+	fresh.sent.length = 0;
+	await send(root, fresh, update);
+	await send(root, fresh, update);
+	expect(fresh.closed).toBe(false);
+	expect(fresh.sent).toHaveLength(2);
+	expect(rowCount(db, "doc_id='r/doc'")).toBe(3);
+});
+
+test("a root that got a socket back before its alarm does not compact", async () => {
+	const { state, sockets, db, alarm } = durableState();
+	const root = new PulsifyCloudRoot(state, { PULSIFY_COMPACT_AFTER_MS: "250" });
+	await admin(root, "PUT", { subject: "*", prefix: "r", role: "editor" });
+	await seedHistory(db, "r/doc", 200);
+	const a = await coldLoad(root, sockets, "a");
+	a.closed = true;
+	const before = Date.now();
+	await root.webSocketError(a as never);
+	// The debounce can be shortened by configuration.
+	expect(alarm.at).toBeGreaterThanOrEqual(before + 250);
+	expect(alarm.at).toBeLessThanOrEqual(Date.now() + 250);
+
+	const b = await coldLoad(root, sockets, "b");
+	delete alarm.at;
+	await root.alarm();
+	expect(alarm.at).toBeUndefined();
+	expect(rowCount(db)).toBe(400);
+
+	// Its next last disconnect sets the alarm again.
+	b.closed = true;
+	await root.webSocketClose(b as never, 1000, "");
+	expect(alarm.at).toBeDefined();
+	await root.alarm();
+	expect(rowCount(db)).toBe(2);
 });

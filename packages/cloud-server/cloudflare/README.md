@@ -3,6 +3,9 @@
 Pulsify Cloud on Cloudflare: a Worker authenticates and routes, and **one
 Durable Object per root** stores the root's documents and grants in its SQLite
 database. Sockets use the hibernation API and carry their own subscriptions.
+A root that nobody has been connected to for a minute compacts its history
+from an alarm, so that documents with long histories stay cheap to load
+(`PULSIFY_COMPACT_AFTER_MS` changes the delay).
 
 ```ts
 // worker.ts

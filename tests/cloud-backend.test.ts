@@ -15,4 +15,7 @@ describeCloudBackend(process.env["PULSIFY_CLOUD_BACKEND"] ?? "Remote", () => ({
 	tokenSecret,
 	apiKey,
 	hibernatesAfterMs: Number(process.env["PULSIFY_CLOUD_HIBERNATES_MS"] ?? 0),
+	...(process.env["PULSIFY_CLOUD_COMPACTS_MS"]
+		? { compactsAfterMs: Number(process.env["PULSIFY_CLOUD_COMPACTS_MS"]) }
+		: {}),
 }));

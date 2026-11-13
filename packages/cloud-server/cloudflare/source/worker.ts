@@ -21,6 +21,11 @@ export type PulsifyCloudEnv = {
 	PULSIFY_API_KEY: string;
 	/** Optional data residency, for example `"eu"`. */
 	PULSIFY_JURISDICTION?: string;
+	/**
+	 * Milliseconds a root waits after its last socket closed before it compacts
+	 * its history. Default 60000.
+	 */
+	PULSIFY_COMPACT_AFTER_MS?: string;
 };
 
 /**

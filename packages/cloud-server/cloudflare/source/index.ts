@@ -1,7 +1,9 @@
 export {
+	COMPACT_AFTER_MS,
 	PulsifyCloudRoot,
 	ROOT_HEADERS,
 	type DurableObjectStateLike,
+	type PulsifyCloudRootEnv,
 } from "./PulsifyCloudRoot.js";
 export {
 	cloudWorker,

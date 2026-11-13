@@ -210,6 +210,20 @@ with 1008 like any other invalid frame.
 
 Patch rows use the Pulsify stores of [STORAGE.md](STORAGE.md) unchanged.
 
+**Compaction while asleep.** A document keeps one row per update, which a
+client loading it would all read. When the last socket of a root closes, the
+object sets an alarm 60 seconds later (`COMPACT_AFTER_MS`; the
+`PULSIFY_COMPACT_AFTER_MS` variable overrides it). If a socket is connected
+when the alarm fires, nothing happens: the next time the last one closes sets
+it again. Otherwise the root [packs](STORAGE.md#compaction) the history of its
+documents, at most 4096 stored rows per step, and sets the alarm 10 ms later
+while work remains, so that a connection is never kept waiting behind a long
+compaction. Runs of fewer than 64 unpacked rows of one actor are left alone.
+Clients see no difference: frames are those of an uncompacted root. `rows` in
+the usage of a root counts stored rows, so it drops after a compaction. The
+alarm is the only one the object uses. Backends built on `CloudRootStorage`
+schedule `compact()` themselves; the core never does.
+
 One SQLite database per root (Durable Object storage) holds the SQLite patch
 schema, `pulsify_cloud_grants(subject, prefix, role)` and
 `pulsify_cloud_subscriptions(connection, doc_id, role)`.

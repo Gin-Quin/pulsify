@@ -6,6 +6,8 @@ type SqlCursor = { toArray(): Record<string, unknown>[] };
 export type DurableObjectStorageLike = {
 	sql: { exec(query: string, ...bindings: unknown[]): SqlCursor };
 	transactionSync<T>(work: () => T): T;
+	/** Replaces the object's single alarm. */
+	setAlarm(time: number): Promise<void> | void;
 };
 
 /** Adapt a Durable Object's synchronous SQLite API to Pulsify's SQLite stores. */

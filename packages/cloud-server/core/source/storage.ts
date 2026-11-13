@@ -1,6 +1,7 @@
 import {
 	SqlitePatchStore,
 	type PatchStore,
+	type SqliteCompactCursor,
 	type SqliteConnection,
 } from "pulsify-core/storage";
 import { isCloudRole, type CloudGrant, type CloudRole } from "pulsify-cloud";
@@ -30,6 +31,13 @@ export interface CloudRootStorage {
 	deleteSubscription(connection: string, docId: string): Promise<void>;
 	deleteConnection(connection: string): Promise<void>;
 	usage(): Promise<CloudUsage>;
+	/**
+	 * Pack the history of the root's documents so that loading them reads few
+	 * rows, a bounded amount of work per call. Resolves to what to pass to the
+	 * next call, or to undefined once nothing is left. Clients see no
+	 * difference; the host decides when, typically once the root is idle.
+	 */
+	compact?(resume?: unknown): Promise<unknown>;
 }
 
 /** Tables added next to the patch schema in a root's own SQLite database. */
@@ -117,6 +125,12 @@ export class SqliteCloudStorage implements CloudRootStorage {
 		this.db
 			.query("DELETE FROM pulsify_cloud_subscriptions WHERE connection = ?")
 			.run(connection);
+	}
+	async compact(resume?: unknown): Promise<SqliteCompactCursor | undefined> {
+		const { next } = await this.patches.compact({
+			after: resume as SqliteCompactCursor | undefined,
+		});
+		return next;
 	}
 	async usage(): Promise<CloudUsage> {
 		const row = this.db

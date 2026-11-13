@@ -20,6 +20,8 @@ const secrets = {
 	PULSIFY_TOKEN_SECRET: "a local token secret of at least 32 characters",
 	PULSIFY_API_KEY: "a local api key of at least thirty-two characters",
 };
+// A root compacts 60 s after its last socket closed: too long for a test.
+const compactAfterMs = 1000;
 const directory = await mkdtemp(join(tmpdir(), "pulsify-cloud-"));
 const cleanups: (() => Promise<unknown> | unknown)[] = [];
 
@@ -92,6 +94,7 @@ const config :Workerd.Config = (
       (name = "PULSIFY_ROOTS", durableObjectNamespace = "PulsifyCloudRoot"),
       (name = "PULSIFY_TOKEN_SECRET", text = "${secrets.PULSIFY_TOKEN_SECRET}"),
       (name = "PULSIFY_API_KEY", text = "${secrets.PULSIFY_API_KEY}"),
+      (name = "PULSIFY_COMPACT_AFTER_MS", text = "${compactAfterMs}"),
     ],
   )), (name = "storage", disk = (path = "${storage}", writable = true))],
   sockets = [(name = "http", address = "127.0.0.1:${port}", http = (), service = "pulsify")],
@@ -117,6 +120,7 @@ try {
 			PULSIFY_CLOUD_BACKEND: "Cloudflare",
 			// workerd evicts a Durable Object whose sockets hibernate after 10 s.
 			PULSIFY_CLOUD_HIBERNATES_MS: "12000",
+			PULSIFY_CLOUD_COMPACTS_MS: String(compactAfterMs),
 		},
 	});
 	status = await tests.exited;

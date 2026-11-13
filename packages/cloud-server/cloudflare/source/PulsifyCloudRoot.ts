@@ -44,6 +44,15 @@ declare const WebSocketPair: new () => { 0: WebSocket; 1: WebSocket };
 declare const WebSocketRequestResponsePair:
 	(new (request: string, response: string) => unknown) | undefined;
 
+/** How long a root waits after its last socket closed before it compacts its history. */
+export const COMPACT_AFTER_MS = 60_000;
+/** The pause between two bounded compaction steps, which lets other events in. */
+const COMPACT_STEP_MS = 10;
+export type PulsifyCloudRootEnv = {
+	/** Overrides `COMPACT_AFTER_MS`, in milliseconds. */
+	PULSIFY_COMPACT_AFTER_MS?: string;
+};
+
 /** Headers set by the Worker after authentication; clients never reach the object directly. */
 export const ROOT_HEADERS = {
 	root: "x-pulsify-root",
@@ -55,14 +64,24 @@ export const ROOT_HEADERS = {
 /**
  * One Durable Object per root. Its SQLite database holds the root's documents
  * and its grant table. Its hibernating WebSockets carry their subscriptions in
- * their attachment; SQLite only takes those that do not fit there.
+ * their attachment; SQLite only takes those that do not fit there. Once its
+ * last socket has been closed for a while, an alarm compacts its history.
  */
 export class PulsifyCloudRoot {
 	private engine: CloudRoot | undefined;
+	private storage: SqliteCloudStorage | undefined;
+	private readonly compactAfterMs: number;
+	/** Where the compaction in progress continues; restarts if the object is evicted. */
+	private compaction: unknown;
 	constructor(
 		private readonly state: DurableObjectStateLike,
-		_env?: unknown,
+		env?: PulsifyCloudRootEnv,
 	) {
+		const compactAfterMs = Number(env?.PULSIFY_COMPACT_AFTER_MS);
+		this.compactAfterMs =
+			env?.PULSIFY_COMPACT_AFTER_MS && compactAfterMs >= 0
+				? compactAfterMs
+				: COMPACT_AFTER_MS;
 		// Heartbeats are answered by the runtime: a hibernated root stays asleep.
 		if (typeof WebSocketRequestResponsePair === "function")
 			state.setWebSocketAutoResponse?.(
@@ -139,27 +158,54 @@ export class PulsifyCloudRoot {
 		} catch {
 			// Already closed by the runtime.
 		}
+		await this.rest(peer.id);
 	}
 
 	async webSocketError(socket: WebSocket): Promise<void> {
 		const peer = this.peer(socket);
 		await this.root(peer.root).disconnect(peer);
+		await this.rest(peer.id);
+	}
+
+	/**
+	 * The root's only alarm: compact while nobody is connected, a bounded step
+	 * at a time. A root that got a socket back does nothing; the next time its
+	 * last socket closes sets the alarm again.
+	 */
+	async alarm(): Promise<void> {
+		if (this.state.getWebSockets().length) {
+			this.compaction = undefined;
+			return;
+		}
+		this.compaction = await this.rootStorage().compact(this.compaction);
+		if (this.compaction !== undefined)
+			await this.state.storage.setAlarm(Date.now() + COMPACT_STEP_MS);
+	}
+
+	/** After a socket closed: if it was the last, compact once the root stayed idle. */
+	private async rest(closed: string): Promise<void> {
+		// The runtime still lists the socket that is closing.
+		for (const socket of this.state.getWebSockets())
+			if (this.peer(socket).id !== closed) return;
+		this.compaction = undefined;
+		await this.state.storage.setAlarm(Date.now() + this.compactAfterMs);
+	}
+
+	private rootStorage(): SqliteCloudStorage {
+		return (this.storage ??= new SqliteCloudStorage(
+			durableSqlite(this.state.storage),
+		));
 	}
 
 	/** The engine survives hibernation only in storage; rebuild it on wake. */
 	private root(name: string): CloudRoot {
-		this.engine ??= new CloudRoot(
-			name,
-			new SqliteCloudStorage(durableSqlite(this.state.storage)),
-			{
-				get: (id) => {
-					const socket = this.state.getWebSockets(id)[0];
-					return socket && this.peer(socket);
-				},
-				all: () =>
-					this.state.getWebSockets().map((socket) => this.peer(socket)),
+		this.engine ??= new CloudRoot(name, this.rootStorage(), {
+			get: (id) => {
+				const socket = this.state.getWebSockets(id)[0];
+				return socket && this.peer(socket);
 			},
-		);
+			all: () => this.state.getWebSockets().map((socket) => this.peer(socket)),
+		});
 		if (this.engine.root !== name)
 			throw new CloudError("BAD_REQUEST", "One Durable Object per root");
 		return this.engine;
