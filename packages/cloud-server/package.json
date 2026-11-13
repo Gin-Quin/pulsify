@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-cloud-server",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Pulsify Cloud server: one isolated root per namespace, multiplexed WebSockets and built-in access control.",
 	"type": "module",
 	"exports": {

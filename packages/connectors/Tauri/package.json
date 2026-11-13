@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-tauri",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Local persistence for Pulsify documents in Tauri, with a Rust SQLite store.",
 	"type": "module",
 	"main": "./dist/index.js",

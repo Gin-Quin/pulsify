@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-indexeddb",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Local persistence for Pulsify documents in the browser's IndexedDB.",
 	"type": "module",
 	"main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-electron",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Local persistence for Pulsify documents in Electron, with better-sqlite3 in the main process.",
 	"type": "module",
 	"main": "./dist/index.js",

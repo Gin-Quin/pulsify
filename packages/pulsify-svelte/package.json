@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-svelte",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Svelte reactivity for Pulsify documents.",
 	"type": "module",
 	"main": "./dist/index.js",

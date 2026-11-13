@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-lexical",
-	"version": "11.0.0",
+	"version": "11.0.1",
 	"description": "Framework-independent Lexical bindings for Pulsify collaborative rich text.",
 	"type": "module",
 	"main": "./dist/index.js",

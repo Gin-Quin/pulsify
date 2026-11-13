@@ -1,6 +1,6 @@
 [package]
 name = "pulsify-rocksdb"
-version = "11.0.0"
+version = "11.0.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Pulsify RocksDB patch store and frame relay, with the semantics of pulsify-sqlite"
@@ -9,7 +9,7 @@ keywords = ["pulsify", "crdt", "rocksdb", "local-first", "sync"]
 categories = ["database"]
 
 [dependencies]
-pulsify-protocol = { version = "11.0.0", path = "../pulsify-protocol" }
+pulsify-protocol = { version = "11.0.1", path = "../pulsify-protocol" }
 # Only the two codecs the store configures: LZ4, and ZSTD for the last level.
 rocksdb = { version = "0.25.0", default-features = false, features = [
 	"lz4",
