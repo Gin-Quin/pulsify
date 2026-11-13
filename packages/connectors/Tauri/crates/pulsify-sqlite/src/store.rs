@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 use pulsify_protocol::{
-    validate_vector, PatchRow, VersionVector, MAX_MESSAGE_ROWS, MAX_PATCH_BYTES, MAX_SAFE_INTEGER,
+    validate_rows, validate_vector, AppendResult, PatchRow, PatchStore, VersionVector,
     MAX_VECTOR_ENTRIES,
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
@@ -29,15 +29,6 @@ CREATE VIEW IF NOT EXISTS pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_r
 /// Byte-for-byte `SQLITE_PACKED_MIGRATION`: added to a table created before packed segments.
 pub const PACKED_MIGRATION: &str =
     "ALTER TABLE pulsify_op_rows ADD COLUMN packed INTEGER NOT NULL DEFAULT 0";
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct AppendResult {
-    pub inserted: usize,
-    pub ready: usize,
-    pub pending: usize,
-    /// The committed vector of the document; `None` for an empty append.
-    pub vector: Option<VersionVector>,
-}
 
 /// Immutable rows keyed by `(doc_id, sid, time_start)`. Rows stay pending until
 /// their actor prefix is contiguous and their dependencies are stored.
@@ -123,38 +114,28 @@ impl SqliteStore {
     }
 }
 
-pub fn validate_doc_id(doc_id: &str) -> Result<()> {
-    if doc_id.is_empty() || doc_id.contains('\0') || doc_id.encode_utf16().count() > 1024 {
-        return Err(Error::new("INVALID_MESSAGE", "Invalid document ID"));
+impl PatchStore for SqliteStore {
+    type Error = Error;
+    fn append(&mut self, rows: &[PatchRow]) -> Result<AppendResult> {
+        SqliteStore::append(self, rows)
     }
-    Ok(())
+    fn vector(&self, doc_id: &str) -> Result<VersionVector> {
+        SqliteStore::vector(self, doc_id)
+    }
+    fn missing(&self, doc_id: &str, remote: &VersionVector) -> Result<Vec<PatchRow>> {
+        SqliteStore::missing(self, doc_id, remote)
+    }
+    fn sync_state(
+        &mut self,
+        doc_id: &str,
+        remote: &VersionVector,
+    ) -> Result<(Vec<PatchRow>, VersionVector)> {
+        SqliteStore::sync_state(self, doc_id, remote)
+    }
 }
 
-fn validate_rows(rows: &[PatchRow]) -> Result<Option<&str>> {
-    if rows.len() > MAX_MESSAGE_ROWS {
-        return Err(Error::new("LIMIT_EXCEEDED", "Too many patch rows"));
-    }
-    let Some(first) = rows.first() else {
-        return Ok(None);
-    };
-    let doc_id = first.doc_id.as_str();
-    validate_doc_id(doc_id)?;
-    for row in rows {
-        validate_vector(&row.dependencies)?;
-        if row.doc_id != doc_id
-            || row.sid < 65536
-            || row.sid > MAX_SAFE_INTEGER
-            || row.clock < 1
-            || row.span < 1
-            || row.clock.saturating_add(row.span) > MAX_SAFE_INTEGER
-            || row.operations.is_empty()
-            || row.operations.len() > MAX_PATCH_BYTES
-            || own_clock(&row.dependencies, row.sid) > row.clock
-        {
-            return Err(Error::new("INVALID_MESSAGE", "Invalid storage segment"));
-        }
-    }
-    Ok(Some(doc_id))
+pub fn validate_doc_id(doc_id: &str) -> Result<()> {
+    Ok(pulsify_protocol::validate_doc_id(doc_id)?)
 }
 
 fn own_clock(vv: &VersionVector, sid: u64) -> u64 {
@@ -545,6 +526,7 @@ fn read_missing(db: &Connection, doc_id: &str, remote: &VersionVector) -> Result
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use pulsify_protocol::MAX_MESSAGE_ROWS;
 
     pub const A: u64 = 65536;
     pub const B: u64 = 65537;

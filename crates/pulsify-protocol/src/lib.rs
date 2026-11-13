@@ -2,6 +2,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+mod store;
+pub use store::{
+    relay_frame, validate_doc_id, validate_rows, AppendResult, Hub, PatchStore, RelayOutput, Sink,
+};
+
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PATCH_BYTES: usize = 1024 * 1024;
@@ -17,7 +22,7 @@ pub struct Error {
     pub message: String,
 }
 impl Error {
-    fn new(code: &'static str, message: &str) -> Self {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -619,7 +624,8 @@ fn row_nodes(row: &PatchRow) -> usize {
     7 + 3 * row.dependencies.len()
 }
 
-fn chunk_rows(rows: Vec<PatchRow>) -> Vec<Vec<PatchRow>> {
+/// Mirror of `chunkRows`: about 2 MiB, 4096 rows and the relay node budget per page.
+pub fn chunk_rows(rows: Vec<PatchRow>) -> Vec<Vec<PatchRow>> {
     let mut chunks = Vec::new();
     let mut chunk = Vec::new();
     let mut bytes = 0;

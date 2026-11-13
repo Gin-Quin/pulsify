@@ -6,10 +6,14 @@ mod hub;
 mod relay;
 mod store;
 
-pub use hub::{Hub, Sink};
-pub use pulsify_protocol::{PatchRow, VersionVector};
-pub use relay::{chunk_rows, relay_frame, RelayOutput};
-pub use store::{validate_doc_id, AppendResult, SqliteStore, PACKED_MIGRATION, SCHEMA};
+pub use pulsify_protocol::{
+    chunk_rows, relay_frame, AppendResult, PatchRow, PatchStore, RelayOutput, Sink, VersionVector,
+};
+pub use store::{validate_doc_id, SqliteStore, PACKED_MIGRATION, SCHEMA};
+
+/// One writer and its sessions: each session is pinned to a document, and rows
+/// stored through one session are forwarded to the document's other sessions.
+pub type Hub<S> = pulsify_protocol::Hub<SqliteStore, S>;
 
 use std::fmt;
 
@@ -35,6 +39,11 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 impl From<pulsify_protocol::Error> for Error {
     fn from(error: pulsify_protocol::Error) -> Self {
+        Self::new(error.code, error.message)
+    }
+}
+impl From<Error> for pulsify_protocol::Error {
+    fn from(error: Error) -> Self {
         Self::new(error.code, error.message)
     }
 }
