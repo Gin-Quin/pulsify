@@ -32,6 +32,7 @@ jobs:
               "crates/pulsify-protocol/Cargo.toml",
               "packages/connectors/Tauri/crates/pulsify-sqlite/Cargo.toml",
               "packages/connectors/Tauri/crates/tauri-plugin-pulsify/Cargo.toml",
+              "crates/pulsify-rocksdb/Cargo.toml",
           ):
               with open(manifest, "rb") as source:
                   package = tomllib.load(source)["package"]
@@ -81,7 +82,8 @@ jobs:
           path: |
             ~/.cargo/registry
             packages/connectors/Tauri/crates/*/target
-          key: tauri-${{ hashFiles('packages/connectors/Tauri/crates/*/Cargo.lock') }}
+            crates/pulsify-rocksdb/target
+          key: crates-${{ hashFiles('packages/connectors/Tauri/crates/*/Cargo.lock', 'crates/pulsify-rocksdb/Cargo.lock') }}
       # Tauri links GTK and WebKitGTK on Linux, including during package verification.
       - run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
       - name: Authenticate with crates.io
@@ -93,7 +95,7 @@ jobs:
         run: |
           response_file=$(mktemp)
           trap 'rm -f "$response_file"' EXIT
-          for manifest in crates/pulsify-protocol/Cargo.toml packages/connectors/Tauri/crates/pulsify-sqlite/Cargo.toml packages/connectors/Tauri/crates/tauri-plugin-pulsify/Cargo.toml; do
+          for manifest in crates/pulsify-protocol/Cargo.toml packages/connectors/Tauri/crates/pulsify-sqlite/Cargo.toml packages/connectors/Tauri/crates/tauri-plugin-pulsify/Cargo.toml crates/pulsify-rocksdb/Cargo.toml; do
             metadata=$(cargo metadata --no-deps --format-version 1 --manifest-path "$manifest")
             name=$(jq -r '.packages[0].name' <<< "$metadata")
             version=$(jq -r '.packages[0].version' <<< "$metadata")

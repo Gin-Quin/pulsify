@@ -30,6 +30,7 @@ bun run test:cloudflare       # Cloudflare workerd: Durable Object relay, SQLite
 bun run test:codec-local      # Isolated build against ../codec, without changing either repository
 bun run test:storage        # Actual SQLite storage integration checks
 bun run test:database:rust  # Native SQLite, RocksDB and LMDB contract tests
+bun run test:rocksdb        # Rust RocksDB store: parity with the SQLite store, real documents
 bun run bench                 # Reproducible performance report
 bun run bench:crdt            # Pulsify / native json-joy / Yjs / Loro, including proxy overhead
 bun run bench:database        # Native Rust load: PostgreSQL / SQLite + compatible engines, in Docker
@@ -60,6 +61,7 @@ stacks and synchronized inverse operations.
 - [CRDT comparison and isolated proxy overhead](benchmarks/CRDT-COMPARISON.md)
 - [Native core results and remaining performance limits](benchmarks/HYBRID-TRANSPORT.md)
 - [Rust protocol crate](crates/pulsify-protocol/README.md)
+- [Rust RocksDB store](crates/pulsify-rocksdb/README.md)
 - [Operation storage: PostgreSQL, SQLite and other databases](docs/STORAGE.md)
 - [Storage requirements and design notes](DATABASES.md)
 
@@ -114,7 +116,7 @@ The `Publish` workflow checks that the tagged commit belongs to `main` and that
 the tag matches the package and Rust crate versions, then deploys
 [pulsify.cloud](https://pulsify.cloud) and publishes the npm packages and Rust
 crates. The Rust crates publish to crates.io in dependency order:
-`pulsify-protocol`, `pulsify-sqlite`, then `tauri-plugin-pulsify`. Versions already
+`pulsify-protocol`, `pulsify-sqlite`, `tauri-plugin-pulsify`, then `pulsify-rocksdb`. Versions already
 published to either registry are skipped when retrying. A push to `main` without
 a version tag runs checks only.
 

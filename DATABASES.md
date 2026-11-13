@@ -267,7 +267,9 @@ doc_id | sid | time_start -> encoded row
 ```
 
 RocksDB is an embedded storage engine, not a client-server database, so the
-application owns more of the consistency and query logic.
+application owns more of the consistency and query logic. The Rust crate
+[`pulsify-rocksdb`](crates/pulsify-rocksdb/README.md) implements it with this
+key shape, next to `pulsify-sqlite`.
 
 ## Databases Not Recommended as a Starting Point
 

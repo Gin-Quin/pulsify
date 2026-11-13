@@ -1,0 +1,28 @@
+[package]
+name = "pulsify-rocksdb"
+version = "11.0.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Pulsify RocksDB patch store and frame relay, with the semantics of pulsify-sqlite"
+readme = "README.md"
+keywords = ["pulsify", "crdt", "rocksdb", "local-first", "sync"]
+categories = ["database"]
+
+[dependencies]
+pulsify-protocol = { version = "11.0.0", path = "../pulsify-protocol" }
+# Only the two codecs the store configures: LZ4, and ZSTD for the last level.
+rocksdb = { version = "0.25.0", default-features = false, features = [
+	"lz4",
+	"zstd",
+	"bindgen-runtime",
+] }
+serde_json = "1"
+
+[dev-dependencies]
+# The parity tests and the benchmark run both stores. Without a version, this
+# dependency is left out of the published manifest.
+pulsify-sqlite = { path = "../../packages/connectors/Tauri/crates/pulsify-sqlite" }
+
+[[bench]]
+name = "store"
+harness = false

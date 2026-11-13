@@ -167,6 +167,15 @@ stay dangling until their predecessors and dependencies are stored. Any database
 with ordered keys and atomic batches can provide it. `IndexedDbPatchStore` in
 `pulsify-indexeddb` is an example outside SQL.
 
+In Rust, the `PatchStore` trait of `pulsify-protocol` is the same contract,
+and `relay_frame` and `Hub` serve frames from any implementation. Two are
+provided: `pulsify-sqlite`, file-compatible with `SqlitePatchStore`, and
+[`pulsify-rocksdb`](../crates/pulsify-rocksdb/README.md), which keeps rows
+under `doc_id NUL sid clock` keys in RocksDB, with clocks and pending rows in
+their own column families. Their tests apply the same random histories to both
+and require identical answers. The RocksDB store does not pack rows into
+segments: consecutive keys already share compressed blocks.
+
 ## Document identifiers
 
 Document IDs must be well-formed Unicode, contain no NUL and have at most 1024

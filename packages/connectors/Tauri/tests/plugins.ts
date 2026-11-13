@@ -77,7 +77,10 @@ type Pending = {
 	channel?: FakeChannel;
 };
 
-/** The real Rust hub over a SQLite file, driven like the Tauri plugin through JSON lines. */
+/**
+ * The real Rust hub over a SQLite file, driven like the Tauri plugin through JSON lines.
+ * `binary` is another harness speaking the same lines, such as `pulsify-rocksdb`.
+ */
 export class RustPlugin implements FakePlugin {
 	private readonly process: Bun.Subprocess<"pipe", "pipe", "inherit">;
 	private readonly pending = new Map<number, Pending>();
@@ -86,8 +89,8 @@ export class RustPlugin implements FakePlugin {
 	private nextRequest = 1;
 	readonly createChannel = createChannel;
 
-	constructor(database: string) {
-		this.process = Bun.spawn([rustBinary, database], {
+	constructor(database: string, binary = rustBinary) {
+		this.process = Bun.spawn([binary, database], {
 			stdin: "pipe",
 			stdout: "pipe",
 			stderr: "inherit",

@@ -65,6 +65,27 @@ jobs:
             cargo clippy --manifest-path $manifest --all-targets -- -D warnings
             cargo test --manifest-path $manifest
           done
+  rocksdb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            crates/pulsify-rocksdb/target
+          key: rocksdb-${{ runner.os }}-${{ hashFiles('crates/pulsify-rocksdb/Cargo.lock') }}
+      - run: bun install --frozen-lockfile
+      - run: cargo fmt --manifest-path crates/pulsify-rocksdb/Cargo.toml --check
+      - run: cargo clippy --locked --manifest-path crates/pulsify-rocksdb/Cargo.toml --all-targets -- -D warnings
+      # The Rust suite, shared with pulsify-sqlite, then real documents through the harness.
+      - run: bun run test:rocksdb
   storage:
     runs-on: ubuntu-latest
     steps:
