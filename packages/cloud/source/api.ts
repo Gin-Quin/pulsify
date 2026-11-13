@@ -2,7 +2,7 @@ import type { CloudCredential } from "./client.js";
 import { CloudError, isCloudErrorCode } from "./errors.js";
 import { rootOf } from "./ids.js";
 import type { CloudGrant } from "./roles.js";
-import { cloudPath } from "./wire.js";
+import { cloudPath, type CloudAction } from "./wire.js";
 
 /** Storage and connections of one root, from `usage` with the API key. */
 export type CloudRootUsage = {
@@ -34,6 +34,12 @@ export type CloudClient = {
 	revoke(grant: { subject: string; prefix: string }): Promise<boolean>;
 	/** Stored documents, rows, bytes and open sockets of a root (API key only). */
 	usage(root: string): Promise<CloudRootUsage>;
+	/**
+	 * Erase a document, its sub-documents and their grants (the API key, or an
+	 * owner of `docId`). Their open sessions fail with `NOT_FOUND`; the root
+	 * document erases the whole root. Resolves to how many documents had data.
+	 */
+	deleteDocument(docId: string): Promise<number>;
 };
 
 /** The management API of a deployment, identical on every backend. */
@@ -41,7 +47,7 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 	const base = options.url.replace(/^ws(s?):/, "http$1:").replace(/\/+$/, "");
 	const request = async <T>(
 		root: string,
-		action: "grants" | "usage",
+		action: Exclude<CloudAction, "connect">,
 		init: {
 			method: string;
 			query?: Record<string, string | undefined>;
@@ -101,5 +107,12 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 				})
 			).removed,
 		usage: (root) => request<CloudRootUsage>(root, "usage", { method: "GET" }),
+		deleteDocument: async (docId) =>
+			(
+				await request<{ deleted: number }>(rootOf(docId), "documents", {
+					method: "DELETE",
+					query: { docId },
+				})
+			).deleted,
 	};
 }

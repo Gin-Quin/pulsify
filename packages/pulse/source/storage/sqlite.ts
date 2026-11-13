@@ -379,6 +379,36 @@ export class SqlitePatchStore implements PatchStore {
 		this.remember(docId, vector);
 		return vector;
 	}
+	/**
+	 * Erase a document and its sub-documents (`docId/…`): their rows and
+	 * vectors. Resolves to how many documents had rows.
+	 */
+	async deleteDocuments(docId: string): Promise<number> {
+		validateDocId(docId);
+		// TEXT compares bytewise: `docId/…` sorts between `docId/` and `docId0`.
+		const where = "doc_id=? OR (doc_id>=? AND doc_id<?)";
+		const bindings = [docId, `${docId}/`, `${docId}0`];
+		const deleted = this.db
+			.transaction(() => {
+				const { documents } = this.db
+					.query(
+						`SELECT COUNT(DISTINCT doc_id) AS documents FROM pulsify_op_rows WHERE ${where}`,
+					)
+					.get(...bindings) as { documents: number };
+				this.db
+					.query(`DELETE FROM pulsify_op_rows WHERE ${where}`)
+					.run(...bindings);
+				this.db
+					.query(`DELETE FROM pulsify_doc_clocks WHERE ${where}`)
+					.run(...bindings);
+				return Number(documents);
+			})
+			.immediate();
+		for (const cached of [...this.vectors.keys()])
+			if (cached === docId || cached.startsWith(`${docId}/`))
+				this.vectors.delete(cached);
+		return deleted;
+	}
 	async missing(
 		docId: string,
 		remote: PulseVersionVector,

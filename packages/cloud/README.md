@@ -41,6 +41,7 @@ await access.grant({ subject: "bob", prefix: "alice/notes/n1", role: "editor" })
 await access.grants("alice", { subject: "bob" });
 await access.revoke({ subject: "bob", prefix: "alice/notes/n1" });
 await access.usage("alice");             // { root, documents, rows, bytes, connections }
+await access.deleteDocument("alice/notes/n1"); // erases it, its sub-documents and their grants
 ```
 
 ## Backend

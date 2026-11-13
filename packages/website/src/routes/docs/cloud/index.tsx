@@ -102,12 +102,19 @@ userActivity.state; // the same for the window
 // Documents: idle | syncing | ready | synced | offline | error.
 subscribePulseStatus(notebook, (status) => (statusBadge.textContent = status));`;
 
+const deletion = `import { createCloudClient } from "pulsify-cloud";
+
+const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! });
+await cloud.deleteDocument("alice/notes/n1"); // the note, its sub-documents, their grants
+await cloud.deleteDocument("alice");          // the whole root: its Durable Object is deleted`;
+
 const wire = `GET  /v1/health                         { "ok": true }
 GET  /v1/roots/{root}/connect           WebSocket, one per user and root
 GET  /v1/roots/{root}/grants            list grants
 PUT  /v1/roots/{root}/grants            create or replace a grant
 DELETE /v1/roots/{root}/grants?subject=…&prefix=…
 GET  /v1/roots/{root}/usage             documents, rows, bytes, sockets (API key)
+DELETE /v1/roots/{root}/documents?docId=…   erase a document and its subtree
 
 Subprotocols offered by the client:
   pulsify-cloud.1.e2, pulsify-cloud.1.e1, pulsify-cloud.token.<jwt>
@@ -377,6 +384,21 @@ export default function CloudOverview() {
 					hibernated root wakes up knowing whom to notify.
 				</li>
 			</ul>
+
+			<h2>Delete documents</h2>
+			<p>
+				<code>deleteDocument</code> erases a document, everything below it and
+				the grants on them. It takes the API key, or the token of an owner of
+				the document. Open pulses of an erased document stop with{" "}
+				<code>NOT_FOUND</code> instead of uploading it again. Deleting the root
+				document deletes the root and its Durable Object.
+			</p>
+			<CodeBlock title="delete.ts" code={deletion} />
+			<p>
+				The server keeps no trace of a deleted document: a client that still has
+				it offline and may write it uploads it again when it reconnects. Delete
+				it on your clients too, or revoke the grants that cover it.
+			</p>
 
 			<h2>Plans and limits</h2>
 			<p>

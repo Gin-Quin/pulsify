@@ -440,6 +440,36 @@ export function describeCloudBackend(
 			expect(workspace.name).toBe("Alice");
 		});
 
+		test("deletes a document with its sub-documents and grants, then a whole root", async () => {
+			const { root, a, first, second } = await seed("delete");
+			await admin().grant({ subject: "bob", prefix: first.id, role: "editor" });
+			await expect(
+				userApi("bob").deleteDocument(first.id),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			await expect(
+				userApi("alice").deleteDocument(`${unique("other")}/x`),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+			expect(await userApi("alice").deleteDocument(first.id)).toBe(1);
+			await eventually(() => expect(getPulseMeta(first).status).toBe("error"));
+			expect(
+				a.errors.map((error) => (error as { code?: string }).code),
+			).toContain("NOT_FOUND");
+			expect(getPulseMeta(second).status).not.toBe("error");
+			expect(await admin().grants(root)).toEqual([
+				{ subject: "alice", prefix: root, role: "owner" },
+			]);
+			expect((await admin().usage(root)).documents).toBe(2);
+
+			expect(await admin().deleteDocument(root)).toBe(2);
+			await eventually(() => expect(getPulseMeta(second).status).toBe("error"));
+			expect(await admin().grants(root)).toEqual([]);
+			expect(await admin().usage(root)).toMatchObject({
+				documents: 0,
+				rows: 0,
+			});
+		});
+
 		test("keeps the subscriptions of an idle root, however many a socket has", async () => {
 			const { root, first } = await seed("idle");
 			await admin().grant({ subject: "bob", prefix: root, role: "reader" });

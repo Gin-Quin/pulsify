@@ -8,6 +8,9 @@ export type DurableObjectStorageLike = {
 	transactionSync<T>(work: () => T): T;
 	/** Replaces the object's single alarm. */
 	setAlarm(time: number): Promise<void> | void;
+	deleteAlarm(): Promise<void> | void;
+	/** With no alarm left, deletes the object. */
+	deleteAll(): Promise<void> | void;
 };
 
 /** Adapt a Durable Object's synchronous SQLite API to Pulsify's SQLite stores. */

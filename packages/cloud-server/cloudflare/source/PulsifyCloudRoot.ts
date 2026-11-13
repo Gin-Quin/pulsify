@@ -39,6 +39,8 @@ type Attachment = {
 	 * attachment holds 16,384 serialized bytes: the root stores what is over.
 	 */
 	subscriptions?: ReadonlyMap<string, CloudRole>;
+	/** Closed because its root was deleted: its close event has nothing left to do. */
+	erased?: true;
 };
 declare const WebSocketPair: new () => { 0: WebSocket; 1: WebSocket };
 declare const WebSocketRequestResponsePair:
@@ -101,6 +103,16 @@ export class PulsifyCloudRoot {
 			const action = request.headers.get(ROOT_HEADERS.action);
 			if (action === "grants" || action === "usage")
 				return await engine.handleRequest(action, request, caller);
+			if (action === "documents") {
+				// Deleting the root document deletes the object.
+				const response = await engine.handleRequest(action, request, caller);
+				if (
+					response.ok &&
+					new URL(request.url).searchParams.get("docId") === root
+				)
+					await this.erase();
+				return response;
+			}
 			if (action !== "connect" || caller.kind !== "user")
 				throw new CloudError("BAD_REQUEST", "Unknown action");
 			// Rights are checked per document, so the client gets FORBIDDEN
@@ -143,6 +155,7 @@ export class PulsifyCloudRoot {
 		message: ArrayBuffer | string,
 	): Promise<void> {
 		const peer = this.peer(socket);
+		if (peer.erased) return;
 		await this.root(peer.root).receive(peer, message);
 	}
 
@@ -152,6 +165,7 @@ export class PulsifyCloudRoot {
 		reason: string,
 	): Promise<void> {
 		const peer = this.peer(socket);
+		if (peer.erased) return;
 		await this.root(peer.root).disconnect(peer);
 		try {
 			socket.close(code === 1005 || code === 1006 ? 1000 : code, reason);
@@ -163,6 +177,7 @@ export class PulsifyCloudRoot {
 
 	async webSocketError(socket: WebSocket): Promise<void> {
 		const peer = this.peer(socket);
+		if (peer.erased) return;
 		await this.root(peer.root).disconnect(peer);
 		await this.rest(peer.id);
 	}
@@ -180,6 +195,27 @@ export class PulsifyCloudRoot {
 		this.compaction = await this.rootStorage().compact(this.compaction);
 		if (this.compaction !== undefined)
 			await this.state.storage.setAlarm(Date.now() + COMPACT_STEP_MS);
+	}
+
+	/**
+	 * The root document was deleted, so the root holds nothing: close its
+	 * sockets and delete its storage and alarm, which deletes the object. A
+	 * later request starts an empty root.
+	 */
+	protected async erase(): Promise<void> {
+		this.engine = this.storage = this.compaction = undefined;
+		for (const socket of this.state.getWebSockets()) {
+			const hibernatable = socket as HibernatableSocket;
+			const attachment = hibernatable.deserializeAttachment() as Attachment;
+			hibernatable.serializeAttachment({ ...attachment, erased: true });
+			try {
+				socket.close(1000, "Root deleted");
+			} catch {
+				// Already closing.
+			}
+		}
+		await this.state.storage.deleteAlarm();
+		await this.state.storage.deleteAll();
 	}
 
 	/** After a socket closed: if it was the last, compact once the root stayed idle. */
@@ -211,7 +247,7 @@ export class PulsifyCloudRoot {
 		return this.engine;
 	}
 
-	private peer(socket: WebSocket): CloudPeer & { root: string } {
+	private peer(socket: WebSocket): CloudPeer & { root: string; erased?: true } {
 		const hibernatable = socket as HibernatableSocket;
 		const attachment = hibernatable.deserializeAttachment() as Attachment;
 		const keep = (change: Partial<Attachment>) => {

@@ -18,8 +18,6 @@ export const REPORT_EVERY_MS = 30_000;
 type RootState = DurableObjectStateLike & {
 	storage: DurableObjectStateLike["storage"] & {
 		sql: { databaseSize: number };
-		deleteAlarm(): Promise<void> | void;
-		deleteAll(): Promise<void> | void;
 	};
 };
 export type RootEnv = PulsifyCloudRootEnv & { PROJECTS: DurableNamespace };
@@ -42,9 +40,6 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		private readonly env: RootEnv,
 	) {
 		super(durable, env);
-		durable.storage.sql.exec(
-			"CREATE TABLE IF NOT EXISTS pulsify_service (project TEXT NOT NULL, root TEXT NOT NULL)",
-		);
 	}
 
 	override async fetch(request: Request): Promise<Response> {
@@ -57,6 +52,10 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 			request.headers.get(ROOT_HEADERS.root) ?? "",
 		);
 		if (project && root && !this.identity()) {
+			// Created here, not on wake: a deleted root must stay without storage.
+			this.durable.storage.sql.exec(
+				"CREATE TABLE IF NOT EXISTS pulsify_service (project TEXT NOT NULL, root TEXT NOT NULL)",
+			);
 			this.durable.storage.sql.exec(
 				"INSERT INTO pulsify_service VALUES (?, ?)",
 				project,
@@ -140,12 +139,25 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		await this.report(-1);
 	}
 
+	/** The root document was deleted: report the empty root, then forget it. */
+	protected override async erase(): Promise<void> {
+		await super.erase();
+		await this.report(-this.durable.getWebSockets().length);
+		this.names = undefined;
+		this.reportedAt = 0;
+	}
+
 	private identity() {
-		return (this.names ??= first<{ project: string; root: string }>(
-			this.durable.storage.sql.exec(
-				"SELECT project, root FROM pulsify_service",
-			),
-		));
+		try {
+			return (this.names ??= first<{ project: string; root: string }>(
+				this.durable.storage.sql.exec(
+					"SELECT project, root FROM pulsify_service",
+				),
+			));
+		} catch {
+			// No table: the root has not served a request since it was created or deleted.
+			return undefined;
+		}
 	}
 
 	/** Send the counted frames, this root's size and sockets; learn what it may do. */

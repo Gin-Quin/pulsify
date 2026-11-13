@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { serialize } from "node:v8";
 import {
+	decodeMessage,
 	decodePresenceFrame,
 	encodeMessage,
 	encodePresenceFrame,
@@ -44,6 +45,15 @@ function durableState() {
 			},
 			transactionSync: (work) => db.transaction(work)(),
 			setAlarm: (time) => void (alarm.at = time),
+			deleteAlarm: () => void delete alarm.at,
+			deleteAll: () => {
+				for (const { type, name } of db
+					.query(
+						"SELECT type, name FROM sqlite_master WHERE type IN ('view', 'table')",
+					)
+					.all() as { type: string; name: string }[])
+					db.exec(`DROP ${type.toUpperCase()} IF EXISTS "${name}"`);
+			},
 		},
 		acceptWebSocket: () => {},
 		getWebSockets: (tag) =>
@@ -428,4 +438,77 @@ test("a root that got a socket back before its alarm does not compact", async ()
 	expect(alarm.at).toBeDefined();
 	await root.alarm();
 	expect(rowCount(db)).toBe(2);
+});
+
+test("deleting a document ends its sessions, and deleting the root deletes the object", async () => {
+	const { state, sockets, db, alarm } = durableState();
+	const root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "ada", prefix: "r", role: "owner" });
+	await admin(root, "PUT", { subject: "bob", prefix: "r/doc", role: "editor" });
+	const a = socket("a", "ada");
+	sockets.push(a);
+	const row = (docId: string) =>
+		encodeMessage({
+			kind: 4,
+			docId,
+			requestId: 2,
+			vv: [[70001, 2]],
+			rows: [
+				{
+					docId,
+					sid: 70001,
+					clock: 1,
+					span: 1,
+					dependencies: [],
+					operations: new Uint8Array([1]),
+				},
+			],
+		});
+	for (const docId of ["r", "r/doc", "r/doc/child", "r/docx"]) {
+		await send(root, a, connect(docId));
+		await send(root, a, row(docId));
+	}
+	const documents = () =>
+		(
+			db
+				.query("SELECT DISTINCT doc_id FROM pulsify_op_rows ORDER BY doc_id")
+				.all() as { doc_id: string }[]
+		).map((row) => row.doc_id);
+	expect(documents()).toEqual(["r", "r/doc", "r/doc/child", "r/docx"]);
+	const remove = (docId: string) =>
+		root.fetch(
+			new Request(`https://root/documents?docId=${encodeURIComponent(docId)}`, {
+				method: "DELETE",
+				headers: {
+					[ROOT_HEADERS.root]: "r",
+					[ROOT_HEADERS.action]: "documents",
+					...callerToHeaders({ kind: "admin" }),
+				},
+			}),
+		);
+
+	a.sent.length = 0;
+	expect(await (await remove("r/doc")).json()).toEqual({ deleted: 2 });
+	expect(documents()).toEqual(["r", "r/docx"]);
+	expect([...subscribed(a).keys()].sort()).toEqual(["r", "r/docx"]);
+	const errors = a.sent
+		.filter((data): data is Uint8Array => typeof data !== "string")
+		.map((data) => decodeMessage(data));
+	expect(errors).toMatchObject([
+		{ kind: 6, docId: "r/doc", code: "NOT_FOUND" },
+		{ kind: 6, docId: "r/doc/child", code: "NOT_FOUND" },
+	]);
+	expect(
+		db.query("SELECT subject, prefix FROM pulsify_cloud_grants").all(),
+	).toEqual([{ subject: "ada", prefix: "r" }]);
+
+	// Deleting the root document closes its sockets and deletes the object.
+	expect(await (await remove("r")).json()).toEqual({ deleted: 2 });
+	expect(a.closed).toBe(true);
+	expect(alarm.at).toBeUndefined();
+	expect(db.query("SELECT name FROM sqlite_master").all()).toEqual([]);
+	// Its close event does not bring the storage back.
+	await root.webSocketClose(a as never, 1000, "");
+	expect(db.query("SELECT name FROM sqlite_master").all()).toEqual([]);
+	expect(alarm.at).toBeUndefined();
 });

@@ -24,6 +24,7 @@ import {
 	peekFrameHeader,
 	roleFor,
 	rootOf,
+	type CloudAction,
 	type CloudEnvelope,
 	type CloudGrant,
 	type CloudRole,
@@ -137,9 +138,9 @@ export class CloudRoot {
 		});
 	}
 
-	/** The management API of this root: `grants` and `usage`. */
+	/** The management API of this root: `grants`, `usage` and `documents`. */
 	handleRequest(
-		action: "grants" | "usage",
+		action: Exclude<CloudAction, "connect">,
 		request: Request,
 		caller: CloudCaller,
 	): Promise<Response> {
@@ -147,6 +148,15 @@ export class CloudRoot {
 			try {
 				if (action === "usage") return jsonResponse(await this.usage(caller));
 				const url = new URL(request.url);
+				if (action === "documents") {
+					if (request.method !== "DELETE")
+						throw new CloudError("METHOD_NOT_ALLOWED", "Use DELETE");
+					const docId = url.searchParams.get("docId");
+					assertDocumentOf(this.root, docId);
+					return jsonResponse({
+						deleted: await this.deleteDocuments(caller, docId),
+					});
+				}
 				switch (request.method) {
 					case "GET":
 						return jsonResponse({ grants: this.visibleGrants(caller, url) });
@@ -408,12 +418,51 @@ export class CloudRoot {
 		).sort(compareGrants);
 	}
 
-	private assertManager(caller: CloudCaller, prefix: string): void {
+	private assertManager(
+		caller: CloudCaller,
+		prefix: string,
+		what = "change its grants",
+	): void {
 		if (caller.kind === "user" && !canManage(this.role(caller.subject, prefix)))
 			throw new CloudError(
 				"FORBIDDEN",
-				`Only an owner of ${prefix} can change its grants`,
+				`Only an owner of ${prefix} can ${what}`,
 			);
+	}
+
+	/**
+	 * Erase a document, its sub-documents and their grants. Their sessions end
+	 * with `NOT_FOUND`, which stops the pulses instead of letting them upload
+	 * the document again.
+	 */
+	private async deleteDocuments(
+		caller: CloudCaller,
+		docId: string,
+	): Promise<number> {
+		this.assertManager(caller, docId, "delete it");
+		for (const peer of this.peers.all())
+			for (const subscribed of [
+				...(this.subscriptions.get(peer.id)?.keys() ?? []),
+			]) {
+				if (!covers(docId, subscribed)) continue;
+				await this.unsubscribe(peer, subscribed);
+				safely(() =>
+					peer.send(
+						encodeMessage({
+							kind: 6,
+							docId: subscribed,
+							requestId: 0,
+							code: "NOT_FOUND",
+							message: `${subscribed} was deleted`,
+						}),
+					),
+				);
+			}
+		const deleted = await this.storage.deleteDocuments(docId);
+		this.setGrants(
+			this.grants!.filter((grant) => !covers(docId, grant.prefix)),
+		);
+		return deleted;
 	}
 
 	private async putGrant(

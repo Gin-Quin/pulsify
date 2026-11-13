@@ -30,6 +30,11 @@ export interface CloudRootStorage {
 	saveSubscription(subscription: CloudSubscription): Promise<void>;
 	deleteSubscription(connection: string, docId: string): Promise<void>;
 	deleteConnection(connection: string): Promise<void>;
+	/**
+	 * Erase a document and its sub-documents (`docId/…`): their rows and the
+	 * grants on them. Resolves to how many documents had rows.
+	 */
+	deleteDocuments(docId: string): Promise<number>;
 	usage(): Promise<CloudUsage>;
 	/**
 	 * Pack the history of the root's documents so that loading them reads few
@@ -125,6 +130,14 @@ export class SqliteCloudStorage implements CloudRootStorage {
 		this.db
 			.query("DELETE FROM pulsify_cloud_subscriptions WHERE connection = ?")
 			.run(connection);
+	}
+	async deleteDocuments(docId: string): Promise<number> {
+		this.db
+			.query(
+				"DELETE FROM pulsify_cloud_grants WHERE prefix = ? OR (prefix >= ? AND prefix < ?)",
+			)
+			.run(docId, `${docId}/`, `${docId}0`);
+		return this.patches.deleteDocuments(docId);
 	}
 	async compact(resume?: unknown): Promise<SqliteCompactCursor | undefined> {
 		const { next } = await this.patches.compact({

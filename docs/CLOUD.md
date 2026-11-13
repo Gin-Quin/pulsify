@@ -104,9 +104,29 @@ answers 204 with the allowed methods and headers. Bodies are JSON. Errors are
 | `PUT /v1/roots/{root}/grants` body `{subject,prefix,role}` | admin, or an owner of `prefix` | `{"grant":grant}` |
 | `DELETE /v1/roots/{root}/grants?subject=&prefix=` | admin, or an owner of `prefix` | `{"removed":boolean}` |
 | `GET /v1/roots/{root}/usage` | admin | `{"root","documents","rows","bytes","connections"}` |
+| `DELETE /v1/roots/{root}/documents?docId=` | admin, or an owner of `docId` | `{"deleted":number}` |
 
 The `prefix` filter keeps grants whose prefix it covers. Bodies are limited to
 64 KiB.
+
+### Deleting documents
+
+`DELETE …/documents?docId=` erases the document and every document it covers
+(`u1/a` covers `u1/a/b`, never `u1/ab`): their rows and the grants whose
+prefix it covers. `deleted` counts the documents that had rows. Every
+subscription to an erased document ends: the socket receives an error frame
+`NOT_FOUND` with request ID 0 for that document, and its other documents are
+untouched. `NOT_FOUND` is not retryable, so the reference client stops the
+pulse instead of uploading the document again.
+
+Erasing the root document erases the root. On Cloudflare the object then
+closes its sockets with 1000 and deletes its storage and its alarm, which
+deletes the Durable Object; a later request starts an empty root.
+
+The server keeps no tombstone: a client that still holds an erased document
+and may write it (a grant on a parent prefix) uploads it again the next time it
+connects. Delete it on the clients too, or revoke the grants that cover it.
+The Unikraft Cloud server does not delete documents yet.
 
 ## WebSocket sessions
 

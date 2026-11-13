@@ -3,6 +3,7 @@ import {
 	CloudError,
 	parseCloudPath,
 	readSubprotocols,
+	type CloudAction,
 	type CloudEnvelope,
 } from "pulsify-cloud";
 import {
@@ -18,7 +19,7 @@ export type CloudRoute =
 	| {
 			type: "request";
 			root: string;
-			action: "grants" | "usage";
+			action: Exclude<CloudAction, "connect">;
 			caller: CloudCaller;
 	  };
 
