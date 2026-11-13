@@ -15,7 +15,13 @@ import { validateDocId } from "../protocol/validateDocId.js";
 
 /** The storage layer only inspects this envelope, never the operation payload. */
 export type StoredPatchRow = PulsePatchRow;
-export type AppendResult = { inserted: number; ready: number; pending: number };
+export type AppendResult = {
+	inserted: number;
+	ready: number;
+	pending: number;
+	/** The document's vector after the commit, when the store has it at hand. */
+	vector?: PulseVersionVector;
+};
 export interface PatchStore {
 	append(rows: readonly StoredPatchRow[]): Promise<AppendResult>;
 	appendEncoded(frame: Uint8Array): Promise<AppendResult>;

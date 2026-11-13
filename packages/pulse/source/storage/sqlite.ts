@@ -42,6 +42,8 @@ type PendingRow = {
 	time_end: number;
 	dependencies: string;
 };
+const copyVector = (vector: PulseVersionVector): PulseVersionVector =>
+	vector.map(([sid, clock]) => [sid, clock]);
 function unpack(row: RecordRow): StoredPatchRow {
 	return {
 		docId: row.doc_id,
@@ -69,10 +71,25 @@ CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
 CREATE VIEW IF NOT EXISTS pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_rows WHERE ready = 0;
 `;
 
+export type SqlitePatchStoreOptions = {
+	/**
+	 * Keep the version vectors of up to this many documents in memory, so
+	 * appends and `vector` stop reading them back. Enable it only when this
+	 * store is the single writer of its database, as in a Durable Object.
+	 */
+	vectorCacheSize?: number;
+};
+
 /** Writes only indexed operation metadata and opaque bytes; never materializes a document. */
 export class SqlitePatchStore implements PatchStore {
-	constructor(private readonly db: SqliteConnection) {
+	private readonly vectors = new Map<string, PulseVersionVector>();
+	private readonly vectorCacheSize: number;
+	constructor(
+		private readonly db: SqliteConnection,
+		{ vectorCacheSize = 0 }: SqlitePatchStoreOptions = {},
+	) {
 		db.exec(SQLITE_PATCH_SCHEMA);
+		this.vectorCacheSize = vectorCacheSize;
 	}
 	async appendEncoded(frame: Uint8Array): Promise<AppendResult> {
 		return this.append(rowsFromFrame(frame));
@@ -80,7 +97,7 @@ export class SqlitePatchStore implements PatchStore {
 	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
-		return this.db
+		const result = this.db
 			.transaction(() => {
 				const get = this.db.query(
 					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start=?",
@@ -92,7 +109,9 @@ export class SqlitePatchStore implements PatchStore {
 				const insert = this.db.query(
 					"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES(?,?,?,?,?,?,?)",
 				);
-				const frontier = new Map(this.readVector(docId));
+				const frontier = new Map(
+					this.vectors.get(docId) ?? this.readVector(docId),
+				);
 				const changedActors = new Set<number>();
 				let inserted = 0,
 					ready = 0;
@@ -187,9 +206,21 @@ export class SqlitePatchStore implements PatchStore {
 				// Apply the PostgreSQL batch optimization without a separate SQLite tuning campaign.
 				for (const sid of changedActors)
 					clock.run(docId, sid, frontier.get(sid)!);
-				return { inserted, ready, pending: pending.length };
+				const vector = [...frontier].sort((a, b) => a[0] - b[0]);
+				return { inserted, ready, pending: pending.length, vector };
 			})
 			.immediate();
+		// Only once committed: a rolled-back append never reaches the cache.
+		this.remember(docId, result.vector);
+		return result;
+	}
+	/** Cache a copy of a committed vector, evicting the least recently used. */
+	private remember(docId: string, vector: PulseVersionVector): void {
+		if (!this.vectorCacheSize) return;
+		this.vectors.delete(docId);
+		this.vectors.set(docId, copyVector(vector));
+		if (this.vectors.size > this.vectorCacheSize)
+			this.vectors.delete(this.vectors.keys().next().value!);
 	}
 	private readVector(docId: string): PulseVersionVector {
 		return (
@@ -202,7 +233,15 @@ export class SqlitePatchStore implements PatchStore {
 	}
 	async vector(docId: string): Promise<PulseVersionVector> {
 		validateDocId(docId);
-		return this.readVector(docId);
+		const cached = this.vectors.get(docId);
+		if (cached) {
+			this.vectors.delete(docId);
+			this.vectors.set(docId, cached);
+			return copyVector(cached);
+		}
+		const vector = this.readVector(docId);
+		this.remember(docId, vector);
+		return vector;
 	}
 	async missing(
 		docId: string,

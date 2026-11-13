@@ -108,7 +108,7 @@ export async function relayStoreMessage(
 			);
 		for (const row of message.rows) validateRow?.(row);
 		const result = await store.append(message.rows);
-		const vv = await store.vector(docId);
+		const vv = result.vector ?? (await store.vector(docId));
 		return {
 			docId,
 			responses: [encode({ kind: 5, docId, requestId, vv })],

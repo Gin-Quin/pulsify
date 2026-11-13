@@ -67,7 +67,7 @@ describe("better-sqlite3 store", () => {
 		expect(await store.missing(docId, [])).toEqual([]);
 
 		const result = await store.append(rows);
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			inserted: rows.length,
 			ready: rows.length,
 			pending: 0,
@@ -92,20 +92,20 @@ describe("better-sqlite3 store", () => {
 			betterSqliteConnection(new Database(":memory:")),
 		);
 		const [first, ...rest] = rows as [StoredPatchRow, ...StoredPatchRow[]];
-		expect(await store.append(rest)).toEqual({
+		expect(await store.append(rest)).toMatchObject({
 			inserted: rest.length,
 			ready: 0,
 			pending: rest.length,
 		});
 		expect(await store.vector(docId)).toEqual([]);
 		expect(await store.missing(docId, [])).toEqual([]);
-		expect(await store.append([first])).toEqual({
+		expect(await store.append([first])).toMatchObject({
 			inserted: 1,
 			ready: rows.length,
 			pending: 0,
 		});
 		expect(await store.vector(docId)).toEqual(vector);
-		expect(await store.append(rows)).toEqual({
+		expect(await store.append(rows)).toMatchObject({
 			inserted: 0,
 			ready: 0,
 			pending: 0,

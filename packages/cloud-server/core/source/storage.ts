@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS pulsify_cloud_subscriptions (
 export class SqliteCloudStorage implements CloudRootStorage {
 	readonly patches: SqlitePatchStore;
 	constructor(private readonly db: SqliteConnection) {
-		this.patches = new SqlitePatchStore(db);
+		// A root is the only writer of its database: vectors can stay in memory.
+		this.patches = new SqlitePatchStore(db, { vectorCacheSize: 128 });
 		db.exec(CLOUD_SQLITE_SCHEMA);
 	}
 	async loadGrants(): Promise<CloudGrant[]> {

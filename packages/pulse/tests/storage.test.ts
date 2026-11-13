@@ -78,12 +78,12 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			const first = row(docId),
 				second = row(docId, 2),
 				another = row(docId, 1, other);
-			expect(await store.append([first, second, another])).toEqual({
+			expect(await store.append([first, second, another])).toMatchObject({
 				inserted: 3,
 				ready: 3,
 				pending: 0,
 			});
-			expect(await store.append([first, second])).toEqual({
+			expect(await store.append([first, second])).toMatchObject({
 				inserted: 0,
 				ready: 0,
 				pending: 0,
@@ -108,14 +108,14 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				second = row(docId, 2),
 				third = row(docId, 3);
 			const dependent = row(docId, 1, other, [[actor, 4]]);
-			expect(await store.append([third, dependent, second])).toEqual({
+			expect(await store.append([third, dependent, second])).toMatchObject({
 				inserted: 3,
 				ready: 0,
 				pending: 3,
 			});
 			expect(await store.vector(docId)).toEqual([]);
 			expect(await store.missing(docId, [])).toEqual([]);
-			expect(await store.append([first])).toEqual({
+			expect(await store.append([first])).toMatchObject({
 				inserted: 1,
 				ready: 4,
 				pending: 0,
@@ -156,7 +156,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			const store = await create(),
 				docId = crypto.randomUUID();
 			const jump = row(docId, 10, actor, []);
-			expect(await store.append([jump])).toEqual({
+			expect(await store.append([jump])).toMatchObject({
 				inserted: 1,
 				ready: 0,
 				pending: 1,
@@ -173,13 +173,13 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 					row(batchDoc, 10, actor, []),
 					row(batchDoc, 1, other),
 				]),
-			).toEqual({ inserted: 2, ready: 1, pending: 1 });
+			).toMatchObject({ inserted: 2, ready: 1, pending: 1 });
 			expect(await store.vector(batchDoc)).toEqual([[other, 2]]);
 			const laterDoc = crypto.randomUUID(),
 				first = row(laterDoc);
 			await store.append([first]);
 			const later = row(laterDoc, 10, actor, [[actor, 2]]);
-			expect(await store.append([later])).toEqual({
+			expect(await store.append([later])).toMatchObject({
 				inserted: 1,
 				ready: 0,
 				pending: 1,
@@ -191,7 +191,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			const store = await create(),
 				docId = crypto.randomUUID();
 			const second = row(docId, 2, actor, [[actor, 1]]);
-			expect(await store.append([second])).toEqual({
+			expect(await store.append([second])).toMatchObject({
 				inserted: 1,
 				ready: 0,
 				pending: 1,
@@ -205,7 +205,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			const prefix = Array.from({ length: 9 }, (_, index) =>
 				row(recoverableDoc, index + 1),
 			);
-			expect(await store.append(prefix)).toEqual({
+			expect(await store.append(prefix)).toMatchObject({
 				inserted: 9,
 				ready: 10,
 				pending: 0,
@@ -223,7 +223,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				vv: [],
 				rows: [first],
 			});
-			expect(await store.appendEncoded(frame)).toEqual({
+			expect(await store.appendEncoded(frame)).toMatchObject({
 				inserted: 1,
 				ready: 1,
 				pending: 0,
@@ -378,14 +378,55 @@ test("encoded storage requests reject document IDs that cannot round-trip throug
 
 const sqlite = new Database(":memory:");
 conformance("SQLite actual database", async () => new SqlitePatchStore(sqlite));
+conformance(
+	"SQLite with a vector cache",
+	async () => new SqlitePatchStore(sqlite, { vectorCacheSize: 2 }),
+);
 afterAll(() => sqlite.close());
+
+test("SQLite vector cache only keeps committed vectors", async () => {
+	const database = new Database(":memory:");
+	let rollback = false;
+	// Runs the whole append, then aborts it as a failed commit would.
+	const store = new SqlitePatchStore(
+		{
+			exec: (sql) => database.exec(sql),
+			query: (sql) => database.query(sql),
+			transaction: (work) => {
+				const run = database.transaction(() => {
+					const result = work();
+					if (rollback) throw new Error("rolled back");
+					return result;
+				});
+				return Object.assign(() => run(), { immediate: () => run.immediate() });
+			},
+		},
+		{ vectorCacheSize: 1 },
+	);
+	const docId = crypto.randomUUID();
+	const { vector } = await store.append([row(docId), row(docId, 2)]);
+	expect(vector).toEqual([[actor, 3]]);
+	expect(await store.vector(docId)).toEqual(vector!);
+	rollback = true;
+	await expect(store.append([row(docId, 1, other)])).rejects.toThrow();
+	rollback = false;
+	expect(await store.vector(docId)).toEqual([[actor, 3]]);
+	await store.append([row(crypto.randomUUID())]); // evicts docId
+	const next = await store.append([row(docId, 1, other)]);
+	expect(next.vector).toEqual([
+		[actor, 3],
+		[other, 2],
+	]);
+	expect(await store.vector(docId)).toEqual(next.vector!);
+	database.close();
+});
 
 test("SQLite batch path deduplicates identical input and rolls back equivocation", async () => {
 	const store = new SqlitePatchStore(sqlite);
 	const docId = crypto.randomUUID(),
 		first = row(docId),
 		second = row(docId, 2);
-	expect(await store.append([first, first, second, second])).toEqual({
+	expect(await store.append([first, first, second, second])).toMatchObject({
 		inserted: 2,
 		ready: 2,
 		pending: 0,

@@ -7,6 +7,7 @@ export {
 	SqlitePatchStore,
 	SQLITE_PATCH_SCHEMA,
 	type SqliteConnection,
+	type SqlitePatchStoreOptions,
 } from "./storage/sqlite.js";
 export {
 	encodeStoredRow,
