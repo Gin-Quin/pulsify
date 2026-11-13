@@ -128,6 +128,22 @@ function avatars() {
   });
 }`;
 
+const codemirror = `// bun add pulsify-codemirror @codemirror/state @codemirror/view
+import { definePulse, object, plainText } from "pulsify-core";
+import { bindCodeMirror } from "pulsify-codemirror";
+import { EditorView, basicSetup } from "codemirror";
+
+const File = definePulse("File", object({
+  code: plainText(),
+})).materialize();
+
+const view = new EditorView({ extensions: [basicSetup], parent });
+const binding = bindCodeMirror(view, file.code);
+
+// On unmount.
+binding.destroy();
+view.destroy();`;
+
 export default function Editors() {
 	return (
 		<>
@@ -310,6 +326,16 @@ export default function Editors() {
 				binding:
 			</p>
 			<CodeBlock title="avatars.ts" code={custom} />
+
+			<h2>Code editors</h2>
+			<p>
+				Code is plain text: highlighting belongs to the editor. Bind CodeMirror
+				to a <code>plainText()</code> field. The field supplies the document,
+				editor changes edit the field, and changes from other peers stay out of
+				the undo history, so CodeMirror's own <code>history()</code> undoes
+				local edits only.
+			</p>
+			<CodeBlock title="editor.ts" code={codemirror} />
 
 			<h2>Rules of the road</h2>
 			<ul>

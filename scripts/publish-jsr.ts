@@ -21,6 +21,7 @@ const directories = [
 	"packages/pulsify-solid",
 	"packages/pulsify-prosemirror",
 	"packages/pulsify-lexical",
+	"packages/pulsify-codemirror",
 	"packages/connectors/IndexedDB",
 	"packages/connectors/Electron",
 	"packages/connectors/Tauri",

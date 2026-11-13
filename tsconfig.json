@@ -20,6 +20,7 @@
 				"./packages/cloud-server/unikraft-cloud/source/index.ts"
 			],
 			"pulsify-prosemirror": ["./packages/pulsify-prosemirror/source/index.ts"],
+			"pulsify-codemirror": ["./packages/pulsify-codemirror/source/index.ts"],
 			"pulsify-lexical": ["./packages/pulsify-lexical/source/index.ts"],
 			"pulsify-react": ["./packages/pulsify-react/source/index.ts"],
 			"pulsify-svelte": ["./packages/pulsify-svelte/source/index.ts"],

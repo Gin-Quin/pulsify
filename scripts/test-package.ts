@@ -20,7 +20,11 @@ try {
 		["bun", "pm", "pack", "--filename", archive, "--ignore-scripts", "--quiet"],
 		`${root}packages/pulse`,
 	);
-	for (const name of ["pulsify-prosemirror", "pulsify-lexical"])
+	for (const name of [
+		"pulsify-prosemirror",
+		"pulsify-lexical",
+		"pulsify-codemirror",
+	])
 		await run(
 			[
 				"bun",
@@ -48,7 +52,7 @@ try {
 			"node",
 			"--input-type=module",
 			"-e",
-			'import {richText} from "pulsify-core"; if (typeof richText !== "function") throw new Error("Core import failed"); for (const name of ["lexical", "prosemirror-model", "react"]) { let found = false; try { import.meta.resolve(name); found = true; } catch {} if (found) throw new Error(`Core installed editor dependency ${name}`); }',
+			'import {richText} from "pulsify-core"; if (typeof richText !== "function") throw new Error("Core import failed"); for (const name of ["lexical", "prosemirror-model", "@codemirror/state", "react"]) { let found = false; try { import.meta.resolve(name); found = true; } catch {} if (found) throw new Error(`Core installed editor dependency ${name}`); }',
 		],
 		coreOnly,
 	);
@@ -63,6 +67,11 @@ try {
 				"@gin-quin/codec": "2.1.1",
 				"pulsify-prosemirror": `file:${join(directory, "pulsify-prosemirror.tgz")}`,
 				"pulsify-lexical": `file:${join(directory, "pulsify-lexical.tgz")}`,
+				"pulsify-codemirror": `file:${join(directory, "pulsify-codemirror.tgz")}`,
+				"@codemirror/state": "^6.5.0",
+				"@codemirror/view": "^6.36.0",
+				// CodeMirror needs a DOM to create its view.
+				jsdom: "^30.1.3",
 				lexical: "^0.53.0",
 				"prosemirror-model": "^1.25.12",
 				"prosemirror-state": "^1.4.4",
@@ -126,12 +135,29 @@ editor.update(() => {const node = $getRoot().getFirstDescendant(); if ($isTextNo
 assert.equal(other.body.text, "Packed Lexical!");
 assert.deepEqual(lexicalDocument(other.body), editor.getEditorState().toJSON());
 binding.undo(); assert.equal(other.body.text, "Packed Lexical"); binding.destroy();
+// CodeMirror reads the DOM globals when it creates a view: import it after them.
+const { JSDOM } = await import("jsdom");
+const dom = new JSDOM("<!doctype html><body></body>", {pretendToBeVisual: true});
+for (const name of ["window", "document", "MutationObserver", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame"]) globalThis[name] = dom.window[name];
+const { plainText } = await import("pulsify-core");
+const { EditorView } = await import("@codemirror/view");
+const { bindCodeMirror } = await import("pulsify-codemirror");
+const File = definePulse("PackedCode", object({code: plainText()})).materialize();
+const file = createPulse(File, {code: "Packed CodeMirror"});
+const view = new EditorView({parent: document.body});
+const codeBinding = bindCodeMirror(view, file.code);
+assert.equal(view.state.doc.toString(), "Packed CodeMirror");
+view.dispatch({changes: {from: 17, insert: "!"}});
+assert.equal(file.code.text, "Packed CodeMirror!");
+file.code = plainText("Packed CodeMirror?");
+assert.equal(view.state.doc.toString(), "Packed CodeMirror?");
+codeBinding.destroy(); view.destroy(); dom.window.close();
 `,
 	);
 	await run(["node", "editor.mjs"], directory);
 	console.log(
 		JSON.stringify({
-			package: "three packed tarballs",
+			package: "four packed tarballs",
 			coreIsolation: "no editor or React dependencies",
 			declarations: "NodeNext strict passed",
 			runtime: "Node passed",

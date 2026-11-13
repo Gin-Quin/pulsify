@@ -43,6 +43,7 @@ console.log(
 for (const name of [
 	"pulsify-prosemirror",
 	"pulsify-lexical",
+	"pulsify-codemirror",
 	"cloud",
 	"cloud-server/core",
 	"cloud-server/cloudflare",

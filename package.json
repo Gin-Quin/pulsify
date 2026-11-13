@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "bun examples/server.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"test": "bun test packages/pulse/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/cloud-service/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests packages/pulsify-vue/tests && bun test --conditions browser packages/pulsify-svelte/tests packages/pulsify-solid/tests",
+		"test": "bun test packages/pulse/tests packages/pulsify-codemirror/tests packages/pulsify-prosemirror/tests packages/pulsify-lexical/tests packages/cloud-server/core/tests packages/cloud-server/cloudflare/tests packages/cloud-server/unikraft-cloud/tests packages/cloud-service/tests packages/connectors/IndexedDB/tests packages/connectors/Electron/tests packages/connectors/Tauri/tests packages/pulsify-react/tests packages/pulsify-vue/tests && bun test --conditions browser packages/pulsify-svelte/tests packages/pulsify-solid/tests",
 		"check": "bun run typecheck && bun run test && bun run test:crdt && bun run test:database",
 		"build": "bun scripts/build.ts",
 		"bench": "bun benchmarks/index.ts",
@@ -47,6 +47,9 @@
 		"better-sqlite3"
 	],
 	"devDependencies": {
+		"@codemirror/commands": "^6.11.1",
+		"@codemirror/state": "^6.7.6",
+		"@codemirror/view": "^6.43.15",
 		"@gin-quin/codec": "2.1.1",
 		"@lexical/headless": "^0.53.0",
 		"@lexical/history": "^0.53.0",
@@ -69,6 +72,7 @@
 		"prosemirror-state": "^1.4.4",
 		"prosemirror-transform": "^1.12.5",
 		"prosemirror-view": "^1.42.9",
+		"pulsify-codemirror": "workspace:*",
 		"pulsify-lexical": "workspace:*",
 		"pulsify-prosemirror": "workspace:*",
 		"react": "^19.3.1",

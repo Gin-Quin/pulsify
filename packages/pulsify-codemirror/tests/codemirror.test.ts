@@ -1,0 +1,144 @@
+import { afterEach, expect, test } from "bun:test";
+import { JSDOM } from "jsdom";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { history, undo } from "@codemirror/commands";
+import {
+	applyPulseUpdates,
+	createPulse,
+	createPulseScope,
+	definePulse,
+	destroyPulse,
+	exportPulseUpdates,
+	object,
+	plainText,
+	type Pulse,
+} from "pulsify-core";
+import { bindCodeMirror } from "../source/index.js";
+import { createRuntime } from "../../pulse/source/pulses/PulseRuntime.js";
+import { defaultPulseOptions } from "../../pulse/source/pulses/PulseOptions.js";
+
+const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+	pretendToBeVisual: true,
+});
+Object.assign(globalThis, {
+	window: dom.window,
+	document: dom.window.document,
+	navigator: dom.window.navigator,
+	Node: dom.window.Node,
+	HTMLElement: dom.window.HTMLElement,
+	MutationObserver: dom.window.MutationObserver,
+	getComputedStyle: dom.window.getComputedStyle,
+	requestAnimationFrame: dom.window.requestAnimationFrame,
+	cancelAnimationFrame: dom.window.cancelAnimationFrame,
+});
+
+const File = definePulse("File", object({ code: plainText() })).materialize();
+const options = (sessionId: number) => ({
+	...defaultPulseOptions,
+	scope: createPulseScope(),
+	sessionId,
+});
+const views: EditorView[] = [];
+const pulses: Pulse<any>[] = [];
+let sid = 90000;
+function create(code: string) {
+	const pulse = createPulse(File, { code }, options(sid++));
+	pulses.push(pulse);
+	return pulse;
+}
+function peer(source: ReturnType<typeof create>) {
+	const pulse = createRuntime(File, source.id, options(sid++)) as ReturnType<
+		typeof create
+	>;
+	applyPulseUpdates(pulse, exportPulseUpdates(source, []));
+	pulses.push(pulse);
+	return pulse;
+}
+function editor(pulse: ReturnType<typeof create>, doc = "") {
+	const view = new EditorView({
+		state: EditorState.create({ doc, extensions: [history()] }),
+		parent: document.body,
+	});
+	views.push(view);
+	return { view, binding: bindCodeMirror(view, pulse.code) };
+}
+/** Exchange every update both ways. */
+function sync(a: Pulse<any>, b: Pulse<any>) {
+	applyPulseUpdates(b, exportPulseUpdates(a, []));
+	applyPulseUpdates(a, exportPulseUpdates(b, []));
+}
+afterEach(() => {
+	for (const view of views.splice(0)) view.destroy();
+	for (const pulse of pulses.splice(0)) destroyPulse(pulse);
+});
+
+test("the field supplies the document and editor changes edit the field", () => {
+	const pulse = create("let a = 1;\nlet b = 2;");
+	const { view } = editor(pulse, "stale editor content");
+	expect(view.state.doc.toString()).toBe("let a = 1;\nlet b = 2;");
+	view.dispatch({ changes: { from: 4, to: 5, insert: "😀" } });
+	expect(pulse.code.text).toBe("let 😀 = 1;\nlet b = 2;");
+	// Several ranges in one transaction, as with multiple cursors.
+	view.dispatch({
+		changes: [
+			{ from: 0, to: 3, insert: "const" },
+			{ from: 12, to: 15, insert: "const" },
+		],
+	});
+	expect(pulse.code.text).toBe("const 😀 = 1;\nconst b = 2;");
+	expect(view.state.doc.toString()).toBe(pulse.code.text);
+});
+
+test("concurrent edits in two editors merge and keep each selection", () => {
+	const a = create("function f() {}\n");
+	const b = peer(a);
+	const first = editor(a).view,
+		second = editor(b).view;
+	first.dispatch({ changes: { from: 0, insert: "// header\n" } });
+	second.dispatch({
+		changes: { from: 16, insert: "f();\n" },
+		selection: { anchor: 21 },
+	});
+	sync(a, b);
+	const merged = "// header\nfunction f() {}\nf();\n";
+	expect(first.state.doc.toString()).toBe(merged);
+	expect(second.state.doc.toString()).toBe(merged);
+	expect(a.code.text).toBe(merged);
+	// The caret of the second editor moved with the text inserted before it.
+	expect(second.state.selection.main.head).toBe(merged.length);
+});
+
+test("undo reverts local edits only", () => {
+	const a = create("one");
+	const b = peer(a);
+	const { view } = editor(a);
+	view.dispatch({ changes: { from: 3, insert: " two" } });
+	b.code.insert(0, "zero ");
+	sync(a, b);
+	expect(view.state.doc.toString()).toBe("zero one two");
+	undo(view);
+	expect(view.state.doc.toString()).toBe("zero one");
+	expect(a.code.text).toBe("zero one");
+	// Nothing left to undo: the remote edit is not in the history.
+	expect(undo(view)).toBe(false);
+});
+
+test("carriage returns are normalized to CodeMirror line breaks", () => {
+	const pulse = create("a\r\nb\rc");
+	const { view } = editor(pulse);
+	expect(pulse.code.text).toBe("a\nb\nc");
+	expect(view.state.doc.lines).toBe(3);
+	view.dispatch({ changes: { from: 4, insert: "!" } });
+	expect(pulse.code.text).toBe("a\nb\n!c");
+});
+
+test("a destroyed binding leaves the editor and the field independent", () => {
+	const pulse = create("bound");
+	const { view, binding } = editor(pulse);
+	binding.destroy();
+	view.dispatch({ changes: { from: 0, insert: "un" } });
+	pulse.code.insert(0, "re");
+	expect(view.state.doc.toString()).toBe("unbound");
+	expect(pulse.code.text).toBe("rebound");
+});

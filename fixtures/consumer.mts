@@ -18,6 +18,18 @@ function bindLexicalEditor(editor: LexicalEditor, field: RichText): LexicalBindi
   return bindLexical(editor, field, {schemaId: "consumer:v1"});
 }
 void bindLexicalEditor;
+import { bindCodeMirror, type CodeMirrorBinding } from "pulsify-codemirror";
+import type { EditorView as CodeMirrorView } from "@codemirror/view";
+import { plainText, type PlainText, type PlainTextSchema } from "pulsify-core";
+
+function bindCodeMirrorEditor(view: CodeMirrorView, field: PlainText, rich: RichText): CodeMirrorBinding {
+  // @ts-expect-error CodeMirror binds plain text, not rich text.
+  bindCodeMirror(view, rich);
+  // @ts-expect-error Plain text has no editor structure for Lexical.
+  bindLexical(undefined as unknown as LexicalEditor, field);
+  return bindCodeMirror(view, field);
+}
+void bindCodeMirrorEditor;
 
 function bindEditor(view: EditorView, field: RichText, schema: Schema): ProseMirrorBinding {
   const doc: ProseMirrorNode = proseMirrorDocument(field, schema);
@@ -137,6 +149,26 @@ const codecText: string = createCodec(inlineSchema).decode(createCodec(inlineSch
 void inlineText; void codecText;
 // @ts-expect-error Schema markers are not creation data.
 createPulse(Inline, { body: richText(), nested: [], paragraphs: [] });
+
+const plainField: PlainTextSchema = plainText();
+const plainSchema = object({ body: plainField, lines: array(plainText()), note: optional(plainText()) });
+const Plain = definePulse("PlainConsumer", plainSchema).materialize();
+const plain = createPulse(Plain, { body: "Hello", lines: ["First"] }, { scope: createPulseScope() });
+const plainBody: PlainText = plain.body;
+plainBody.replace(0, 5, "Goodbye");
+plain.body = plainText("Assigned");
+plain.lines.push(plainText("Next"));
+plain.note = plainText("Created");
+const plainSnapshot: string = snapshotPulse(plain).body;
+const plainCodec: string = createCodec(plainSchema).decode(createCodec(plainSchema).encode({ body: "Text", lines: [] })).body;
+void plainSnapshot; void plainCodec;
+// @ts-expect-error A field has one type for reads and writes: wrap the string.
+plain.body = "Assigned";
+// @ts-expect-error Plain text has no formatting.
+plainBody.format(0, 1, { bold: true });
+// @ts-expect-error Rich text is not plain text.
+const notPlain: PlainText = inlineBody;
+void notPlain;
 const InlineMigrated = definePulse("InlineMigratedConsumer", object({ body: richText() }))
   .migrateTo(object({ body: richText(), count: "uint" }), before => {
     const text: string = before.body;

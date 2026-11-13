@@ -49,6 +49,7 @@ stacks and synchronized inverse operations.
 
 - [ProseMirror binding](packages/pulsify-prosemirror/README.md)
 - [Lexical binding](packages/pulsify-lexical/README.md)
+- [CodeMirror binding](packages/pulsify-codemirror/README.md), for `plainText()` fields
 - [Pulsify Cloud client](packages/cloud/README.md) and [server with built-in access control](packages/cloud-server/README.md)
 - [Cloud session protocol and management API](docs/CLOUD.md)
 - [React hook with fine-grained rendering](packages/pulsify-react/README.md)
