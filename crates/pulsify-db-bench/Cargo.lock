@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "pulsify-protocol"
-version = "11.0.1"
+version = "12.0.0"
 
 [[package]]
 name = "quote"

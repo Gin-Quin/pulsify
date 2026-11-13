@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-cloud-service",
-	"version": "11.0.1",
+	"version": "12.0.0",
 	"private": true,
 	"description": "The hosted Pulsify Cloud: customer projects, login links, quotas and Polar billing on Cloudflare.",
 	"type": "module",

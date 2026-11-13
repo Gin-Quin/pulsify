@@ -1927,11 +1927,11 @@ dependencies = [
 
 [[package]]
 name = "pulsify-protocol"
-version = "11.0.1"
+version = "12.0.0"
 
 [[package]]
 name = "pulsify-sqlite"
-version = "11.0.1"
+version = "12.0.0"
 dependencies = [
  "pulsify-protocol",
  "rusqlite",
@@ -2714,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-pulsify"
-version = "11.0.1"
+version = "12.0.0"
 dependencies = [
  "glob",
  "pulsify-protocol",
