@@ -305,7 +305,8 @@ export default function Dashboard() {
 													Free never bills. At the message or storage limit,
 													uploads stop with <code>LIMIT_EXCEEDED</code>; loading
 													and receiving keep working. Above the connection
-													limit, new sockets are refused.
+													limit, new sockets are refused. Pro prices exclude
+													VAT, added at checkout for your country.
 												</p>
 												<div class={styles.actions}>
 													<Button
@@ -336,8 +337,8 @@ export default function Dashboard() {
 									>
 										<p class={cloud.text}>
 											Usage above the included amounts is billed, not blocked:
-											€2 per million messages and €0.50 per GB-month. Above the
-											connection limit, new sockets are refused.
+											€2 per million messages and €0.50 per GB-month, excluding
+											VAT. Above the connection limit, new sockets are refused.
 										</p>
 										<div class={styles.actions}>
 											<Button

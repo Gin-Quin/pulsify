@@ -159,7 +159,8 @@ export default function Cloud() {
 						</For>
 					</div>
 					<p class={styles.footnote}>
-						Need more, a dedicated deployment or SSO? Enterprise is custom.
+						Prices exclude VAT, added at checkout for your country. Need more, a
+						dedicated deployment or SSO? Enterprise is custom.
 					</p>
 				</section>
 
