@@ -226,7 +226,7 @@ ops:operation[]
 `lamport` is positive and advances beyond the highest applied Lamport time
 when a local transaction is generated. In document version 1, `schema` is empty
 without a runtime schema, or the 32-character compatibility fingerprint of its
-resolved codec layout graph, constant/frozen/rich-text annotations and tree roles. Versions 2+
+resolved codec layout graph, constant/frozen/rich-text/plain-text annotations and tree roles. Versions 2+
 produced by current definitions use `m<version>:<chainFingerprint>` instead.
 This reuses the existing string field; operation payload and envelope versions
 do not change. Historical V1 writes remain addressable by their original identity.
@@ -383,6 +383,18 @@ or `undefined` removes an attribute. Plain snapshots and JSON output contain
 the text string; `toDelta()` exposes runs and formatting. An insertion with
 attributes emits insertion and formatting operations in the same atomic
 transaction.
+
+A `plainText()` field is the same sequence without attributes: one entry per
+Unicode code point, edited with kind 3 only. Kind 5 targeting it is rejected
+when the patch carries the current schema identity; a patch written under an
+earlier schema version, where the field was rich text, still applies and its
+attributes are ignored. Assigning a string to an existing plain text emits one
+kind 3 operation that deletes and inserts the differing middle, found by
+trimming the common prefix and suffix, instead of a kind 1 replacement; an
+unchanged string emits nothing. The role enters the layout fingerprint as the
+kind `plainText:<kind>`, so identities of schemas without plain text are
+unchanged, and peers older than version 12 reject documents that declare it.
+The public API addresses characters by UTF-16 code unit; no wire field does.
 
 The ProseMirror and Lexical bindings share an editor-local history plugin.
 History stacks and grouping metadata never travel over the wire. Undo/redo emit

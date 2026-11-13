@@ -26,6 +26,7 @@ import {
 	snapshotPulse,
 	type Pulse,
 } from "pulsify-core";
+import { createPulseViews } from "pulsify-core/bindings";
 import { bindProseMirror, proseMirrorDocument } from "../source/index.js";
 import { createRuntime } from "../../pulse/source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../../pulse/source/pulses/PulseOptions.js";
@@ -90,6 +91,22 @@ afterEach(() => {
 	for (const view of views.splice(0)) if (!view.isDestroyed) view.destroy();
 	for (const pulse of pulses.splice(0)) destroyPulse(pulse);
 	document.body.innerHTML = "";
+});
+
+test("a field read through a framework view binds like the field itself", () => {
+	const a = create("Vue"),
+		reactive = createPulseViews(() => () => {})(a);
+	const element = document.createElement("div");
+	document.body.append(element);
+	const view = new EditorView(element, {
+		state: EditorState.create({ schema }),
+	});
+	views.push(view);
+	bindProseMirror(view, reactive.body);
+	expect(view.dom.textContent).toBe("Vue");
+	view.dispatch(view.state.tr.insertText("!", 4));
+	expect(a.body.text).toBe("Vue!");
+	expect(proseMirrorDocument(reactive.body, schema).textContent).toBe("Vue!");
 });
 
 test("bind an actual editor div; text, marks, blocks and atoms survive native transport", () => {

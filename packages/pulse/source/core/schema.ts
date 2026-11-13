@@ -19,6 +19,7 @@ import {
 } from "./treeSchema.js";
 import {
 	codecSchemas,
+	isPlainTextSchema,
 	isRichTextSchema,
 	type PublicRichTextSchema,
 } from "./richTextSchema.js";
@@ -26,6 +27,7 @@ import {
 	prepareValue,
 	validatePrepared,
 	assertKey,
+	PlainTextSymbol,
 	RichTextSymbol,
 	type PreparedValue,
 } from "./values.js";
@@ -293,7 +295,10 @@ export interface PulseLayout {
 	readonly constant: boolean;
 	/** Replaceable as a whole; descendants are constant and stored with it. */
 	readonly frozen: boolean;
+	/** A collaborative character sequence: rich text, or plain text. */
 	readonly richText: boolean;
+	/** A `plainText()` occurrence: a text sequence without attributes. */
+	readonly plainText: boolean;
 	readonly tree: boolean;
 	readonly treeRole?: "tree" | "node" | "location";
 	/** The child definition of a `sub()` field; the stored value is its ID. */
@@ -346,6 +351,7 @@ interface MutableLayout {
 	constant: boolean;
 	frozen: boolean;
 	richText: boolean;
+	plainText: boolean;
 	tree: boolean;
 	treeRole?: "tree" | "node" | "location";
 	sub?: AnyPulseDefinition;
@@ -441,6 +447,7 @@ export function compilePulseSchema<S extends Schema>(
 	): MutableLayout => {
 		const resolved = resolveSchema(descriptor);
 		const inlineRichText = isRichTextSchema(descriptor);
+		const plainText = isPlainTextSchema(descriptor);
 		const inlineConstant = hasSchemaMarker(descriptor, ConstantSchemaSymbol);
 		const treeRole = treeSchemaRole(descriptor);
 		const subDefinition = subDefinitionOf(descriptor);
@@ -462,6 +469,7 @@ export function compilePulseSchema<S extends Schema>(
 		const state =
 			annotationState(path, constant, richText) +
 			(frozen ? ".frozen" : "") +
+			(plainText ? ".plain" : "") +
 			(treeRole ? `.${treeRole}` : "");
 		const existing = active.get(descriptor)?.get(state);
 		if (existing) return existing;
@@ -487,6 +495,7 @@ export function compilePulseSchema<S extends Schema>(
 			constant,
 			frozen,
 			richText,
+			plainText,
 			codec: codecFor(descriptor),
 			tree,
 			...(treeRole ? { treeRole } : {}),
@@ -651,9 +660,10 @@ export function compilePulseSchema<S extends Schema>(
 			"prepares",
 			"layouts",
 			"helpers",
-			`const {RichTextSymbol,TreeSymbol,PulseRefSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
+			`const {RichTextSymbol,PlainTextSymbol,TreeSymbol,PulseRefSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
 		)(prepareFunctions, layouts, {
 			RichTextSymbol,
+			PlainTextSymbol,
 			TreeSymbol,
 			PulseRefSymbol,
 			PulseMetaSymbol,
@@ -1224,7 +1234,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 			depth = fresh("depth");
 		const fail = `throw new TypeError(${JSON.stringify(`Value does not match pulse schema layout ${layout.id} (${layout.kind})`)})`;
 		let code = `let ${value}=${input};let ${depth}=${initialDepth};if(${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");`;
-		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");}}}`;
+		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});if(!${value}[PlainTextSymbol])recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");}}}`;
 		if (mode === "yes") code += markerCode;
 		else if (mode === "conditional") code += `if(!skipMarkers){${markerCode}}`;
 		const next = new Map(active);
@@ -1515,7 +1525,9 @@ export function schemaFingerprint<S extends Schema>(
 					? `tree:${layout.treeRole}`
 					: layout.frozen
 						? `frozen:${layout.kind}`
-						: layout.kind,
+						: layout.plainText
+							? `plainText:${layout.kind}`
+							: layout.kind,
 				constant: layout.constant,
 				richText: layout.richText,
 				keys: layout.fields.map((field) => field.key),

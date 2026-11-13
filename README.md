@@ -72,7 +72,9 @@ values, Unicode rich text, generic ordered trees, identity-preserving array move
 materialization, subscriptions and offline synchronization. Plain strings are
 atomic registers; rich text is selected explicitly with a schema annotation or
 `richText()` initializer. Its positions count Unicode code points and its
-formatting is available through `toDelta()`.
+formatting is available through `toDelta()`. A `plainText()` field is a
+collaborative string without formatting: concurrent edits merge, assigning a
+string edits only what changed, and its positions count UTF-16 code units.
 
 The same codec schema describes stored values and typed public fields. Numeric
 field slots and specialized codecs avoid repeating schema information in each

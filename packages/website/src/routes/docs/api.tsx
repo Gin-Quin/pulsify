@@ -20,6 +20,10 @@ const groups: { title: string; items: [string, string][] }[] = [
 			],
 			["richText()", "Collaborative text field marker inside a schema."],
 			[
+				"plainText()",
+				"Collaborative string without formatting: concurrent edits merge.",
+			],
+			[
 				"constant(schema)",
 				"Value fixed at creation: never replaced or edited.",
 			],
@@ -88,7 +92,7 @@ const groups: { title: string; items: [string, string][] }[] = [
 			],
 			[
 				"field.anchorAt(index) / field.indexOf(anchor)",
-				"A position in a richText() field as a string that survives every edit.",
+				"A position in a richText() or plainText() field as a string that survives every edit.",
 			],
 			[
 				"createWebSocketConnector(url, factory?, { presence: true })",

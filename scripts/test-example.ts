@@ -31,12 +31,18 @@ try {
 	await first.locator("#title").fill("Two tabs synchronized");
 	await expect(second.locator("#title")).toHaveValue("Two tabs synchronized");
 	await second.locator("#disconnect").click();
-	await second.locator("#body").fill("Edited offline");
+	const body = await first.locator("#body").inputValue();
+	await second.locator("#body").fill(`${body} Edited offline.`);
+	await first.locator("#body").fill(`Edited online. ${body}`);
 	await first.locator("#title").fill("Edited online");
 	await second.locator("#connect").click();
 	await expect(second.locator("#status")).toHaveText("Connected");
 	await expect(second.locator("#title")).toHaveValue("Edited online");
-	await expect(first.locator("#body")).toHaveValue("Edited offline");
+	// The body is plain text: both sides of the split survive.
+	for (const page of [first, second])
+		await expect(page.locator("#body")).toHaveValue(
+			`Edited online. ${body} Edited offline.`,
+		);
 	if (errors.length) throw new Error(errors.join("\n"));
 	console.log(
 		JSON.stringify({

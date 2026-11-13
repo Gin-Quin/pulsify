@@ -17,6 +17,8 @@ export type {
 	PulseSchemaValue,
 } from "./core/schema.js";
 export { richText } from "./core/richText.js";
+export { plainText } from "./core/plainText.js";
+export type { PlainText } from "./core/plainText.js";
 export { tree } from "./core/treeSchema.js";
 export { sub } from "./core/subSchema.js";
 export { constant, frozen } from "./core/constantSchema.js";
@@ -26,7 +28,7 @@ export { pulseRef } from "./pulses/PulseRef.js";
 export type { PulseRef } from "./pulses/PulseRef.js";
 export type { TreeSchema, TreeData } from "./core/treeSchema.js";
 export type { Tree, TreeNode, TreeJSONNode } from "./core/tree.js";
-export type { RichTextSchema } from "./core/richTextSchema.js";
+export type { PlainTextSchema, RichTextSchema } from "./core/richTextSchema.js";
 export type {
 	RichText,
 	RichTextAttributes,

@@ -24,7 +24,8 @@ export type RichTextContext = {
 	/** The pulse that holds the field, for a binding that shares presence on it. */
 	readonly pulse: unknown;
 };
-export const richTextContexts = new WeakMap<RichText, RichTextContext>();
+// A property of the field, not a WeakMap: a framework's view reaches it too.
+export const RichTextContextSymbol: unique symbol = Symbol("RichTextContext");
 const anchors = new WeakMap<CoreNode, Set<CoreEntry>>();
 /** Called by native replay, so peers without an editor retain the text projection. */
 export function trackRichTextAnchor(node: CoreNode, entry: CoreEntry): void {
@@ -34,7 +35,10 @@ export function trackRichTextAnchor(node: CoreNode, entry: CoreEntry): void {
 	else entries.delete(entry);
 }
 export function richTextContext(field: RichText): RichTextContext {
-	const context = richTextContexts.get(field);
+	const context: RichTextContext | undefined = Reflect.get(
+		field,
+		RichTextContextSymbol,
+	);
 	if (!context) throw new TypeError("Bind an attached Pulsify richText field");
 	context.assertActive();
 	if (!context.model.isAttached(context.node))

@@ -26,6 +26,7 @@ import {
 import {
 	assertKey,
 	freezeConstant,
+	RichTextSymbol,
 	prepareValue,
 	validatePrepared,
 	type PreparedValue,
@@ -51,6 +52,9 @@ const emptyEntryMap = new Map<string, CoreEntry>();
 const emptyEntryArray: CoreEntry[] = [];
 const emptyMarks = new Map<string, { stamp: Stamp; value: unknown }>();
 const emptyPathSet: ReadonlySet<string> = new Set();
+/** Plain text has no attributes, so its characters share one empty map. */
+const holdsMarks = (node: CoreNode) =>
+	node.kind === "text" && !node.layout?.plainText;
 export class CoreNode {
 	private moveMap: Map<string, CoreEntry> | undefined;
 	get moves(): ReadonlyMap<string, CoreEntry> {
@@ -306,6 +310,9 @@ export class CoreModel {
 		const layout =
 			field?.layout ??
 			(node.layout?.kind === "map" ? node.layout.element : undefined);
+		const child = node.child(key);
+		const text = plainTextEdit(layout, child, input);
+		if (text !== undefined) return this.setText(child!, text);
 		if (
 			this.maxVersion === 1 &&
 			!field?.richText &&
@@ -362,6 +369,19 @@ export class CoreModel {
 		const tuple = node.layout?.kind === "tuple";
 		if (tuple && count !== input.length)
 			throw new TypeError("Tuple cardinality is fixed");
+		if (count === 1 && input.length === 1) {
+			const entry = node.visible[start];
+			const text = plainTextEdit(
+				tuple ? node.layout?.elements?.[start] : node.layout?.element,
+				entry?.child,
+				input[0],
+			);
+			if (text !== undefined) {
+				const removed = [entry!.value];
+				this.setText(entry!.child!, text);
+				return removed;
+			}
+		}
 		const values = input.map((value, i) => {
 			const layout = tuple
 				? node.layout?.elements?.[start + i]
@@ -410,6 +430,44 @@ export class CoreModel {
 			);
 		}
 		return removed;
+	}
+	/** Replace the characters `[start, end)` of a plain text in one operation. */
+	spliceText(
+		node: CoreNode,
+		start: number,
+		end: number,
+		chars: readonly string[],
+	): void {
+		if (start === end && !chars.length) return;
+		this.commit([
+			{
+				kind: 3,
+				target: node.id,
+				after: start ? node.visible[start - 1]!.id : "",
+				deletes: node.visible.slice(start, end).map((entry) => entry.id),
+				values: chars.map((value) => ({ value, constants: [], texts: [] })),
+			},
+		]);
+	}
+	/** Edit only the differing middle, so concurrent edits elsewhere survive. */
+	setText(node: CoreNode, text: string): void {
+		const next = Array.from(text),
+			current: readonly string[] = node.data;
+		const limit = Math.min(next.length, current.length);
+		let start = 0;
+		while (start < limit && next[start] === current[start]) start++;
+		let tail = 0;
+		while (
+			tail < limit - start &&
+			next[next.length - 1 - tail] === current[current.length - 1 - tail]
+		)
+			tail++;
+		this.spliceText(
+			node,
+			start,
+			current.length - tail,
+			next.slice(start, next.length - tail),
+		);
 	}
 	private position(node: CoreNode, entry: CoreEntry): CoreEntry {
 		return node.moves.get(entry.id) ?? entry;
@@ -925,7 +983,11 @@ export class CoreModel {
 						build(op.value, layout);
 					}
 					if (op.kind === 5) {
-						if (target.kind !== "text")
+						// A patch of another schema version may predate a plain text.
+						if (
+							target.kind !== "text" ||
+							(target.layout?.plainText && patch.schema === this.schemaId)
+						)
 							throw new PulseError(
 								"INVALID_MESSAGE",
 								"Formatting requires rich text",
@@ -1273,7 +1335,7 @@ export class CoreModel {
 						child: built.child,
 						deleted: false,
 						children: [],
-						marks: node.kind === "text" ? new Map() : emptyMarks,
+						marks: holdsMarks(node) ? new Map() : emptyMarks,
 					};
 					this.insert(node, entry, offset);
 					after = entryId;
@@ -1321,6 +1383,8 @@ export class CoreModel {
 			} else {
 				for (const entryId of op.entries) {
 					const entry = node.entries.get(entryId)!;
+					// A text that was plain under another schema version.
+					if (entry.marks === emptyMarks) entry.marks = new Map();
 					for (const [key, value] of Object.entries(op.attributes))
 						if (newer(stamp, entry.marks.get(key)?.stamp))
 							entry.marks.set(key, { stamp, value });
@@ -1589,7 +1653,7 @@ export class CoreModel {
 						child: built.child,
 						deleted: false,
 						children: [],
-						marks: node.kind === "text" ? new Map() : emptyMarks,
+						marks: holdsMarks(node) ? new Map() : emptyMarks,
 					};
 					node.entries.set(entryId, entry);
 					if (after) node.entries.get(after)!.children.push(entry);
@@ -1704,6 +1768,25 @@ export class CoreModel {
 			node.data.splice(position, 1);
 		}
 	}
+}
+/** The string assigned over an existing plain text: an edit, not a replacement. */
+function plainTextEdit(
+	layout: PulseLayout | undefined,
+	child: CoreNode | undefined,
+	input: unknown,
+): string | undefined {
+	if (!layout?.plainText || child?.kind !== "text") return;
+	const text =
+		typeof input === "string"
+			? input
+			: input !== null &&
+				  typeof input === "object" &&
+				  Reflect.get(input, RichTextSymbol)
+				? String(input)
+				: undefined;
+	if (text !== undefined && !text.isWellFormed())
+		throw new TypeError("Strings must be valid Unicode");
+	return text;
 }
 type BuiltValue = {
 	value: unknown;

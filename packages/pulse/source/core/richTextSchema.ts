@@ -3,7 +3,9 @@ import type { PulseSchemaValue } from "./schema.js";
 import type { TreeSchema } from "./treeSchema.js";
 import type { Tree } from "./tree.js";
 import type { RichText } from "./richText.js";
-import { RichTextSchemaSymbol } from "./values.js";
+import { PlainTextSchemaSymbol, RichTextSchemaSymbol } from "./values.js";
+import { hasSchemaMarker } from "./constantSchema.js";
+import type { PlainText } from "./plainText.js";
 import type { SubSchema } from "./subSchema.js";
 import type { PulseRef } from "../pulses/PulseRef.js";
 
@@ -15,6 +17,17 @@ export type RichTextSchema = (() => "string") & {
 export const richTextSchema: RichTextSchema = Object.freeze(
 	Object.assign(() => "string" as const, {
 		[RichTextSchemaSymbol]: true as const,
+	}),
+);
+
+/** A collaborative string without attributes; codec sees a lazy string schema. */
+export type PlainTextSchema = (() => "string") & {
+	readonly [PlainTextSchemaSymbol]: true;
+};
+
+export const plainTextSchema: PlainTextSchema = Object.freeze(
+	Object.assign(() => "string" as const, {
+		[PlainTextSchemaSymbol]: true as const,
 	}),
 );
 
@@ -30,61 +43,55 @@ export type PublicRichTextSchema<S extends Schema> = Schema extends S
 	? S
 	: S extends SubSchema<infer Definition>
 		? LiteralSchema<PulseRef<Definition>>
-		: S extends RichTextSchema
-			? LiteralSchema<RichText>
-			: S extends TreeSchema<infer Element>
-				? LiteralSchema<Tree<PulseSchemaValue<Element>>>
-				: S extends () => infer Inner
-					? Inner extends Schema
-						? () => PublicRichTextSchema<Inner>
-						: S
-					: S extends object
-						? {
-								[Key in keyof S]: Key extends "fields"
-									? S[Key] extends Record<string, Schema>
-										? PublicSchemaFields<S[Key]>
-										: S[Key]
-									: Key extends "element" | "schema"
-										? S[Key] extends Schema
-											? PublicRichTextSchema<S[Key]>
+		: S extends PlainTextSchema
+			? LiteralSchema<PlainText>
+			: S extends RichTextSchema
+				? LiteralSchema<RichText>
+				: S extends TreeSchema<infer Element>
+					? LiteralSchema<Tree<PulseSchemaValue<Element>>>
+					: S extends () => infer Inner
+						? Inner extends Schema
+							? () => PublicRichTextSchema<Inner>
+							: S
+						: S extends object
+							? {
+									[Key in keyof S]: Key extends "fields"
+										? S[Key] extends Record<string, Schema>
+											? PublicSchemaFields<S[Key]>
 											: S[Key]
-										: Key extends "elements"
-											? S[Key] extends readonly Schema[]
-												? PublicSchemaList<S[Key]>
+										: Key extends "element" | "schema"
+											? S[Key] extends Schema
+												? PublicRichTextSchema<S[Key]>
 												: S[Key]
-											: Key extends "variants"
+											: Key extends "elements"
 												? S[Key] extends readonly Schema[]
 													? PublicSchemaList<S[Key]>
-													: S[Key] extends Record<
-																string | number,
-																Record<string, Schema>
-														  >
-														? {
-																[Tag in keyof S[Key]]: {
-																	[
-																		Field in keyof S[Key][Tag]
-																	]: PublicRichTextSchema<S[Key][Tag][Field]>;
-																};
-															}
-														: S[Key]
-												: S[Key];
-							}
-						: S;
+													: S[Key]
+												: Key extends "variants"
+													? S[Key] extends readonly Schema[]
+														? PublicSchemaList<S[Key]>
+														: S[Key] extends Record<
+																	string | number,
+																	Record<string, Schema>
+															  >
+															? {
+																	[Tag in keyof S[Key]]: {
+																		[
+																			Field in keyof S[Key][Tag]
+																		]: PublicRichTextSchema<S[Key][Tag][Field]>;
+																	};
+																}
+															: S[Key]
+													: S[Key];
+								}
+							: S;
 
 /** Recognize an occurrence through optional/lazy wrappers, at compile time only. */
-export function isRichTextSchema(schema: Schema): boolean {
-	const seen = new Set<Schema>();
-	while (!seen.has(schema)) {
-		seen.add(schema);
-		if (typeof schema === "function") {
-			if (Reflect.get(schema, RichTextSchemaSymbol) === true) return true;
-			schema = schema();
-		} else if (typeof schema === "object" && schema._type === "optional") {
-			schema = schema.schema;
-		} else return false;
-	}
-	return false;
-}
+export const isPlainTextSchema = (schema: Schema): boolean =>
+	hasSchemaMarker(schema, PlainTextSchemaSymbol);
+/** Plain text is the same character sequence, so it counts as a text occurrence. */
+export const isRichTextSchema = (schema: Schema): boolean =>
+	hasSchemaMarker(schema, RichTextSchemaSymbol) || isPlainTextSchema(schema);
 
 /** Resolve inline markers once, keeping codecs free of per-value marker checks. */
 export function codecSchemas(schema: Schema): {
@@ -97,7 +104,10 @@ export function codecSchemas(schema: Schema): {
 		const known = normalized.get(value);
 		if (known) return known;
 		if (typeof value === "function") {
-			if (Reflect.get(value, RichTextSchemaSymbol) === true) {
+			if (
+				Reflect.get(value, RichTextSchemaSymbol) === true ||
+				Reflect.get(value, PlainTextSchemaSymbol) === true
+			) {
 				hasMarker = true;
 				normalized.set(value, "string");
 				return "string";

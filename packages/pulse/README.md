@@ -308,6 +308,55 @@ before its mutation methods can be called. Use `richText("")` for an empty initi
 value; `richText()` is reserved for schemas and cannot initialize document data.
 Inline schemas and path annotations both accept plain strings as creation input.
 
+## Plain text
+
+A `"string"` field is replaced as a whole: when two peers edit it at the same
+time, one value wins. Declare `plainText()` for a string whose concurrent edits
+merge, such as a text area or a code editor. It is a sequence of characters
+without formatting, and needs a runtime schema.
+
+```ts
+import { createPulse, definePulse, object, plainText } from "pulsify-core";
+
+const Note = definePulse("Note", object({
+  title: "string",   // atomic: the last writer wins
+  body: plainText(), // collaborative: edits merge
+})).materialize();
+const note = createPulse(Note, { title: "Note", body: "Hello" });
+
+note.body.insert(5, " world");
+note.body.replace(0, 5, "Goodbye"); // delete 5 code units, insert, as one edit
+note.body.delete(0, 3);
+console.log(note.body.text, note.body.length);
+
+// Assigning edits only what changed, so a text area needs no binding:
+textarea.addEventListener("input", () => {
+  note.body = plainText(textarea.value);
+});
+```
+
+Plain text exposes `text`, `length`, `insert`, `delete`, `replace`, `anchorAt`
+and `indexOf`. Indices and lengths count UTF-16 code units, like `String`,
+`selectionStart` and CodeMirror positions. A character outside the Basic
+Multilingual Plane, such as an emoji, is stored as one entry, so concurrent
+edits never split it; an index between its two code units is rejected. A count
+past the end deletes up to the end.
+
+Assigning a string or `plainText(string)` to an existing field compares it with
+the current text, trims the common prefix and suffix, and edits the remainder.
+Edits made elsewhere in the text by other peers survive, the field keeps its
+view and its anchors, and an unchanged string writes nothing. The same holds
+for an array element or a map value. Assigning to an absent optional field
+creates the text. `plainText(string)` exists for TypeScript, which gives the
+field one type for reads and writes; an untyped assignment of a string does the
+same. Outside a declared field, a plain text value is an ordinary string.
+
+`anchorAt(index)` returns a string that follows its character through every
+local and remote edit, and `indexOf(anchor)` its current index: store a caret
+that way to keep it in place while other peers type. Snapshots and JSON output
+contain the string. Plain text cannot be `constant()` or `frozen()`. Use
+`richText()` instead when the text carries formatting or editor structure.
+
 ## Editor bindings
 
 Declare the same `richText()` field for either editor. Bindings are separate
@@ -335,8 +384,16 @@ silently converted. Snapshots remain a plain text projection. Use
 formatting, and Pulsify update frames for collaborative history.
 
 For code, syntax highlighting belongs to the editor and the content is plain
-text. Plain Pulsify strings are whole-value registers; concurrent character
-editing still requires a collaborative text field and an editor binding.
+text. Declare a `plainText()` field and bind CodeMirror to it:
+
+```ts
+import { bindCodeMirror } from "pulsify-codemirror";
+
+const binding = bindCodeMirror(view, file.code);
+binding.destroy();
+```
+
+- [CodeMirror API and example](../pulsify-codemirror/README.md)
 
 ## Connect and load
 

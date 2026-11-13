@@ -3,6 +3,7 @@ import { PulseError } from "../protocol/errors.js";
 import { RichTextSymbol, PulseRefSymbol } from "../core/values.js";
 import type { PulseRef } from "./PulseRef.js";
 import type { RichText } from "../core/richText.js";
+import type { PlainText } from "../core/plainText.js";
 import type { Tree } from "../core/tree.js";
 import { TreeSymbol, type TreeData } from "../core/treeSchema.js";
 import type { PulseLayout } from "../core/schema.js";
@@ -88,7 +89,7 @@ export type PulseSnapshot<Value> = unknown extends Value
 	? Value
 	: Value extends PulseRef<any>
 		? string
-		: Value extends RichText
+		: Value extends RichText | PlainText
 			? string
 			: Value extends Tree<infer Item>
 				? TreeData<PulseSnapshot<Item>>

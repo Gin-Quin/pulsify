@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { createPulseViews } from "pulsify-core/bindings";
 import { object, array } from "@gin-quin/codec";
 import { createHeadlessEditor } from "@lexical/headless";
 import { HeadingNode, QuoteNode, $createHeadingNode } from "@lexical/rich-text";
@@ -119,6 +120,18 @@ test("same richText() field binds without React or a DOM and exports Lexical JSO
 	expect(snapshotPulse(pulse).body).toBe("Bonjour! 😀");
 });
 const editorFor = editor;
+
+test("a field read through a framework view binds like the field itself", () => {
+	const pulse = create("Vue"),
+		reactive = createPulseViews(() => () => {})(pulse);
+	const { editor } = editorFor(reactive);
+	expect(text(editor)).toBe("Vue");
+	editor.update(() => firstText().spliceText(3, 0, "!"), { discrete: true });
+	expect(pulse.body.text).toBe("Vue!");
+	expect(lexicalDocument(reactive.body)).toEqual(
+		editor.getEditorState().toJSON(),
+	);
+});
 
 test("concurrent first bindings, character edits and different format bits merge", () => {
 	const a = create("aaa"),

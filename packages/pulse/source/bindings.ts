@@ -18,6 +18,7 @@ export {
 	resolveRichTextAnchor,
 	type RichTextContext,
 } from "./core/richTextBinding.js";
+export { plainTextContext, type PlainTextContext } from "./core/plainText.js";
 export {
 	editorAttributes,
 	reconcileEditorTokens,

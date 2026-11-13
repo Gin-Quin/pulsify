@@ -2,6 +2,8 @@ import { TreeSymbol } from "./treeSchema.js";
 
 export const RichTextSymbol: unique symbol = Symbol("RichText");
 export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
+export const PlainTextSymbol: unique symbol = Symbol("PlainText");
+export const PlainTextSchemaSymbol: unique symbol = Symbol("PlainTextSchema");
 export const PulseRefSymbol: unique symbol = Symbol("PulseRef");
 export type PreparedValue = {
 	value: unknown;
@@ -69,6 +71,9 @@ export function prepareValue(input: unknown): PreparedValue {
 					path,
 					depth,
 				);
+			// Plain text is a string wherever the schema does not declare it.
+			if ((value as { [PlainTextSymbol]?: boolean })[PlainTextSymbol])
+				return clone((value as { text: string }).text, path, depth);
 			if ((value as { [RichTextSymbol]?: boolean })[RichTextSymbol]) {
 				texts.push(path);
 				return clone((value as { text: string }).text, path, depth + 1);

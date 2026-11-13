@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulsify shared note</title>
 <style>body{font:18px system-ui;max-width:44rem;margin:3rem auto;padding:1rem}input,textarea{display:block;width:100%;box-sizing:border-box;margin:.5rem 0 1.5rem;padding:.7rem;font:inherit}textarea{min-height:14rem}button{font:inherit;margin-right:.5rem}output{display:block;margin:1rem 0;color:#365}</style>
-<h1>Pulsify shared note</h1><p>Open two tabs. Each field synchronizes as an atomic value.</p>
+<h1>Pulsify shared note</h1><p>Open two tabs. The title is an atomic value; edits to the body merge, even offline.</p>
 <label>Title<input id="title" aria-label="Title"></label><label>Body<textarea id="body" aria-label="Body"></textarea></label>
 <button id="disconnect">Disconnect</button><button id="connect">Reconnect</button><output id="status">Connecting…</output>
 <script type="module" src="/client.js"></script></html>

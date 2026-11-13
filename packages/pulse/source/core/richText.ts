@@ -10,7 +10,7 @@ import {
 	RT_TEXTBLOCK,
 	richTextContent,
 	richTextEntries,
-	richTextContexts,
+	RichTextContextSymbol,
 	resolveRichTextAnchor,
 	type RichTextContext,
 } from "./richTextBinding.js";
@@ -104,7 +104,17 @@ export function createTextProxy(
 		if (entries.length && Object.keys(attributes).length)
 			model.commit([{ kind: 5, target: node.id, entries, attributes }]);
 	};
-	const proxy: RichText = Object.freeze({
+	const context: RichTextContext = {
+		node,
+		model,
+		assertActive,
+		subscribe: binding.subscribe,
+		get pulse() {
+			return binding.pulse;
+		},
+	};
+	return Object.freeze({
+		[RichTextContextSymbol]: context,
 		[RichTextSymbol]: true as const,
 		get text() {
 			return text();
@@ -210,16 +220,6 @@ export function createTextProxy(
 			return text()[Symbol.iterator]();
 		},
 	});
-	richTextContexts.set(proxy, {
-		node,
-		model,
-		assertActive,
-		subscribe: binding.subscribe,
-		get pulse() {
-			return binding.pulse;
-		},
-	});
-	return proxy;
 }
 
 function assertText(text: unknown): asserts text is string {

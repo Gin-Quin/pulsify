@@ -81,6 +81,28 @@ const e = createPulse(Event, { payload: { kind: "created", title: "Hi" } });
 if (e.payload.kind === "created") e.payload.title = "Hello"; // narrowed
 e.payload = { kind: "deleted" };                              // switch variant`;
 
+const plain = `import { plainText } from "pulsify-core";
+
+const Note = definePulse("Note", object({
+  title: "string",   // atomic: the last writer wins
+  body: plainText(), // collaborative: edits merge
+})).materialize();
+
+const note = createPulse(Note, { title: "Note", body: "Hello" });
+note.body.insert(5, " world");
+note.body.replace(0, 5, "Goodbye"); // delete 5 code units, insert
+note.body.text;       // "Goodbye world"
+note.body.length;     // UTF-16 code units, like String
+
+// Assigning edits only what changed, so a text area needs no binding.
+textarea.addEventListener("input", () => {
+  note.body = plainText(textarea.value);
+});
+
+// A position that follows its character while other peers type.
+const caret = note.body.anchorAt(textarea.selectionStart);
+note.body.indexOf(caret);`;
+
 const rich = `import { richText } from "pulsify-core";
 
 const Doc = definePulse("Doc", object({
@@ -136,8 +158,8 @@ export default function Values() {
 			<CodeBlock title="settings.ts" code={primitives} />
 			<p>
 				Plain strings are atomic: assigning one replaces the whole value. Use{" "}
-				<code>richText()</code> for character-level collaboration. Float32
-				fields read back their normalized wire value.
+				<code>plainText()</code> or <code>richText()</code> for character-level
+				collaboration. Float32 fields read back their normalized wire value.
 			</p>
 
 			<h2>Objects and maps</h2>
@@ -183,6 +205,20 @@ export default function Values() {
 				To restrict how a value can be written, see{" "}
 				<a href="/docs/modifiers">value modifiers</a>: <code>constant</code>,{" "}
 				<code>frozen</code> and friends.
+			</p>
+
+			<h2>Plain text</h2>
+			<p>
+				<code>plainText()</code> is a string whose concurrent edits merge: two
+				peers typing in the same field, even offline, both keep their
+				characters. It has no formatting. Indices count UTF-16 code units, and
+				an emoji is never split.
+			</p>
+			<CodeBlock title="note.ts" code={plain} />
+			<p>
+				Assigning a string to the field compares it with the current text and
+				edits the difference, instead of replacing the value. For a code editor,
+				bind the field to <a href="/docs/editors">CodeMirror</a>.
 			</p>
 
 			<h2>Rich text</h2>
