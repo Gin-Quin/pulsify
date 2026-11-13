@@ -90,9 +90,12 @@ export class SqlitePatchStore implements PatchStore {
  (time_start=(SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start<?)
  OR time_start=(SELECT MIN(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start>?))`);
 				const insert = this.db.query(
-					"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations) VALUES(?,?,?,?,?,?)",
+					"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES(?,?,?,?,?,?,?)",
 				);
-				let inserted = 0;
+				const frontier = new Map(this.readVector(docId));
+				const changedActors = new Set<number>();
+				let inserted = 0,
+					ready = 0;
 				for (const row of rows) {
 					const existing = get.get(
 						docId,
@@ -115,6 +118,11 @@ export class SqlitePatchStore implements PatchStore {
 						row.clock,
 					) as RecordRow[])
 						assertCompatible(row, unpack(neighbour));
+					// A row that is ready on arrival (the common, in-order case) skips the
+					// pending index and the promotion UPDATE: 3 billed rows instead of 5.
+					const readyNow =
+						row.clock === (frontier.get(row.sid) ?? 1) &&
+						covered(frontier, row.dependencies);
 					insert.run(
 						docId,
 						row.sid,
@@ -122,10 +130,15 @@ export class SqlitePatchStore implements PatchStore {
 						row.span,
 						JSON.stringify(row.dependencies),
 						row.operations,
+						readyNow ? 1 : 0,
 					);
 					inserted++;
+					if (readyNow) {
+						frontier.set(row.sid, row.clock + row.span);
+						changedActors.add(row.sid);
+						ready++;
+					}
 				}
-				const frontier = new Map(this.readVector(docId));
 				let pending = this.db
 					.query(
 						"SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=? AND ready=0 ORDER BY sid,time_start",
@@ -145,9 +158,7 @@ export class SqlitePatchStore implements PatchStore {
 				const clock = this.db.query(
 					"INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) VALUES(?,?,?) ON CONFLICT(doc_id,sid) DO UPDATE SET clock=MAX(clock,excluded.clock)",
 				);
-				let ready = 0,
-					changed: boolean;
-				const changedActors = new Set<number>();
+				let changed: boolean;
 				do {
 					changed = false;
 					const waiting: PendingRow[] = [];
