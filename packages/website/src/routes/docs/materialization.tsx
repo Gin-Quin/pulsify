@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -57,7 +57,10 @@ export const Task = definePulse("Task", taskV1)
 export default function Materialization() {
 	return (
 		<>
-			<Title>Materialization · Docs</Title>
+			<Seo
+				title="Materialization · Pulsify Docs"
+				description="A materializer turns the latest stored schema into the public type of a pulse: rename, hide and derive fields without migration scars."
+			/>
 			<h1>Materialization</h1>
 			<p>
 				A materializer turns the latest stored schema into the public type of a

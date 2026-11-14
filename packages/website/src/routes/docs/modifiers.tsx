@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -67,7 +67,10 @@ const combined = `object({
 export default function Modifiers() {
 	return (
 		<>
-			<Title>Value modifiers · Docs</Title>
+			<Seo
+				title="Value modifiers · Pulsify Docs"
+				description="Modifiers change how a field can be written, not what it stores. Pulsify enforces them on every replica, and TypeScript at compile time."
+			/>
 			<h1>Value modifiers</h1>
 			<p>
 				Modifiers wrap a schema to change how it can be written, not what it

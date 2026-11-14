@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { For } from "solid-js";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
@@ -155,7 +155,10 @@ try {
 export default function PulseMethods() {
 	return (
 		<>
-			<Title>Pulse methods · Docs</Title>
+			<Seo
+				title="Pulse methods · Pulsify Docs"
+				description="Every function an application calls on a pulse: create and load, read and observe, edit, connect, sub-pulses, network state and errors."
+			/>
 			<h1>Pulse methods</h1>
 			<p>
 				A pulse has no methods of its own: its properties are your data. Every

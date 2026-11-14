@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { Show } from "solid-js";
 import {
 	CLOUD_LICENSE_URL,
@@ -10,7 +10,10 @@ import {
 export default function Legal() {
 	return (
 		<>
-			<Title>Legal · Pulsify</Title>
+			<Seo
+				title="Legal · Pulsify"
+				description="The licenses of the open-source Pulsify software and the documents that govern Pulsify Cloud."
+			/>
 			<h1>Legal</h1>
 			<p>
 				Pulsify is two things with two sets of rules: open-source software,

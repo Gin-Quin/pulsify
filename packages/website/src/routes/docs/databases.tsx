@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { GITHUB_URL } from "~/components/links";
@@ -66,7 +66,10 @@ const note = await loadPulse(Note, "alice/notes/n1", { connectors: [cloud] });`;
 export default function Databases() {
 	return (
 		<>
-			<Title>Self-host: databases · Docs</Title>
+			<Seo
+				title="Self-host: databases · Pulsify Docs"
+				description="Run the Pulsify relay and store in front of your own database. Stores for PostgreSQL and SQLite are included, and any database can implement the interface."
+			/>
 			<h1>Self-host: databases</h1>
 			<p>
 				A Pulsify server is a relay plus a store. Run both yourself in front of

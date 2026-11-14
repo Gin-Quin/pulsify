@@ -13,7 +13,7 @@ export type Plan = "free" | "pro";
 /** Per month for messages; at any time for connections and storage. */
 export const PLANS = {
 	free: { connections: 100, messages: 1_000_000, bytes: 1_000_000_000 },
-	pro: { connections: 1_000, messages: 5_000_000, bytes: 10_000_000_000 },
+	pro: { connections: 1_000, messages: 5_000_000, bytes: 25_000_000_000 },
 } as const satisfies Record<Plan, object>;
 
 /** What a root tells its project: messages since its last report, its size and its sockets. */

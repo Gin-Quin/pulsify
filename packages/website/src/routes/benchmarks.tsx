@@ -1,4 +1,4 @@
-import { Meta, Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import {
 	BenchmarkHero,
@@ -35,10 +35,9 @@ export default function Benchmarks() {
 	return (
 		<Sky>
 			<main class={styles.page}>
-				<Title>Benchmarks · Pulsify, json-joy, Yjs & Loro</Title>
-				<Meta
-					name="description"
-					content="Pulsify benchmarks against json-joy, Yjs and Loro: operation times, payload sizes and database load."
+				<Seo
+					title="Benchmarks · Pulsify, json-joy, Yjs & Loro"
+					description="Pulsify benchmarks against json-joy, Yjs and Loro: operation times, payload sizes and database load."
 				/>
 				<div class={styles.container}>
 					<BenchmarkHero />

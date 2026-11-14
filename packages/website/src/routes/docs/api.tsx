@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { For } from "solid-js";
 import { GITHUB_URL } from "~/components/links";
 
@@ -144,7 +144,10 @@ const groups: { title: string; items: [string, string][] }[] = [
 export default function Api() {
 	return (
 		<>
-			<Title>API cheat sheet · Docs</Title>
+			<Seo
+				title="API cheat sheet · Pulsify Docs"
+				description="Everything exported from pulsify-core that you use day to day, on one page."
+			/>
 			<h1>API cheat sheet</h1>
 			<p>
 				Everything exported from <code>pulsify-core</code> that you will use day

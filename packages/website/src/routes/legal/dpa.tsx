@@ -1,10 +1,13 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { Contact, EFFECTIVE_DATE, OPERATOR } from "~/components/legal";
 
 export default function Dpa() {
 	return (
 		<>
-			<Title>Data Processing Addendum · Pulsify Cloud</Title>
+			<Seo
+				title="Data Processing Addendum · Pulsify Cloud"
+				description="The data processing addendum for Pulsify Cloud required by article 28 of the GDPR, accepted with the terms of service."
+			/>
 			<h1>Data Processing Addendum</h1>
 			<p>Effective {EFFECTIVE_DATE}.</p>
 			<p>

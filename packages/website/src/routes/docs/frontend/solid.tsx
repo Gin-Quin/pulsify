@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
 
@@ -119,7 +119,10 @@ export default function Route() {
 export default function Solid() {
 	return (
 		<>
-			<Title>Solid · Docs</Title>
+			<Seo
+				title="Solid · Pulsify Docs"
+				description="pulsify-solid makes pulses reactive in Solid, as createMutable does for a plain object: what reads them re-renders after any change."
+			/>
 			<h1>Solid</h1>
 			<p>
 				<code>pulsify-solid</code> makes pulses reactive, as{" "}

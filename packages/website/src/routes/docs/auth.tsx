@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
@@ -50,7 +50,10 @@ const { responses } = await relayStoreMessage(store, bytes, { docId, readOnly })
 export default function Auth() {
 	return (
 		<>
-			<Title>Self-host: authentication · Docs</Title>
+			<Seo
+				title="Self-host: authentication · Pulsify Docs"
+				description="Pulsify stores no users: your server decides who may open which document, once, before the WebSocket upgrade."
+			/>
 			<h1>Self-host: authentication</h1>
 			<p>
 				Pulsify stores no users and no access lists. Your server decides who may

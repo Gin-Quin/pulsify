@@ -1,5 +1,5 @@
 import { Button } from "~/components/Button";
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 
 export default function NotFound() {
 	return (
@@ -9,7 +9,7 @@ export default function NotFound() {
 				"text-align": "center",
 			}}
 		>
-			<Title>Not found · Pulsify</Title>
+			<Seo title="Not found · Pulsify" noindex />
 			<h1>Page not found</h1>
 			<p style={{ margin: "var(--space-4) 0 var(--space-5)" }}>
 				That page doesn't exist.

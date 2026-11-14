@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { For } from "solid-js";
 import { Button } from "~/components/Button";
 import { Card } from "~/components/Card";
@@ -58,12 +58,12 @@ const plans = [
 	{
 		name: "Free",
 		price: "€0",
-		text: "100 concurrent connections, 1M messages a month, 1 GB stored. Stops at the limits, never bills.",
+		text: "100 concurrent connections, 1M document opens and updates a month, 1 GB stored. Stops at the limits, never bills.",
 	},
 	{
 		name: "Pro",
 		price: "€25/month",
-		text: "Or €250/year. 1,000 concurrent connections, 5M messages a month and 10 GB included. Beyond: €2 per million messages, €0.50 per GB-month.",
+		text: "Or €250/year. 1,000 concurrent connections, 5M document opens and updates a month and 25 GB included. Beyond: €2 per million opens and updates, €0.50 per GB-month.",
 	},
 ];
 
@@ -77,7 +77,10 @@ export default function Cloud() {
 	return (
 		<Sky>
 			<main>
-				<Title>Cloud · Pulsify</Title>
+				<Seo
+					title="Pulsify Cloud: sync without servers"
+					description="A managed CRDT database for your pulses, on the edge. Swap the connector and never manage a database again."
+				/>
 				<section class={styles.hero}>
 					<div class={styles.inner}>
 						<h1 class={styles.title}>
@@ -143,9 +146,9 @@ export default function Cloud() {
 					<p class={styles.eyebrow}>Pricing</p>
 					<h2 class={styles.heading}>Pay for activity, not fan-out</h2>
 					<p class={styles.lead}>
-						Relay is included. Only messages sent by clients count: delivering
-						one change to fifty peers is still one message, and presence such as
-						cursors does not count.
+						Relay is included. Only what clients send counts: each document they
+						open and each batch of changes they upload. Delivering one update to
+						fifty peers counts once, and presence such as cursors is free.
 					</p>
 					<div class={`${styles.grid} ${styles.plans}`}>
 						<For each={plans}>

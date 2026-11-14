@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
@@ -93,7 +93,10 @@ const noSsr = `export const ssr = false;`;
 export default function Svelte() {
 	return (
 		<>
-			<Title>Svelte · Docs</Title>
+			<Seo
+				title="Svelte · Pulsify Docs"
+				description="pulsify-svelte makes pulses reactive in Svelte: what reads them re-renders after a local or remote change."
+			/>
 			<h1>Svelte</h1>
 			<p>
 				<code>pulsify-svelte</code> makes pulses reactive, as{" "}

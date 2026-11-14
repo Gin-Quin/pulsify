@@ -10,7 +10,7 @@
 	overflow: hidden;
 	pointer-events: none;
 	/* Same sky as the hero, tiled and faded in below the top of the page. */
-	background: url("/images/stars.png") center top / 100% auto repeat-y;
+	background: url("/images/stars.webp") center top / 100% auto repeat-y;
 	opacity: 0.5;
 	mask-image: linear-gradient(transparent, #000 8%);
 }

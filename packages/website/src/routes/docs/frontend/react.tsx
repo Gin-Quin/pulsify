@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { GITHUB_URL } from "~/components/links";
 import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
@@ -99,7 +99,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 export default function React() {
 	return (
 		<>
-			<Title>React · Docs</Title>
+			<Seo
+				title="React · Pulsify Docs"
+				description="pulsify-react hooks load a pulse with Suspense, show it and share presence. A component re-renders only when a value it read changes."
+			/>
 			<h1>React</h1>
 			<p>
 				<code>pulsify-react</code> exports three hooks.{" "}

@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -49,7 +49,10 @@ try {
 export default function Migrations() {
 	return (
 		<>
-			<Title>Migrations · Docs</Title>
+			<Seo
+				title="Migrations · Pulsify Docs"
+				description="Change the schema of CRDT documents that already live on thousands of devices, some of them offline. Pulsify migrates them for you."
+			/>
 			<h1>Migrations</h1>
 			<p>
 				Schemas change. Documents already exist on thousands of devices, some of

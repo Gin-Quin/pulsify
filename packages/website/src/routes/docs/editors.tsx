@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { Tabs } from "~/components/Tabs";
@@ -147,7 +147,10 @@ view.destroy();`;
 export default function Editors() {
 	return (
 		<>
-			<Title>Rich text editors · Docs</Title>
+			<Seo
+				title="Rich text editors · Pulsify Docs"
+				description="Bind ProseMirror, Lexical or a code editor to a collaborative text field, with shared undo history, remote cursors and anchors."
+			/>
 			<h1>Rich text editors</h1>
 			<p>
 				Bind an existing editor to a <code>richText()</code> field. Text uses
@@ -311,7 +314,8 @@ export default function Editors() {
 					<strong>Presence can arrive before the text it points into.</strong>{" "}
 					Resolving returns <code>undefined</code> until the character is there,
 					so resolve again after the document changes. The bindings do it for
-					the cursors they draw.
+					the cursors they draw, and meanwhile keep a peer's cursor where it
+					was, for up to 1.5 seconds.
 				</li>
 				<li>
 					Without an editor, a field has the same pair in text indices, which

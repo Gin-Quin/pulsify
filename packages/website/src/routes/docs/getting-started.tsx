@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -73,7 +73,10 @@ async function openNote(id: string) {
 export default function GettingStarted() {
 	return (
 		<>
-			<Title>Getting started · Docs</Title>
+			<Seo
+				title="Getting started · Pulsify Docs"
+				description="Install Pulsify and build a collaborative document that renders instantly, edits offline and syncs with a remote database."
+			/>
 			<h1>Getting started</h1>
 			<p>
 				From an empty file to a document that renders instantly, edits offline

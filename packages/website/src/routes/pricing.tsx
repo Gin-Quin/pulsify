@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import {
@@ -24,11 +24,12 @@ const rows: [string, ...(string | true)[]][] = [
 	["React, Vue, Solid and Svelte bindings", true, true, true],
 	["ProseMirror, Lexical and CodeMirror bindings", true, true, true],
 	["Local persistence and offline editing", true, true, true],
+	["Relay server", "You host it", "Managed", "Managed"],
 	[
-		"Relay and storage",
-		"You host them, on your database",
-		"Managed",
-		"Managed",
+		"Storage",
+		"Your database",
+		"Managed, 1 GB",
+		"Managed, 25 GB, then €0.50 per GB-month",
 	],
 	[
 		"Access control",
@@ -38,14 +39,13 @@ const rows: [string, ...(string | true)[]][] = [
 	],
 	["Concurrent connections", "Unmetered", "100", "1,000"],
 	[
-		"Messages a month",
+		"Document opens and updates a month",
 		"Unmetered",
 		"1 million",
 		"5 million, then €2 per million",
 	],
-	["Storage", "Unmetered", "1 GB", "10 GB, then €0.50 per GB-month"],
 	[
-		"Beyond messages or storage",
+		"Beyond updates or storage",
 		"Not applicable",
 		"Uploads stop, reading keeps working",
 		"Billed, never blocked",
@@ -56,6 +56,8 @@ function Plan(props: {
 	icon: IconName;
 	name: string;
 	price: string;
+	/** A second price, smaller and green, under the first. */
+	yearly?: string;
 	text: string;
 	children: JSX.Element;
 }) {
@@ -63,7 +65,12 @@ function Plan(props: {
 		<Card class={styles.feature}>
 			<Icon name={props.icon} size="1.6rem" class={styles.icon} />
 			<h2 class={styles.featureTitle}>{props.name}</h2>
-			<p class={styles.heading}>{props.price}</p>
+			<p class={styles.heading}>
+				{props.price}
+				<Show when={props.yearly}>
+					<small class={styles.yearly}>{props.yearly}</small>
+				</Show>
+			</p>
 			<p class={styles.text}>{props.text}</p>
 			<div class={styles.planActions}>{props.children}</div>
 		</Card>
@@ -99,7 +106,10 @@ export default function Pricing() {
 	return (
 		<Sky>
 			<main class={styles.starryTop}>
-				<Title>Pricing · Pulsify</Title>
+				<Seo
+					title="Pricing · Pulsify"
+					description="The Pulsify CRDT engine is free and open source. Pulsify Cloud has a free plan, and Pro costs €25 a month for 25 times the storage and ten times the connections."
+				/>
 				<section class={`${styles.section} ${styles.plansHead}`}>
 					<h1 class={styles.title}>
 						Free CRDT engine.
@@ -133,7 +143,8 @@ export default function Pricing() {
 							icon="bolt"
 							name="Cloud Pro"
 							price="€25/month"
-							text="Or €250/year. Ten times the storage and connections, and usage beyond the included amounts is billed instead of blocked."
+							yearly="Or €250/year"
+							text="25 times the storage, ten times the connections, and usage beyond the included amounts is billed instead of blocked."
 						>
 							<Button icon="arrow" disabled={busy()} onClick={upgrade}>
 								Go Pro
@@ -151,9 +162,9 @@ export default function Pricing() {
 					<Card class={styles.compare}>
 						<h2 class={styles.heading}>What is included</h2>
 						<p class={styles.text}>
-							In the cloud, only messages sent by clients count: delivering one
-							change to fifty peers is one message, and presence such as cursors
-							does not count.
+							In the cloud, only what clients send counts: each document they
+							open and each batch of changes they upload. Delivering one update
+							to fifty peers counts once, and presence such as cursors is free.
 						</p>
 						<div class={styles.scroll}>
 							<table class={`${styles.table} ${styles.highlightLast}`}>

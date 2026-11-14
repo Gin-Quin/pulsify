@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -143,7 +143,10 @@ Bun.serve<Session>({
 export default function Presence() {
 	return (
 		<>
-			<Title>Presence · Docs</Title>
+			<Seo
+				title="Presence · Pulsify Docs"
+				description="Share live state that is never stored, such as who is online, pointers and selections, with every peer subscribed to a pulse."
+			/>
 			<h1>Presence</h1>
 			<p>
 				Presence is live state that is <strong>shared but never stored</strong>:

@@ -4,5 +4,10 @@
 	"account_id": "0607b213538e700239aa5e3f48cc2737",
 	"compatibility_date": "2026-11-05",
 	"routes": [{ "pattern": "pulsify.cloud", "custom_domain": true }],
-	"assets": { "directory": ".output/public" },
+	"assets": {
+		"directory": ".output/public",
+		// Serve /docs/index.html at /docs, as every link writes it, and redirect /docs/ there.
+		"html_handling": "drop-trailing-slash",
+		"not_found_handling": "404-page",
+	},
 }

@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
@@ -84,7 +84,10 @@ const stop = cloud.onRole((docId, role) => {
 export default function CloudAuthentication() {
 	return (
 		<>
-			<Title>Cloud authentication · Docs</Title>
+			<Seo
+				title="Cloud authentication · Pulsify Docs"
+				description="Your backend signs a token that says who the user is; a grant table in each root says what they may do. The cloud checks both."
+			/>
 			<h1>Authentication</h1>
 			<p>
 				Authentication is built in and split in two. A <strong>token</strong>{" "}

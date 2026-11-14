@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -146,7 +146,10 @@ doc.outline.toJSON();               // { id, data, children }[]`;
 export default function Values() {
 	return (
 		<>
-			<Title>Values · Docs</Title>
+			<Seo
+				title="Values · Pulsify Docs"
+				description="What a pulse can hold: primitives, objects, maps, arrays, tuples, unions, plain text, rich text and trees, and how each one merges."
+			/>
 			<h1>Values</h1>
 			<p>
 				Everything the codec can describe, Pulsify can synchronize. Fields are

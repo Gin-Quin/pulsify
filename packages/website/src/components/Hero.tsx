@@ -6,7 +6,7 @@ import styles from "./Hero.module.css";
 export function Hero() {
 	return (
 		<section class={styles.hero}>
-			<img class={styles.planet} src="/images/planet.png" alt="" />
+			<img class={styles.planet} src="/images/planet.webp" alt="" />
 			<div class={styles.inner}>
 				<div class={styles.copy}>
 					<h1 class={styles.title}>

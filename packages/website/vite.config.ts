@@ -9,7 +9,15 @@ export default defineConfig({
 		nitro({
 			preset: "static",
 			prerender: {
-				routes: ["/", "/docs", "/cloud", "/benchmarks", "/dashboard"],
+				// 404.html is the page Workers assets serve for unknown URLs.
+				routes: [
+					"/",
+					"/docs",
+					"/cloud",
+					"/benchmarks",
+					"/dashboard",
+					"/404.html",
+				],
 				crawlLinks: true,
 			},
 		}),

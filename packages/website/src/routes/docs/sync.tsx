@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -111,7 +111,10 @@ const connector: Connector = {
 export default function Sync() {
 	return (
 		<>
-			<Title>Sync and offline · Docs</Title>
+			<Seo
+				title="Sync and offline · Pulsify Docs"
+				description="How a pulse synchronizes through connectors: the ready, connected and synced milestones, offline edits, statuses, batching and custom transports."
+			/>
 			<h1>Sync and offline</h1>
 			<p>
 				A pulse synchronizes through connectors. Each connector opens one

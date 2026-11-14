@@ -13,7 +13,7 @@ export function Footer() {
 	return (
 		<Show when={!location.pathname.startsWith("/docs")}>
 			<footer class={styles.footer} classList={{ [styles.bare]: bare() }}>
-				<img class={styles.mountains} src="/images/mountains.png" alt="" />
+				<img class={styles.mountains} src="/images/mountains.webp" alt="" />
 				<Show when={!bare()}>
 					<div class={styles.inner}>
 						<Logo />

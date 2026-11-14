@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bun run benchmarks:data && vite dev",
-		"build": "bun run benchmarks:data && vite build",
+		"build": "bun run benchmarks:data && vite build && bun scripts/seo-files.ts",
 		"benchmarks:data": "bun scripts/benchmark-data.ts",
 		"preview": "bunx serve .output/public",
 		"typecheck": "tsc --noEmit -p tsconfig.json"

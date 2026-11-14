@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { Tabs } from "~/components/Tabs";
@@ -79,7 +79,10 @@ const notebook = await loadPulse(Notebook, user.id, {
 export default function LocalPersistence() {
 	return (
 		<>
-			<Title>Local persistence · Docs</Title>
+			<Seo
+				title="Local persistence · Pulsify Docs"
+				description="Store a pulse's history on the device: documents open without a network, offline edits survive restarts and upload once a server is reachable."
+			/>
 			<h1>Local persistence</h1>
 			<p>
 				A pulse lives in memory. A <strong>local connector</strong> stores its

@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
@@ -127,7 +127,10 @@ Text frames:   {"type":"welcome","server":{backend,id,location?}} server → cli
 export default function CloudOverview() {
 	return (
 		<>
-			<Title>How Pulsify Cloud works · Docs</Title>
+			<Seo
+				title="How Pulsify Cloud works · Pulsify Docs"
+				description="Pulsify Cloud is a managed CRDT database: each root is a Durable Object with its own SQLite database. Keep your code and change only the connector."
+			/>
 			<h1>How Pulsify Cloud works</h1>
 			<p>
 				Pulsify Cloud is the managed, paid backend for your pulses: a CRDT

@@ -2,7 +2,7 @@
 	position: relative;
 	/* Clip sideways only, so the border glow can spill below. */
 	overflow-x: clip;
-	background: url("/images/stars.png") center bottom / cover no-repeat;
+	background: url("/images/stars.webp") center bottom / cover no-repeat;
 	/* Bottom padding leaves room for the earth, which ends on the border. */
 	padding: var(--space-8) 0
 		calc(var(--hero-planet-width) * 0.09 + var(--space-6));

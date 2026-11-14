@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { createSignal, onMount, Show } from "solid-js";
 import { api, type Account, messageOf } from "~/components/account";
@@ -31,7 +31,7 @@ export default function SignIn() {
 	return (
 		<Sky class={styles.fullHeight}>
 			<main class={`${styles.page} ${styles.signIn}`}>
-				<Title>Sign in · Pulsify Cloud</Title>
+				<Seo title="Sign in · Pulsify Cloud" noindex />
 				<SignInCard
 					expired={expired()}
 					onSignIn={() => navigate("/dashboard")}

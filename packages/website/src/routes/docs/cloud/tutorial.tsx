@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 
@@ -187,7 +187,10 @@ await adminClient.usage("alice");
 export default function CloudTutorial() {
 	return (
 		<>
-			<Title>Tutorial: a notes app · Docs</Title>
+			<Seo
+				title="Tutorial: a notes app · Pulsify Docs"
+				description="Build a notes app on Pulsify Cloud: a notebook per user, rich-text notes in ProseMirror, live sync, offline editing and sharing."
+			/>
 			<h1>Tutorial: a notes app</h1>
 			<p>
 				We build a small notes app on Pulsify Cloud. Each user owns a{" "}

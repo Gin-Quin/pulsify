@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { DefaultConnectors, NeverOnTheServer } from "~/components/Frontend";
@@ -113,7 +113,10 @@ const clientOnly = `<template>
 export default function Vue() {
 	return (
 		<>
-			<Title>Vue · Docs</Title>
+			<Seo
+				title="Vue · Pulsify Docs"
+				description="pulsify-vue makes pulses reactive in Vue, as reactive does for a plain object: what reads them re-renders after a local or remote change."
+			/>
 			<h1>Vue</h1>
 			<p>
 				<code>pulsify-vue</code> makes pulses reactive, as <code>reactive</code>{" "}

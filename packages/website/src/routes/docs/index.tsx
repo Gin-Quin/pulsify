@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 
 const typed = `const Todo = definePulse("Todo", object({
@@ -14,7 +14,10 @@ todo.done = "yes";       // TypeScript error, and rejected at runtime`;
 export default function Why() {
 	return (
 		<>
-			<Title>Why Pulsify · Docs</Title>
+			<Seo
+				title="Why Pulsify · Pulsify Docs"
+				description="Pulsify is a CRDT framework for TypeScript: typed collaborative documents that look like plain objects, merge without conflicts and persist in your database."
+			/>
 			<h1>Why Pulsify</h1>
 			<p>
 				Pulsify is a CRDT framework for TypeScript. A <strong>pulse</strong> is

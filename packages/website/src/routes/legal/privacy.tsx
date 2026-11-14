@@ -1,10 +1,13 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { Contact, EFFECTIVE_DATE, OPERATOR } from "~/components/legal";
 
 export default function Privacy() {
 	return (
 		<>
-			<Title>Privacy Policy · Pulsify</Title>
+			<Seo
+				title="Privacy Policy · Pulsify"
+				description="What personal data Pulsify handles, why and for how long. No analytics, no ads, no tracking cookies."
+			/>
 			<h1>Privacy Policy</h1>
 			<p>Effective {EFFECTIVE_DATE}.</p>
 			<p>

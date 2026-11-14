@@ -3,7 +3,7 @@
 	/* Clip sideways only, so the border glow can spill below. */
 	overflow-x: clip;
 	padding: var(--space-9) var(--space-5) calc(var(--space-9) * 1.2);
-	background: url("/images/stars.png") center / cover no-repeat;
+	background: url("/images/stars.webp") center / cover no-repeat;
 	border-bottom: var(--border-width) solid var(--color-divider);
 	text-align: center;
 }
@@ -146,7 +146,7 @@
 	z-index: -1;
 	inset: 0 0 auto;
 	height: 44rem;
-	background: url("/images/stars.png") center top / cover no-repeat;
+	background: url("/images/stars.webp") center top / cover no-repeat;
 	mask-image: linear-gradient(#000 50%, transparent);
 	pointer-events: none;
 }
@@ -169,6 +169,12 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-3);
+}
+
+.yearly {
+	display: block;
+	color: var(--color-accent-2);
+	font-size: var(--font-size-sm);
 }
 
 .featureTitle {

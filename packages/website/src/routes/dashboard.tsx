@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import { useSearchParams } from "@solidjs/router";
 import {
 	createEffect,
@@ -175,7 +175,7 @@ export default function Dashboard() {
 
 	return (
 		<Sky class={styles.fullHeight}>
-			<Title>Dashboard · Pulsify Cloud</Title>
+			<Seo title="Dashboard · Pulsify Cloud" noindex />
 			<Switch
 				fallback={
 					<main class={styles.page}>
@@ -282,7 +282,7 @@ export default function Dashboard() {
 											<For
 												each={[
 													{
-														label: "Messages",
+														label: "Document opens and updates",
 														used: current().usage.messages,
 														limit: current().limits.messages,
 														format: (n: number) => count.format(n),
@@ -351,9 +351,9 @@ export default function Dashboard() {
 											>
 												<p class={cloud.text}>
 													Usage above the included amounts is billed, not
-													blocked: €2 per million messages and €0.50 per
-													GB-month, excluding VAT. Above the connection limit,
-													new sockets are refused.
+													blocked: €2 per million opens and updates and €0.50
+													per GB-month, excluding VAT. Above the connection
+													limit, new sockets are refused.
 												</p>
 												<div class={styles.actions}>
 													<Button

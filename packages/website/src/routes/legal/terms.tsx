@@ -1,4 +1,4 @@
-import { Title } from "@solidjs/meta";
+import { Seo } from "~/components/Seo";
 import {
 	CLOUD_LICENSE_URL,
 	Contact,
@@ -10,7 +10,10 @@ import {
 export default function Terms() {
 	return (
 		<>
-			<Title>Terms of Service · Pulsify Cloud</Title>
+			<Seo
+				title="Terms of Service · Pulsify Cloud"
+				description="The contract between you and us for Pulsify Cloud."
+			/>
 			<h1>Pulsify Cloud Terms of Service</h1>
 			<p>Effective {EFFECTIVE_DATE}.</p>
 			<p>
