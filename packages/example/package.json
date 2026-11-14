@@ -1,0 +1,33 @@
+{
+	"name": "pulsify-example",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"setup": "bun setup.ts",
+		"dev": "vite",
+		"build": "vite build"
+	},
+	"dependencies": {
+		"@codemirror/commands": "^6.11.1",
+		"@codemirror/state": "^6.7.6",
+		"@codemirror/view": "^6.43.15",
+		"prosemirror-commands": "^1.7.2",
+		"prosemirror-keymap": "^1.2.3",
+		"prosemirror-model": "^1.25.12",
+		"prosemirror-schema-basic": "^1.2.5",
+		"prosemirror-schema-list": "^1.6.0",
+		"prosemirror-state": "^1.4.4",
+		"prosemirror-view": "^1.42.9",
+		"pulsify-cloud": "workspace:*",
+		"pulsify-codemirror": "workspace:*",
+		"pulsify-core": "workspace:*",
+		"pulsify-prosemirror": "workspace:*",
+		"pulsify-svelte": "workspace:*",
+		"svelte": "^5.57.3"
+	},
+	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"vite": "^8.3.6"
+	}
+}

@@ -39,9 +39,11 @@
 		"format:fix": "bun fmt",
 		"dev:website": "bun run dev:service & bun run --cwd packages/website dev",
 		"dev:service": "bunx wrangler dev -c packages/cloud-service/wrangler.jsonc --port 8787 --show-interactive-dev-session=false --var API_URL:http://localhost:8787 --var DASHBOARD_URL:http://localhost:3000/dashboard --var POLAR_API_URL:https://sandbox-api.polar.sh --var DEV_LOGIN_CODE:444444",
+		"dev:example": "bun run --cwd packages/example setup && bun run --cwd packages/example dev",
 		"build:website": "bun run --cwd packages/website build",
 		"deploy:website": "bun run build:website && bunx wrangler deploy -c packages/website/wrangler.jsonc",
 		"deploy:cloudflare": "bunx wrangler deploy -c packages/cloud-server/cloudflare/wrangler.jsonc",
+		"deploy:example": "bun run --cwd packages/example build && bunx wrangler deploy -c packages/example/wrangler.jsonc",
 		"deploy:service": "bunx wrangler deploy -c packages/cloud-service/wrangler.jsonc"
 	},
 	"trustedDependencies": [

@@ -1,0 +1,110 @@
+* {
+	box-sizing: border-box;
+	border-radius: 0 !important;
+}
+body {
+	margin: 0;
+	font:
+		14px/1.5 system-ui,
+		sans-serif;
+	color: #000;
+	background: #fff;
+}
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: #000;
+	background: #fff;
+	border: 1px solid #000;
+	padding: 2px 6px;
+}
+button {
+	cursor: pointer;
+}
+button:hover,
+button.active {
+	background: #000;
+	color: #fff;
+}
+.app {
+	display: grid;
+	grid-template: auto 1fr / 280px 1fr;
+	height: 100vh;
+}
+header {
+	grid-column: 1 / -1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 16px;
+	align-items: center;
+	padding: 6px 12px;
+	border-bottom: 1px solid #000;
+}
+aside {
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid #000;
+	overflow: auto;
+}
+main {
+	overflow: auto;
+	padding: 16px 24px;
+}
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 8px;
+	border-bottom: 1px solid #000;
+}
+.row {
+	padding: 2px 8px;
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+.row.selected {
+	background: #000;
+	color: #fff;
+}
+.drop-root {
+	flex: 1;
+	min-height: 40px;
+}
+small {
+	color: #555;
+}
+.row.selected small {
+	color: #ccc;
+}
+.ProseMirror,
+.cm-editor {
+	min-height: 320px;
+	border: 1px solid #000;
+}
+.ProseMirror {
+	padding: 8px 12px;
+	outline: none;
+}
+.cm-editor.cm-focused {
+	outline: none;
+}
+.cm-content {
+	font-family: ui-monospace, monospace;
+}
+fieldset {
+	border: 1px solid #000;
+	margin: 0 0 12px;
+}
+label {
+	display: block;
+	margin: 4px 0;
+}
+table {
+	border-collapse: collapse;
+}
+td {
+	padding: 2px 4px 2px 0;
+}
