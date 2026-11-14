@@ -6,13 +6,15 @@ import {
 	$createParagraphNode,
 	$createTextNode,
 	$isTextNode,
+	$getSelection,
+	$isRangeSelection,
 	HISTORY_PUSH_TAG,
 	HISTORY_MERGE_TAG,
 	UNDO_COMMAND,
 	CAN_UNDO_COMMAND,
 	COMMAND_PRIORITY_LOW,
 } from "lexical";
-import { EditorState } from "prosemirror-state";
+import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { schema } from "prosemirror-schema-basic";
 import {
@@ -145,6 +147,14 @@ function bind(
 				),
 			undo: () => pmUndo(view.state, view.dispatch),
 			redo: () => pmRedo(view.state, view.dispatch),
+			select(at: number) {
+				view.dispatch(
+					view.state.tr.setSelection(
+						TextSelection.create(view.state.doc, at + 1),
+					),
+				);
+			},
+			caret: () => view.state.selection.head - 1,
 		};
 	}
 	const editor = createHeadlessEditor({
@@ -195,6 +205,16 @@ function bind(
 		bold: () => editor.read(() => firstText().hasFormat("bold")),
 		undo: () => editor.dispatchCommand(UNDO_COMMAND, undefined),
 		redo: () => history.redo(),
+		select(at: number) {
+			update(() => {
+				firstText().select(at, at);
+			});
+		},
+		caret: () =>
+			editor.read(() => {
+				const selection = $getSelection();
+				return $isRangeSelection(selection) ? selection.focus.offset : -1;
+			}),
 	};
 }
 afterEach(() => {
@@ -216,6 +236,23 @@ test("both packages export the same plugin factory and validate its options", ()
 	expect(history.redo()).toBe(false);
 });
 for (const kind of ["ProseMirror", "Lexical"] as const) {
+	test(`${kind}: undo and redo put the cursor after the text they restore`, () => {
+		const pulse = create(),
+			editor = bind(kind, pulse, createPulsifyHistory());
+		editor.select(1);
+		editor.insert(1, "LM");
+		editor.select(3);
+		expect(editor.undo()).toBe(true);
+		expect(editor.caret()).toBe(1);
+		expect(editor.redo()).toBe(true);
+		expect(pulse.body.text).toBe("aLMb");
+		expect(editor.caret()).toBe(3);
+		// Undoing a deletion restores the text before the cursor, as it was.
+		editor.remove(1, 2);
+		editor.select(1);
+		expect(editor.undo()).toBe(true);
+		expect(editor.caret()).toBe(3);
+	});
 	test(`${kind}: adjacent typing groups, explicit boundaries, subscriptions and cleanup`, () => {
 		const pulse = create(),
 			history = createPulsifyHistory(),

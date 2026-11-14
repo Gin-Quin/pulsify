@@ -161,6 +161,7 @@ export function bindLexical(
 		editor.dispatchCommand(CAN_UNDO_COMMAND, history.canUndo);
 		editor.dispatchCommand(CAN_REDO_COMMAND, history.canRedo);
 	};
+	// `pull(false)` renders an undo or redo of this editor.
 	const pull = (flush = true) => {
 		if (disposed || writing) return;
 		try {
@@ -177,6 +178,7 @@ export function bindLexical(
 				},
 				context,
 				schemaId,
+				!flush,
 			);
 			history.stopCapturing();
 		} catch (error) {
@@ -376,6 +378,7 @@ export function bindLexical(
 			if (sharing.draw !== false && !editor._headless)
 				overlay = drawSelections(
 					editor,
+					context.pulse as Pulse<any>,
 					presence,
 					(anchor) =>
 						disposed ? undefined : pointOfAnchor(context, rendered, anchor),
@@ -452,6 +455,8 @@ function applyDocument(
 	adopt: (view: DocumentView) => void,
 	context: RichTextContext,
 	schemaId: string,
+	/** An undo or redo of this editor: what it restores at the cursor goes before it. */
+	restoring = false,
 ): void {
 	// Validate custom node imports outside the live update, even if the app's
 	// Lexical onError logs errors instead of throwing them.
@@ -481,7 +486,10 @@ function applyDocument(
 		() => {
 			const ids = new Map<string, string>(),
 				used = new Set<string>(),
-				runtime = new Map<string, { key: string; offset: number }>();
+				runtime = new Map<string, { key: string; offset: number }>(),
+				kept = new Set(previous?.tokens.map((token) => token.entry?.id)),
+				// Characters new in this render, by `key:offset`: their length.
+				restored = new Map<string, number>();
 			const build = (tree: Tree): LexicalNode => {
 				const key = tree.id
 					? oldNodes.get(tree.id)
@@ -512,14 +520,25 @@ function applyDocument(
 				if ($isTextNode(node)) {
 					let offset = 0;
 					for (const token of tree.tokens) {
-						if (token.entry)
+						if (token.entry) {
 							runtime.set(token.entry.id, { key: node.getKey(), offset });
+							if (!kept.has(token.entry.id))
+								restored.set(`${node.getKey()}:${offset}`, token.value.length);
+						}
 						offset += token.value.length;
 					}
 				}
 				return node;
 			};
 			build(next.tree);
+			// ponytail: skips restored text within one text node only; a restored
+			// block or format change keeps the cursor before it.
+			const after = (key: string, offset: number) => {
+				if (restoring)
+					for (let size; (size = restored.get(`${key}:${offset}`));)
+						offset += size;
+				return offset;
+			};
 			if (previous?.selection && "anchor" in previous.selection) {
 				const point = (old: Point): Point | undefined => {
 					if (old.type === "text") {
@@ -538,7 +557,7 @@ function applyDocument(
 						if (a)
 							return {
 								key: a.key,
-								offset: a.offset + left!.value.length,
+								offset: after(a.key, a.offset + left!.value.length),
 								type: "text",
 							};
 						if (b) return { key: b.key, offset: b.offset, type: "text" };

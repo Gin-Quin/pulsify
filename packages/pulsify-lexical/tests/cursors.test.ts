@@ -553,6 +553,44 @@ test("an anchor that arrives before its character is drawn once it is there", as
 	);
 });
 
+test("a caret stays drawn while the characters it moved after are on their way", async () => {
+	const { a, b } = await pair(),
+		right = mounted(b, { selection: true });
+	const seen = joinPresence(b, RichTextSelection),
+		mine = joinPresence(a, RichTextSelection);
+	const at = (anchor: string) => ({
+		anchor,
+		head: anchor,
+		name: "Ada",
+		color: "",
+	});
+	mine.set(
+		at(
+			right.binding.anchorAt({
+				key: right.editor.read(() => firstText().getKey()),
+				offset: 3,
+			}),
+		),
+	);
+	await eventually(() => expect(carets(right.container)).toHaveLength(1));
+	// Presence is relayed at once, the edit is not: hold the edit back.
+	const ahead = replica(a),
+		writer = headless(ahead);
+	run(writer.editor, () => firstText().spliceText(5, 0, "!"));
+	const typed = writer.binding.anchorAt({
+		key: writer.editor.read(() => firstText().getKey()),
+		offset: 6,
+	});
+	mine.set(at(typed));
+	await eventually(() => expect(seen.others[0]!.state.head).toBe(typed));
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(carets(right.container)).toHaveLength(1);
+	applyPulseUpdates(b, exportPulseUpdates(ahead, []));
+	expect(caret(right.editor, right.binding, typed)).toBe("Hello!| world");
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(carets(right.container)).toHaveLength(1);
+});
+
 test("a selected range is drawn with one element per rectangle", async () => {
 	const { b, left } = await pair(),
 		right = mounted(b, { selection: true }),

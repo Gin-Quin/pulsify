@@ -42,3 +42,4 @@ export {
 	type PulsifyHistory,
 	type PulsifyHistoryOptions,
 } from "./core/editorHistory.js";
+export { heldSelections } from "./presence/heldSelections.js";

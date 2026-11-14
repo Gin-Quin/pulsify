@@ -495,6 +495,35 @@ test("a selection that arrives before its character is drawn once the character 
 	expect(textBeforeCaret(right.view)).toBe("Hello there");
 });
 
+test("a caret stays where it was while the characters it moved after are on their way", async () => {
+	const { a, b, left, right } = await pair(undefined, { selection: true });
+	const mine = joinPresence(a, RichTextSelection);
+	const others = joinPresence(b, RichTextSelection);
+	const at = (anchor: string) => ({
+		anchor,
+		head: anchor,
+		name: "Ada",
+		color: "",
+	});
+	mine.set(at(left.binding.anchorAt(6)));
+	await eventually(() => expect(textBeforeCaret(right.view)).toBe("Hello"));
+	// Presence is relayed at once, the edit is not: hold the edit back.
+	const c = createRuntime(Note, a.id, offline(sid++)) as Note;
+	pulses.push(c);
+	applyPulseUpdates(c, exportPulseUpdates(a, []));
+	c.body.insert(5, "!");
+	const typed = c.body.anchorAt(6);
+	mine.set(at(typed));
+	await eventually(() => expect(others.others[0]!.state.head).toBe(typed));
+	expect(carets(right.view)).toHaveLength(1);
+	expect(textBeforeCaret(right.view)).toBe("Hello");
+	applyPulseUpdates(b, exportPulseUpdates(c, []));
+	expect(textBeforeCaret(right.view)).toBe("Hello!");
+	// A peer gone to another field leaves this one at once.
+	mine.set(at(a.other.anchorAt(2)));
+	await eventually(() => expect(carets(right.view)).toEqual([]));
+});
+
 test("a selection in another field is not drawn; a peer without a color gets one from its number", async () => {
 	const { a, b, left, right } = await pair(undefined, { selection: true });
 	const others = joinPresence(b, RichTextSelection);
@@ -563,6 +592,29 @@ test("a binding withdraws only the selection it shared, even at the same positio
 	expect(mine.mine?.name).toBe("Second");
 	second.binding.destroy();
 	expect(mine.mine).toBeUndefined();
+});
+
+test("undo and redo put the cursor after the text they restore, here and for the others", async () => {
+	const { left, right } = await pair(
+		{ selection: { name: "Ada" } },
+		{ selection: true },
+	);
+	const before = (view: EditorView) =>
+		view.state.doc.textBetween(0, view.state.selection.head);
+	focus(left.view);
+	select(left.view, 12);
+	left.view.dispatch(left.view.state.tr.insertText("!?"));
+	expect(left.binding.undo()).toBe(true);
+	expect(before(left.view)).toBe("Hello world");
+	expect(left.binding.redo()).toBe(true);
+	expect(before(left.view)).toBe("Hello world!?");
+	await eventually(() =>
+		expect(textBeforeCaret(right.view)).toBe("Hello world!?"),
+	);
+	// Undoing a deletion restores the text before the cursor, as it was.
+	left.view.dispatch(left.view.state.tr.delete(6, 13));
+	expect(left.binding.undo()).toBe(true);
+	expect(before(left.view)).toBe("Hello world!?");
 });
 
 test("undo and redo keep remote cursors and anchors usable", async () => {

@@ -26,6 +26,7 @@ import {
 	richTextContext,
 	createPulsifyHistory,
 	connectEditorHistory,
+	heldSelections,
 	type PulsifyHistory,
 	type PulsifyHistoryOptions,
 } from "pulsify-core/bindings";
@@ -150,6 +151,9 @@ export function bindProseMirror(
 		unsubscribe = undefined;
 	};
 	let presence: Presence<SharedSelection> | undefined;
+	let held:
+		| ReturnType<typeof heldSelections<SharedSelection, [number, number]>>
+		| undefined;
 	let stopDrawing: (() => void) | undefined;
 	let focused = false;
 	const owner = {};
@@ -177,11 +181,12 @@ export function bindProseMirror(
 		if (!presence || disposed) return DecorationSet.empty;
 		const size = doc.content.size;
 		const decorations: Decoration[] = [];
-		for (const { peer, state } of presence.others) {
-			const anchor = positionOfAnchor(context, rendered, state.anchor);
-			const head = positionOfAnchor(context, rendered, state.head);
-			// Another field, or a character that has not arrived yet.
-			if (anchor === undefined || head === undefined) continue;
+		// A peer whose characters have not arrived yet keeps its last selection.
+		for (const {
+			peer,
+			state,
+			resolved: [anchor, head],
+		} of held!.resolve(presence.others))
 			decorations.push(
 				...peerDecorations(
 					doc,
@@ -191,7 +196,6 @@ export function bindProseMirror(
 					Math.min(head, size),
 				),
 			);
-		}
 		return DecorationSet.create(doc, decorations);
 	};
 	// Redraw through a transaction that changes neither the document, the
@@ -205,6 +209,8 @@ export function bindProseMirror(
 			view.state.tr.setMeta(key, "selection").setMeta("addToHistory", false),
 		);
 	};
+	// Set while this binding renders its own undo or redo.
+	let replaying = false;
 	const pull = () => {
 		if (syncing || disposed || view.isDestroyed) return;
 		try {
@@ -226,6 +232,7 @@ export function bindProseMirror(
 					previous,
 					{ ...next, doc: tr.doc },
 					tr.mapping,
+					replaying,
 				),
 			);
 			view.dispatch(tr);
@@ -253,7 +260,12 @@ export function bindProseMirror(
 			} finally {
 				syncing = false;
 			}
-			pull();
+			replaying = true;
+			try {
+				pull();
+			} finally {
+				replaying = false;
+			}
 		},
 	});
 	const historyPlugin = new Plugin<PulsifyHistory>({
@@ -374,6 +386,7 @@ export function bindProseMirror(
 			release();
 			stopDrawing?.();
 			withdraw();
+			held?.destroy();
 			presence?.leave();
 			presence = undefined;
 			if (bindings.get(view) === binding) bindings.delete(view);
@@ -401,8 +414,21 @@ export function bindProseMirror(
 		// Establish stable anchors once, after the history plugin has connected.
 		writeDocument(context, rendered.doc, rendered);
 		rendered = readDocument(context, schema);
-		if (sharing)
+		if (sharing) {
 			presence = joinPresence(context.pulse as Pulse<any>, RichTextSelection);
+			held = heldSelections(
+				context.pulse as Pulse<any>,
+				(state: SharedSelection) => {
+					const anchor = positionOfAnchor(context, rendered, state.anchor);
+					const head = positionOfAnchor(context, rendered, state.head);
+					// Another field, or a character that has not arrived yet.
+					return anchor === undefined || head === undefined
+						? undefined
+						: ([anchor, head] as [number, number]);
+				},
+				() => redraw(),
+			);
+		}
 		// Initialize outside plugin.view: dispatching during construction would
 		// re-enter ProseMirror's plugin-view setup.
 		view.updateState(
@@ -654,13 +680,28 @@ function mapSelection(
 	before: DocumentView,
 	after: DocumentView,
 	mapping: Mapping,
+	/** An undo or redo of this editor: what it restores at the cursor goes before it. */
+	restoring = false,
 ): Selection {
 	const byId = new Map(
 		after.tokens
 			.filter((token) => token.entry)
 			.map((token) => [token.entry!.id, token]),
 	);
+	const kept = new Set(before.tokens.map((token) => token.entry?.id));
+	const restored = new Map(
+		after.tokens
+			.filter((token) => token.entry && !kept.has(token.entry.id))
+			.map((token) => [token.pos, token]),
+	);
 	const position = (pos: number): number => {
+		let at = surviving(pos);
+		if (restoring)
+			for (let token; (token = restored.get(at));)
+				at = token.pos + (token.size || 1);
+		return at;
+	};
+	const surviving = (pos: number): number => {
 		const block = before.nodes.find(
 			(span) =>
 				span.node.isTextblock &&

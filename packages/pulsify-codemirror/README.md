@@ -48,3 +48,27 @@ peer. Editor positions and `plainText()` indices both count UTF-16 code units.
 Remote changes are applied by comparing the editor document with the field,
 which reads both in full on every change of the pulse. Do not also install
 `@codemirror/collab` for the same document.
+
+## Remote cursors
+
+Pass `selection` to share your selection through presence and draw the caret
+and selected range of every other peer in the same field:
+
+```ts
+const binding = bindCodeMirror(view, file.code, {
+  selection: { name: "Ada", color: "#e5484d" },
+});
+```
+
+`selection: true` shares it without a name; a peer without a color gets one from
+its peer number, and `draw: false` shares yours without drawing the others. Your
+main selection is shared while the editor has the focus and withdrawn on blur
+and on `binding.destroy()`. Nothing is written to the document. Cursors need a
+connector that relays presence.
+
+Selections travel on the `RichTextSelection` channel as anchors of the field
+(`file.code.anchorAt(index)`), like those of the ProseMirror and Lexical
+bindings. A remote caret is a zero-width `<span data-peer="…">` widget with a
+colored left border and a label when the peer has a name; a selected range is
+a `<span data-peer-selection="…">` with a translucent background. A remote
+cursor never changes the local selection and never enters the undo history.

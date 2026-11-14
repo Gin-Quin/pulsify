@@ -1,5 +1,6 @@
 import { getDOMTextNode, type LexicalEditor } from "lexical";
-import { type Presence } from "pulsify-core";
+import { type Presence, type Pulse } from "pulsify-core";
+import { heldSelections } from "pulsify-core/bindings";
 import type { Point } from "./document.js";
 
 export type SelectionState = {
@@ -116,6 +117,7 @@ const peerColor = (peer: number): string =>
  */
 export function drawSelections(
 	editor: LexicalEditor,
+	pulse: Pulse<any>,
 	presence: Presence<SelectionState>,
 	pointOf: (anchor: string) => Point | undefined,
 	target?: HTMLElement,
@@ -140,19 +142,27 @@ export function drawSelections(
 							: Math.min(point.offset, element.childNodes.length),
 				};
 	};
+	// A peer whose characters have not arrived yet keeps its last selection.
+	const held = heldSelections(
+		pulse,
+		(state: SelectionState) => {
+			const anchor = pointOf(state.anchor),
+				head = pointOf(state.head);
+			const from = anchor && place(anchor),
+				to = head && place(head);
+			return from && to ? { from, to } : undefined;
+		},
+		() => schedule(),
+	);
 	const draw = () => {
 		frame = undefined;
 		const container = target ?? root?.parentElement;
 		const peers =
 			destroyed || !root || !container
 				? []
-				: presence.others.flatMap(({ peer, state }) => {
-						const anchor = pointOf(state.anchor),
-							head = pointOf(state.head);
-						const from = anchor && place(anchor),
-							to = head && place(head);
-						return from && to ? [{ peer, state, from, to }] : [];
-					});
+				: held
+						.resolve(presence.others)
+						.map(({ peer, state, resolved }) => ({ peer, state, ...resolved }));
 		// Nothing of this binding is in the page while there is nothing to show.
 		if (!root || !container || !peers.length) {
 			layer?.remove();
@@ -244,6 +254,7 @@ export function drawSelections(
 		destroy() {
 			if (destroyed) return;
 			destroyed = true;
+			held.destroy();
 			stopPresence();
 			stopRoot();
 			watch(null);
