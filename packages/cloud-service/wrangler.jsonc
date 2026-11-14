@@ -10,7 +10,7 @@
 	"vars": {
 		"API_URL": "https://api.pulsify.cloud",
 		"DASHBOARD_URL": "https://pulsify.cloud/dashboard",
-		"EMAIL_FROM": "Pulsify Cloud <login@pulsify.cloud>",
+		"EMAIL_FROM": "login@pulsify.cloud",
 		"POLAR_API_URL": "https://api.polar.sh",
 		"POLAR_PRO_MONTHLY": "dbc540da-8182-4481-a410-3eeb4f10d0eb",
 		"POLAR_PRO_YEARLY": "7cc7bd53-8f48-49fd-81c1-82d43dd5707e",

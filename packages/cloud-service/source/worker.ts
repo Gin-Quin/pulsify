@@ -122,7 +122,7 @@ async function sendLoginLink(
 		console.log(`Login for ${email}: code ${code}, link ${link}`);
 	await env.EMAIL.send({
 		to: email,
-		from: env.EMAIL_FROM,
+		from: { email: env.EMAIL_FROM, name: "Pulsify Cloud" },
 		subject: `${code} is your Pulsify Cloud sign-in code`,
 		text: `Your Pulsify Cloud sign-in code is ${code}. Or open this link:\n\n${link}\n\nBoth work for 15 minutes. If you did not ask for them, ignore this email.`,
 		html: `<p>Your Pulsify Cloud sign-in code is <strong>${code}</strong>.</p><p>Or <a href="${link}">open the dashboard</a>.</p><p>Both work for 15 minutes. If you did not ask for them, ignore this email.</p>`,
