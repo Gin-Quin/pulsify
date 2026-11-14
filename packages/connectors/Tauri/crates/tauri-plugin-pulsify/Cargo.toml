@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-pulsify"
-version = "12.0.0"
+version = "12.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/Gin-Quin/pulsify"
@@ -12,7 +12,7 @@ categories = ["database", "gui"]
 links = "tauri-plugin-pulsify"
 
 [dependencies]
-pulsify-sqlite = { version = "12.0.0", path = "../pulsify-sqlite" }
+pulsify-sqlite = { version = "12.1.0", path = "../pulsify-sqlite" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", default-features = false }
@@ -22,5 +22,5 @@ tauri-plugin = { version = "2", features = ["build"] }
 
 [dev-dependencies]
 glob = "0.3"
-pulsify-protocol = { version = "12.0.0", path = "../../../../../crates/pulsify-protocol" }
+pulsify-protocol = { version = "12.1.0", path = "../../../../../crates/pulsify-protocol" }
 tauri = { version = "2", default-features = false, features = ["test"] }

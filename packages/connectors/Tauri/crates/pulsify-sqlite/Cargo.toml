@@ -1,6 +1,6 @@
 [package]
 name = "pulsify-sqlite"
-version = "12.0.0"
+version = "12.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/Gin-Quin/pulsify"
@@ -11,6 +11,6 @@ keywords = ["pulsify", "crdt", "sqlite", "local-first", "sync"]
 categories = ["database"]
 
 [dependencies]
-pulsify-protocol = { version = "12.0.0", path = "../../../../../crates/pulsify-protocol" }
+pulsify-protocol = { version = "12.1.0", path = "../../../../../crates/pulsify-protocol" }
 rusqlite = { version = "0.41", features = ["bundled"] }
 serde_json = "1"
