@@ -4,7 +4,14 @@ import {
 	stateLastRow,
 	type StateDelta,
 } from "./stateDeltas.js";
-import { decodeCorePatch } from "../core/operations.js";
+import {
+	decodeCorePatch,
+	GAP_OPERATIONS,
+	isGap,
+	lastValueOf,
+	lastValueOfPatch,
+	type LastValue,
+} from "../core/operations.js";
 import {
 	scalarEntryOf,
 	scalarRunOf,
@@ -49,6 +56,8 @@ type ByteBudget = { metadata: number; encoded: number };
 class LocalPatchRow implements PulsePatchRow {
 	private cached: Uint8Array | undefined;
 	readonly nativePatch: ScalarPatch | undefined;
+	/** Set when the row is one last-value write, which a later one replaces. */
+	readonly last: LastValue | undefined;
 	private patch: Patch | undefined;
 	private encode: ToWire | undefined;
 	encodedBytes = 0;
@@ -64,7 +73,10 @@ class LocalPatchRow implements PulsePatchRow {
 		private readonly budget: ByteBudget,
 	) {
 		this.patch = patch;
-		this.nativePatch = patch instanceof ScalarPatch ? patch : undefined;
+		this.last = lastValueOfPatch(patch);
+		// The scalar transports rebuild history rows: a last-value write is not one.
+		this.nativePatch =
+			patch instanceof ScalarPatch && !this.last ? patch : undefined;
 		this.encode = encode;
 	}
 	get operations(): Uint8Array {
@@ -88,6 +100,48 @@ class LocalPatchRow implements PulsePatchRow {
 	}
 }
 
+/** A row without operations, covering sequence numbers of replaced writes. */
+export function isGapRow(row: PulsePatchRow): boolean {
+	return (
+		!(row instanceof LocalPatchRow) &&
+		!scalarEntryOf(row) &&
+		isGap(row.operations)
+	);
+}
+function gapRow(
+	docId: string,
+	sid: number,
+	clock: number,
+	span: number,
+): PulsePatchRow {
+	return {
+		docId,
+		sid,
+		clock,
+		span,
+		dependencies: clock > 1 ? [[sid, clock]] : [],
+		operations: GAP_OPERATIONS,
+	};
+}
+const lastOf = (row: PulsePatchRow): LastValue | undefined =>
+	row instanceof LocalPatchRow
+		? row.last
+		: scalarEntryOf(row)
+			? undefined
+			: lastValueOf(row.operations);
+/** Journal bytes charged for a row, besides the bytes a local row encodes later. */
+const cost = (row: PulsePatchRow): number =>
+	(row instanceof LocalPatchRow ? 0 : row.operations.length) +
+	row.dependencies.length * 16 +
+	row.docId.length * 2 +
+	40;
+function sameOperations(a: PulsePatchRow, b: PulsePatchRow): boolean {
+	const left = a.operations,
+		right = b.operations;
+	if (left.length !== right.length) return false;
+	for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return false;
+	return true;
+}
 function clockAt(vector: PulseVersionVector, sid: number): number {
 	let lo = 0,
 		hi = vector.length;
@@ -173,6 +227,11 @@ export class PatchLog {
 	private rowCount = 0;
 	private readonly byActor = new Map<number, PulsePatchRow[]>();
 	private readonly pending = new Map<string, PulsePatchRow>();
+	/** The row that holds each register without history: target, then field. */
+	private readonly registers = new Map<
+		string,
+		Map<string | number, { sid: number; clock: number; lamport: number }>
+	>();
 	private frontier: PulseVersionVector = [];
 	private readonly summaries: StateDelta[] = [];
 	private readonly statesByActor = new Map<number, StateDelta[]>();
@@ -229,6 +288,7 @@ export class PatchLog {
 		beforeCommit?: (ready: PulsePatchRow[]) => void,
 	): PulsePatchRow[] {
 		for (const row of incoming) this.assertStateHistory(row);
+		incoming = this.known(incoming);
 		if (!this.pending.size) {
 			const ready =
 				incoming.length === 1
@@ -322,6 +382,7 @@ export class PatchLog {
 		}
 		this.frontier = next;
 		this.budget.metadata = bytes;
+		for (const row of ready) this.settle(row);
 		return ready;
 	}
 
@@ -383,6 +444,7 @@ export class PatchLog {
 		else this.byActor.set(row.sid, [copy]);
 		this.frontier = next;
 		this.budget.metadata = bytes;
+		this.settle(copy);
 		return ready;
 	}
 
@@ -405,7 +467,9 @@ export class PatchLog {
 			this.budget,
 		);
 		let ready: PulsePatchRow[];
-		if (!this.pending.size) {
+		// The general path settles the rows it makes applicable itself.
+		const settle = !this.pending.size;
+		if (settle) {
 			const actor = this.byActor.get(row.sid);
 			const previous = actor?.[actor.length - 1];
 			if (
@@ -467,6 +531,7 @@ export class PatchLog {
 		this.recordNativeTail(row);
 		row.committed = true;
 		this.budget.encoded += row.encodedBytes;
+		if (settle) this.settle(row);
 		return ready;
 	}
 
@@ -480,7 +545,10 @@ export class PatchLog {
 		const fresh: PulsePatchRow[] = [];
 		const staged = new Map<string, PulsePatchRow>();
 		const stagedActors = new Map<number, PulsePatchRow[]>();
+		// Rows still waiting whose sequence numbers a new row declares replaced.
+		const replaced = new Set<PulsePatchRow>();
 		let bytes = this.budget.metadata;
+		if (!local) incoming = this.known(incoming);
 		for (const row of incoming) {
 			this.assertStateHistory(row);
 			if (!local && row.operations.length > MAX_PATCH_BYTES)
@@ -503,29 +571,46 @@ export class PatchLog {
 			if (existing) {
 				if (local)
 					throw new PulseError("CONFLICT", "Local patch ID already exists");
-				if (!same(existing, row))
+				// A span is how much a peer has replaced since: only contents conflict.
+				if (
+					!isGapRow(existing) &&
+					!isGapRow(row) &&
+					!sameOperations(existing, row)
+				)
 					throw new PulseError(
 						"CONFLICT",
 						"Conflicting segment for the same operation ID",
 					);
-				continue;
+				// The longer span knows of more replaced writes: it takes the place.
+				if (end(row) <= end(existing)) continue;
+				replaced.add(existing);
 			}
+			let covered = false;
 			for (const actorRows of [
 				this.byActor.get(row.sid),
 				stagedActors.get(row.sid),
 			]) {
 				if (!actorRows) continue;
-				const i = lowerBound(actorRows, row.clock);
-				for (const other of [actorRows[i - 1], actorRows[i]]) {
-					if (!other) continue;
-					if (row.clock < end(other) && other.clock < end(row))
-						throw new PulseError("CONFLICT", "Overlapping immutable segments");
-					const previous = row.clock > other.clock ? other : row;
-					const next = previous === row ? other : row;
-					if (clockAt(next.dependencies, row.sid) < end(previous))
+				let i = lowerBound(actorRows, row.clock);
+				const before = actorRows[i - 1];
+				if (before && !replaced.has(before)) {
+					// It starts among the writes that a waiting row has replaced.
+					if (end(before) > row.clock) {
+						covered = true;
+						break;
+					}
+					if (clockAt(row.dependencies, row.sid) < end(before))
 						throw new PulseError("CONFLICT", "Actor history fork");
 				}
+				let after = actorRows[i];
+				while (after && after.clock < end(row)) {
+					replaced.add(after);
+					after = actorRows[++i];
+				}
+				if (after && clockAt(after.dependencies, row.sid) < end(row))
+					throw new PulseError("CONFLICT", "Actor history fork");
 			}
+			if (covered) continue;
 			const copy = local ? row : copyRow(row, false, true);
 			staged.set(key(copy), copy);
 			let actor = stagedActors.get(copy.sid);
@@ -549,6 +634,17 @@ export class PatchLog {
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
 		const pending = new Map(this.pending);
 		const clocks = new Map(this.frontier);
+		for (const row of replaced) {
+			const id = key(row),
+				actor = stagedActors.get(row.sid),
+				at = actor ? actor.indexOf(row) : -1;
+			if (at >= 0) {
+				actor!.splice(at, 1);
+				bytes -= cost(row);
+				if (staged.get(id) === row) staged.delete(id);
+			}
+			if (pending.get(id) === row) pending.delete(id);
+		}
 		for (const [id, row] of staged) pending.set(id, row);
 		const candidates = [...pending.values()];
 		// Sorting is unnecessary on the normal ascending batch path. For reverse
@@ -593,6 +689,14 @@ export class PatchLog {
 			beforeCommit(borrowed ? fresh : fresh.map((row) => copyRow(row, local)));
 		if (bytes + this.budget.encoded + (pendingBytes?.() ?? 0) > MAX_LOG_BYTES)
 			throw new PulseError("LIMIT_EXCEEDED", "Document history limit exceeded");
+		for (const row of replaced) {
+			const actor = this.byActor.get(row.sid),
+				at = actor ? lowerBound(actor, row.clock) : -1;
+			if (actor?.[at] !== row) continue;
+			actor.splice(at, 1);
+			this.rowCount--;
+			bytes -= cost(row);
+		}
 		for (const row of staged.values()) {
 			this.rowCount++;
 			let actor = this.byActor.get(row.sid);
@@ -608,7 +712,133 @@ export class PatchLog {
 		for (const [id, row] of pending) this.pending.set(id, row);
 		this.frontier = frontier;
 		this.budget.metadata = bytes;
-		return borrowed ? fresh : fresh.map((row) => copyRow(row, local));
+		const result = borrowed ? fresh : fresh.map((row) => copyRow(row, local));
+		for (const row of fresh) this.settle(row);
+		return result;
+	}
+
+	/**
+	 * A row that starts below its actor's frontier is already known, or was
+	 * replaced here: only the sequence numbers its span covers beyond the
+	 * frontier are news, and they come back as a gap row to append.
+	 */
+	private known(incoming: readonly PulsePatchRow[]): readonly PulsePatchRow[] {
+		let result: PulsePatchRow[] | undefined;
+		let gaps: Map<number, PulsePatchRow> | undefined;
+		for (let i = 0; i < incoming.length; i++) {
+			const row = incoming[i]!;
+			const frontier = clockAt(this.frontier, row.sid) || 1;
+			// A sequence number that only a state delta covers holds no row yet:
+			// its exact history is still welcome.
+			if (
+				!(row.clock < frontier) ||
+				!this.physicalCovers(row.sid, row.clock, row.clock + 1)
+			) {
+				result?.push(row);
+				continue;
+			}
+			result ??= incoming.slice(0, i);
+			if (
+				row.docId !== this.docId ||
+				!Number.isSafeInteger(row.clock) ||
+				row.clock < 1 ||
+				!Number.isSafeInteger(row.span) ||
+				row.span < 1 ||
+				!Number.isSafeInteger(end(row))
+			)
+				throw new PulseError("INVALID_MESSAGE", "Invalid patch segment");
+			const held = this.find(row.sid, row.clock);
+			if (
+				held &&
+				!isGapRow(held) &&
+				!isGapRow(row) &&
+				!sameOperations(held, row)
+			)
+				throw new PulseError(
+					"CONFLICT",
+					"Conflicting segment for the same operation ID",
+				);
+			if (end(row) <= frontier) continue;
+			const gap = gaps?.get(row.sid);
+			if (gap) gap.span = Math.max(gap.span, end(row) - frontier);
+			else {
+				const covered = gapRow(
+					this.docId,
+					row.sid,
+					frontier,
+					end(row) - frontier,
+				);
+				(gaps ??= new Map()).set(row.sid, covered);
+				result.push(covered);
+			}
+		}
+		return result ?? incoming;
+	}
+	/**
+	 * Once a row is applicable: a register without history holds one row, the
+	 * newest write, and a gap folds into the row before it.
+	 */
+	private settle(row: PulsePatchRow): void {
+		if (isGapRow(row)) return this.kill(row);
+		const last = lastOf(row);
+		if (!last) return;
+		let fields = this.registers.get(last.target);
+		if (!fields) this.registers.set(last.target, (fields = new Map()));
+		const held = fields.get(last.field);
+		if (held?.sid === row.sid && held.clock === row.clock) return;
+		// Last writer wins, by Lamport time then actor: the same order as the
+		// register itself, so the row that stays is the value every replica shows.
+		if (
+			held &&
+			(held.lamport > last.lamport ||
+				(held.lamport === last.lamport && held.sid > row.sid))
+		)
+			return this.kill(row);
+		fields.set(last.field, {
+			sid: row.sid,
+			clock: row.clock,
+			lamport: last.lamport,
+		});
+		const replaced = held && this.find(held.sid, held.clock);
+		if (replaced) this.kill(replaced);
+	}
+	/** Remove a row; the row before it covers its sequence numbers, or a gap does. */
+	private kill(row: PulsePatchRow): void {
+		const actor = this.byActor.get(row.sid);
+		if (!actor) return;
+		const at = lowerBound(actor, row.clock);
+		if (actor[at] !== row) return;
+		const previous = actor[at - 1];
+		const adjacent =
+			previous &&
+			end(previous) === row.clock &&
+			!this.pending.has(key(previous));
+		if (!adjacent && isGapRow(row)) return;
+		this.budget.metadata -= cost(row);
+		if (row instanceof LocalPatchRow && row.committed) {
+			this.budget.encoded -= row.encodedBytes;
+			row.committed = false;
+		}
+		this.historyCache = undefined;
+		if (adjacent) {
+			// Journal rows are its own copies, except the rows of a decoded run.
+			if (!scalarEntryOf(previous)) previous.span += row.span;
+			else
+				actor[at - 1] = {
+					docId: previous.docId,
+					sid: previous.sid,
+					clock: previous.clock,
+					span: previous.span + row.span,
+					dependencies: previous.dependencies,
+					operations: previous.operations,
+				};
+			actor.splice(at, 1);
+			this.rowCount--;
+		} else {
+			const gap = gapRow(this.docId, row.sid, row.clock, row.span);
+			actor[at] = gap;
+			this.budget.metadata += cost(gap);
+		}
 	}
 
 	private recordNativeTail(row: LocalPatchRow): void {
@@ -653,7 +883,13 @@ export class PatchLog {
 			if (end(last) <= start) continue;
 			if (selected) return undefined;
 			const tail = this.nativeTails.get(sid);
-			if (!tail || tail.last !== last || start < tail.first.clock)
+			// A span above one also covers replaced writes, which a run cannot carry.
+			if (
+				!tail ||
+				tail.last !== last ||
+				last.span !== 1 ||
+				start < tail.first.clock
+			)
 				return undefined;
 			const first = rows[lowerBound(rows, start)];
 			if (!first || first.clock !== start) return undefined;
@@ -739,7 +975,6 @@ export class PatchLog {
 		}
 		if (
 			row.docId !== this.docId ||
-			row.span !== 1 ||
 			patch.schema !== delta.schema ||
 			patch.lamport !== delta.lamport + row.clock - delta.clock ||
 			op?.kind !== 1 ||
@@ -756,7 +991,7 @@ export class PatchLog {
 			);
 		if (
 			row.clock === delta.clock + delta.count - 1 &&
-			!same(row, stateLastRow(delta))
+			!sameOperations(row, stateLastRow(delta))
 		)
 			throw new PulseError(
 				"CONFLICT",
@@ -879,6 +1114,7 @@ export class PatchLog {
 		this.frontier = [...clocks].sort((a, b) => a[0] - b[0]);
 		this.pending.clear();
 		for (const [id, row] of pending) this.pending.set(id, row);
+		for (const row of ready) this.settle(row);
 		return { changed: true, ready };
 	}
 

@@ -6,9 +6,12 @@ import {
 	getPulseMeta,
 	destroyPulse,
 	exportPulseUpdates,
+	versioned,
 } from "../source/index.js";
 import { afterAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { SQL } from "bun";
+import { PostgresPatchStore } from "../source/storage/postgres.js";
 import {
 	SQLITE_PATCH_SCHEMA,
 	SqlitePatchStore,
@@ -22,6 +25,7 @@ import {
 	type StoredPatchRow,
 } from "../source/storage/rows.js";
 import { encodeMessage } from "../source/connection/PulseMessage.js";
+import { lastRegisterOf } from "../source/core/operations.js";
 import { MAX_VECTOR_ENTRIES } from "../source/protocol/limits.js";
 
 const actor = 70001,
@@ -48,7 +52,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				docId = crypto.randomUUID(),
 				D = definePulse(
 					"StorageState",
-					object({ count: "float64" }),
+					versioned(object({ count: "float64" })),
 				).materialize();
 			const pulse = createPulse(
 				D,
@@ -148,7 +152,11 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				]),
 			).rejects.toThrow();
 			expect(await store.vector(docId)).toEqual([[actor, 4]]);
-			await expect(store.append([row(docId, 3)])).rejects.toThrow();
+			// A row that starts among the writes another row replaced is ignored.
+			expect(await store.append([row(docId, 3)])).toMatchObject({
+				inserted: 0,
+			});
+			expect(await store.missing(docId, [])).toEqual([first]);
 			await expect(store.append([row(docId, 7, actor, [])])).rejects.toThrow();
 			const next = row(docId, 4, actor, [[actor, 4]]);
 			await store.append([next]);
@@ -237,7 +245,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				docId = crypto.randomUUID();
 			const definition = definePulse(
 				"StoredRun",
-				object({ value: "float64" }),
+				versioned(object({ value: "float64" })),
 			).materialize();
 			const pulse = createPulse(
 				definition,
@@ -267,7 +275,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				docId = crypto.randomUUID();
 			const definition = definePulse(
 				"StoredLargeRun",
-				object({ value: "string" }),
+				versioned(object({ value: "string" })),
 			).materialize();
 			const pulse = createPulse(
 				definition,
@@ -403,7 +411,7 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 			expect(await store.vector(docId)).toEqual([[actor, 3]]);
 			expect(await store.append([row(docId, 3)])).toMatchObject({ ready: 1 });
 		});
-		test("in-order rows are checked against pending rows of their actor", async () => {
+		test("a row replaces the waiting rows that its span covers", async () => {
 			const store = await create(),
 				docId = crypto.randomUUID();
 			// The other actor's gap keeps its row pending beside in-order appends.
@@ -414,26 +422,96 @@ function conformance(name: string, create: () => Promise<PatchStore>): void {
 				ready: 2,
 				pending: 1,
 			});
+			// Its span says the writes that followed it were replaced.
 			const long = { ...row(docId, 1, other), span: 3 };
-			await expect(store.append([long])).rejects.toMatchObject({
-				code: "CONFLICT",
-				message: "Overlapping immutable storage segments",
+			expect(await store.append([long])).toMatchObject({
+				ready: 1,
+				pending: 0,
 			});
-			// Pending rows inserted earlier in the same batch count too.
+			expect(await store.missing(docId, [[actor, 3]])).toEqual([long]);
+			// Waiting rows inserted earlier in the same batch are replaced too.
 			const mine = row(docId, 4, actor, [[actor, 4]]);
-			await expect(
-				store.append([mine, { ...row(docId, 3), span: 2 }]),
-			).rejects.toMatchObject({
-				code: "CONFLICT",
-				message: "Overlapping immutable storage segments",
+			const wide = { ...row(docId, 3), span: 2 };
+			expect(await store.append([mine, wide])).toMatchObject({
+				ready: 1,
+				pending: 0,
 			});
-			expect(await store.vector(docId)).toEqual([[actor, 3]]);
-			expect(
-				await store.append([row(docId, 1, other), row(docId, 2, other)]),
-			).toMatchObject({ inserted: 2, ready: 3, pending: 0 });
 			expect(await store.vector(docId)).toEqual([
-				[actor, 3],
+				[actor, 5],
 				[other, 4],
+			]);
+			expect(await store.missing(docId, [[other, 4]])).toEqual([
+				row(docId),
+				row(docId, 2),
+				wide,
+			]);
+		});
+		test("a waiting row that learns a longer span replaces the rows it covers", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			const fifth = row(docId, 5),
+				sixth = row(docId, 6);
+			expect(await store.append([fifth, sixth])).toMatchObject({ pending: 2 });
+			expect(await store.append([{ ...fifth, span: 3 }])).toMatchObject({
+				pending: 1,
+			});
+			const first = { ...row(docId), span: 4 };
+			expect(await store.append([first])).toMatchObject({
+				ready: 2,
+				pending: 0,
+			});
+			expect(await store.vector(docId)).toEqual([[actor, 8]]);
+			expect(await store.missing(docId, [])).toEqual([
+				first,
+				{ ...fifth, span: 3 },
+			]);
+			// What it replaced is ignored when it comes again, whatever it holds.
+			expect(
+				await store.append([{ ...sixth, operations: Uint8Array.of(9) }]),
+			).toMatchObject({ inserted: 0 });
+		});
+		test("the first row past a span must build on it", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			// Waiting rows: the second one says its actor's history ended at 7.
+			await store.append([row(docId, 6), row(docId, 9, actor, [[actor, 7]])]);
+			await expect(
+				store.append([{ ...row(docId, 5), span: 3 }]),
+			).rejects.toMatchObject({ code: "CONFLICT" });
+			// The refused batch left the waiting rows as they were.
+			expect(await store.append([row(docId, 6)])).toMatchObject({
+				inserted: 0,
+				pending: 2,
+			});
+		});
+		test("a known row with a longer span only moves the frontier", async () => {
+			const store = await create(),
+				docId = crypto.randomUUID();
+			const first = row(docId),
+				second = row(docId, 2);
+			await store.append([first, second]);
+			// The sender replaced two writes after the second one.
+			const result = await store.append([{ ...second, span: 3 }]);
+			expect(result).toMatchObject({ pending: 0 });
+			expect(result.inserted).toBeGreaterThan(0);
+			expect(await store.vector(docId)).toEqual([[actor, 5]]);
+			expect(await store.missing(docId, [])).toEqual([
+				first,
+				{ ...second, span: 3 },
+			]);
+			// Sent again, or shorter, it changes nothing; other contents conflict.
+			for (const span of [1, 2, 3])
+				expect(await store.append([{ ...second, span }])).toMatchObject({
+					inserted: 0,
+				});
+			await expect(
+				store.append([{ ...second, operations: Uint8Array.of(9) }]),
+			).rejects.toMatchObject({ code: "CONFLICT" });
+			const next = row(docId, 5, actor, [[actor, 5]]);
+			expect(await store.append([next])).toMatchObject({ ready: 1 });
+			expect(await store.missing(docId, [[actor, 3]])).toEqual([
+				{ ...second, span: 3 },
+				next,
 			]);
 		});
 	});
@@ -458,6 +536,18 @@ test("encoded storage requests reject document IDs that cannot round-trip throug
 
 const sqlite = new Database(":memory:");
 conformance("SQLite actual database", async () => new SqlitePatchStore(sqlite));
+// Set PULSIFY_TEST_POSTGRES to a database URL to run the same against PostgreSQL.
+if (process.env["PULSIFY_TEST_POSTGRES"]) {
+	const sql = new SQL(process.env["PULSIFY_TEST_POSTGRES"]);
+	const postgres = new PostgresPatchStore((query, parameters) =>
+		sql.unsafe(query, parameters as never[]),
+	);
+	const ready = postgres.initialize();
+	conformance("PostgreSQL", async () => {
+		await ready;
+		return postgres;
+	});
+}
 conformance(
 	"SQLite with a vector cache",
 	async () => new SqlitePatchStore(sqlite, { vectorCacheSize: 2 }),
@@ -685,8 +775,17 @@ async function compactAll(
 
 describe("SQLite compaction is invisible to peers", () => {
 	const actors = [70001, 70002, 70003, 70004];
-	/** A causally valid history of several actors, in an order that could be appended as is. */
-	function history(docId: string, seed: number, length: number) {
+	/**
+	 * A causally valid history of several actors, in an order that could be
+	 * appended as is. With `values`, some rows are writes to one of a few
+	 * registers without history, so that the stores keep holes in it.
+	 */
+	function history(
+		docId: string,
+		seed: number,
+		length: number,
+		values = false,
+	) {
 		const { next, below } = random(seed);
 		const frontier = new Map<number, number>();
 		const rows: StoredPatchRow[] = [];
@@ -709,10 +808,27 @@ describe("SQLite compaction is invisible to peers", () => {
 					: next() < 0.1
 						? 4000 + below(400)
 						: 1 + below(40);
-			const operations = new Uint8Array(size);
+			const operations = new Uint8Array(values ? Math.max(size, 10) : size);
 			for (let byte = 0; byte < Math.min(size, 64); byte++)
 				operations[byte] = below(256);
-			operations[size - 1] = index & 255;
+			operations[operations.length - 1] = index & 255;
+			if (values && next() < 0.4) {
+				// Version 3, a Lamport time, no schema, one kind 7 write to
+				// target `t`, field `f`: a row of the register `t.f`.
+				const register = below(4);
+				operations.set([
+					3,
+					1 + below(100),
+					0,
+					1,
+					7,
+					1,
+					register,
+					0,
+					1,
+					register,
+				]);
+			}
 			rows.push({
 				docId,
 				sid,
@@ -727,133 +843,119 @@ describe("SQLite compaction is invisible to peers", () => {
 	}
 	const altered = (row: StoredPatchRow): StoredPatchRow[] => [
 		{ ...row, operations: Uint8Array.of(...row.operations.slice(0, 8), 7) },
-		{ ...row, span: row.span + 1 },
-		{
-			...row,
-			dependencies: [
-				...row.dependencies.filter(([sid]) => sid < 80000),
-				[80000, 1],
-			],
-		},
-		// Starts inside the row, or inside the one before: an overlap.
-		...(row.span > 1
-			? [
-					{
-						...row,
-						clock: row.clock + 1,
-						dependencies: [[row.sid, row.clock + 1]] as [number, number][],
-					},
-				]
-			: []),
-		{
-			...row,
-			clock: row.clock - 1,
-			span: row.span + 1,
-			dependencies: row.clock > 2 ? [[row.sid, row.clock - 1]] : [],
-		},
-		// Starts where it does, without building on the actor's previous row: a fork.
+		// Starts where the next row does, with other contents and without
+		// building on the actor's previous row: a conflict, or a fork.
 		{ ...row, clock: row.clock + row.span, dependencies: [] },
 	];
 
-	for (const seed of [1, 2, 3, 4, 5, 6, 7, 8])
-		test(`random history ${seed} reads and appends like its uncompacted twin`, async () => {
-			const { next, below } = random(seed * 7919);
-			const docId = `compaction-${seed}`;
-			const plainDb = new Database(":memory:"),
-				packedDb = new Database(":memory:");
-			const plain = new SqlitePatchStore(plainDb),
-				packed = new SqlitePatchStore(
-					packedDb,
-					seed % 2 ? { vectorCacheSize: 4 } : {},
-				);
-			const rows = history(docId, seed, 500 + below(400));
-			const cut = Math.floor(rows.length * 0.7);
-			// Some rows arrive late: what follows them waits, dangling.
-			const late = new Set<StoredPatchRow>();
-			for (let count = 3 + below(4); count > 0; count--)
-				late.add(rows[100 + below(cut - 100)]!);
-			const both = async (batch: StoredPatchRow[]) => {
-				const expected = await outcome(plain, batch);
-				expect(await outcome(packed, batch)).toEqual(expected);
-				return expected;
-			};
-			const deliver = async (queue: StoredPatchRow[]) => {
-				for (let start = 0; start < queue.length;) {
-					const batch = queue.slice(start, (start += 1 + below(40)));
-					if (next() < 0.3) batch.reverse();
-					expect(typeof (await both(batch))).toBe("object");
-					// Sleep cycles of every size, some interrupted before the end.
-					if (next() < 0.25)
-						await compactAll(
-							packed,
-							{ maxRows: 2 + below(300), minRows: 2 + below(30) },
-							next() < 0.5 ? 1 + below(3) : Infinity,
+	for (const values of [false, true])
+		for (const seed of [1, 2, 3, 4, 5, 6, 7, 8])
+			test(`random history ${seed}${values ? " with values" : ""} reads and appends like its uncompacted twin`, async () => {
+				const { next, below } = random(seed * 7919);
+				const docId = `compaction-${seed}`;
+				const plainDb = new Database(":memory:"),
+					packedDb = new Database(":memory:");
+				const plain = new SqlitePatchStore(plainDb),
+					packed = new SqlitePatchStore(
+						packedDb,
+						seed % 2 ? { vectorCacheSize: 4 } : {},
+					);
+				const rows = history(docId, seed, 500 + below(400), values);
+				const cut = Math.floor(rows.length * 0.7);
+				// Some rows arrive late: what follows them waits, dangling.
+				const late = new Set<StoredPatchRow>();
+				for (let count = 3 + below(4); count > 0; count--)
+					late.add(rows[100 + below(cut - 100)]!);
+				const both = async (batch: StoredPatchRow[]) => {
+					const expected = await outcome(plain, batch);
+					expect(await outcome(packed, batch)).toEqual(expected);
+					return expected;
+				};
+				const deliver = async (queue: StoredPatchRow[]) => {
+					for (let start = 0; start < queue.length;) {
+						const batch = queue.slice(start, (start += 1 + below(40)));
+						if (next() < 0.3) batch.reverse();
+						expect(typeof (await both(batch))).toBe("object");
+						// Sleep cycles of every size, some interrupted before the end.
+						if (next() < 0.25)
+							await compactAll(
+								packed,
+								{ maxRows: 2 + below(300), minRows: 2 + below(30) },
+								next() < 0.5 ? 1 + below(3) : Infinity,
+							);
+					}
+				};
+				const same = async () => {
+					const vector = await plain.vector(docId);
+					expect(await packed.vector(docId)).toEqual(vector);
+					const remotes: [number, number][][] = [[], vector];
+					for (let count = 0; count < 60; count++)
+						remotes.push(
+							[...actors, 80000]
+								.filter(() => next() < 0.7)
+								.map((sid): [number, number] => {
+									const end = new Map(vector).get(sid) ?? 3;
+									// Mostly behind, anywhere in the history; sometimes ahead.
+									return [sid, 1 + below(next() < 0.9 ? end : end + 5)];
+								}),
 						);
-				}
-			};
-			const same = async () => {
-				const vector = await plain.vector(docId);
-				expect(await packed.vector(docId)).toEqual(vector);
-				const remotes: [number, number][][] = [[], vector];
-				for (let count = 0; count < 60; count++)
-					remotes.push(
-						[...actors, 80000]
-							.filter(() => next() < 0.7)
-							.map((sid): [number, number] => {
-								const end = new Map(vector).get(sid) ?? 3;
-								// Mostly behind, anywhere in the history; sometimes ahead.
-								return [sid, 1 + below(next() < 0.9 ? end : end + 5)];
-							}),
+					for (const remote of remotes)
+						expect(await packed.missing(docId, remote)).toEqual(
+							await plain.missing(docId, remote),
+						);
+				};
+				const resend = async (sent: StoredPatchRow[]) => {
+					const sample = sent.filter(() => next() < 0.2);
+					for (const row of sample)
+						expect(await both([row])).toMatchObject({ inserted: 0 });
+					expect(await both(sample.slice(0, 50))).toMatchObject({
+						inserted: 0,
+					});
+					for (const row of sample.slice(0, 40))
+						for (const conflict of altered(row)) {
+							const result = await both([conflict]);
+							// A write replaced since is no longer there to conflict with.
+							if (!values) expect(typeof result).toBe("string");
+						}
+				};
+
+				const sent = rows.slice(0, cut).filter((row) => !late.has(row));
+				await deliver(sent);
+				expect(storedRows(plainDb, "ready=0")).toBeGreaterThan(0);
+				await compactAll(packed, { maxRows: 50 + below(200), minRows: 8 });
+				await same();
+				await resend(sent);
+				await same();
+
+				// The rest of the history, the late rows last: everything becomes ready.
+				await deliver(rows.slice(cut).filter((row) => !late.has(row)));
+				await same();
+				await deliver(rows.filter((row) => late.has(row)));
+				expect(storedRows(plainDb, "ready=0")).toBe(0);
+				expect(await compactAll(packed, { minRows: 2 })).toBeGreaterThan(0);
+				await same();
+				await resend(rows);
+				await same();
+				const kept = rows.filter(
+					(row) => !values || !lastRegisterOf(row.operations),
+				);
+				if (!values)
+					expect(await plain.missing(docId, [])).toEqual(
+						[...rows].sort((a, b) => a.sid - b.sid || a.clock - b.clock),
 					);
-				for (const remote of remotes)
-					expect(await packed.missing(docId, remote)).toEqual(
-						await plain.missing(docId, remote),
-					);
-			};
-			const resend = async (sent: StoredPatchRow[]) => {
-				const sample = sent.filter(() => next() < 0.2);
-				for (const row of sample)
-					expect(await both([row])).toMatchObject({ inserted: 0 });
-				expect(await both(sample.slice(0, 50))).toMatchObject({ inserted: 0 });
-				for (const row of sample.slice(0, 40))
-					for (const conflict of altered(row))
-						if (conflict.clock > 0)
-							expect(typeof (await both([conflict]))).toBe("string");
-			};
 
-			const sent = rows.slice(0, cut).filter((row) => !late.has(row));
-			await deliver(sent);
-			expect(storedRows(plainDb, "ready=0")).toBeGreaterThan(0);
-			await compactAll(packed, { maxRows: 50 + below(200), minRows: 8 });
-			await same();
-			await resend(sent);
-			await same();
-
-			// The rest of the history, the late rows last: everything becomes ready.
-			await deliver(rows.slice(cut).filter((row) => !late.has(row)));
-			await same();
-			await deliver(rows.filter((row) => late.has(row)));
-			expect(storedRows(plainDb, "ready=0")).toBe(0);
-			expect(await compactAll(packed, { minRows: 2 })).toBeGreaterThan(0);
-			await same();
-			await resend(rows);
-			await same();
-			expect(await plain.missing(docId, [])).toEqual(
-				[...rows].sort((a, b) => a.sid - b.sid || a.clock - b.clock),
-			);
-
-			// Packing happened, on ready rows only, and a second pass finds nothing.
-			expect(storedRows(plainDb)).toBe(rows.length);
-			expect(storedRows(packedDb)).toBeLessThan(rows.length / 10);
-			expect(storedRows(packedDb, "packed=1")).toBeGreaterThan(0);
-			expect(storedRows(packedDb, "packed=1 AND ready=0")).toBe(0);
-			expect(
-				storedRows(packedDb, `length(operations) > ${MAX_PACKED_BYTES}`),
-			).toBe(storedRows(plainDb, `length(operations) > ${MAX_PACKED_BYTES}`));
-			expect(await compactAll(packed, { minRows: 2 })).toBe(0);
-			plainDb.close();
-			packedDb.close();
-		});
+				// Packing happened, on ready rows only, and a second pass finds nothing.
+				expect(storedRows(plainDb)).toBe(kept.length);
+				expect(storedRows(packedDb)).toBeLessThan(kept.length / 8);
+				expect(storedRows(packedDb, "packed=1")).toBeGreaterThan(0);
+				expect(storedRows(packedDb, "packed=1 AND ready=0")).toBe(0);
+				expect(
+					storedRows(packedDb, `length(operations) > ${MAX_PACKED_BYTES}`),
+				).toBe(storedRows(plainDb, `length(operations) > ${MAX_PACKED_BYTES}`));
+				expect(await compactAll(packed, { minRows: 2 })).toBe(0);
+				plainDb.close();
+				packedDb.close();
+			});
 
 	test("an untouched store keeps one row per update, and tiny documents are left alone", async () => {
 		const db = new Database(":memory:");

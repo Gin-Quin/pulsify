@@ -13,6 +13,9 @@ export {
 	type SqliteConnection,
 	type SqlitePatchStoreOptions,
 } from "./storage/sqlite.js";
+// What a store reads from a row to keep the last value only of a field
+// without history: see docs/STORAGE.md.
+export { GAP_OPERATIONS, isGap, lastRegisterOf } from "./core/operations.js";
 export {
 	encodeStoredRow,
 	decodeStoredRow,

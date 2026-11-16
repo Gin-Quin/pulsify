@@ -171,11 +171,14 @@ row:
 ```
 
 The envelope allows ranges `[clock, clock + span)` with `sid >= 65536`,
-`clock >= 1`, `span >= 1` and a safe integer end. The current operation engine
-requires **span = 1**: each actor starts at sequence 1 and increments once per
-transaction, independently of the number of operations or characters it
-contains. Observing another actor never creates a gap in this sequence.
-Lamport time is a separate integer inside the payload.
+`clock >= 1`, `span >= 1` and a safe integer end. Each actor starts at
+sequence 1 and increments once per transaction, independently of the number
+of operations or characters it contains: a row's operations are the
+transaction `clock`. A writer always emits **span = 1**. A larger span also
+covers the `span - 1` transactions that followed, which were
+[replaced](#fields-without-history) and are no longer stored. Observing
+another actor never creates a gap in this sequence. Lamport time is a
+separate integer inside the payload.
 
 An actor ID belongs to one writing replica at a time. It may pass to a later
 replica, as when a browser tab closes and another one reuses its ID, only if
@@ -190,13 +193,15 @@ end. Rows stay pending until their actor prefix is contiguous and every
 cross-actor dependency is covered. A received maximum sequence is never
 advertised as a completed frontier merely because its bytes are present.
 
-Identity is `(docId, sid, clock)`. Contents and boundaries are immutable.
-Exact retransmission is idempotent; changed contents at an existing identity,
-overlapping ranges and actor forks are conflicts. A batch is accepted
-atomically. To find missing rows, select `row.clock + row.span > peerClock`
-for each actor, using zero for actors absent from the peer vector. Send the
-original rows; this version does not negotiate slicing, resegmentation,
-snapshots or compaction in exact envelopes 1/2; optional state deltas are described below.
+Identity is `(docId, sid, clock)`, and the operations at an identity are
+immutable. Retransmission is idempotent; changed operations at an existing
+identity and actor forks are conflicts. A span is not part of the identity:
+it only grows, as the holder learns that later transactions were replaced. A
+batch is accepted atomically. To find missing rows, select
+`row.clock + row.span > peerClock` for each actor, using zero for actors
+absent from the peer vector, and send them with their spans: a store computes
+each span from the next row it holds (see [Replacing](#fields-without-history)). Optional
+state deltas are described below.
 
 The in-memory journal exposes copies through its public row APIs. Runtime-only
 borrowed-row methods must not be exposed to callers or mutated. Relays can
@@ -226,7 +231,7 @@ ops:operation[]
 `lamport` is positive and advances beyond the highest applied Lamport time
 when a local transaction is generated. In document version 1, `schema` is empty
 without a runtime schema, or the 32-character compatibility fingerprint of its
-resolved codec layout graph, constant/frozen/rich-text/plain-text annotations and tree roles. Versions 2+
+resolved codec layout graph, constant/frozen/rich-text/plain-text/counter/versioned annotations and tree roles. Versions 2+
 produced by current definitions use `m<version>:<chainFingerprint>` instead.
 This reuses the existing string field; operation payload and envelope versions
 do not change. Historical V1 writes remain addressable by their original identity.
@@ -262,8 +267,13 @@ Each operation starts with its numeric `kind:uint`, followed by these fields:
 | 4 | Replace an array entry's value | target:string, entry:string, value:encodedValue |
 | 5 | Set or remove text attributes | target:string, entries:string[], attributes:codec-unknown |
 | 6 | Move array entries | target:string, entries:string[], after:string |
+| 7 | Assign object register, keeping no history | target:string, field:fieldRef, value:encodedValue |
+| 8 | Delete object register, keeping no history | target:string, field:fieldRef |
+| 9 | Time of the transaction | time:uint |
 
-All operation kinds use payload version 3. Encoders and decoders require this
+Kinds 7 to 9 were added in Pulsify 13 without a new payload version: an
+older decoder rejects a payload that contains one, and a version 13 decoder
+reads every earlier payload. All operation kinds use payload version 3. Encoders and decoders require this
 version for ordinary, grouped and state envelopes. The Rust relay uses operations
 version 3 in both its ordinary and grouped envelopes; inner rows remain opaque.
 
@@ -289,9 +299,9 @@ same transaction; moves never rewrite an old token's insertion edge.
 
 ### Tree representation
 
-`tree(elementSchema)` uses a codec map of records with `data:elementSchema`,
+`tree(elementSchema)` uses a codec record of objects with `data:elementSchema`,
 `location:{parent:string,position:string}` and `deleted:boolean`. Tree/node/location
-roles participate in schema fingerprints; an ordinary map with the same fields
+roles participate in schema fingerprints; an ordinary record with the same fields
 does not have the same public mutation contract. Payload data stays under stable
 CRDT node IDs. A tree move replaces one complete location register using kind 1;
 its parent and sibling position cannot merge independently. Direct mutations of
@@ -360,6 +370,85 @@ layout; a frozen value is stored as one immutable value. Marker paths must resol
 markers require strings, and constants cannot simultaneously be collaborative
 text. Public generic values are finite numbers, bigint, well-formed Unicode strings,
 booleans, null, undefined, dense arrays, plain objects and copied binary leaves.
+A `Map` given as a generic value is stored as the plain object of its keys'
+canonical strings.
+
+## Fields without history
+
+A register keeps its last value only unless its schema is wrapped in
+`versioned()`. Its writes are kinds 7 and 8: kinds 1 and 2 for every replica
+that applies them, with the same last-writer order. They differ in what is
+kept. A row whose payload is **exactly one** kind 7 or 8 operation is a
+*last-value row*. A holder keeps few of them per register: see
+*Replacing* below. The value of a kind 7
+creates no node: a scalar, bytes, or a frozen value. A receiver rejects one
+that would, so no operation can address into a row that disappears.
+
+A register is identified without a schema, by the bytes of `target` and
+`field` as they are encoded in the operation. A store reads them, and
+`lamport`, from the head of the payload:
+
+```text
+version:uint = 3, lamport:uint, schema:string, count:uint = 1,
+kind:uint = 7 | 8, target:string, field:fieldRef, …
+```
+
+**Replacing.** A holder must keep, for each register, at least each actor's
+newest last-value row it has received, and it may drop any write it knows is
+replaced: an older write of the same actor to the same register, or a write
+whose `(lamport, sid)` is smaller than that of another write it holds to the
+register. The in-memory journal keeps the greatest `(lamport, sid)` only. A
+store keeps each actor's newest write and never compares actors: every replica
+picks the winner when it applies the rows. The sequence numbers of a dropped
+write hold nothing. When it serves rows, a holder still covers each actor's
+sequence without holes from the receiver's frontier to its own: a row's
+`span` grows over the dropped writes that follow it. Where no row precedes
+them (the actor's first rows, or the receiver's frontier falls among them),
+it sends a **gap row**: the four bytes `03 01 00 00`, a payload without
+operations, whose dependencies are `(sid, clock)` when `clock > 1`. A gap row
+is applied by nobody. So version vectors, dependencies and the selection of
+missing rows are unchanged. What a peer cannot count on any more is to
+receive every transaction: it receives those that still matter.
+
+**Receiving.** A row is judged against the receiver's frontier for its actor:
+
+- It starts **at** the frontier: appended as before. A span above one moves
+  the frontier past the replaced transactions it covers.
+- It starts **after** the frontier: it waits, as before. A waiting row whose
+  start falls inside the span of another row of its actor was replaced: it is
+  dropped. Two rows with the same start keep the longer span.
+- It starts **below** the frontier: the receiver either holds a row that
+  starts there, whose operations must be the same (otherwise a conflict), or
+  holds none because it replaced that transaction itself: the row is ignored.
+  If its span ends beyond the frontier, the receiver advances its frontier to
+  that end, by growing its last row or adding a gap row, and passes that gap
+  on to whoever it forwards rows to.
+
+A receiver never removes a row it holds because a peer's span says so: it
+removes rows on its own evidence only, the newer write to the same register.
+A relay forwards the rows of an upload as it received them, whenever the
+upload made anything applicable: each receiver judges them against its own
+frontier.
+
+Sequences, text, array moves, container assignments (a value that creates
+nodes), transactions of several operations, and every write under
+`versioned()` are not last-value rows: they are kept. The scalar transports
+of envelopes 2, 3 and 4 carry kind 1 rows only. Rows written before version
+13 are all kind 1 and stay as they are.
+
+**Time.** A write under `versioned(…, { timestamps: true })` is followed, in
+the same transaction, by one kind 9 operation: the writer's clock in
+milliseconds since the Unix epoch. It is the last operation, never the only
+one, and changes no state.
+
+`versioned()` enters the layout fingerprint as a `versioned:` prefix of the
+layout kind (`timed:` with timestamps), on the marked layout and on every
+layout inside it. Identities of schemas without the marker are unchanged, so
+a document created before version 13 keeps its identity: its stored rows stay
+valid, and its new writes to fields without history are kinds 7 and 8.
+Changing whether a field is versioned is a schema change, made by a
+migration step, and needs no rewrite of the value: only the kind of the
+following writes changes.
 
 ## Collaborative semantics and schemas
 
@@ -395,6 +484,69 @@ unchanged string emits nothing. The role enters the layout fingerprint as the
 kind `plainText:<kind>`, so identities of schemas without plain text are
 unchanged, and peers older than version 12 reject documents that declare it.
 The public API addresses characters by UTF-16 code unit; no wire field does.
+
+A `counter()` field is a `float64` holding an integer in its parent value, and
+a counter underneath: creating it allocates one node ID, like an object,
+holding one LWW register per actor. The initial value, when nonzero, is the
+count of the creating actor. A change is a kind 7 operation (kind 1 under
+`versioned()`) targeting the
+counter node, whose `field` is the numeric `fieldRef` of the writing actor's
+ID and whose value is that actor's new count, a safe integer that may be
+negative, in the counter's own `float64` layout. The counter's value is the
+sum of its registers. An actor's writes are totally ordered, so each register
+holds its actor's latest count without a merge function. Incrementing,
+decrementing and setting differ only in the count they write: a set writes
+the actor's count plus the difference between the requested value and the sum
+it observes. Assigning a number to a field that holds a counter is that set,
+not a kind 1 replacement of the field; equal values emit nothing. A string
+`field`, another actor's register, a value that is not a safe integer, and
+kind 2 are rejected.
+
+A count is therefore an ordinary `float64` register write, and its register
+is its actor's alone: a journal or a store holds one row per actor for a
+counter, whatever the number of changes. Under `versioned()` every change is
+kept, and a run of one actor's counts is grouped by envelope 2, condensed to
+its last count by envelope 3, and a lone change travels as a compact write
+in envelope 4, under the same conditions as an object field. The role enters the layout
+fingerprint as the kind `counter:<kind>`, so identities of schemas without
+counters are unchanged, and peers that do not know counters reject documents
+that declare one.
+
+A `record(value)` is an object node with one LWW register per string key. Codec
+3 renamed it from `map(value)`; its bytes are unchanged and its layout keeps the
+fingerprint kind `map`, so identities of schemas written before version 13 are
+unchanged.
+
+A `map(key, value)` is the same node with typed keys. A key is never sent in
+its own type: it is its **canonical string**, the only spelling accepted for
+that key.
+
+| Key schema | Canonical string |
+| --- | --- |
+| `string` | the string itself |
+| `int`, `int32`, `int64` | ECMAScript `Number::toString` of a safe integer, `-0` written `0` |
+| `uint`, `uint32`, `uint64` | the same, non-negative |
+| `float64` | ECMAScript `Number::toString` of a finite number, `-0` written `0` |
+| `boolean` | `true` or `false` |
+| `bigint` | decimal digits, `-` when negative, no leading zero, never `-0` |
+
+The `field` of a kind 1 or kind 2 operation on a map node is always the string
+variant of `fieldRef` holding that canonical string. An encoded value holds a
+map as the codec record of its canonical strings (not as the codec `map`
+schema), and `constants` and `texts` paths use the same strings, so one key has
+one spelling everywhere. A string that is not canonical for the key schema
+(`01`, `1.0`, `1e0`, `+1` for an integer) is rejected before journal
+application, in an operation and inside a received value alike: two strings can
+never name one key. The reserved keys `__proto__`, `constructor` and
+`prototype` stay rejected.
+
+The public iteration order of a map is ascending key order (numeric for numbers
+and bigints, code-unit order for strings, `false` before `true`). It is a pure
+projection of the registers, so receive order cannot change it. The key schema
+enters the layout fingerprint as the kind `map:<key schema>`, so peers older
+than version 13 reject documents that declare a map. A map cannot be constant,
+frozen, or the root of a document. No operation kind or envelope is added:
+relays and stores see ordinary rows.
 
 The ProseMirror and Lexical bindings share an editor-local history plugin.
 History stacks and grouping metadata never travel over the wire. Undo/redo emit

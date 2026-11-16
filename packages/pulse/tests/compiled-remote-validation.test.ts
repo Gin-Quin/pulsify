@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { array, createCodec, map, object, type Schema } from "@gin-quin/codec";
+import {
+	array,
+	createCodec,
+	record,
+	object,
+	type Schema,
+} from "@gin-quin/codec";
 import {
 	patchToRow,
 	type PulsePatchRow,
@@ -283,7 +289,10 @@ test("typed non-finite scalar decoding cannot bypass scalar preflight", () => {
 test("typed decoded object extras obey the portable grammar before being dropped", () => {
 	const numeric = definePulse(
 		"CompiledRemoteExtras",
-		object({ profile: object({ value: "float64" }), shadow: map("float64") }),
+		object({
+			profile: object({ value: "float64" }),
+			shadow: record("float64"),
+		}),
 	).materialize();
 	for (const key of ["ignored", "constructor"]) {
 		const pulse = createPulse(
@@ -300,7 +309,7 @@ test("typed decoded object extras obey the portable grammar before being dropped
 			const encoding: ValueEncoding = {
 				encode: () => ({
 					layout: layout.id + 2,
-					data: createCodec(map("float64")).encode(raw),
+					data: createCodec(record("float64")).encode(raw),
 				}),
 				decode: meta.model.encoding.decode,
 			};

@@ -53,11 +53,11 @@ export default function Why() {
 
 			<h2>Any database</h2>
 			<p>
-				Every change is an immutable row keyed by document, actor and clock. The
-				server answers “what is this client missing?” with one indexed query and
-				never decodes or loads a document. Appends are one round trip.
-				PostgreSQL and SQLite stores are included; any other database implements
-				the same four-method interface.{" "}
+				A change is a row keyed by document, actor and clock, and a field keeps
+				its last one only. The server answers “what is this client missing?”
+				with one indexed query and never decodes or loads a document. Appends
+				are one round trip. PostgreSQL and SQLite stores are included; any other
+				database implements the same four-method interface.{" "}
 				<a href="/docs/databases">Databases →</a>
 			</p>
 

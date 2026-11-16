@@ -4,6 +4,8 @@ export const RichTextSymbol: unique symbol = Symbol("RichText");
 export const RichTextSchemaSymbol: unique symbol = Symbol("RichTextSchema");
 export const PlainTextSymbol: unique symbol = Symbol("PlainText");
 export const PlainTextSchemaSymbol: unique symbol = Symbol("PlainTextSchema");
+export const CounterSymbol: unique symbol = Symbol("Counter");
+export const CounterSchemaSymbol: unique symbol = Symbol("CounterSchema");
 export const PulseRefSymbol: unique symbol = Symbol("PulseRef");
 export type PreparedValue = {
 	value: unknown;
@@ -71,6 +73,9 @@ export function prepareValue(input: unknown): PreparedValue {
 					path,
 					depth,
 				);
+			// A counter is a number wherever the schema does not declare it.
+			if ((value as { [CounterSymbol]?: boolean })[CounterSymbol])
+				return clone((value as { value: number }).value, path, depth);
 			// Plain text is a string wherever the schema does not declare it.
 			if ((value as { [PlainTextSymbol]?: boolean })[PlainTextSymbol])
 				return clone((value as { text: string }).text, path, depth);
@@ -84,6 +89,23 @@ export function prepareValue(input: unknown): PreparedValue {
 					if (!(i in value))
 						throw new TypeError("Pulse arrays cannot contain holes");
 					result[i] = clone(value[i], [...path, String(i)], depth + 1);
+				}
+				return result;
+			}
+			// A Map is stored as a record of its keys' canonical strings.
+			if (value instanceof Map) {
+				const result: Record<string, unknown> = {};
+				for (const [key, item] of value) {
+					if (
+						typeof key !== "string" &&
+						typeof key !== "boolean" &&
+						typeof key !== "bigint" &&
+						!(typeof key === "number" && Number.isFinite(key))
+					)
+						throw new TypeError("Map keys must be primitive values");
+					const text = String(key === 0 ? 0 : key);
+					assertKey(text);
+					result[text] = clone(item, [...path, text], depth + 1);
 				}
 				return result;
 			}

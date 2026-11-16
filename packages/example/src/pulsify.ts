@@ -7,7 +7,7 @@ import {
 	frozen,
 	isOnline,
 	loadPulse,
-	map,
+	record,
 	object,
 	optional,
 	plainText,
@@ -50,7 +50,7 @@ export const Character = definePulse(
 		createdAt: constant("float64"), // fixed at creation
 		bio: plainText(), // concurrent edits merge
 		tags: array("string"),
-		stats: map("int"),
+		stats: record("int"),
 		inventory: array(object({ item: "string", quantity: "uint" })),
 		links: array(noteRef), // sub-pulse references to other files
 	}),

@@ -76,6 +76,11 @@ atomic registers; rich text is selected explicitly with a schema annotation or
 formatting is available through `toDelta()`. A `plainText()` field is a
 collaborative string without formatting: concurrent edits merge, assigning a
 string edits only what changed, and its positions count UTF-16 code units.
+A `counter()` field is a number that every peer increments, decrements or
+sets: it keeps one count per actor, so concurrent changes all add up.
+A field keeps its last value only, so documents and databases grow with
+their size rather than with their edits; `versioned()` keeps every write of
+a field, with its time if asked.
 
 The same codec schema describes stored values and typed public fields. Numeric
 field slots and specialized codecs avoid repeating schema information in each

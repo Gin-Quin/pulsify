@@ -8,20 +8,31 @@ use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AppendResult {
+    /// Rows stored, plus the frontiers that a known row's longer span moved:
+    /// above zero, the upload is worth forwarding.
     pub inserted: usize,
+    /// Rows that became ready, on arrival or once what they waited for came.
     pub ready: usize,
     pub pending: usize,
     /// The committed vector of the document; `None` for an empty append.
     pub vector: Option<VersionVector>,
 }
 
-/// Immutable rows keyed by `(doc_id, sid, clock)`. Rows stay pending until
-/// their actor prefix is contiguous and their dependencies are stored.
+/// Rows keyed by `(doc_id, sid, clock)`, whose operations are immutable. Rows
+/// stay pending until their actor prefix is contiguous and their dependencies
+/// are stored.
+///
+/// A store keeps the last value only of a field without history ("Fields
+/// without history" in `docs/PROTOCOL.md` and `docs/STORAGE.md`): once a
+/// last-value row is ready ([`last_register_of`](crate::last_register_of)), the
+/// older row of its register is removed. The row before the removed one grows
+/// its `span`, or a gap row ([`GAP_OPERATIONS`](crate::GAP_OPERATIONS)) stays.
 pub trait PatchStore {
     /// Carries a Pulsify protocol error code, like [`Error`].
     type Error: From<Error> + Into<Error>;
-    /// Validates and stores rows of one document atomically. Exact
-    /// retransmissions are ignored; a conflict stores nothing.
+    /// Validates and stores rows of one document atomically. Retransmissions
+    /// are ignored, whatever their span; a conflict (other operations at a
+    /// stored identity, or an actor fork) stores nothing.
     fn append(&mut self, rows: &[PatchRow]) -> Result<AppendResult, Self::Error>;
     fn vector(&self, doc_id: &str) -> Result<VersionVector, Self::Error>;
     /// Ready rows the peer lacks, ordered by actor and clock.
@@ -76,7 +87,8 @@ pub struct RelayOutput {
     pub doc_id: String,
     /// Frames for the requesting peer, in order.
     pub responses: Vec<Vec<u8>>,
-    /// Update frames (request ID 0) for the document's other peers, when rows were inserted.
+    /// Update frames (request ID 0) for the document's other peers, when the
+    /// upload stored anything: its rows, as they were received.
     pub broadcast: Vec<Vec<u8>>,
 }
 
@@ -164,6 +176,7 @@ fn serve<T: PatchStore>(
     output
         .responses
         .push(frame(request_id, Body::Ack { vv: vv.clone() })?);
+    // Each receiver judges the rows against its own frontier.
     if inserted > 0 {
         for rows in chunk_rows(rows) {
             let vv = vv.clone();

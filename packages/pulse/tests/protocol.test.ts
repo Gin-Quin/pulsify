@@ -205,22 +205,27 @@ describe("causal patch journal", () => {
 		expect(log.size).toBe(3);
 		expect(log.missing(log.vector)).toEqual([]);
 	});
-	test("conflicts, overlaps and false span metadata are rejected", () => {
+	test("conflicting contents are rejected; a longer span only covers replaced writes", () => {
 		const all = rows();
 		const log = new PatchLog("journal");
 		log.append(all);
 		const first = all[0]!;
-		expect(() => log.append([{ ...first, span: first.span + 1 }])).toThrow(
-			"Conflicting",
-		);
-		// The journal accepts generic spans even though the current engine emits
-		// one transaction per row. Its interval protection must remain intact.
+		// A span tells how many later writes a peer has replaced: no conflict.
+		expect(log.append([{ ...first, span: first.span + 1 }])).toEqual([]);
+		expect(() =>
+			log.append([{ ...first, operations: all[1]!.operations }]),
+		).toThrow("Conflicting");
+		expect(log.size).toBe(3);
+		// A row that starts among the writes another row replaced is ignored.
 		const ranges = new PatchLog("journal");
 		ranges.append([{ ...first, span: 2 }]);
-		expect(() => ranges.append([{ ...first, clock: 2 }])).toThrow(
-			"Overlapping",
+		expect(ranges.append([{ ...first, clock: 2 }])).toEqual([]);
+		expect(ranges.size).toBe(1);
+		expect(ranges.vector).toEqual([[first.sid, 3]]);
+		expect(rowToPatch({ ...first, span: first.span + 1 }).ops).toEqual(
+			rowToPatch(first).ops,
 		);
-		expect(() => rowToPatch({ ...first, span: first.span + 1 })).toThrow();
+		expect(() => rowToPatch({ ...first, span: 0 })).toThrow();
 		// Payload decoding is schema-independent; graph-reference coverage is
 		// checked by the runtime before it commits either model or journal.
 		const target = createRuntime(Document, "journal", {

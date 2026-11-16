@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	array,
 	createCodec,
-	map,
+	record,
 	object,
 	optional,
 	tuple,
@@ -56,7 +56,7 @@ test("inline rich text works in nested objects, arrays, maps, optionals and tupl
 		author: object({ bio: richText() }),
 		items: array(richText()),
 		notes: array(object({ text: richText() })),
-		byId: map(richText()),
+		byId: record(richText()),
 		maybe: optional(richText()),
 		pair: tuple("uint", richText()),
 	});

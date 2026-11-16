@@ -1,12 +1,14 @@
 //! One behaviour suite run against `RocksStore` and `SqliteStore`, then random
 //! histories applied to both, which must answer identically.
 use pulsify_protocol::{
-    decode, encode, relay_frame, AppendResult, Body, Hub, Message, PatchRow, PatchStore,
-    VersionVector, MAX_MESSAGE_ROWS, MAX_VECTOR_ENTRIES,
+    decode, encode, is_gap, last_register_of, relay_frame, AppendResult, Body, Hub, Message,
+    PatchLog, PatchRow, PatchStore, VersionVector, GAP_OPERATIONS, MAX_MESSAGE_ROWS,
+    MAX_VECTOR_ENTRIES,
 };
 use pulsify_rocksdb::{RocksOptions, RocksStore};
 use pulsify_sqlite::SqliteStore;
 use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -30,6 +32,38 @@ fn next(sid: u64, clock: u64, span: u64) -> PatchRow {
     } else {
         row(sid, clock, span, &[(sid, clock)])
     }
+}
+fn varuint(out: &mut Vec<u8>, mut value: u64) {
+    while value >= 128 {
+        out.push(value as u8 | 128);
+        value >>= 7;
+    }
+    out.push(value as u8);
+}
+/// One kind 7 write of `sid` to the numeric field `field` of the node "n": a
+/// last-value row. `tail` stands for its value.
+fn write(sid: u64, clock: u64, lamport: u64, field: u8) -> PatchRow {
+    let mut operations = vec![3];
+    varuint(&mut operations, lamport);
+    operations.extend([0, 1, 7, 1, b'n', 1, field, sid as u8, clock as u8]);
+    PatchRow {
+        operations,
+        ..next(sid, clock, 1)
+    }
+}
+/// What stays of replaced writes that no earlier row can cover.
+fn gap(sid: u64, clock: u64, span: u64) -> PatchRow {
+    PatchRow {
+        operations: GAP_OPERATIONS.to_vec(),
+        ..next(sid, clock, span)
+    }
+}
+/// The ready rows of "doc": actor, start and span.
+fn spans<S: PatchStore>(store: &S) -> Vec<(u64, u64, u64)> {
+    ok(store.missing("doc", &vec![]))
+        .iter()
+        .map(|row| (row.sid, row.clock, row.span))
+        .collect()
 }
 /// The code and message of a failure, whichever store it comes from.
 fn failure<T, E: Into<pulsify_protocol::Error>>(result: Result<T, E>) -> (&'static str, String) {
@@ -108,7 +142,6 @@ fn conflicts_roll_back_the_whole_batch<S: PatchStore>(mut store: S) {
     changed.operations = vec![9];
     let cases = [
         (changed, "Conflicting storage segment"),
-        (next(A, 2, 2), "Overlapping immutable storage segments"),
         (row(A, 3, 1, &[(A, 2)]), "Actor history fork"),
     ];
     for (bad, message) in cases {
@@ -180,10 +213,302 @@ fn in_order_rows_skip_pending_and_keep_every_check<S: PatchStore>(mut store: S) 
     let both = ok(store.append(&[next(A, 6, 1), next(B, 1, 2)]));
     assert_eq!((both.ready, both.pending), (3, 0));
     assert_eq!(both.vector, Some(vec![(A, 7), (B, 4)]));
+    // A row whose span covers a waiting row replaces it.
     ok(store.append(&[next(B, 6, 1)]));
+    let wide = ok(store.append(&[next(B, 4, 3)]));
+    assert_eq!((wide.inserted, wide.ready, wide.pending), (1, 1, 0));
+    assert_eq!(wide.vector, Some(vec![(A, 7), (B, 7)]));
     assert_eq!(
-        failure(store.append(&[next(B, 4, 3)])).1,
-        "Overlapping immutable storage segments"
+        ok(store.missing("doc", &vec![(A, 7), (B, 4)])),
+        vec![next(B, 4, 3)]
+    );
+}
+
+fn a_register_rewritten_many_times_keeps_one_row_per_actor<S: PatchStore>(mut store: S) {
+    ok(store.append(&[next(A, 1, 1), next(B, 1, 1)]));
+    for clock in 2..=300u64 {
+        // Two registers of A, one of which B also writes, with older times.
+        let mine = ok(store.append(&[write(A, clock, 1000 + clock, (clock % 2) as u8)]));
+        assert_eq!((mine.inserted, mine.ready, mine.pending), (1, 1, 0));
+        let late = ok(store.append(&[write(B, clock, clock, 0)]));
+        assert_eq!((late.inserted, late.ready), (1, 1));
+        assert_eq!(late.vector, Some(vec![(A, clock + 1), (B, clock + 1)]));
+    }
+    // Each actor keeps its first row and its last write to each register,
+    // whatever the other actor wrote: replicas pick the winner.
+    assert_eq!(
+        spans(&store),
+        vec![
+            (A, 1, 298),
+            (A, 299, 1),
+            (A, 300, 1),
+            (B, 1, 299),
+            (B, 300, 1)
+        ]
+    );
+    assert_eq!(
+        ok(store.missing("doc", &vec![(A, 299), (B, 301)])),
+        vec![write(A, 299, 1299, 1), write(A, 300, 1300, 0)]
+    );
+    // Sent again, whole or with the spans a peer holds, nothing changes.
+    let mut again = ok(store.missing("doc", &vec![]));
+    again.extend((2..=300).map(|clock| write(A, clock, 1000 + clock, (clock % 2) as u8)));
+    assert_eq!(ok(store.append(&again)).inserted, 0);
+    ok(store.append(&[write(B, 301, 2000, 0)]));
+    ok(store.append(&[write(A, 301, 2000, 0)]));
+    assert_eq!(
+        spans(&store),
+        vec![
+            (A, 1, 298),
+            (A, 299, 2),
+            (A, 301, 1),
+            (B, 1, 300),
+            (B, 301, 1)
+        ]
+    );
+}
+
+fn every_actor_keeps_its_own_last_write<S: PatchStore>(mut store: S) {
+    ok(store.append(&[next(A, 1, 1), write(A, 2, 9, 0)]));
+    // An older write of another actor is kept: it is that actor's last one.
+    let late = ok(store.append(&[next(B, 1, 1), write(B, 2, 3, 0)]));
+    assert_eq!((late.inserted, late.ready, late.pending), (2, 2, 0));
+    assert_eq!(
+        spans(&store),
+        vec![(A, 1, 1), (A, 2, 1), (B, 1, 1), (B, 2, 1)]
+    );
+    // On promotion: it waited for the row before it, and replaces B's value.
+    let waiting = ok(store.append(&[write(B, 4, 4, 0), next(B, 5, 1)]));
+    assert_eq!((waiting.ready, waiting.pending), (0, 2));
+    let filled = ok(store.append(&[next(B, 3, 1)]));
+    assert_eq!((filled.inserted, filled.ready, filled.pending), (1, 3, 0));
+    assert_eq!(
+        spans(&store),
+        vec![
+            (A, 1, 1),
+            (A, 2, 1),
+            (B, 1, 2),
+            (B, 3, 1),
+            (B, 4, 1),
+            (B, 5, 1)
+        ]
+    );
+    ok(store.append(&[write(B, 6, 10, 0)]));
+    assert_eq!(
+        spans(&store),
+        vec![
+            (A, 1, 1),
+            (A, 2, 1),
+            (B, 1, 2),
+            (B, 3, 2),
+            (B, 5, 1),
+            (B, 6, 1)
+        ]
+    );
+    assert_eq!(ok(store.vector("doc")), vec![(A, 3), (B, 7)]);
+    // Other kinds and transactions of several operations are history: kept.
+    let mut several = write(A, 3, 50, 0);
+    several.operations[3] = 2;
+    let mut plain = write(A, 4, 50, 0);
+    plain.operations[4] = 1;
+    ok(store.append(&[several, plain]));
+    assert_eq!(ok(store.missing("doc", &vec![])).len(), 8);
+}
+
+fn a_known_row_with_a_longer_span_moves_the_frontier<S: PatchStore>(mut store: S) {
+    let (first, second) = (next(A, 1, 1), next(A, 2, 1));
+    ok(store.append(&[first.clone(), second.clone()]));
+    // The sender replaced two writes after the second one.
+    let long = PatchRow {
+        span: 3,
+        ..second.clone()
+    };
+    let moved = ok(store.append(std::slice::from_ref(&long)));
+    assert_eq!((moved.inserted, moved.ready, moved.pending), (1, 0, 0));
+    assert_eq!(moved.vector, Some(vec![(A, 5)]));
+    assert_eq!(ok(store.missing("doc", &vec![])), vec![first, long.clone()]);
+    // Sent again, or shorter, it changes nothing; other contents conflict.
+    for span in [1, 2, 3] {
+        let again = PatchRow {
+            span,
+            ..second.clone()
+        };
+        assert_eq!(ok(store.append(&[again])).inserted, 0);
+    }
+    let changed = PatchRow {
+        operations: vec![9],
+        ..second.clone()
+    };
+    assert_eq!(
+        failure(store.append(&[changed])),
+        ("CONFLICT", "Conflicting storage segment".to_owned())
+    );
+    let after = next(A, 5, 1);
+    assert_eq!(ok(store.append(std::slice::from_ref(&after))).ready, 1);
+    assert_eq!(ok(store.missing("doc", &vec![(A, 3)])), vec![long, after]);
+    // Beyond rows that wait: they were replaced, and the next one is promoted.
+    ok(store.append(&[next(A, 8, 1), next(A, 10, 1)]));
+    let wide = PatchRow {
+        span: 9,
+        ..next(A, 1, 1)
+    };
+    let moved = ok(store.append(&[wide]));
+    assert_eq!((moved.inserted, moved.ready, moved.pending), (1, 1, 0));
+    assert_eq!(
+        spans(&store),
+        vec![(A, 1, 1), (A, 2, 3), (A, 5, 5), (A, 10, 1)]
+    );
+    assert_eq!(ok(store.vector("doc")), vec![(A, 11)]);
+}
+
+fn a_row_replaces_the_waiting_rows_that_its_span_covers<S: PatchStore>(mut store: S) {
+    // B's gap keeps its row pending beside in-order appends.
+    ok(store.append(&[next(B, 3, 1)]));
+    let both = ok(store.append(&[next(A, 1, 1), next(A, 2, 1)]));
+    assert_eq!((both.ready, both.pending), (2, 1));
+    // Its span says the writes that followed it were replaced.
+    let long = next(B, 1, 3);
+    let result = ok(store.append(std::slice::from_ref(&long)));
+    assert_eq!((result.ready, result.pending), (1, 0));
+    assert_eq!(ok(store.missing("doc", &vec![(A, 3)])), vec![long]);
+    // Waiting rows inserted earlier in the same batch are replaced too.
+    let wide = next(A, 3, 2);
+    let result = ok(store.append(&[next(A, 4, 1), wide.clone()]));
+    assert_eq!((result.inserted, result.ready, result.pending), (2, 1, 0));
+    assert_eq!(ok(store.vector("doc")), vec![(A, 5), (B, 4)]);
+    assert_eq!(
+        ok(store.missing("doc", &vec![(B, 4)])),
+        vec![next(A, 1, 1), next(A, 2, 1), wide]
+    );
+    // A waiting row that starts inside another waiting row's span is dropped,
+    // and of two rows with the same start the longer span is kept.
+    let result = ok(store.append(&[next(A, 7, 2), next(A, 8, 1), next(A, 10, 1), next(A, 12, 1)]));
+    assert_eq!((result.inserted, result.pending), (3, 3));
+    let mut longer = next(A, 7, 2);
+    longer.span = 4;
+    let result = ok(store.append(&[longer.clone(), next(A, 7, 2)]));
+    assert_eq!((result.inserted, result.pending), (0, 2));
+    let result = ok(store.append(&[next(A, 5, 2), next(A, 11, 1)]));
+    assert_eq!((result.ready, result.pending), (4, 0));
+    assert_eq!(
+        ok(store.missing("doc", &vec![(A, 5), (B, 4)])),
+        vec![next(A, 5, 2), longer, next(A, 11, 1), next(A, 12, 1)]
+    );
+}
+
+fn a_waiting_row_that_learns_a_longer_span_replaces_the_rows_it_covers<S: PatchStore>(
+    mut store: S,
+) {
+    let (fifth, sixth) = (next(A, 5, 1), next(A, 6, 1));
+    assert_eq!(ok(store.append(&[fifth.clone(), sixth.clone()])).pending, 2);
+    let longer = PatchRow {
+        span: 3,
+        ..fifth.clone()
+    };
+    let grown = ok(store.append(std::slice::from_ref(&longer)));
+    assert_eq!((grown.inserted, grown.pending), (0, 1));
+    let first = next(A, 1, 4);
+    let filled = ok(store.append(std::slice::from_ref(&first)));
+    assert_eq!((filled.ready, filled.pending), (2, 0));
+    assert_eq!(ok(store.vector("doc")), vec![(A, 8)]);
+    assert_eq!(ok(store.missing("doc", &vec![])), vec![first, longer]);
+    // What it replaced is ignored when it comes again, whatever it holds.
+    let changed = PatchRow {
+        operations: vec![9],
+        ..sixth
+    };
+    assert_eq!(ok(store.append(&[changed])).inserted, 0);
+}
+
+fn the_first_row_past_a_span_must_build_on_it<S: PatchStore>(mut store: S) {
+    // Waiting rows: the second one says its actor's history ended at 7.
+    ok(store.append(&[next(A, 6, 1), row(A, 9, 1, &[(A, 7)])]));
+    assert_eq!(
+        failure(store.append(&[next(A, 5, 3)])),
+        ("CONFLICT", "Actor history fork".to_owned())
+    );
+    // The refused batch left the waiting rows as they were.
+    let again = ok(store.append(&[next(A, 6, 1)]));
+    assert_eq!((again.inserted, again.pending), (0, 2));
+    // A row that builds on the span is accepted, and replaces what it covers.
+    let wide = ok(store.append(&[next(A, 5, 2)]));
+    assert_eq!((wide.inserted, wide.pending), (1, 2));
+    let filled = ok(store.append(&[next(A, 1, 4)]));
+    assert_eq!((filled.ready, filled.pending), (2, 1));
+    assert_eq!(ok(store.vector("doc")), vec![(A, 7)]);
+}
+
+fn replaced_writes_are_served_as_gap_rows<S: PatchStore>(mut store: S) {
+    ok(store.append(&[write(A, 1, 1, 0)]));
+    ok(store.append(&[write(B, 1, 2, 0)]));
+    assert_eq!(
+        ok(store.missing("doc", &vec![])),
+        vec![write(A, 1, 1, 0), write(B, 1, 2, 0)]
+    );
+    // Nothing holds A's first sequence numbers any more: a gap row stands for them.
+    ok(store.append(&[write(A, 2, 1, 0), write(A, 3, 1, 0)]));
+    assert_eq!(
+        ok(store.missing("doc", &vec![(B, 2)])),
+        vec![gap(A, 1, 2), write(A, 3, 1, 0)]
+    );
+    assert_eq!(
+        ok(store.missing("doc", &vec![(A, 3), (B, 2)])),
+        vec![write(A, 3, 1, 0)]
+    );
+    // A peer sends a gap row where this store holds a row, and the reverse:
+    // neither is a conflict, and the row that is held stays.
+    let result = ok(store.append(&[gap(B, 1, 1), write(A, 1, 1, 0)]));
+    assert_eq!(result.inserted, 0);
+    assert_eq!(
+        ok(store.missing("doc", &vec![(A, 4)])),
+        vec![write(B, 1, 2, 0)]
+    );
+    // A gap row that arrives only moves the frontier.
+    ok(store.append(&[gap(B, 2, 3), gap(A + 2, 1, 2)]));
+    assert_eq!(
+        spans(&store),
+        vec![(A, 1, 2), (A, 3, 1), (B, 1, 4), (A + 2, 1, 2)]
+    );
+    assert_eq!(ok(store.vector("doc")), vec![(A, 4), (B, 5), (A + 2, 3)]);
+    // A first row replaced in the batch that brings it.
+    ok(store.append(&[write(A + 3, 1, 1, 0), write(A + 3, 2, 1, 0)]));
+    assert_eq!(
+        ok(store.missing("doc", &vec![(A, 4), (B, 5), (A + 2, 3)])),
+        vec![gap(A + 3, 1, 1), write(A + 3, 2, 1, 0)]
+    );
+}
+
+fn other_contents_at_a_stored_identity_still_conflict<S: PatchStore>(mut store: S) {
+    ok(store.append(&[next(A, 1, 1), write(A, 2, 5, 0), next(A, 5, 2)]));
+    let before = state(&mut store, &next(A, 1, 1));
+    let changed = |mut row: PatchRow| {
+        row.operations.push(1);
+        row
+    };
+    for bad in [
+        // A ready row, a last-value row and a row that waits, whatever the span.
+        changed(next(A, 1, 1)),
+        changed(next(A, 1, 4)),
+        changed(write(A, 2, 5, 0)),
+        changed(next(A, 2, 1)),
+        changed(next(A, 5, 2)),
+        changed(next(A, 5, 9)),
+    ] {
+        let error = failure(store.append(&[next(B, 1, 1), bad]));
+        assert_eq!(
+            error,
+            ("CONFLICT", "Conflicting storage segment".to_owned())
+        );
+        assert_eq!(state(&mut store, &next(A, 1, 1)), before);
+    }
+    // Once replaced, a row is no longer compared: its sequence number holds nothing.
+    ok(store.append(&[write(A, 3, 6, 0)]));
+    assert_eq!(spans(&store), vec![(A, 1, 2), (A, 3, 1)]);
+    let replaced = changed(write(A, 2, 5, 0));
+    assert_eq!(ok(store.append(&[replaced])).inserted, 0);
+    assert_eq!(
+        failure(store.append(&[changed(next(A, 1, 2))])).0,
+        "CONFLICT"
     );
 }
 
@@ -345,6 +670,80 @@ fn relay_serves_connects_and_uploads<S: PatchStore>(mut store: S) {
     assert_eq!(bodies(&output.responses), vec![(6, Body::Ack { vv })]);
 }
 
+fn relay_forwards_whatever_an_upload_made_applicable<S: PatchStore>(mut store: S) {
+    ok(relay_frame(
+        &mut store,
+        &upload(1, vec![next(A, 1, 1), write(A, 2, 5, 0)]),
+        None,
+    ));
+    // Another actor's write to the register is kept beside A's, and the
+    // upload is forwarded as it was received.
+    let newer = vec![write(B, 1, 6, 0)];
+    let output = ok(relay_frame(&mut store, &upload(2, newer.clone()), None));
+    assert_eq!(ok(store.missing("doc", &vec![])).len(), 3);
+    let vv = vec![(A, 3), (B, 2)];
+    assert_eq!(
+        bodies(&output.responses),
+        vec![(2, Body::Ack { vv: vv.clone() })]
+    );
+    assert_eq!(
+        bodies(&output.broadcast),
+        vec![(0, Body::Update { vv, rows: newer })]
+    );
+    // A's next write to it replaces A's own, whatever its time.
+    let older = vec![write(A, 3, 1, 0)];
+    let output = ok(relay_frame(&mut store, &upload(3, older.clone()), None));
+    assert_eq!(ok(store.missing("doc", &vec![])).len(), 3);
+    let vv = vec![(A, 4), (B, 2)];
+    assert_eq!(
+        bodies(&output.broadcast),
+        vec![(0, Body::Update { vv, rows: older })]
+    );
+    // A known row whose span covers more replaced writes moves the frontier;
+    // sent again, nothing.
+    let long = vec![PatchRow {
+        span: 6,
+        ..next(A, 1, 1)
+    }];
+    let output = ok(relay_frame(&mut store, &upload(4, long.clone()), None));
+    let vv = vec![(A, 7), (B, 2)];
+    assert_eq!(
+        bodies(&output.responses),
+        vec![(4, Body::Ack { vv: vv.clone() })]
+    );
+    assert_eq!(
+        bodies(&output.broadcast),
+        vec![(
+            0,
+            Body::Update {
+                vv,
+                rows: long.clone()
+            }
+        )]
+    );
+    let again = ok(relay_frame(&mut store, &upload(5, long), None));
+    assert!(again.broadcast.is_empty());
+    // A new peer gets what is held, with spans that cover the replaced writes.
+    let sync = ok(relay_frame(&mut store, &connect(6, vec![]), None));
+    let page = Body::Sync {
+        found: true,
+        complete: true,
+        vv: vec![(A, 7), (B, 2)],
+        rows: vec![
+            PatchRow {
+                span: 2,
+                ..next(A, 1, 1)
+            },
+            PatchRow {
+                span: 4,
+                ..write(A, 3, 1, 0)
+            },
+            write(B, 1, 6, 0),
+        ],
+    };
+    assert_eq!(bodies(&sync.responses), vec![(6, page)]);
+}
+
 fn relay_failures_become_error_frames<S: PatchStore>(mut store: S) {
     ok(relay_frame(
         &mut store,
@@ -501,10 +900,19 @@ suites!(
     conflicts_roll_back_the_whole_batch,
     gaps_and_missing_dependencies_stay_pending_until_promoted,
     in_order_rows_skip_pending_and_keep_every_check,
+    a_register_rewritten_many_times_keeps_one_row_per_actor,
+    every_actor_keeps_its_own_last_write,
+    a_known_row_with_a_longer_span_moves_the_frontier,
+    a_row_replaces_the_waiting_rows_that_its_span_covers,
+    a_waiting_row_that_learns_a_longer_span_replaces_the_rows_it_covers,
+    the_first_row_past_a_span_must_build_on_it,
+    replaced_writes_are_served_as_gap_rows,
+    other_contents_at_a_stored_identity_still_conflict,
     rejects_invalid_rows_and_documents,
     limits_the_number_of_actors,
     documents_are_separate,
     relay_serves_connects_and_uploads,
+    relay_forwards_whatever_an_upload_made_applicable,
     relay_failures_become_error_frames,
     relay_pages_large_documents,
     hub_broadcasts_and_closes_sessions
@@ -548,9 +956,24 @@ fn history(random: &mut Random, doc_id: &str) -> Vec<Vec<PatchRow>> {
                                 .push((A + other, 1 + random.below(lengths[other as usize] * 2)));
                         }
                     }
-                    let operations = (0..1 + random.below(40))
+                    let mut operations: Vec<u8> = (0..1 + random.below(40))
                         .map(|_| random.below(256) as u8)
                         .collect();
+                    // Often a write to one of a few registers without history,
+                    // at a time unrelated to its place in the actor's history.
+                    if random.chance(45) {
+                        let head = [
+                            3,
+                            1 + random.below(40) as u8,
+                            0,
+                            1,
+                            7 + random.below(2) as u8,
+                        ];
+                        operations.splice(
+                            ..0,
+                            head.into_iter().chain([1, b'n', 1, random.below(3) as u8]),
+                        );
+                    }
                     let row = PatchRow {
                         doc_id: doc_id.to_owned(),
                         sid,
@@ -567,11 +990,18 @@ fn history(random: &mut Random, doc_id: &str) -> Vec<Vec<PatchRow>> {
         .collect()
 }
 
-/// A row that contradicts the history: another payload, an overlap or a fork.
+/// A row that differs from the history: another payload, a fork, or what a
+/// peer that replaced writes would send, a longer span or a gap row.
 fn mutant(random: &mut Random, mut row: PatchRow) -> PatchRow {
-    match random.below(6) {
+    match random.below(9) {
         0 => row.operations.push(1),
         1 => row.span += 1,
+        6 => row.span += 1 + random.below(6),
+        7 => row.operations = GAP_OPERATIONS.to_vec(),
+        8 => {
+            row.operations = GAP_OPERATIONS.to_vec();
+            row.span += random.below(4);
+        }
         2 if row.span > 1 => row.span -= 1,
         3 => row.clock += 1,
         4 if row.clock > 1 => {
@@ -626,7 +1056,7 @@ fn random_histories_match_sqlite() {
                 } else {
                     rows[random.below(rows.len() as u64) as usize].clone()
                 };
-                batch.push(if random.chance(12) {
+                batch.push(if random.chance(14) {
                     mutant(&mut random, row)
                 } else {
                     row
@@ -685,5 +1115,248 @@ fn random_histories_match_sqlite() {
         }
     }
     // The histories exercise every outcome, not only the easy one.
-    assert!(appended > 2000 && refused > 500 && promoted > 1500);
+    assert!(
+        appended > 2000 && refused > 500 && promoted > 1500,
+        "{appended} appended, {refused} refused, {promoted} promoted"
+    );
+}
+
+/// The Lamport time at the head of a payload of this file.
+fn lamport_of(row: &PatchRow) -> u64 {
+    if is_gap(&row.operations) {
+        return 0;
+    }
+    let (mut value, mut shift) = (0, 0);
+    for byte in &row.operations[1..] {
+        value |= u64::from(byte & 127) << shift;
+        shift += 7;
+        if *byte < 128 {
+            break;
+        }
+    }
+    value
+}
+
+/// A replica: its journal, and the Lamport time of what it has seen.
+struct Peer {
+    sid: u64,
+    log: PatchLog,
+    lamport: u64,
+}
+impl Peer {
+    /// One transaction: a write to a register without history, or one that is kept.
+    fn write(&mut self, random: &mut Random) -> PatchRow {
+        let vector = self.log.vector();
+        let clock = vector
+            .iter()
+            .find(|entry| entry.0 == self.sid)
+            .map_or(1, |entry| entry.1);
+        self.lamport += 1;
+        let mut dependencies = Vec::new();
+        for (actor, reached) in vector {
+            if actor == self.sid || random.chance(30) {
+                dependencies.push((actor, reached));
+            }
+        }
+        let mut operations = vec![3];
+        varuint(&mut operations, self.lamport);
+        if random.chance(65) {
+            operations.extend([0, 1, 7 + random.below(2) as u8, 1, b'n', 1]);
+            operations.push(random.below(4) as u8);
+        } else {
+            operations.extend([0, 1, 3]);
+        }
+        operations.extend((0..random.below(12)).map(|_| random.below(256) as u8));
+        let row = PatchRow {
+            doc_id: "doc".into(),
+            sid: self.sid,
+            clock,
+            span: 1,
+            dependencies,
+            operations,
+        };
+        self.log.append(std::slice::from_ref(&row)).unwrap();
+        row
+    }
+    fn receive(&mut self, rows: &[PatchRow]) {
+        self.log.append(rows).unwrap();
+        let seen = rows.iter().map(lamport_of).max().unwrap_or(0);
+        self.lamport = self.lamport.max(seen);
+    }
+}
+
+/// The rows that still hold operations: identity and payload.
+fn kept(rows: Vec<PatchRow>) -> BTreeMap<(u64, u64), Vec<u8>> {
+    rows.into_iter()
+        .filter(|row| !is_gap(&row.operations))
+        .map(|row| ((row.sid, row.clock), row.operations))
+        .collect()
+}
+
+/// A peer uploads what the stores lack, or downloads what it lacks. Returns
+/// how many rows wait in the stores afterwards.
+fn exchange(
+    rocks: &mut RocksStore,
+    sqlite: &mut SqliteStore,
+    peer: &mut Peer,
+    push: Option<bool>,
+    context: &str,
+) -> usize {
+    let mut waiting = 0;
+    if let Some(own) = push {
+        // What the store lacks, as the journal holds it now: everything, or
+        // the peer's own rows only, which then wait for those they build on.
+        let mut rows = peer.log.missing(&sqlite.vector("doc").unwrap());
+        rows.retain(|row| !own || row.sid == peer.sid);
+        if rows.is_empty() {
+            return 0;
+        }
+        let expected = sqlite.append(&rows).unwrap();
+        let actual = rocks.append(&rows).unwrap();
+        assert_eq!(actual, expected, "{context}: {rows:?}");
+        waiting = expected.pending;
+    } else {
+        let rows = sqlite.missing("doc", &peer.log.vector()).unwrap();
+        peer.receive(&rows);
+    }
+    let vector = sqlite.vector("doc").unwrap();
+    assert_eq!(rocks.vector("doc").unwrap(), vector);
+    let held = sqlite.missing("doc", &vec![]).unwrap();
+    assert_eq!(rocks.missing("doc", &vec![]).unwrap(), held, "{context}");
+    // The rows cover every sequence number of every actor exactly once.
+    let mut next = BTreeMap::new();
+    for row in &held {
+        assert_eq!(row.clock, next.get(&row.sid).copied().unwrap_or(1));
+        next.insert(row.sid, row.end());
+    }
+    assert_eq!(next.into_iter().collect::<Vec<_>>(), vector);
+    let behind = peer.log.vector();
+    assert_eq!(
+        rocks.missing("doc", &behind).unwrap(),
+        sqlite.missing("doc", &behind).unwrap()
+    );
+    waiting
+}
+
+/// Replicas that write concurrently and exchange what they hold through both
+/// stores: the journal of `pulsify-protocol` keeps one row per register
+/// without history, the stores at most one per actor and register, and a
+/// replica that loads from them reaches the same journal.
+#[test]
+fn random_peers_converge_through_both_stores() {
+    let (mut written, mut stored, mut waited) = (0, 0, 0);
+    for seed in 1..=60u64 {
+        let mut random = Random(seed.wrapping_mul(0xD6E8_FEB8_6659_FD93));
+        let path = (seed % 3 == 1).then(|| directory(&format!("peers-{seed}")));
+        let options = RocksOptions {
+            sync: false,
+            cached_documents: (seed % 2) as usize,
+            ..RocksOptions::default()
+        };
+        let mut rocks = match &path {
+            Some(path) => RocksStore::open_with(path, &options).unwrap(),
+            None => RocksStore::open_in_memory().unwrap(),
+        };
+        let mut sqlite = SqliteStore::open_in_memory().unwrap();
+        let mut peers: Vec<Peer> = (0..2 + random.below(3))
+            .map(|i| Peer {
+                sid: A + i,
+                log: PatchLog::new("doc"),
+                lamport: 0,
+            })
+            .collect();
+        let mut authored = Vec::new();
+        for step in 0..260 {
+            let at = random.below(peers.len() as u64) as usize;
+            let context = format!("seed {seed}, step {step}");
+            let push = match random.below(8) {
+                0..=2 => {
+                    authored.push(peers[at].write(&mut random));
+                    continue;
+                }
+                // Straight from another peer, behind the stores' back.
+                3 | 4 => {
+                    let other = random.below(peers.len() as u64) as usize;
+                    let rows = peers[other].log.missing(&peers[at].log.vector());
+                    peers[at].receive(&rows);
+                    continue;
+                }
+                5 => Some(true),
+                6 => Some(false),
+                _ => None,
+            };
+            waited += exchange(&mut rocks, &mut sqlite, &mut peers[at], push, &context);
+            if path.is_some() && random.chance(5) {
+                rocks.flush().unwrap();
+            }
+        }
+        for round in 0..3 {
+            for peer in peers.iter_mut() {
+                let context = format!("seed {seed}, round {round}");
+                exchange(&mut rocks, &mut sqlite, peer, Some(false), &context);
+                exchange(&mut rocks, &mut sqlite, peer, None, &context);
+            }
+        }
+        // What a journal keeps: every kept transaction, and the newest write
+        // of each register. A store keeps that, and besides at most one write
+        // of each actor to a register: its newest one that reached the store.
+        let mut expected = BTreeMap::new();
+        let mut winners: BTreeMap<Vec<u8>, (u64, u64, u64)> = BTreeMap::new();
+        let mut registers = BTreeMap::new();
+        for row in &authored {
+            match last_register_of(&row.operations) {
+                Some(last) => {
+                    let candidate = (last.lamport, row.sid, row.clock);
+                    let winner = winners.entry(last.register.to_vec()).or_insert(candidate);
+                    *winner = (*winner).max(candidate);
+                    registers.insert((row.sid, row.clock), last.register.to_vec());
+                }
+                None => {
+                    expected.insert((row.sid, row.clock), row.operations.clone());
+                }
+            }
+        }
+        let winners: BTreeSet<(u64, u64)> = winners.values().map(|w| (w.1, w.2)).collect();
+        for row in &authored {
+            if winners.contains(&(row.sid, row.clock)) {
+                expected.insert((row.sid, row.clock), row.operations.clone());
+            }
+        }
+        let vector = sqlite.vector("doc").unwrap();
+        let held = sqlite.missing("doc", &vec![]).unwrap();
+        written += authored.len();
+        stored += held.len();
+        let held = kept(held);
+        for (key, operations) in &expected {
+            assert_eq!(held.get(key), Some(operations), "seed {seed}");
+        }
+        let mut values = BTreeSet::new();
+        for key in held.keys() {
+            if let Some(register) = registers.get(key) {
+                assert!(values.insert((key.0, register)), "seed {seed}: {key:?}");
+            } else {
+                assert!(expected.contains_key(key), "seed {seed}: {key:?}");
+            }
+        }
+        for peer in &peers {
+            assert_eq!(peer.log.vector(), vector, "seed {seed}");
+            assert_eq!(peer.log.pending_count(), 0);
+            assert_eq!(kept(peer.log.missing(&vec![])), expected, "seed {seed}");
+        }
+        // A replica that starts now reaches the same journal.
+        let mut late = PatchLog::new("doc");
+        late.append(&rocks.missing("doc", &vec![]).unwrap())
+            .unwrap();
+        assert_eq!(late.vector(), vector);
+        assert_eq!(kept(late.missing(&vec![])), expected);
+        drop(rocks);
+        if let Some(path) = path {
+            std::fs::remove_dir_all(path).unwrap();
+        }
+    }
+    // Most writes were replaced, and some rows waited for others.
+    assert!(
+        written > 4000 && stored * 2 < written && waited > 50,
+        "{written} written, {stored} stored, {waited} waited"
+    );
 }

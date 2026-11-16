@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	array,
 	literal,
-	map,
+	record,
 	object,
 	optional,
 	tuple,
@@ -217,7 +217,7 @@ describe("typed shape integration matrix", () => {
 
 	test("maps of objects support key insertion, replacement, deletion and nested array edits", () => {
 		const schema = object({
-			values: map(
+			values: record(
 				object({
 					count: "float32",
 					rows: array(object({ name: "string", enabled: "boolean" })),
@@ -457,7 +457,7 @@ describe("typed shape integration matrix", () => {
 			"ShapeTerminalText",
 			object({
 				items: array(optional("string")),
-				byKey: map(optional("string")),
+				byKey: record(optional("string")),
 			}),
 			{
 				richTextPaths: [

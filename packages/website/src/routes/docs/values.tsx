@@ -25,7 +25,7 @@ s.nickname = undefined;`;
 
 const objects = `const Profile = definePulse("Profile", object({
   address: object({ city: "string", zip: "string" }),
-  prefs: map("boolean"),  // Record<string, boolean>
+  prefs: record("boolean"),  // Record<string, boolean>
 })).materialize();
 
 const p = createPulse(Profile, { address: { city: "Paris", zip: "75001" }, prefs: {} });
@@ -33,6 +33,26 @@ p.address.city = "Lyon";            // one field register, concurrent zip edits 
 p.address = { city: "Nice", zip: "06000" }; // replaces the whole container
 p.prefs["dark"] = true;
 delete p.prefs["dark"];`;
+
+const maps = `import { definePulse, map, object } from "pulsify-core";
+
+const Sheet = definePulse("Sheet", object({
+  rows: map("int", "string"),                          // Map<number, string>
+  prices: map("float64", object({ label: "string" })), // Map<number, { label: string }>
+})).materialize();
+
+const sheet = createPulse(Sheet, {
+  rows: new Map([[1, "first"]]),
+  prices: new Map(),
+});
+sheet.rows.set(-2, "before");
+sheet.rows.get(1);                       // "first"
+sheet.prices.set(0.5, { label: "half" });
+sheet.prices.get(0.5)!.label = "one half"; // edits the entry in place
+sheet.rows.delete(1);
+
+[...sheet.rows.keys()];                  // [-2]: ascending keys, on every peer
+sheet.rows = new Map();                  // replaces the whole container`;
 
 const arrays = `import { arrayOperations } from "pulsify-core";
 
@@ -103,6 +123,25 @@ textarea.addEventListener("input", () => {
 const caret = note.body.anchorAt(textarea.selectionStart);
 note.body.indexOf(caret);`;
 
+const count = `import { counter } from "pulsify-core";
+
+const Post = definePulse("Post", object({
+  title: "string",
+  likes: counter(),          // every peer changes it
+  reactions: record(counter()),
+})).materialize();
+
+const post = createPulse(Post, { title: "Hello", likes: 0, reactions: {} });
+button.addEventListener("click", () => post.likes.increment());
+post.likes.increment(5);  // any positive integer
+post.likes.decrement();   // -1
+post.likes.set(10);       // adds what is missing to reach 10
+post.likes.value;         // the total, on every peer
+
+// Where a counter does not exist yet, assign one.
+post.reactions["👍"] ??= counter(0);
+post.reactions["👍"].increment();`;
+
 const rich = `import { richText } from "pulsify-core";
 
 const Doc = definePulse("Doc", object({
@@ -148,7 +187,7 @@ export default function Values() {
 		<>
 			<Seo
 				title="Values · Pulsify Docs"
-				description="What a pulse can hold: primitives, objects, maps, arrays, tuples, unions, plain text, rich text and trees, and how each one merges."
+				description="What a pulse can hold: primitives, objects, maps, arrays, tuples, unions, plain text, counters, rich text and trees, and how each one merges."
 			/>
 			<h1>Values</h1>
 			<p>
@@ -162,16 +201,51 @@ export default function Values() {
 			<p>
 				Plain strings are atomic: assigning one replaces the whole value. Use{" "}
 				<code>plainText()</code> or <code>richText()</code> for character-level
-				collaboration. Float32 fields read back their normalized wire value.
+				collaboration, and <code>counter()</code> for a number that several
+				peers change. Float32 fields read back their normalized wire value.
 			</p>
 
-			<h2>Objects and maps</h2>
+			<h2>Objects and records</h2>
 			<p>
 				Each object field is its own register, so two peers editing different
 				fields of the same object both win. Assigning a whole object replaces
-				the container and invalidates references to the old one.
+				the container and invalidates references to the old one.{" "}
+				<code>record(schema)</code> is an object with any string keys and one
+				value schema.
 			</p>
 			<CodeBlock title="profile.ts" code={objects} />
+
+			<h2>Maps</h2>
+			<p>
+				<code>map(key, value)</code> is a JavaScript <code>Map</code> whose keys
+				are not only strings: <code>"string"</code>, any integer type,{" "}
+				<code>"float64"</code>, <code>"boolean"</code> or <code>bigint()</code>.
+				Each key is its own register, like a record key. A pulse map{" "}
+				<strong>is</strong> a <code>Map</code>: same methods, same types.
+			</p>
+			<CodeBlock title="sheet.ts" code={maps} />
+			<ul>
+				<li>
+					Entries iterate in ascending key order, not insertion order: peers
+					receive entries in different orders, and a sorted map reads the same
+					on all of them.
+				</li>
+				<li>
+					A key of another type is rejected by <code>set</code> and absent for{" "}
+					<code>get</code> and <code>has</code>. <code>-0</code> and{" "}
+					<code>0</code> are one key; <code>NaN</code> and infinities are not
+					keys.
+				</li>
+				<li>
+					Snapshots hold a detached <code>Map</code>. JSON holds its entries,{" "}
+					<code>[[key, value], …]</code>, which <code>new Map(json)</code> reads
+					back.
+				</li>
+				<li>
+					A map cannot be the root of a pulse, nor <code>constant</code> or{" "}
+					<code>frozen</code>; use a record there.
+				</li>
+			</ul>
 
 			<h2>Arrays</h2>
 			<p>
@@ -222,6 +296,36 @@ export default function Values() {
 				Assigning a string to the field compares it with the current text and
 				edits the difference, instead of replacing the value. For a code editor,
 				bind the field to <a href="/docs/editors">CodeMirror</a>.
+			</p>
+
+			<h2>Counters</h2>
+			<p>
+				A number field is replaced as a whole: when two peers add one at the
+				same time, both write the same value and one click is lost.{" "}
+				<code>counter()</code> keeps one count per peer and reads as their sum,
+				so increments and decrements made at the same time, or offline, all add
+				up. The value is an integer and can be negative.
+			</p>
+			<CodeBlock title="post.ts" code={count} />
+			<p>
+				<code>set(value)</code> adds the difference with the value this peer
+				sees, so a change made elsewhere at the same time is kept on top of it,
+				and two peers setting at the same time both add their difference.
+				Assigning to an existing counter is its <code>set</code>. Snapshots and
+				migrations see the total as a number.
+			</p>
+			<p>
+				Two peers that create the same record key at the same time create two
+				counters and the key keeps one of them. Declare a field, or create the
+				keys with their parent, when that matters.
+			</p>
+			<p>
+				Reading and changing a counter cost the same as a number field, and a
+				document stores one count per peer however often it changes. Wrap it in{" "}
+				<a href="/docs/modifiers#versioned">
+					<code>versioned()</code>
+				</a>{" "}
+				to keep every change.
 			</p>
 
 			<h2>Rich text</h2>

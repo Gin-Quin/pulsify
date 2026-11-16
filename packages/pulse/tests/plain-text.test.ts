@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { array, map, object, optional } from "@gin-quin/codec";
+import { array, record, object, optional } from "@gin-quin/codec";
 import {
 	compilePulseSchema,
 	createPulse,
@@ -167,7 +167,7 @@ describe("collaborative plain text", () => {
 			"PlainContainers",
 			object({
 				lines: array(plainText()),
-				byId: map(plainText()),
+				byId: record(plainText()),
 				note: optional(plainText()),
 			}),
 		).materialize();

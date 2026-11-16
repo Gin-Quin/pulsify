@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { map, object } from "@gin-quin/codec";
+import { record, object } from "@gin-quin/codec";
 import {
 	createPulse,
 	createPulseScope,
@@ -7,6 +7,7 @@ import {
 	destroyPulse,
 	getPulseMeta,
 	snapshotPulse,
+	versioned,
 } from "../source/index.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -21,7 +22,7 @@ const options = (sessionId: number) => ({
 test("reviewer v3: float32 root map keeps managed metadata outside its element layout", () => {
 	const definition = definePulse(
 		"ReviewRootMapFloat",
-		map("float32"),
+		record("float32"),
 	).materialize();
 	const source = createPulse(definition, { count: 1 / 3 }, options(65536));
 	const metadata = getPulseMeta(source);
@@ -38,7 +39,7 @@ test("reviewer v3: float32 root map keeps managed metadata outside its element l
 });
 
 test("reviewer v3: rich-text root map keeps managed metadata as plain primitives", () => {
-	const definition = definePulse("ReviewRootMapText", map("string"), {
+	const definition = definePulse("ReviewRootMapText", record("string"), {
 		richTextPaths: [["*"]],
 	}).materialize();
 	const source = createPulse(definition, { title: "Hello" }, options(65536));
@@ -54,7 +55,7 @@ test("reviewer v3: rich-text root map keeps managed metadata as plain primitives
 test("reviewer v3: an attributed rich-text insertion rejects a full history atomically", () => {
 	const definition = definePulse(
 		"ReviewTextQuota",
-		object({ count: "uint", body: "string" }),
+		versioned(object({ count: "uint", body: "string" })),
 		{ richTextPaths: [["body"]] },
 	).materialize();
 	const pulse = createPulse(

@@ -13,6 +13,7 @@ import {
 	connectPulse,
 	disconnectPulse,
 	loadPulse,
+	versioned,
 } from "../source/index.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -24,11 +25,13 @@ import { PulseRelay } from "../source/protocol/PulseRelay.js";
 import { scalarRunOf } from "../source/protocol/scalarRuns.js";
 const D = definePulse(
 	"Grouped",
-	object({
-		title: "string",
-		nested: object({ count: "float64" }),
-		items: array("string"),
-	}),
+	versioned(
+		object({
+			title: "string",
+			nested: object({ count: "float64" }),
+			items: array("string"),
+		}),
+	),
 ).materialize();
 const opts = (sessionId: number) => ({
 	...defaultPulseOptions,

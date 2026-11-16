@@ -34,7 +34,7 @@
 	"author": "",
 	"license": "Apache-2.0",
 	"dependencies": {
-		"@gin-quin/codec": "^2.1.1"
+		"@gin-quin/codec": "^3.0.0"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.2.10"

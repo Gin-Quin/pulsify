@@ -10,7 +10,7 @@ import {
 	getPulseMeta,
 	joinPresence,
 	loadPulse,
-	map,
+	record,
 	object,
 	optional,
 	PulseRelay,
@@ -511,7 +511,7 @@ describe("presence", () => {
 			array("boolean"),
 			array(optional("null")),
 			array(object({ a: "null", b: "uint" })),
-			map("null"),
+			record("null"),
 		])
 			expect(() => definePresence("bounded", schema)).not.toThrow();
 	});

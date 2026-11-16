@@ -1,6 +1,7 @@
 import {
 	exportPulseUpdates,
 	getPulseMeta,
+	versioned,
 } from "../packages/pulse/source/index.js";
 import { expect, test } from "bun:test";
 import fixtures from "../fixtures/protocol.json";
@@ -20,6 +21,9 @@ import {
 	decodeMessage,
 	encodeMessage,
 } from "../packages/pulse/source/connection/PulseMessage";
+import type { PulsePatchRow } from "../packages/pulse/source/connection/PulsePatch";
+import { isGap } from "../packages/pulse/source/storage";
+import { array, object } from "@gin-quin/codec";
 
 const manifest = new URL(
 	"../crates/pulsify-protocol/Cargo.toml",
@@ -69,7 +73,8 @@ test("a message authored in Rust decodes with the expected TS type and values", 
 		],
 	});
 });
-test("real document creation, loading and offline edits through a persistent Rust relay", async () => {
+/** The single-peer Rust relay, kept for a whole test: one session at a time. */
+function startRelay() {
 	const process = Bun.spawn([binary, "relay"], {
 		stdin: "pipe",
 		stdout: "pipe",
@@ -92,6 +97,10 @@ test("real document creation, loading and offline edits through a persistent Rus
 			}
 		}
 	})();
+	const send = async (bytes: Uint8Array) => {
+		process.stdin.write(`${hex(bytes)}\n`);
+		await process.stdin.flush();
+	};
 	const connector: Connector = {
 		kind: "remote",
 		async open({ onMessage }) {
@@ -100,13 +109,38 @@ test("real document creation, loading and offline edits through a persistent Rus
 				close() {
 					receive = undefined;
 				},
-				async send(bytes) {
-					process.stdin.write(`${hex(bytes)}\n`);
-					await process.stdin.flush();
-				},
+				send,
 			};
 		},
 	};
+	return {
+		connector,
+		/** The rows the relay sends to a peer that holds nothing. */
+		async download(docId: string) {
+			const rows: PulsePatchRow[] = [];
+			const { promise, resolve } = Promise.withResolvers<void>();
+			receive = (bytes) => {
+				const reply = decodeMessage(bytes);
+				if (reply.kind !== 2) throw new Error("Expected a sync frame");
+				rows.push(...reply.rows);
+				if (reply.complete) resolve();
+			};
+			await send(encodeMessage({ kind: 1, docId, requestId: 1, vv: [] }));
+			await promise;
+			receive = undefined;
+			return rows;
+		},
+		async stop() {
+			process.stdin.end();
+			await pumping;
+			return process.exited;
+		},
+	};
+}
+
+test("real document creation, loading and offline edits through a persistent Rust relay", async () => {
+	const relay = startRelay();
+	const { connector } = relay;
 	type Doc = PulseProperties<"RustDoc"> & {
 		title: string;
 		nested: { count: number };
@@ -142,17 +176,90 @@ test("real document creation, loading and offline edits through a persistent Rus
 		destroyPulse(second);
 	} finally {
 		destroyPulse(first);
-		process.stdin.end();
-		await pumping;
-		expect(await process.exited).toBe(0);
+		expect(await relay.stop()).toBe(0);
+	}
+});
+
+test("the Rust relay keeps the last value only of a field that two replicas rewrite", async () => {
+	const relay = startRelay();
+	const { connector } = relay;
+	const Doc = definePulse(
+		"RustLastValue",
+		object({
+			title: "string",
+			status: versioned("string"),
+			items: array("string"),
+		}),
+	).materialize();
+	const first = createPulse(
+		Doc,
+		{ id: "rust-last-value", title: "Draft", status: "open", items: [] },
+		{ scope: createPulseScope(), connectors: [connector] },
+	);
+	// The relay serves one session at a time: replicas take turns.
+	const sync = async (pulse: typeof first) => {
+		await connectPulse(pulse).synced;
+		disconnectPulse(pulse);
+	};
+	try {
+		await sync(first);
+		const second = await loadPulse(Doc, first.id, {
+			scope: createPulseScope(),
+			connectors: [connector],
+			waitFor: "all",
+		});
+		disconnectPulse(second);
+		const rounds = 60;
+		for (let i = 0; i < rounds; i++) {
+			// Both write before either hears of the other: the later upload wins
+			// or arrives already replaced.
+			for (let n = 0; n < 3; n++) {
+				first.title = `first ${i}.${n}`;
+				second.title = `second ${i}.${n}`;
+			}
+			if (i % 4 === 0) first.items.push(`item ${i}`);
+			if (i % 6 === 0) second.status = `status ${i}`;
+			await sync(i % 2 ? first : second);
+			await sync(i % 2 ? second : first);
+			await sync(i % 2 ? first : second);
+			expect(snapshotPulse(first)).toEqual(snapshotPulse(second));
+		}
+		// The creation, one title, and every write to the sequence and to the
+		// versioned field; at most one gap row per replica.
+		const kept = 2 + rounds / 4 + rounds / 6;
+		const rows = await relay.download(first.id);
+		expect(rows.length).toBeGreaterThanOrEqual(kept);
+		expect(rows.length).toBeLessThanOrEqual(kept + 3);
+		expect(rows.filter((row) => isGap(row.operations)).length).toBeLessThan(3);
+		const next = new Map<number, number>();
+		for (const row of rows) {
+			expect(row.clock).toBe(next.get(row.sid) ?? 1);
+			next.set(row.sid, row.clock + row.span);
+		}
+		expect([...next].sort((a, b) => a[0] - b[0])).toEqual(
+			getPulseMeta(first).log.vector,
+		);
+		const fresh = await loadPulse(Doc, first.id, {
+			scope: createPulseScope(),
+			connectors: [connector],
+			waitFor: "all",
+		});
+		expect(snapshotPulse(fresh)).toEqual(snapshotPulse(first));
+		expect(fresh.items.length).toBe(rounds / 4);
+		destroyPulse(fresh);
+		destroyPulse(second);
+	} finally {
+		destroyPulse(first);
+		expect(await relay.stop()).toBe(0);
 	}
 });
 
 test("Rust expands grouped transport into byte-exact original rows without a document schema", async () => {
-	const D = definePulse("RustRun", {
-		_type: "object",
-		fields: { value: "float64" },
-	}).materialize();
+	// Every write of a versioned field is kept, so a run of them is grouped.
+	const D = definePulse(
+		"RustRun",
+		versioned({ _type: "object", fields: { value: "float64" } }),
+	).materialize();
 	const pulse = createPulse(
 		D,
 		{ id: "rust-run/🌍", value: 0 },

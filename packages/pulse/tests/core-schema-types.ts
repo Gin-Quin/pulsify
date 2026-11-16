@@ -6,7 +6,7 @@ import {
 	tuple,
 	union,
 	createCodec,
-	map,
+	record,
 	type InferType,
 } from "@gin-quin/codec";
 import { createPulse } from "../source/pulses/createPulse.js";
@@ -385,7 +385,7 @@ export function inlineRichTextTypeAssertions(): void {
 		paragraphs: array(richText()),
 		nested: array(object({ text: richText() })),
 		optional: optional(richText()),
-		byId: map(richText()),
+		byId: record(richText()),
 		pair: tuple(richText(), "uint"),
 	});
 	const definition = definePulse("InlineSchemaTypes", schema).materialize();

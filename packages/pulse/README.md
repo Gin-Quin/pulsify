@@ -181,7 +181,7 @@ doc.array.push(13);
 // One scheduled upload per connection contains both changes.
 ```
 
-Each write retains its own causal history row. This is transport batching, not a
+Each write is its own transaction. This is transport batching, not a
 public rollback transaction: local subscribers can observe each intermediate
 state, and a failed later write leaves earlier writes committed. Writes after an
 `await` may start another batch. Large batches split at protocol limits, and
@@ -279,12 +279,13 @@ schema in `frozen(...)` for a value that is only replaced as a whole: the field
 accepts a new value, but its contents are deeply readonly and reject nested
 edits. A frozen value is stored and synchronized as one unit, so concurrent
 replacements never interleave its contents. `frozen` requires a structured
-schema (object, array, map, set, tuple, union or `"unknown"`).
+schema (object, array, record, set, tuple, union or `"unknown"`). A
+`map(key, value)` can be neither constant nor frozen; use a record there.
 
 Both markers are separate from the codec schema, so they do not change its
 encoded document bytes. Neither can contain collaborative rich text or trees.
 The deprecated `constantPaths` option still marks constants by path; `*` applies
-to each array element or map value, for example `["items", "*", "id"]`.
+to each array element or record value, for example `["items", "*", "id"]`.
 
 Constants retain their captured values for their lifetime. A migration cannot
 change an existing constant or remove its constant annotation while keeping
@@ -307,6 +308,53 @@ initialize it with `richText("Hello")`. The marker must be attached to a pulse
 before its mutation methods can be called. Use `richText("")` for an empty initial
 value; `richText()` is reserved for schemas and cannot initialize document data.
 Inline schemas and path annotations both accept plain strings as creation input.
+
+## Records and maps
+
+`record(value)` is a plain object with any string keys and one value schema.
+`map(key, value)` is a JavaScript `Map`, for keys that are not only strings:
+
+```ts
+import { createPulse, definePulse, map, object, record } from "pulsify-core";
+
+const Sheet = definePulse("Sheet", object({
+  prefs: record("boolean"),                            // Record<string, boolean>
+  rows: map("int", "string"),                          // Map<number, string>
+  prices: map("float64", object({ label: "string" })), // Map<number, { label: string }>
+})).materialize();
+
+const sheet = createPulse(Sheet, {
+  prefs: {},
+  rows: new Map([[1, "first"]]),
+  prices: new Map(),
+});
+sheet.prefs["dark"] = true;
+sheet.rows.set(-2, "before");
+sheet.prices.set(0.5, { label: "half" });
+sheet.prices.get(0.5)!.label = "one half"; // edits the entry in place
+sheet.rows.delete(1);
+[...sheet.rows.keys()]; // [-2]
+```
+
+A key schema is `"string"`, any integer type, `"float64"`, `"boolean"` or
+`bigint()`: the types a `Map` compares by value. Each key is one last-writer-wins
+register, exactly like a record key, and a value can be any schema, including
+`counter()`, `plainText()` or another map. The view is a `Map` (`instanceof Map`
+holds) whose methods read and write the pulse.
+
+- Entries iterate in ascending key order, not insertion order. Peers receive
+  entries in different orders; a sorted map reads the same on all of them.
+- `set` rejects a key of another type, and `get`, `has` and `delete` treat it as
+  absent. `-0` and `0` are one key. `NaN` and infinities are not keys.
+- Snapshots and migrations see a detached `Map`. JSON output holds the entries,
+  `[[key, value], …]`, which `new Map(json)` reads back.
+- Assigning a `Map` replaces the whole container, like assigning an object.
+- A map cannot be the root of a pulse, nor `constant` or `frozen`.
+- Where no schema declares it (an `"unknown"` field), a `Map` is stored as a
+  record keyed by the string of each key.
+
+Before version 13, `map(value)` was what `record(value)` is now. Renaming the
+call is the whole migration: a record keeps its bytes and its schema identity.
 
 ## Plain text
 
@@ -346,7 +394,7 @@ Assigning a string or `plainText(string)` to an existing field compares it with
 the current text, trims the common prefix and suffix, and edits the remainder.
 Edits made elsewhere in the text by other peers survive, the field keeps its
 view and its anchors, and an unchanged string writes nothing. The same holds
-for an array element or a map value. Assigning to an absent optional field
+for an array element or a record or map value. Assigning to an absent optional field
 creates the text. `plainText(string)` exists for TypeScript, which gives the
 field one type for reads and writes; an untyped assignment of a string does the
 same. Outside a declared field, a plain text value is an ordinary string.
@@ -356,6 +404,115 @@ local and remote edit, and `indexOf(anchor)` its current index: store a caret
 that way to keep it in place while other peers type. Snapshots and JSON output
 contain the string. Plain text cannot be `constant()` or `frozen()`. Use
 `richText()` instead when the text carries formatting or editor structure.
+
+## Counters
+
+A number field is replaced as a whole: when two peers add one at the same
+time, both write the same value and one click is lost. Declare `counter()` for
+a number that every peer changes, such as a like button, a vote or a stock.
+
+```ts
+import { counter, createPulse, definePulse, object } from "pulsify-core";
+
+const Post = definePulse("Post", object({
+  title: "string",
+  likes: counter(),
+})).materialize();
+const post = createPulse(Post, { title: "Hello", likes: 0 });
+
+button.addEventListener("click", () => post.likes.increment());
+post.likes.increment(5); // any positive integer
+post.likes.decrement();  // -1
+post.likes.set(10);      // adds what is missing to reach 10
+post.likes.value;        // the total, on every peer
+```
+
+A counter stores one count per [actor ID](#actor-ids). A replica changes only
+its own count, and the value is the sum of all counts, so changes made at the
+same time or offline all add up. A count can be negative, and so can the value.
+
+`set(value)` adds the difference between `value` and the value this replica
+sees to its own count: it is an increment or a decrement of that difference,
+not a write that wins over the others. An increment made elsewhere at the same
+time is kept on top of it, and two peers setting the same value at the same
+time both add their difference. From 10, two concurrent `set(0)` give -10.
+
+Snapshots, JSON output, codec and migrations see the total as a `"float64"`
+that only holds integers. A
+counter also converts to a number: `+post.likes`, `` `${post.likes}` ``.
+Creation takes its initial value. Where a counter does not exist yet (an
+optional field, a record value, an array element), assign `counter(initial)`:
+
+```ts
+post.reactions["👍"] ??= counter(0);
+post.reactions["👍"].increment();
+```
+
+Two peers that create the same record key at the same time create two counters,
+and the key keeps one of them: the changes made to the other are dropped.
+Declare a field, or create the keys with their parent, when that matters.
+
+Assigning to an existing counter is its `set`, so the counter and the changes
+other peers make to it are kept: `post.likes = counter(0)`. Deleting an
+optional field or a record key, then assigning it again, creates a new counter.
+A migration from a number field holding an integer to `counter()` keeps its
+value. A counter cannot be `constant()` or `frozen()`.
+
+Reading a counter and changing it cost the same as a number field, whatever
+the number of actors. Like a field, a counter keeps [no history](#history):
+a document stores one count per actor, however often it changes.
+`versioned(counter())` keeps every change instead.
+
+## History
+
+A field keeps its last value only. Writing it again replaces the previous
+write in every journal and every store, so a document's history, and the
+database behind it, grow with the size of the document and not with the
+number of edits. Wrap a schema in `versioned()` to keep every write instead:
+
+```ts
+import { counter, definePulse, object, versioned } from "pulsify-core";
+
+const Invoice = definePulse("Invoice", object({
+  title: "string",                                   // last value only
+  status: versioned("string"),                       // every write is kept
+  total: versioned("float64", { timestamps: true }), // and the time of each write
+  views: counter(),                                  // last count per actor
+  edits: versioned(counter()),                       // every change
+})).materialize();
+
+// A whole document, or any object inside one:
+const Audited = definePulse("Audited", versioned(object({ title: "string" })));
+```
+
+- **What keeps its last value only.** A field of an object, an entry of a
+  record or a map, and a count, when the value written is a number, a
+  string, a boolean, `null`, bytes or a `frozen()` value. Deleting such a
+  field is a write like another.
+- **What always keeps its history.** Text and array edits, array moves and
+  trees, where every edit is part of the result. Replacing an array or a
+  tuple element. And an assignment that creates an object, an array, a text
+  or a counter: other peers may already be editing what it created.
+- **`versioned(schema)`** applies to the value and to everything inside it.
+- **`timestamps`** records the writer's clock (`Date.now()`) with each write.
+  It is the time of the edit, kept offline too, and it is not verified: a
+  client can send any time.
+- **What a store holds.** One row per field and per peer that wrote it: each
+  peer's last write. A store overwrites it in place, at the cost of a row
+  that keeps its history.
+- **Nothing changes in what peers see.** The same write wins on every
+  replica. A replica that connects late receives the writes that still
+  matter instead of all of them.
+- **Changing the mode** is a schema change, made by a migration step:
+  `.migrateTo(nextSchema, () => ({}))`. The value stays as it is. Turned on,
+  history starts at that version; turned off, it stops and the rows already
+  stored stay.
+
+A document created before version 13 keeps the history it has, and its
+fields stop adding to it. To keep the previous behaviour, add a version that
+wraps the schema in `versioned()`. There is no API yet to read the past
+values of a versioned field: they are stored, synchronized and exported with
+the document. Versions before 13 cannot read what version 13 writes.
 
 ## Editor bindings
 
@@ -769,7 +926,9 @@ const frames = exportPulseUpdates(article, remoteVector, { peerVersion: 2 });
 applyPulseUpdates(otherArticle, frames);
 ```
 
-This is the same exchange implementation used by connectors. Omitting
+These envelopes carry the writes of [`versioned()`](#history) fields: a field
+without history already sends its last write only. This is the same exchange
+implementation used by connectors. Omitting
 `peerVersion` keeps envelope 1 for unknown endpoints. Compatible scalar histories
 are grouped without dropping any transaction; other histories retain the ordinary
 format. Every original operation can still be retrieved by version vector.

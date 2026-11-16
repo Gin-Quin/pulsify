@@ -8,6 +8,7 @@ import {
 	getPulseMeta,
 	snapshotPulse,
 	subscribePulse,
+	versioned,
 } from "../source/index.js";
 import {
 	CorePatch,
@@ -27,14 +28,16 @@ const options = (sessionId = 65536) => ({
 });
 const Definition = definePulse(
 	"ScalarJournal",
-	object({
-		count: "float64",
-		rounded: "float32",
-		title: "string",
-		flag: "boolean",
-		maybe: optional("string"),
-		value: "unknown",
-	}),
+	versioned(
+		object({
+			count: "float64",
+			rounded: "float32",
+			title: "string",
+			flag: "boolean",
+			maybe: optional("string"),
+			value: "unknown",
+		}),
+	),
 ).materialize();
 const input = () => ({
 	id: "scalar-journal",

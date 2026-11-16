@@ -4,7 +4,7 @@ import {
 	bigint,
 	createCodec,
 	literal,
-	map,
+	record,
 	object,
 	optional,
 	set,
@@ -26,7 +26,7 @@ describe("compiled pulse schemas", () => {
 		count: "uint",
 		settings: object({ color: "string", size: optional("uint") }),
 		items: array(object({ label: "string", weight: "float64" })),
-		metadata: map("string"),
+		metadata: record("string"),
 	});
 	const value = {
 		title: "Notes",
@@ -93,7 +93,7 @@ describe("compiled pulse schemas", () => {
 	test("occurrence flags cover terminal array and map elements", () => {
 		const collection = object({
 			items: array(object({ id: "string" })),
-			texts: map(optional("string")),
+			texts: record(optional("string")),
 		});
 		const compiled = compilePulseSchema(collection, {
 			constantPaths: [["items", "*"]],
@@ -401,7 +401,7 @@ describe("compiled pulse schemas", () => {
 		const numeric = object({
 			first: "float32",
 			rows: array(object({ amount: "float32", name: "string" })),
-			values: map("float32"),
+			values: record("float32"),
 			choice: union([object({ amount: "float32" }), "string"]),
 		});
 		const input = {

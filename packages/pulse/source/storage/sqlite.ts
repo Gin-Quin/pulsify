@@ -5,14 +5,13 @@ import {
 	validateVector,
 	type PulseVersionVector,
 } from "../connection/PulseVersionVector.js";
+import { GAP_OPERATIONS, isGap, lastRegisterOf } from "../core/operations.js";
 import {
-	assertCompatible,
 	covered,
 	decodePackedRows,
 	encodePackedRow,
 	MAX_PACKED_BYTES,
 	rowsFromFrame,
-	sameRow,
 	validateRows,
 	type AppendResult,
 	type PatchStore,
@@ -39,9 +38,18 @@ type RecordRow = {
 	dependencies: string;
 	operations: Uint8Array;
 	packed: number;
+	ready: number;
 };
-/** A stored row without its bytes: all that neighbour checks need. */
-type EnvelopeRow = Omit<RecordRow, "doc_id" | "operations">;
+/** An actor's newest write to a register without history. */
+type ValueRow = {
+	doc_id: string;
+	sid: number;
+	clock: number;
+	dependencies: string;
+	operations: Uint8Array;
+};
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
+	a.length === b.length && a.every((byte, i) => b[i] === byte);
 type PendingRow = {
 	sid: number;
 	time_start: number;
@@ -59,6 +67,51 @@ function unpack(row: RecordRow): StoredPatchRow {
 		dependencies: JSON.parse(row.dependencies) as PulseVersionVector,
 		operations: new Uint8Array(row.operations),
 	};
+}
+const unpackValue = (row: ValueRow): StoredPatchRow => ({
+	docId: row.doc_id,
+	sid: row.sid,
+	clock: row.clock,
+	span: 1,
+	dependencies: JSON.parse(row.dependencies) as PulseVersionVector,
+	operations: new Uint8Array(row.operations),
+});
+/**
+ * The rows an actor still holds, sorted by clock, as a peer receives them:
+ * each one's span runs to the next one, the last one's to the frontier. A
+ * peer whose knowledge ends at `since` gets the row that holds it and those
+ * after it, or a gap row up to the first one when no row holds it.
+ */
+function serve(
+	docId: string,
+	sid: number,
+	held: StoredPatchRow[],
+	since: number,
+	frontier: number,
+): StoredPatchRow[] {
+	const from = Math.max(since, 1);
+	let first = held.length;
+	while (first > 0 && held[first - 1]!.clock > from) first--;
+	const rows: StoredPatchRow[] = [];
+	if (first === 0) {
+		const end = held[0]?.clock ?? frontier;
+		rows.push({
+			docId,
+			sid,
+			clock: from,
+			span: end - from,
+			dependencies: from > 1 ? [[sid, from]] : [],
+			operations: GAP_OPERATIONS.slice(),
+		});
+	}
+	for (let index = Math.max(first - 1, 0); index < held.length; index++) {
+		const row = held[index]!;
+		rows.push({
+			...row,
+			span: (held[index + 1]?.clock ?? frontier) - row.clock,
+		});
+	}
+	return rows;
 }
 /** The rows a stored row stands for: itself, or those packed inside it. */
 function unpackAll(row: RecordRow): StoredPatchRow[] {
@@ -90,6 +143,27 @@ CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
  PRIMARY KEY(doc_id, sid)
 ) WITHOUT ROWID;
 CREATE VIEW IF NOT EXISTS pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_rows WHERE ready = 0;
+CREATE TABLE IF NOT EXISTS pulsify_values (
+ doc_id TEXT NOT NULL, sid INTEGER NOT NULL, register BLOB NOT NULL, clock INTEGER NOT NULL,
+ dependencies TEXT NOT NULL, operations BLOB NOT NULL,
+ PRIMARY KEY(doc_id, sid, register)
+) WITHOUT ROWID;
+`;
+
+/**
+ * Moves the last-value rows of a database written by an unreleased layout,
+ * which indexed them in `pulsify_registers`, to `pulsify_values`. Its gap
+ * rows are holes now: the frontier says how far the actor goes.
+ */
+export const SQLITE_REGISTERS_MIGRATION: string = `
+INSERT OR REPLACE INTO pulsify_values(doc_id,sid,register,clock,dependencies,operations)
+ SELECT o.doc_id,o.sid,r.register,o.time_start,o.dependencies,o.operations FROM pulsify_registers r
+ JOIN pulsify_op_rows o ON o.doc_id=r.doc_id AND o.sid=r.sid AND o.time_start=r.clock
+ WHERE o.ready=1 AND o.packed=0;
+DELETE FROM pulsify_op_rows WHERE ready=1 AND packed=0 AND (operations=X'03010000' OR EXISTS(
+ SELECT 1 FROM pulsify_registers r WHERE r.doc_id=pulsify_op_rows.doc_id AND r.sid=pulsify_op_rows.sid
+ AND r.clock=pulsify_op_rows.time_start));
+DROP TABLE pulsify_registers;
 `;
 
 /** Added to a `pulsify_op_rows` table created before packed segments existed. */
@@ -165,6 +239,13 @@ export class SqlitePatchStore implements PatchStore {
 				// Another process that opened the file at the same time added it.
 				if (!packed()) throw error;
 			}
+		const registers =
+			"SELECT 1 FROM sqlite_master WHERE type='table' AND name='pulsify_registers'";
+		if (db.query(registers).get())
+			db.transaction(() => {
+				// Another process may have moved them first.
+				if (db.query(registers).get()) db.exec(SQLITE_REGISTERS_MIGRATION);
+			}).immediate();
 		this.vectorCacheSize = vectorCacheSize;
 	}
 	async appendEncoded(frame: Uint8Array): Promise<AppendResult> {
@@ -178,10 +259,9 @@ export class SqlitePatchStore implements PatchStore {
 				const get = this.db.query(
 					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start=?",
 				);
-				const neighbours = this.db
-					.query(`SELECT sid,time_start,span,dependencies,packed FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND
- (time_start=(SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start<?)
- OR time_start=(SELECT MIN(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start>?))`);
+				const after = this.db.query(
+					"SELECT dependencies FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start>=? ORDER BY time_start LIMIT 1",
+				);
 				const insert = this.db.query(
 					"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES(?,?,?,?,?,?,?)",
 				);
@@ -200,17 +280,114 @@ export class SqlitePatchStore implements PatchStore {
 				const changedActors = new Set<number>();
 				let inserted = 0,
 					ready = 0;
+				const before = this.db.query(
+					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start<? ORDER BY time_start DESC LIMIT 1",
+				);
+				const setSpan = this.db.query(
+					"UPDATE pulsify_op_rows SET span=? WHERE doc_id=? AND sid=? AND time_start=?",
+				);
+				const remove = this.db.query(
+					"DELETE FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start=?",
+				);
+				const removeWaiting = this.db.query(
+					"DELETE FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND ready=0 AND time_start>=? AND time_start<?",
+				);
+				const setValue = this.db.query(
+					"INSERT INTO pulsify_values(doc_id,sid,register,clock,dependencies,operations) VALUES(?,?,?,?,?,?) ON CONFLICT(doc_id,sid,register) DO UPDATE SET clock=excluded.clock,dependencies=excluded.dependencies,operations=excluded.operations",
+				);
+				/** Where each value of an actor is, read once for rows sent again. */
+				const valueClocks = new Map<number, Map<number, Uint8Array>>();
+				/**
+				 * Store a ready row: a last-value row as its actor's value of the
+				 * register, replacing the older one; a gap row not at all, as the
+				 * frontier says how far the actor goes.
+				 */
+				const keep = (
+					sid: number,
+					clock: number,
+					dependencies: string,
+					operations: Uint8Array,
+				): boolean => {
+					const last = lastRegisterOf(operations);
+					if (last) {
+						setValue.run(
+							docId,
+							sid,
+							last.register,
+							clock,
+							dependencies,
+							operations,
+						);
+						valueClocks.delete(sid);
+					}
+					return !last && !isGap(operations);
+				};
+				/** The row held at this sequence number: stored, packed or a value. */
+				const heldAt = (sid: number, clock: number): Uint8Array | undefined => {
+					const exact = get.get(docId, sid, clock) as RecordRow | null;
+					if (exact) return unpackAll(exact)[0]!.operations;
+					const previous = before.get(docId, sid, clock) as RecordRow | null;
+					const packed =
+						previous?.packed && clock < previous.time_start + previous.span
+							? unpackAll(previous).find((each) => each.clock === clock)
+							: undefined;
+					if (packed) return packed.operations;
+					let values = valueClocks.get(sid);
+					if (!values) {
+						values = new Map(
+							(
+								this.db
+									.query(
+										"SELECT clock,register FROM pulsify_values WHERE doc_id=? AND sid=?",
+									)
+									.all(docId, sid) as { clock: number; register: Uint8Array }[]
+							).map((each) => [each.clock, each.register]),
+						);
+						valueClocks.set(sid, values);
+					}
+					const register = values.get(clock);
+					if (!register) return;
+					const value = this.db
+						.query(
+							"SELECT operations FROM pulsify_values WHERE doc_id=? AND sid=? AND register=?",
+						)
+						.get(docId, sid, register) as { operations: Uint8Array };
+					return new Uint8Array(value.operations);
+				};
 				rows: for (const row of rows) {
+					const reached = frontier.get(row.sid) ?? 1;
+					if (row.clock < reached) {
+						// Known, or replaced here: only its contents can conflict, and
+						// only its span can say that more writes were replaced.
+						const held = heldAt(row.sid, row.clock);
+						if (
+							held &&
+							!isGap(held) &&
+							!isGap(row.operations) &&
+							!sameBytes(held, row.operations)
+						)
+							throw new PulseError("CONFLICT", "Conflicting storage segment");
+						const end = row.clock + row.span;
+						if (end <= reached) continue;
+						// Rows that waited below the new frontier were replaced.
+						removeWaiting.run(docId, row.sid, reached, end);
+						pending = pending.filter(
+							(each) => each.sid !== row.sid || each.time_start >= end,
+						);
+						frontier.set(row.sid, end);
+						changedActors.add(row.sid);
+						inserted++;
+						continue;
+					}
 					// A row that is ready on arrival (the common, in-order case) skips the
-					// pending index and the promotion UPDATE: 3 billed rows instead of 5.
+					// pending index and the promotion UPDATE.
 					const readyNow =
-						row.clock === (frontier.get(row.sid) ?? 1) &&
-						covered(frontier, row.dependencies);
+						row.clock === reached && covered(frontier, row.dependencies);
 					if (readyNow && !pendingActors.has(row.sid)) {
-						// Ready rows of an actor tile [1, frontier) and it has no pending
-						// row, so no stored row starts at or after this one: it is neither
-						// a duplicate nor overlapping, and the previous row ends exactly
-						// at the frontier. Only the fork check remains, without reading it.
+						// Ready rows of an actor start below the frontier and it has no
+						// pending row, so no stored row starts at or after this one: it is
+						// neither a duplicate nor overlapping. Only the fork check remains,
+						// without reading anything.
 						if (
 							row.clock > 1 &&
 							(new Map(row.dependencies).get(row.sid) ?? 0) < row.clock
@@ -223,72 +400,92 @@ export class SqlitePatchStore implements PatchStore {
 							row.clock,
 						) as RecordRow | null;
 						if (existing) {
-							// A packed segment starts with the row that had its key.
-							if (!sameRow(unpackAll(existing)[0]!, row))
+							// A waiting row with the same start: only contents conflict.
+							const held = new Uint8Array(existing.operations);
+							if (
+								!isGap(held) &&
+								!isGap(row.operations) &&
+								!sameBytes(held, row.operations)
+							)
 								throw new PulseError("CONFLICT", "Conflicting storage segment");
+							// The longer span knows of more replaced writes.
+							if (row.span > existing.span) {
+								const end = row.clock + row.span;
+								setSpan.run(row.span, docId, row.sid, row.clock);
+								// The waiting rows it now covers were replaced.
+								removeWaiting.run(docId, row.sid, row.clock + 1, end);
+								pending = pending.filter(
+									(each) =>
+										each.sid !== row.sid ||
+										each.time_start <= row.clock ||
+										each.time_start >= end,
+								);
+								for (const each of pending)
+									if (each.sid === row.sid && each.time_start === row.clock)
+										each.time_end = end;
+							}
 							continue;
 						}
-						for (const neighbour of neighbours.all(
-							docId,
-							row.sid,
-							docId,
-							row.sid,
-							row.clock,
+						const end = row.clock + row.span;
+						const own = new Map(row.dependencies).get(row.sid) ?? 0;
+						const previous = before.get(
 							docId,
 							row.sid,
 							row.clock,
-						) as EnvelopeRow[]) {
-							let other: StoredPatchRow = {
-								docId,
-								sid: neighbour.sid,
-								clock: neighbour.time_start,
-								span: neighbour.span,
-								dependencies: JSON.parse(
-									neighbour.dependencies,
-								) as PulseVersionVector,
-								operations: row.operations,
-							};
-							// Seen from outside, a packed segment checks like its rows: it
-							// starts with the dependencies of its first and ends with its
-							// last. A row that starts inside is compared to the row it hits.
-							if (
-								neighbour.packed &&
-								other.clock < row.clock &&
-								row.clock < other.clock + other.span
-							) {
-								const inner = unpackAll(
-									get.get(docId, row.sid, other.clock) as RecordRow,
-								);
-								const same = inner.find((each) => each.clock === row.clock);
-								if (same) {
-									if (!sameRow(same, row))
-										throw new PulseError(
-											"CONFLICT",
-											"Conflicting storage segment",
-										);
-									continue rows;
-								}
-								other = inner.findLast((each) => each.clock < row.clock)!;
-							}
-							assertCompatible(row, other);
+						) as RecordRow | null;
+						if (previous) {
+							// It starts among the writes a waiting row has replaced.
+							if (previous.time_start + previous.span > row.clock)
+								continue rows;
+							if (own < previous.time_start + previous.span)
+								throw new PulseError("CONFLICT", "Actor history fork");
 						}
+						// The first row past its span builds on it, like the journal checks.
+						const next = after.get(docId, row.sid, end) as {
+							dependencies: string;
+						} | null;
+						if (
+							next &&
+							(new Map(JSON.parse(next.dependencies) as PulseVersionVector).get(
+								row.sid,
+							) ?? 0) < end
+						)
+							throw new PulseError("CONFLICT", "Actor history fork");
+						// Rows still waiting that this row has replaced.
+						removeWaiting.run(docId, row.sid, row.clock + 1, end);
+						pending = pending.filter(
+							(each) =>
+								each.sid !== row.sid ||
+								each.time_start <= row.clock ||
+								each.time_start >= end,
+						);
 					}
 					const dependencies = JSON.stringify(row.dependencies);
-					insert.run(
-						docId,
-						row.sid,
-						row.clock,
-						row.span,
-						dependencies,
-						row.operations,
-						readyNow ? 1 : 0,
-					);
 					inserted++;
 					if (readyNow) {
+						if (keep(row.sid, row.clock, dependencies, row.operations))
+							insert.run(
+								docId,
+								row.sid,
+								row.clock,
+								row.span,
+								dependencies,
+								row.operations,
+								1,
+							);
 						frontier.set(row.sid, row.clock + row.span);
 						changedActors.add(row.sid);
 						ready++;
 					} else {
+						insert.run(
+							docId,
+							row.sid,
+							row.clock,
+							row.span,
+							dependencies,
+							row.operations,
+							0,
+						);
 						pending.push({
 							sid: row.sid,
 							time_start: row.clock,
@@ -328,7 +525,17 @@ export class SqlitePatchStore implements PatchStore {
 							waiting.push(row);
 							continue;
 						}
-						update.run(docId, row.sid, row.time_start);
+						const stored = get.get(docId, row.sid, row.time_start) as RecordRow;
+						if (
+							keep(
+								row.sid,
+								row.time_start,
+								stored.dependencies,
+								new Uint8Array(stored.operations),
+							)
+						)
+							update.run(docId, row.sid, row.time_start);
+						else remove.run(docId, row.sid, row.time_start);
 						frontier.set(
 							row.sid,
 							Math.max(frontier.get(row.sid) ?? 0, row.time_end),
@@ -392,15 +599,15 @@ export class SqlitePatchStore implements PatchStore {
 			.transaction(() => {
 				const { documents } = this.db
 					.query(
-						`SELECT COUNT(DISTINCT doc_id) AS documents FROM pulsify_op_rows WHERE ${where}`,
+						`SELECT COUNT(*) AS documents FROM (SELECT doc_id FROM pulsify_op_rows WHERE ${where} UNION SELECT doc_id FROM pulsify_values WHERE ${where})`,
 					)
-					.get(...bindings) as { documents: number };
-				this.db
-					.query(`DELETE FROM pulsify_op_rows WHERE ${where}`)
-					.run(...bindings);
-				this.db
-					.query(`DELETE FROM pulsify_doc_clocks WHERE ${where}`)
-					.run(...bindings);
+					.get(...bindings, ...bindings) as { documents: number };
+				for (const table of [
+					"pulsify_op_rows",
+					"pulsify_values",
+					"pulsify_doc_clocks",
+				])
+					this.db.query(`DELETE FROM ${table} WHERE ${where}`).run(...bindings);
 				return Number(documents);
 			})
 			.immediate();
@@ -415,32 +622,50 @@ export class SqlitePatchStore implements PatchStore {
 	): Promise<StoredPatchRow[]> {
 		validateDocId(docId);
 		validateVector(remote);
+		const since = new Map(remote);
+		const behind = (this.vectors.get(docId) ?? this.readVector(docId)).filter(
+			([sid, clock]) => clock > (since.get(sid) ?? 0),
+		);
+		if (!behind.length) return [];
 		// One JSON parameter: some hosts (Durable Objects) bind at most 100 values.
 		const bindings: SqliteBinding[] = remote.length
 			? [JSON.stringify(remote), docId, docId, docId]
 			: [docId];
-		// Ready actors are exactly those in pulsify_doc_clocks. Rows of one actor never
-		// overlap, so every row ending after the remote clock starts at or after the
-		// last row starting at or before it: one primary key seek per behind actor.
+		// Ready actors are exactly those in pulsify_doc_clocks. Each table is read
+		// from its last row starting at or before the remote clock: one primary
+		// key seek per behind actor for the rows, one pass over its values.
 		// CROSS JOIN keeps that loop order; without statistics SQLite would scan the doc.
-		const sql = remote.length
-			? `WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?)),
- actors(sid,since) AS (SELECT c.sid,COALESCE(r.clock,0) FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
+		const read = (table: string, clock: string) =>
+			this.db
+				.query(
+					remote.length
+						? `WITH remote(sid,clock) AS (SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?)),
+ actors(sid,since) AS (SELECT c.sid,MAX(COALESCE(r.clock,0),1) FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
   WHERE c.doc_id=? AND c.clock>COALESCE(r.clock,0))
- SELECT o.* FROM actors a CROSS JOIN pulsify_op_rows o WHERE o.doc_id=? AND o.sid=a.sid
- AND o.time_start>=COALESCE((SELECT MAX(time_start) FROM pulsify_op_rows WHERE doc_id=? AND sid=a.sid AND time_start<=a.since),0)
- AND o.ready=1 AND o.time_end>a.since ORDER BY o.sid,o.time_start`
-			: "SELECT * FROM pulsify_op_rows WHERE doc_id=? AND ready=1 ORDER BY sid,time_start";
-		const stored = this.db.query(sql).all(...bindings) as RecordRow[];
-		if (!stored.some((row) => row.packed)) return stored.map(unpack);
-		// Packed segments never reach a peer: it gets the rows inside, as stored.
-		const since = new Map(remote);
-		return stored.flatMap((row) =>
-			row.packed
-				? unpackAll(row).filter(
-						(inner) => inner.clock + inner.span > (since.get(row.sid) ?? 0),
-					)
-				: unpack(row),
+ SELECT o.* FROM actors a CROSS JOIN ${table} o WHERE o.doc_id=? AND o.sid=a.sid
+ AND o.${clock}>=COALESCE((SELECT MAX(${clock}) FROM ${table} WHERE doc_id=? AND sid=a.sid AND ${clock}<=a.since),0)`
+						: `SELECT * FROM ${table} WHERE doc_id=?`,
+				)
+				.all(...bindings);
+		const held = new Map<number, StoredPatchRow[]>();
+		const hold = (row: StoredPatchRow) => {
+			if (isGap(row.operations)) return;
+			const rows = held.get(row.sid);
+			if (rows) rows.push(row);
+			else held.set(row.sid, [row]);
+		};
+		for (const row of read("pulsify_op_rows", "time_start") as RecordRow[])
+			if (row.ready) unpackAll(row).forEach(hold);
+		for (const row of read("pulsify_values", "clock") as ValueRow[])
+			hold(unpackValue(row));
+		return behind.flatMap(([sid, clock]) =>
+			serve(
+				docId,
+				sid,
+				(held.get(sid) ?? []).sort((a, b) => a.clock - b.clock),
+				since.get(sid) ?? 0,
+				clock,
+			),
 		);
 	}
 	/**
@@ -480,7 +705,6 @@ export class SqlitePatchStore implements PatchStore {
 				const remove = this.db.query(
 					"DELETE FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start>? AND time_start<?",
 				);
-				const end = (row: ScanRow) => row.time_start + row.span;
 				// The JSON text of dependencies is never shorter than their varuints.
 				const packable = (row: ScanRow) =>
 					row.ready === 1 &&
@@ -494,19 +718,23 @@ export class SqlitePatchStore implements PatchStore {
 					docId: string;
 					sid: number;
 					clock: number;
+					/** Where its last row's span ends. */
+					end: number;
 					/** Its bytes so far, those already stored included. */
 					size: number;
 					extended: boolean;
+					/** Rows it takes, without the filler of a hole before them. */
+					count: number;
 					parts: Uint8Array[];
 				};
 				let segment: Segment | undefined;
-				/** Store the segment, which now ends with `last`, in place of its rows. */
-				const flush = (last: ScanRow): boolean => {
-					const { docId, sid, clock, extended, parts } = segment!;
+				/** Store the segment in place of its rows. */
+				const flush = (): boolean => {
+					const { docId, sid, clock, end, extended, count, parts } = segment!;
 					segment = undefined;
 					// A row alone gains nothing from being packed.
-					if (parts.length < (extended ? 1 : 2)) return false;
-					rows += parts.length;
+					if (count < (extended ? 1 : 2)) return false;
+					rows += count;
 					if (extended)
 						parts.unshift(
 							new Uint8Array(
@@ -521,8 +749,8 @@ export class SqlitePatchStore implements PatchStore {
 						payload.set(part, offset);
 						offset += part.length;
 					}
-					remove.run(docId, sid, clock, end(last));
-					write.run(end(last) - clock, payload, docId, sid, clock);
+					remove.run(docId, sid, clock, end);
+					write.run(end - clock, payload, docId, sid, clock);
 					segments++;
 					bytes += payload.length;
 					return true;
@@ -538,14 +766,15 @@ export class SqlitePatchStore implements PatchStore {
 						index++;
 						continue;
 					}
+					// Holes between the rows are writes replaced since: a row's span
+					// runs to the next one, so that the clocks inside stay known.
 					let stop = index + 1;
 					for (; stop < batch.length; stop++) {
 						const row = batch[stop]!;
 						if (
 							!packable(row) ||
 							row.doc_id !== first.doc_id ||
-							row.sid !== first.sid ||
-							row.time_start !== end(batch[stop - 1]!)
+							row.sid !== first.sid
 						)
 							break;
 					}
@@ -556,8 +785,9 @@ export class SqlitePatchStore implements PatchStore {
 						index = stop;
 						continue;
 					}
-					// The packed segment that ends where the run starts takes its rows
-					// while it has room, so that short runs do not each leave a segment.
+					// The packed segment just before the run takes its rows while it
+					// has room, so that short runs do not each leave a segment. A gap
+					// row fills the hole between them.
 					const inBatch = batch[index - 1];
 					const before = inBatch
 						? inBatch.doc_id === first.doc_id && inBatch.sid === first.sid
@@ -573,22 +803,37 @@ export class SqlitePatchStore implements PatchStore {
 									"time_start" | "span" | "packed" | "bytes"
 								> | null)
 							: undefined;
-					if (
-						before?.packed &&
-						before.time_start + before.span === first.time_start
-					)
+					if (before?.packed) {
+						const end = before.time_start + before.span;
+						const parts =
+							end < first.time_start
+								? [
+										encodePackedRow({
+											span: first.time_start - end,
+											dependencies: [],
+											operations: GAP_OPERATIONS,
+										}),
+									]
+								: [];
 						segment = {
 							docId: first.doc_id,
 							sid: first.sid,
 							clock: before.time_start,
-							size: before.bytes,
+							end: first.time_start,
+							size: before.bytes + (parts[0]?.length ?? 0),
 							extended: true,
-							parts: [],
+							count: 0,
+							parts,
 						};
+					}
 					for (; index < stop; index++) {
 						const row = batch[index]!;
+						const span =
+							index + 1 < stop
+								? batch[index + 1]!.time_start - row.time_start
+								: row.span;
 						const part = encodePackedRow({
-							span: row.span,
+							span,
 							dependencies: JSON.parse(row.dependencies!) as PulseVersionVector,
 							// Some drivers return an ArrayBuffer.
 							operations: new Uint8Array(
@@ -600,7 +845,7 @@ export class SqlitePatchStore implements PatchStore {
 						if (
 							segment &&
 							segment.size + part.length > MAX_PACKED_BYTES &&
-							flush(batch[index - 1]!) &&
+							flush() &&
 							bytes >= COMPACT_CALL_BYTES
 						) {
 							// Enough for one transaction: the rest is a run of the next call.
@@ -611,14 +856,18 @@ export class SqlitePatchStore implements PatchStore {
 							docId: row.doc_id,
 							sid: row.sid,
 							clock: row.time_start,
+							end: row.time_start,
 							size: 0,
 							extended: false,
+							count: 0,
 							parts: [],
 						};
 						segment.parts.push(part);
 						segment.size += part.length;
+						segment.end = row.time_start + span;
+						segment.count++;
 					}
-					if (segment) flush(batch[stop - 1]!);
+					if (segment) flush();
 				}
 				if (!next && batch.length === limit) stopAt(batch[limit - 1]!);
 				return { rows, segments, next };

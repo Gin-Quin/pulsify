@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { array, map, object, optional } from "@gin-quin/codec";
+import { array, record, object, optional } from "@gin-quin/codec";
 import {
 	arrayOperations,
 	connectPulse,
@@ -201,7 +201,7 @@ test("replacing or removing a read object re-renders", () => {
 test("tracks keys enumerated during render", () => {
 	const Tags = definePulse(
 		"Tags",
-		object({ title: "string", tags: map("string") }),
+		object({ title: "string", tags: record("string") }),
 	).materialize();
 	const doc = track(
 		createPulse(
@@ -337,7 +337,7 @@ test("a change in the middle of a render is not left half shown", () => {
 test("tracks key presence", () => {
 	const Flags = definePulse(
 		"Flags",
-		object({ tags: map(optional("string")) }),
+		object({ tags: record(optional("string")) }),
 	).materialize();
 	const doc = track(
 		createPulse(

@@ -8,6 +8,8 @@ usable on its own in any Rust process that persists Pulsify documents locally.
 
 - `SqliteStore`: the patch journal, file-compatible with the TypeScript
   `SqlitePatchStore`; either side can open a database written by the other.
+  Like it, the store keeps the last value only of a field without history:
+  each actor's newest write to it, in the `pulsify_values` table.
 - `relay_frame`: answers a client frame (connect, upload) from the store,
   without decoding the CRDT operations.
 - `Hub`: sessions pinned to one document each, sharing one connection; rows

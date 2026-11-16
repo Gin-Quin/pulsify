@@ -5,7 +5,7 @@ import {
 	validateVector,
 	type PulseVersionVector,
 } from "pulsify-core/protocol";
-import { type StoredPatchRow } from "pulsify-core/storage";
+import { GAP_OPERATIONS, type StoredPatchRow } from "pulsify-core/storage";
 
 // Mirrors of the core storage limits and checks, which are not public exports.
 export const MAX_MESSAGE_ROWS = 4096;
@@ -73,27 +73,39 @@ export function covered(
 	);
 }
 
-export function sameRow(a: StoredPatchRow, b: StoredPatchRow): boolean {
-	const left = a.operations,
-		right = b.operations;
-	return (
-		a.docId === b.docId &&
-		a.sid === b.sid &&
-		a.clock === b.clock &&
-		a.span === b.span &&
-		JSON.stringify(a.dependencies) === JSON.stringify(b.dependencies) &&
-		left.length === right.length &&
-		left.every((v, i) => right[i] === v)
-	);
-}
-
-export function assertCompatible(a: StoredPatchRow, b: StoredPatchRow): void {
-	if (a.clock < b.clock + b.span && b.clock < a.clock + a.span)
-		throw new PulseError("CONFLICT", "Overlapping immutable storage segments");
-	const [previous, next] = a.clock < b.clock ? [a, b] : [b, a];
-	if (
-		(new Map(next.dependencies).get(next.sid) ?? 0) <
-		previous.clock + previous.span
-	)
-		throw new PulseError("CONFLICT", "Actor history fork");
+/**
+ * Mirror of the core SQLite store's reading: the rows an actor still holds,
+ * sorted by clock, as a peer receives them. Each one's span runs to the next
+ * one, the last one's to the frontier. A peer whose knowledge ends at `since`
+ * gets the row that holds it and those after it, or a gap row up to the first
+ * one when no row holds it.
+ */
+export function serve(
+	docId: string,
+	sid: number,
+	held: StoredPatchRow[],
+	since: number,
+	frontier: number,
+): StoredPatchRow[] {
+	const from = Math.max(since, 1);
+	let first = held.length;
+	while (first > 0 && held[first - 1]!.clock > from) first--;
+	const rows: StoredPatchRow[] = [];
+	if (first === 0)
+		rows.push({
+			docId,
+			sid,
+			clock: from,
+			span: (held[0]?.clock ?? frontier) - from,
+			dependencies: from > 1 ? [[sid, from]] : [],
+			operations: GAP_OPERATIONS.slice(),
+		});
+	for (let index = Math.max(first - 1, 0); index < held.length; index++) {
+		const row = held[index]!;
+		rows.push({
+			...row,
+			span: (held[index + 1]?.clock ?? frontier) - row.clock,
+		});
+	}
+	return rows;
 }

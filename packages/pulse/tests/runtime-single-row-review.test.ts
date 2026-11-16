@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { array, map, object } from "@gin-quin/codec";
+import { array, record, object } from "@gin-quin/codec";
 import {
 	patchToRow,
 	type PulsePatchRow,
@@ -13,6 +13,7 @@ import {
 	destroyPulse,
 	getPulseMeta,
 	snapshotPulse,
+	versioned,
 } from "../source/index.js";
 import type { AnyPulseDefinition } from "../source/pulses/PulseDefinition.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -88,12 +89,14 @@ function replicas(definition: AnyPulseDefinition, id: string) {
 
 const definition = definePulse(
 	"SingleRowReview",
-	object({
-		count: "uint",
-		profile: object({ label: "string" }),
-		items: array("uint"),
-		body: "string",
-	}),
+	versioned(
+		object({
+			count: "uint",
+			profile: object({ label: "string" }),
+			items: array("uint"),
+			body: "string",
+		}),
+	),
 	{ richTextPaths: [["body"]] },
 ).materialize();
 const initial = {
@@ -251,7 +254,7 @@ test("an invalid pending patch cannot make its gap-closing predecessor partially
 });
 
 test("single-row root-map migration captures match general migration bytes and late edits", () => {
-	const schema = map(object({ count: "uint" }));
+	const schema = record(object({ count: "uint" }));
 	const builder = definePulse("SingleRowMapMigration", schema),
 		oldDefinition = builder.materialize();
 	const latest = builder

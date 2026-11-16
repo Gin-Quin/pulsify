@@ -17,8 +17,9 @@ import {
 	type CoreScalar,
 } from "../core/operations.js";
 import { prepareValue, type PreparedValue } from "../core/values.js";
+import { containsMap } from "../core/schema.js";
 import { PulseError, asPulseError } from "../protocol/errors.js";
-import { PatchLog } from "../protocol/PatchLog.js";
+import { isGapRow, PatchLog } from "../protocol/PatchLog.js";
 import { actorPoolOf, leaseActor, leasedActor, randomActor } from "./actors.js";
 import { bind as bindPulse, type Binding } from "./Bindings.js";
 import type { Pulse } from "./Pulse.js";
@@ -135,12 +136,15 @@ export function createRuntime(
 			throw error;
 		}
 	};
+	/** Gap rows only move the frontier: there is nothing in them to apply. */
+	const alive = (rows: PulsePatchRow[]) =>
+		rows.some(isGapRow) ? rows.filter((row) => !isGapRow(row)) : rows;
 	const serialize = (
 		docId: string,
 		patch: CorePatch,
 		dependencies: PulseVersionVector,
 	) => patchToRow(docId, patch, dependencies, model.encoding);
-	model.commit = (ops, hint) => {
+	model.commit = (ops, hint, wallTime) => {
 		context.assertActive();
 		if (!ops.length) return;
 		const time = model.lamport + 1;
@@ -152,6 +156,7 @@ export function createRuntime(
 			time,
 			model.schemaId,
 			ops,
+			wallTime,
 		);
 		if (!log.pendingCount) {
 			log.appendLocalPatch(patch, serialize);
@@ -159,7 +164,8 @@ export function createRuntime(
 		} else {
 			try {
 				let patches: CorePatch[] = [patch];
-				const ready = log.appendLocalPatch(patch, serialize, (rows) => {
+				const ready = log.appendLocalPatch(patch, serialize, (all) => {
+					const rows = alive(all);
 					if (rows.length > 1) {
 						patches = rows.map((row) =>
 							row.sid === patch.sid && row.clock === patch.clock
@@ -183,7 +189,7 @@ export function createRuntime(
 		meta.loaded = !!model.root;
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
-	model.commitScalar = (node, key, field, value) => {
+	model.commitScalar = (node, key, field, value, last) => {
 		context.assertActive();
 		if (log.pendingCount) {
 			model.commit([
@@ -192,6 +198,7 @@ export function createRuntime(
 					target: node.id,
 					field,
 					value: { value, constants: [], texts: [] },
+					...(last ? { last: true as const } : {}),
 				},
 			]);
 			return;
@@ -209,12 +216,15 @@ export function createRuntime(
 			node.id,
 			field,
 			value,
+			last,
 		);
 		log.appendLocalPatch(patch, serialize);
 		model.lamport = time;
 		model.nextClock = clock + 1;
 		node.stamps.set(key, [time, sid, clock]);
 		node.removeChild(key);
+		if (node.layout?.counter)
+			model.addToCounter(node, (value as number) - (node.data[key] ?? 0));
 		node.data[key] = value;
 		meta.loaded = !!model.root;
 		if (meta.listeners.size || meta.rowListeners.size) notify();
@@ -234,9 +244,13 @@ export function createRuntime(
 				version <= definition.migrations.length;
 				version++
 			) {
-				const update = definition.migrations[version - 1]!.migrator(
-					structuredClone(before),
-				);
+				const stored = structuredClone(before);
+				// A stored map is a record of key strings; a migrator reads the Map.
+				for (const field of definition.schemas?.[version - 1]?.root.fields ??
+					[])
+					if (containsMap(field.layout) && Object.hasOwn(stored, field.key))
+						stored[field.key] = field.layout.snapshot(stored[field.key]);
+				const update = definition.migrations[version - 1]!.migrator(stored);
 				if (!update || typeof update !== "object" || Array.isArray(update))
 					throw new TypeError("Migration must return an object");
 				for (const key of ["id", "kind", "version", "generation"])
@@ -340,7 +354,8 @@ export function createRuntime(
 				key: string,
 			) => {
 				const constants: string[][] = [],
-					texts: string[][] = [];
+					texts: string[][] = [],
+					counters: string[][] = [];
 				const visit = (value: unknown, path: string[], relative: string[]) => {
 					const layout = schema?.layoutAt(path, data);
 					if (!layout) return;
@@ -350,6 +365,11 @@ export function createRuntime(
 					}
 					if (layout.richText) {
 						if (typeof value === "string") texts.push(relative);
+						return;
+					}
+					// A number that becomes a counter, or stops being one, is rebuilt.
+					if (layout.counter) {
+						if (typeof value === "number") counters.push(relative);
 						return;
 					}
 					if (
@@ -366,13 +386,14 @@ export function createRuntime(
 						);
 				};
 				visit(data[key], [key], []);
-				return { constants, texts };
+				return { constants, texts, counters };
 			};
-			const signature = (paths: { constants: string[][]; texts: string[][] }) =>
-				JSON.stringify([
-					paths.constants.map((path) => JSON.stringify(path)).sort(),
-					paths.texts.map((path) => JSON.stringify(path)).sort(),
-				]);
+			const signature = (paths: Record<string, string[][]>) =>
+				JSON.stringify(
+					["constants", "texts", "counters"].map((kind) =>
+						paths[kind]!.map((path) => JSON.stringify(path)).sort(),
+					),
+				);
 			const mergePaths = (
 				left: string[][],
 				right: string[][],
@@ -407,6 +428,9 @@ export function createRuntime(
 							latest.layoutAt([key, ...path], normalized),
 						),
 						texts: original.texts.filter((path) =>
+							latest.layoutAt([key, ...path], normalized),
+						),
+						counters: original.counters.filter((path) =>
 							latest.layoutAt([key, ...path], normalized),
 						),
 					};
@@ -520,7 +544,8 @@ export function createRuntime(
 						value,
 					);
 					let pending: CorePatch[] = [];
-					const result = log.acceptState(delta, (ready) => {
+					const result = log.acceptState(delta, (all) => {
+						const ready = alive(all);
 						pending = ready.map(decode);
 						if (pending.length)
 							model.validate(
@@ -575,11 +600,12 @@ export function createRuntime(
 
 				if (rows.length === 1 && !log.pendingCount) {
 					const patch = decode(rows[0]!);
+					// A known row comes back as a gap when its span covers more.
 					const ready = log.appendRemoteRows(rows, (available) => {
-						if (available.length)
+						if (alive(available).length)
 							model.validateSingle(patch, available[0]!.dependencies);
 					});
-					if (ready.length) {
+					if (alive(ready).length) {
 						model.apply(patch);
 						meta.loaded = !!model.root;
 						migrate();
@@ -591,7 +617,8 @@ export function createRuntime(
 					rows.map((row) => [`${row.sid}:${row.clock}`, decode(row)]),
 				);
 				let patches: CorePatch[] = [];
-				const ready = log.appendRemoteRows(rows, (available) => {
+				const ready = log.appendRemoteRows(rows, (all) => {
+					const available = alive(all);
 					patches = available.map(
 						(row) => decoded.get(`${row.sid}:${row.clock}`) ?? decode(row),
 					);

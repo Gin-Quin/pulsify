@@ -256,7 +256,6 @@ test("journal: ascending actor batches preflight atomically and own every input 
 test("journal: actor forks, overlaps and invalid numeric ranges reject the whole batch", () => {
 	for (const incoming of [
 		[row(1), row(2, 65536, [])],
-		[{ ...row(1), span: 2 }, row(2)],
 		[{ ...row(1), clock: Number.MAX_SAFE_INTEGER }],
 		[{ ...row(1), sid: 1 }],
 	]) {

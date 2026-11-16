@@ -14,6 +14,7 @@ import {
 	PulseRelay,
 	snapshotPulse,
 	richText,
+	versioned,
 	PulseError as CoreError,
 } from "../packages/pulse/dist/index.js";
 import {
@@ -90,10 +91,11 @@ export async function smoke() {
 	destroyPulse(b);
 	assert(relay.peerCount === 0, "Session leak");
 	// The public entry points must share the grouped decoder's ownership map.
-	const Grouped = definePulse("RuntimeGrouped", {
-		_type: "object",
-		fields: { value: "float64" },
-	}).materialize();
+	// Grouped runs carry the writes of a field that keeps its history.
+	const Grouped = definePulse(
+		"RuntimeGrouped",
+		versioned({ _type: "object", fields: { value: "float64" } }),
+	).materialize();
 	const x = createPulse(
 		Grouped,
 		{ id: "runtime-grouped", value: 0 },

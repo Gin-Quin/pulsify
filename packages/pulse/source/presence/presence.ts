@@ -7,6 +7,7 @@ import {
 import type { Connection } from "../connection/Connection.js";
 import {
 	compilePulseSchema,
+	containsMap,
 	schemaFingerprint,
 	type PulseLayout,
 } from "../core/schema.js";
@@ -133,8 +134,23 @@ export function definePresence<S extends Schema>(
 		schema,
 		throttleMs,
 		key,
-		codec: compiled.codec,
-		assert: (value: unknown) => compiled.assert(value),
+		// A map travels as a record of key strings: convert at both ends.
+		...(containsMap(compiled.root)
+			? {
+					codec: {
+						encode: compiled.codec.encode,
+						decode: (bytes: Parameters<typeof compiled.codec.decode>[0]) =>
+							compiled.root.snapshot(
+								compiled.codec.decode(bytes),
+							) as InferType<S>,
+					},
+					assert: (value: unknown) =>
+						compiled.prepare(value).value as InferType<S>,
+				}
+			: {
+					codec: compiled.codec,
+					assert: (value: unknown) => compiled.assert(value),
+				}),
 	});
 }
 

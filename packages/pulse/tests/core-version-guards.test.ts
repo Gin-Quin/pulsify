@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { map, object, union } from "@gin-quin/codec";
+import { record, object, union } from "@gin-quin/codec";
 import {
 	createPulse,
 	createPulseScope,
@@ -137,7 +137,7 @@ test("runtime identity guards reject nonprimitive IDs and malformed kinds before
 });
 
 test("dynamic root map migrations normalize new keys and preserve concurrent constant captures", () => {
-	const schema = map(object({ count: "uint" }));
+	const schema = record(object({ count: "uint" }));
 	const builder = definePulse("RootMapMigration", schema),
 		legacy = builder.materialize();
 	const latest = builder

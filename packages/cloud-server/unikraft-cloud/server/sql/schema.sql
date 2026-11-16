@@ -12,118 +12,181 @@ CREATE INDEX IF NOT EXISTS pulsify_rows_pending ON pulsify_op_rows(doc_id) WHERE
 CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
  doc_id text NOT NULL, sid bigint NOT NULL, clock bigint NOT NULL, PRIMARY KEY(doc_id,sid)
 );
+CREATE TABLE IF NOT EXISTS pulsify_values (
+ doc_id text NOT NULL, sid bigint NOT NULL, register bytea NOT NULL, clock bigint NOT NULL,
+ dependencies jsonb NOT NULL, operations bytea NOT NULL, PRIMARY KEY(doc_id,sid,register)
+);
+-- An unreleased layout indexed last-value rows by register in pulsify_op_rows:
+-- its rows move to pulsify_values, and its gap rows are holes now.
+DO $migrate$
+BEGIN
+ IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
+  AND table_name='pulsify_op_rows' AND column_name='register') THEN
+  INSERT INTO pulsify_values(doc_id,sid,register,clock,dependencies,operations)
+   SELECT doc_id,sid,register,time_start,dependencies,operations FROM pulsify_op_rows
+   WHERE ready AND register IS NOT NULL ON CONFLICT DO NOTHING;
+  DELETE FROM pulsify_op_rows WHERE ready AND (register IS NOT NULL OR operations='\x03010000'::bytea);
+  DROP VIEW IF EXISTS pulsify_dangling_op_rows;
+  DROP INDEX IF EXISTS pulsify_rows_register;
+  ALTER TABLE pulsify_op_rows DROP COLUMN register, DROP COLUMN IF EXISTS lamport;
+ END IF;
+END
+$migrate$;
 CREATE OR REPLACE VIEW pulsify_dangling_op_rows AS SELECT * FROM pulsify_op_rows WHERE NOT ready;
+DROP FUNCTION IF EXISTS pulsify_append(text, jsonb, bytea[], bytea[]);
+DROP FUNCTION IF EXISTS pulsify_settle(text, bigint, bigint);
+DROP FUNCTION IF EXISTS pulsify_kill(text, bigint, bigint);
 
+-- A varuint of a payload head, read as leniently as the TypeScript codec does: null past the end.
+CREATE OR REPLACE FUNCTION pulsify_head_uint(p bytea, INOUT pos bigint, OUT value bigint)
+LANGUAGE plpgsql IMMUTABLE SET jit=off AS $$
+DECLARE v_byte integer; v_scale bigint := 1;
+BEGIN
+ value := 0;
+ FOR i IN 0..8 LOOP
+  IF pos >= length(p) THEN value := NULL; RETURN; END IF;
+  v_byte := get_byte(p, pos::integer); pos := pos + 1;
+  value := value + (v_byte & 127) * v_scale;
+  IF value > 9007199254740991 THEN value := NULL; RETURN; END IF;
+  IF v_byte < 128 THEN RETURN; END IF;
+  v_scale := v_scale * 128;
+ END LOOP;
+ value := NULL;
+END;
+$$;
+
+-- Mirror of lastRegisterOf: the register of a row that is one last-value write, or null.
+-- Its head is version 3, lamport, schema, count 1, kind 7 or 8, target, field.
+CREATE OR REPLACE FUNCTION pulsify_register(p bytea) RETURNS bytea
+LANGUAGE plpgsql IMMUTABLE SET jit=off AS $$
+DECLARE v_pos bigint := 0; v_value bigint; v_start bigint;
+BEGIN
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS DISTINCT FROM 3 THEN RETURN NULL; END IF;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS NULL THEN RETURN NULL; END IF;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS NULL THEN RETURN NULL; END IF;
+ v_pos := v_pos + v_value;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS DISTINCT FROM 1 THEN RETURN NULL; END IF;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS NULL OR v_value NOT IN (7,8) THEN RETURN NULL; END IF;
+ v_start := v_pos;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS NULL THEN RETURN NULL; END IF;
+ v_pos := v_pos + v_value;
+ SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+ IF v_value IS NULL THEN RETURN NULL; END IF;
+ IF v_value = 0 THEN
+  SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+  IF v_value IS NULL THEN RETURN NULL; END IF;
+  v_pos := v_pos + v_value;
+ ELSE
+  SELECT h.pos,h.value INTO v_pos,v_value FROM pulsify_head_uint(p,v_pos) h;
+  IF v_value IS NULL THEN RETURN NULL; END IF;
+ END IF;
+ IF v_pos > length(p) THEN RETURN NULL; END IF;
+ RETURN substring(p FROM (v_start + 1)::integer FOR (v_pos - v_start)::integer);
+END;
+$$;
+
+-- Each metadata item is [sid, start, span, dependencies]. A ready last-value row is upserted
+-- as its actor's value of the register; a ready gap row only moves the frontier.
 CREATE OR REPLACE FUNCTION pulsify_append(
  p_doc_id text, p_metadata jsonb, p_payloads bytea[]
 ) RETURNS TABLE(inserted integer, ready integer, pending integer)
 LANGUAGE plpgsql SET jit=off AS $$
 DECLARE
- v_inserted integer := 0; v_ready integer := 0;
- v_item jsonb; v_sid bigint; v_start bigint; v_span bigint; v_deps jsonb;
- v_previous pulsify_op_rows%ROWTYPE; v_neighbour record;
- candidate record; v_changed boolean; v_fast boolean;
+ v_inserted integer := 0; v_ready integer := 0; v_index integer;
+ v_item jsonb; v_sid bigint; v_start bigint; v_span bigint; v_end bigint; v_deps jsonb;
+ v_own bigint; v_reached bigint; v_ready_now boolean; v_operations bytea; v_register bytea;
+ v_held record; v_neighbour record; candidate record; v_changed boolean;
 BEGIN
  -- All appenders to a document use this transactional lock. Hash collisions only serialize unrelated documents.
  PERFORM pg_advisory_xact_lock(hashtextextended(p_doc_id, 1932));
  IF jsonb_typeof(p_metadata) <> 'array' OR jsonb_array_length(p_metadata) <> cardinality(p_payloads) THEN
   RAISE EXCEPTION 'Invalid segment batch';
  END IF;
- IF jsonb_array_length(p_metadata)=1 THEN
-  -- Keep the one-row path small: it should not pay for batch window functions and self joins.
-  v_item:=p_metadata->0; v_sid:=(v_item->>0)::bigint; v_start:=(v_item->>1)::bigint;
-  v_span:=(v_item->>2)::bigint; v_deps:=v_item->3;
-  SELECT * INTO v_previous FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=v_sid AND time_start=v_start;
-  IF FOUND THEN
-   IF v_previous.span<>v_span OR v_previous.dependencies<>v_deps OR v_previous.operations<>p_payloads[1] THEN
+ FOR v_index IN 1..jsonb_array_length(p_metadata) LOOP
+  v_item:=p_metadata->(v_index-1); v_sid:=(v_item->>0)::bigint; v_start:=(v_item->>1)::bigint;
+  v_span:=(v_item->>2)::bigint; v_deps:=v_item->3; v_end:=v_start+v_span; v_operations:=p_payloads[v_index];
+  v_own:=COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(v_deps) d WHERE (d->>0)::bigint=v_sid),0);
+  v_reached:=COALESCE((SELECT clock FROM pulsify_doc_clocks WHERE doc_id=p_doc_id AND sid=v_sid),1);
+  IF v_start<v_reached THEN
+   -- Known, or replaced here: only its contents can conflict, with what is held at that clock,
+   -- and only its span can say that more writes were replaced.
+   SELECT operations INTO v_held FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=v_sid AND time_start=v_start;
+   IF NOT FOUND THEN
+    SELECT operations INTO v_held FROM pulsify_values WHERE doc_id=p_doc_id AND sid=v_sid AND clock=v_start;
+   END IF;
+   IF FOUND AND v_held.operations<>'\x03010000'::bytea AND v_operations<>'\x03010000'::bytea AND v_held.operations<>v_operations THEN
     RAISE EXCEPTION 'Conflicting storage segment';
    END IF;
-  ELSE
-   FOR v_neighbour IN
-    (SELECT time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=v_sid AND time_start<v_start ORDER BY time_start DESC LIMIT 1)
-    UNION ALL
-    (SELECT time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=v_sid AND time_start>v_start ORDER BY time_start LIMIT 1)
-   LOOP
-    IF (v_start<v_neighbour.time_end AND v_neighbour.time_start<v_start+v_span) OR
-     (v_neighbour.time_start<v_start AND COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(v_deps) d WHERE (d->>0)::bigint=v_sid),0)<v_neighbour.time_end) OR
-     (v_neighbour.time_start>v_start AND COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(v_neighbour.dependencies) d WHERE (d->>0)::bigint=v_sid),0)<v_start+v_span)
-    THEN RAISE EXCEPTION 'Overlapping segments or actor history fork'; END IF;
-   END LOOP;
-   INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations) VALUES(p_doc_id,v_sid,v_start,v_span,v_deps,p_payloads[1]);
-   v_inserted:=1;
+   IF v_end>v_reached THEN
+    -- Rows that waited below the new frontier were replaced.
+    DELETE FROM pulsify_op_rows o WHERE doc_id=p_doc_id AND sid=v_sid AND NOT o.ready AND time_start>=v_reached AND time_start<v_end;
+    INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) VALUES(p_doc_id,v_sid,v_end)
+     ON CONFLICT(doc_id,sid) DO UPDATE SET clock=GREATEST(pulsify_doc_clocks.clock,EXCLUDED.clock);
+    v_inserted:=v_inserted+1;
+   END IF;
+   CONTINUE;
   END IF;
- ELSE
- -- Validate the whole batch with set operations rather than per-row SQL statements.
- IF EXISTS (
-  WITH input AS (SELECT value,ordinality AS n FROM jsonb_array_elements(p_metadata) WITH ORDINALITY)
-  SELECT 1 FROM input a JOIN input b ON a.value->0=b.value->0 AND a.value->1=b.value->1 AND a.n<b.n
-  WHERE a.value<>b.value OR p_payloads[a.n]<>p_payloads[b.n]
- ) THEN RAISE EXCEPTION 'Conflicting storage segment'; END IF;
- IF EXISTS (
-  SELECT 1 FROM jsonb_array_elements(p_metadata) WITH ORDINALITY i(value,n)
-  JOIN pulsify_op_rows o ON o.doc_id=p_doc_id AND o.sid=(i.value->>0)::bigint AND o.time_start=(i.value->>1)::bigint
-  WHERE o.span<>(i.value->>2)::bigint OR o.dependencies<>i.value->3 OR o.operations<>p_payloads[i.n]
- ) THEN RAISE EXCEPTION 'Conflicting storage segment'; END IF;
- IF EXISTS (
-  WITH input AS (
-   SELECT DISTINCT ON ((value->>0)::bigint,(value->>1)::bigint)
-    (value->>0)::bigint AS sid,(value->>1)::bigint AS start,(value->>2)::bigint AS span,value->3 AS deps
-   FROM jsonb_array_elements(p_metadata)
-  ), adjacency AS (
-   SELECT *,lag(start+span) OVER(PARTITION BY sid ORDER BY start) AS previous_end FROM input
-  )
-  SELECT 1 FROM adjacency i WHERE i.previous_end IS NOT NULL AND
-   (i.previous_end>i.start OR COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(i.deps) d WHERE (d->>0)::bigint=i.sid),0)<i.previous_end)
- ) THEN RAISE EXCEPTION 'Overlapping segments or actor history fork'; END IF;
- IF EXISTS (
-  WITH input AS (
-   SELECT (value->>0)::bigint AS sid,(value->>1)::bigint AS start,(value->>2)::bigint AS span,value->3 AS deps
-   FROM jsonb_array_elements(p_metadata)
-  )
-  SELECT 1 FROM input i CROSS JOIN LATERAL (
-   (SELECT time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=i.sid AND time_start<i.start ORDER BY time_start DESC LIMIT 1)
-   UNION ALL
-   (SELECT time_start,time_end,dependencies FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=i.sid AND time_start>i.start ORDER BY time_start LIMIT 1)
-  ) n WHERE (i.start<n.time_end AND n.time_start<i.start+i.span) OR
-   (n.time_start<i.start AND COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(i.deps) d WHERE (d->>0)::bigint=i.sid),0)<n.time_end) OR
-   (n.time_start>i.start AND COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(n.dependencies) d WHERE (d->>0)::bigint=i.sid),0)<i.start+i.span)
- ) THEN RAISE EXCEPTION 'Overlapping segments or actor history fork'; END IF;
- INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations)
-  SELECT p_doc_id,(value->>0)::bigint,(value->>1)::bigint,(value->>2)::bigint,value->3,p_payloads[n]
-  FROM jsonb_array_elements(p_metadata) WITH ORDINALITY i(value,n)
-  ON CONFLICT(doc_id,sid,time_start) DO NOTHING;
- GET DIAGNOSTICS v_inserted = ROW_COUNT;
- -- The common case is an actor's causally closed batch. Prove closure once and promote it in bulk.
- WITH input AS (
-  SELECT DISTINCT ON ((value->>0)::bigint,(value->>1)::bigint)
-   (value->>0)::bigint AS sid,(value->>1)::bigint AS start,(value->>2)::bigint AS span,value->3 AS deps
-  FROM jsonb_array_elements(p_metadata)
- ), adjacency AS (
-  SELECT *,lag(start+span) OVER(PARTITION BY sid ORDER BY start) AS previous_end FROM input
- )
- SELECT NOT EXISTS (
-  SELECT 1 FROM adjacency i LEFT JOIN pulsify_doc_clocks own ON own.doc_id=p_doc_id AND own.sid=i.sid
-  WHERE i.start>GREATEST(COALESCE(i.previous_end,1),COALESCE(own.clock,1)) OR EXISTS (
-   SELECT 1 FROM jsonb_array_elements(i.deps) d LEFT JOIN pulsify_doc_clocks c ON c.doc_id=p_doc_id AND c.sid=(d->>0)::bigint
-   WHERE (d->>1)::bigint > CASE WHEN (d->>0)::bigint=i.sid THEN GREATEST(COALESCE(i.previous_end,0),COALESCE(own.clock,0)) ELSE COALESCE(c.clock,0) END
-  )
- ) INTO v_fast;
- IF v_fast THEN
-  WITH promoted AS (
-   UPDATE pulsify_op_rows o SET ready=true FROM jsonb_array_elements(p_metadata) i
-   WHERE o.doc_id=p_doc_id AND o.sid=(i->>0)::bigint AND o.time_start=(i->>1)::bigint AND NOT o.ready
-   RETURNING o.sid,o.time_end
-  ), clocks AS (
-   INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) SELECT p_doc_id,sid,MAX(time_end) FROM promoted GROUP BY sid
-   ON CONFLICT(doc_id,sid) DO UPDATE SET clock=GREATEST(pulsify_doc_clocks.clock,EXCLUDED.clock) RETURNING sid
-  ) SELECT COUNT(*)::integer INTO v_ready FROM promoted;
- END IF;
- END IF;
+  v_ready_now:=v_start=v_reached AND NOT EXISTS (
+   SELECT 1 FROM jsonb_array_elements(v_deps) d
+   LEFT JOIN pulsify_doc_clocks c ON c.doc_id=p_doc_id AND c.sid=(d->>0)::bigint
+   WHERE COALESCE(c.clock,0)<(d->>1)::bigint);
+  SELECT span,operations INTO v_held FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=v_sid AND time_start=v_start;
+  IF FOUND THEN
+   -- A waiting row with the same start: only contents conflict, and the longer span is kept.
+   IF v_held.operations<>'\x03010000'::bytea AND v_operations<>'\x03010000'::bytea AND v_held.operations<>v_operations THEN
+    RAISE EXCEPTION 'Conflicting storage segment';
+   END IF;
+   IF v_span>v_held.span THEN
+    UPDATE pulsify_op_rows SET span=v_span WHERE doc_id=p_doc_id AND sid=v_sid AND time_start=v_start;
+    -- The waiting rows it now covers were replaced.
+    DELETE FROM pulsify_op_rows o WHERE doc_id=p_doc_id AND sid=v_sid AND NOT o.ready AND time_start>v_start AND time_start<v_end;
+   END IF;
+   CONTINUE;
+  END IF;
+  SELECT time_end INTO v_neighbour FROM pulsify_op_rows
+   WHERE doc_id=p_doc_id AND sid=v_sid AND time_start<v_start ORDER BY time_start DESC LIMIT 1;
+  IF FOUND THEN
+   -- It starts among the writes a waiting row has replaced.
+   IF v_neighbour.time_end>v_start THEN CONTINUE; END IF;
+   IF v_own<v_neighbour.time_end THEN RAISE EXCEPTION 'Actor history fork'; END IF;
+  END IF;
+  SELECT dependencies INTO v_neighbour FROM pulsify_op_rows
+   WHERE doc_id=p_doc_id AND sid=v_sid AND time_start>=v_end ORDER BY time_start LIMIT 1;
+  IF FOUND AND COALESCE((SELECT (d->>1)::bigint FROM jsonb_array_elements(v_neighbour.dependencies) d WHERE (d->>0)::bigint=v_sid),0)<v_end THEN
+   RAISE EXCEPTION 'Actor history fork';
+  END IF;
+  -- Rows still waiting that this row has replaced.
+  DELETE FROM pulsify_op_rows o WHERE doc_id=p_doc_id AND sid=v_sid AND NOT o.ready AND time_start>v_start AND time_start<v_end;
+  v_inserted:=v_inserted+1;
+  IF v_ready_now THEN
+   v_register:=pulsify_register(v_operations);
+   IF v_register IS NOT NULL THEN
+    INSERT INTO pulsify_values(doc_id,sid,register,clock,dependencies,operations)
+     VALUES(p_doc_id,v_sid,v_register,v_start,v_deps,v_operations)
+     ON CONFLICT(doc_id,sid,register) DO UPDATE SET clock=EXCLUDED.clock,dependencies=EXCLUDED.dependencies,operations=EXCLUDED.operations;
+   ELSIF v_operations<>'\x03010000'::bytea THEN
+    INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready)
+     VALUES(p_doc_id,v_sid,v_start,v_span,v_deps,v_operations,true);
+   END IF;
+   INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) VALUES(p_doc_id,v_sid,v_end)
+    ON CONFLICT(doc_id,sid) DO UPDATE SET clock=GREATEST(pulsify_doc_clocks.clock,EXCLUDED.clock);
+   v_ready:=v_ready+1;
+  ELSE
+   INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready)
+    VALUES(p_doc_id,v_sid,v_start,v_span,v_deps,v_operations,false);
+  END IF;
+ END LOOP;
  IF (SELECT COUNT(*) FROM (
   SELECT sid FROM pulsify_doc_clocks WHERE doc_id=p_doc_id
   UNION SELECT sid FROM pulsify_op_rows WHERE doc_id=p_doc_id AND NOT pulsify_op_rows.ready
  ) actors) > 1024 THEN RAISE EXCEPTION 'Document actor limit exceeded'; END IF;
- -- Only pending metadata is read. Payloads and the materialized document are never fetched.
+ -- Only pending metadata is read, and the payload of a row once it is ready.
  LOOP
   v_changed := false;
   FOR candidate IN SELECT sid,time_start,time_end,dependencies FROM pulsify_op_rows
@@ -134,7 +197,18 @@ BEGIN
     LEFT JOIN pulsify_doc_clocks c ON c.doc_id=p_doc_id AND c.sid=(d->>0)::bigint
     WHERE COALESCE(c.clock,0)<(d->>1)::bigint
    ) THEN
-    UPDATE pulsify_op_rows SET ready=true WHERE doc_id=p_doc_id AND sid=candidate.sid AND time_start=candidate.time_start;
+    SELECT operations INTO v_held FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=candidate.sid AND time_start=candidate.time_start;
+    v_register:=pulsify_register(v_held.operations);
+    IF v_register IS NOT NULL THEN
+     INSERT INTO pulsify_values(doc_id,sid,register,clock,dependencies,operations)
+      VALUES(p_doc_id,candidate.sid,v_register,candidate.time_start,candidate.dependencies,v_held.operations)
+      ON CONFLICT(doc_id,sid,register) DO UPDATE SET clock=EXCLUDED.clock,dependencies=EXCLUDED.dependencies,operations=EXCLUDED.operations;
+    END IF;
+    IF v_register IS NOT NULL OR v_held.operations='\x03010000'::bytea THEN
+     DELETE FROM pulsify_op_rows WHERE doc_id=p_doc_id AND sid=candidate.sid AND time_start=candidate.time_start;
+    ELSE
+     UPDATE pulsify_op_rows SET ready=true WHERE doc_id=p_doc_id AND sid=candidate.sid AND time_start=candidate.time_start;
+    END IF;
     INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) VALUES(p_doc_id,candidate.sid,candidate.time_end)
      ON CONFLICT(doc_id,sid) DO UPDATE SET clock=GREATEST(pulsify_doc_clocks.clock,EXCLUDED.clock);
     v_ready := v_ready + 1; v_changed := true;
@@ -144,6 +218,40 @@ BEGIN
  END LOOP;
  RETURN QUERY SELECT v_inserted,v_ready,(SELECT COUNT(*)::integer FROM pulsify_op_rows WHERE doc_id=p_doc_id AND NOT pulsify_op_rows.ready);
 END;
+$$;
+
+-- The rows a peer lacks. Spans are computed: each held row (a history row or a value) runs to
+-- the next one of its actor, the last one to the frontier. Where no held row starts at or
+-- before the point the peer's knowledge ends, a gap row covers up to the first one.
+CREATE OR REPLACE FUNCTION pulsify_missing(p_doc_id text, p_sids bigint[], p_clocks bigint[])
+RETURNS TABLE(sid bigint, time_start bigint, span bigint, dependencies jsonb, operations bytea)
+LANGUAGE sql STABLE AS $$
+ WITH remote(sid,clock) AS (SELECT * FROM unnest(p_sids,p_clocks)),
+ actors AS (
+  SELECT c.sid,c.clock AS frontier,GREATEST(COALESCE(r.clock,0),1) AS since
+  FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
+  WHERE c.doc_id=p_doc_id AND c.clock>COALESCE(r.clock,0)),
+ held AS (
+  SELECT o.sid,o.time_start,o.dependencies,o.operations FROM actors a
+   JOIN pulsify_op_rows o ON o.doc_id=p_doc_id AND o.sid=a.sid
+   WHERE o.ready AND o.operations<>'\x03010000'::bytea AND o.time_start>=COALESCE((SELECT MAX(p.time_start)
+    FROM pulsify_op_rows p WHERE p.doc_id=p_doc_id AND p.sid=a.sid AND p.time_start<=a.since),0)
+  UNION ALL
+  SELECT v.sid,v.clock,v.dependencies,v.operations FROM actors a
+   JOIN pulsify_values v ON v.doc_id=p_doc_id AND v.sid=a.sid
+   WHERE v.clock>=COALESCE((SELECT MAX(w.clock)
+    FROM pulsify_values w WHERE w.doc_id=p_doc_id AND w.sid=a.sid AND w.clock<=a.since),0)),
+ spans AS (
+  SELECT h.sid,h.time_start,COALESCE(LEAD(h.time_start) OVER (PARTITION BY h.sid ORDER BY h.time_start),a.frontier)
+   -h.time_start AS span,h.dependencies,h.operations,a.since
+  FROM held h JOIN actors a ON a.sid=h.sid)
+ SELECT s.sid,s.time_start,s.span,s.dependencies,s.operations FROM spans s WHERE s.time_start+s.span>s.since
+ UNION ALL
+ SELECT a.sid,a.since,COALESCE((SELECT MIN(h.time_start) FROM held h WHERE h.sid=a.sid),a.frontier)-a.since,
+  CASE WHEN a.since>1 THEN jsonb_build_array(jsonb_build_array(a.sid,a.since)) ELSE '[]'::jsonb END,
+  '\x03010000'::bytea
+ FROM actors a WHERE NOT EXISTS (SELECT 1 FROM held h WHERE h.sid=a.sid AND h.time_start<=a.since)
+ ORDER BY 1,2
 $$;
 
 CREATE TABLE IF NOT EXISTS pulsify_cloud_grants (

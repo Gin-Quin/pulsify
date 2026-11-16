@@ -1,5 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
-import { array, bigint, map, object, optional, union } from "@gin-quin/codec";
+import {
+	array,
+	bigint,
+	record,
+	object,
+	optional,
+	union,
+} from "@gin-quin/codec";
 import {
 	createPulse,
 	createPulseScope,
@@ -22,7 +29,7 @@ test("compiled snapshots preserve deleted optional fields in objects, arrays and
 	const item = object({ maybe: optional("string"), title: "string" });
 	const definition = definePulse(
 		"SnapshotDeleted",
-		object({ profile: item, rows: array(item), values: map(item) }),
+		object({ profile: item, rows: array(item), values: record(item) }),
 	).materialize();
 	const pulse = createPulse(
 		definition,

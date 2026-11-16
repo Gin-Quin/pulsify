@@ -215,8 +215,9 @@ export default function LocalPersistence() {
 			</p>
 			<CodeBlock title="notebook.ts" code={cloud} />
 			<Note kind="warn">
-				A local store keeps the full history and never compacts it. Use one
-				database per account and wipe it on logout.
+				A local store keeps the last value of every field, and the whole history
+				of texts, arrays and versioned fields. Use one database per account and
+				wipe it on logout.
 			</Note>
 		</>
 	);

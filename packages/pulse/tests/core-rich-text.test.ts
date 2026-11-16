@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { array, map, object, optional } from "@gin-quin/codec";
+import { array, record, object, optional } from "@gin-quin/codec";
 import {
 	createPulse,
 	createPulseScope,
@@ -198,7 +198,7 @@ describe("collaborative rich text", () => {
 	test("array and map terminal annotations expose editable text entries and replay", () => {
 		const schema = object({
 			items: array(optional("string")),
-			byId: map("string"),
+			byId: record("string"),
 		});
 		const definition = definePulse("TerminalRichText", schema, {
 			richTextPaths: [
@@ -236,7 +236,7 @@ describe("collaborative rich text", () => {
 
 	test("array and map terminal constant entries reject nested edits", () => {
 		const item = object({ id: "string", count: "uint" });
-		const schema = object({ items: array(item), byId: map(item) });
+		const schema = object({ items: array(item), byId: record(item) });
 		const definition = definePulse("TerminalConstants", schema, {
 			constantPaths: [
 				["items", "*"],

@@ -24,8 +24,16 @@ const groups: { title: string; items: [string, string][] }[] = [
 				"Collaborative string without formatting: concurrent edits merge.",
 			],
 			[
+				"counter()",
+				"Number with increment, decrement and set: concurrent changes all add up.",
+			],
+			[
 				"constant(schema)",
 				"Value fixed at creation: never replaced or edited.",
+			],
+			[
+				"versioned(schema, { timestamps? })",
+				"Keep every write of a value instead of its last one, optionally with its time.",
 			],
 			[
 				"frozen(schema)",

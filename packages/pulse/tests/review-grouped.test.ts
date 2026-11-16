@@ -20,6 +20,7 @@ import {
 	destroyPulse,
 	exportPulseUpdates,
 	getPulseMeta,
+	versioned,
 } from "../source/index.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -30,7 +31,7 @@ import {
 } from "../source/connection/PulseMessage.js";
 const D = definePulse(
 	"ReviewGrouped",
-	object({ value: "string" }),
+	versioned(object({ value: "string" })),
 ).materialize();
 const fixture = () =>
 	createPulse(

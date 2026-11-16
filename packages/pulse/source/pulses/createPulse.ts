@@ -1,6 +1,7 @@
 import { connectPulse } from "../connection/connectPulse.js";
 import type { RichText } from "../core/richText.js";
 import type { PlainText } from "../core/plainText.js";
+import type { Counter } from "../core/counter.js";
 import type { Tree } from "../core/tree.js";
 import type { TreeData } from "../core/treeSchema.js";
 import { PulseError } from "../protocol/errors.js";
@@ -20,19 +21,21 @@ export type InitialValue<Value> = unknown extends Value
 	? Value
 	: Value extends PulseRef<infer Definition>
 		? string | PulseRef<Definition> | Pulse<ModelFromDefinition<Definition>>
-		: Value extends PlainText
-			? string | PlainText
-			: Value extends RichText
-				? string | RichText
-				: Value extends Tree<infer Item>
-					? TreeData<InitialValue<Item>> | Tree<Item>
-					: Value extends Uint8Array
-						? Uint8Array
-						: Value extends (...args: never[]) => unknown
-							? Value
-							: Value extends object
-								? { [Key in keyof Value]: InitialValue<Value[Key]> }
-								: Value;
+		: Value extends Counter
+			? number | Counter
+			: Value extends PlainText
+				? string | PlainText
+				: Value extends RichText
+					? string | RichText
+					: Value extends Tree<infer Item>
+						? TreeData<InitialValue<Item>> | Tree<Item>
+						: Value extends Uint8Array
+							? Uint8Array
+							: Value extends (...args: never[]) => unknown
+								? Value
+								: Value extends object
+									? { [Key in keyof Value]: InitialValue<Value[Key]> }
+									: Value;
 
 export type CreatePulseInput<Properties extends PulseProperties<string>> =
 	Properties extends unknown

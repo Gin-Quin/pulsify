@@ -64,7 +64,7 @@ try {
 			type: "module",
 			dependencies: {
 				"pulsify-core": `file:${archive}`,
-				"@gin-quin/codec": "2.1.1",
+				"@gin-quin/codec": "3.0.0",
 				"pulsify-prosemirror": `file:${join(directory, "pulsify-prosemirror.tgz")}`,
 				"pulsify-lexical": `file:${join(directory, "pulsify-lexical.tgz")}`,
 				"pulsify-codemirror": `file:${join(directory, "pulsify-codemirror.tgz")}`,

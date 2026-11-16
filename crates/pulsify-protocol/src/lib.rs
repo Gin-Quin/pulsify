@@ -7,6 +7,76 @@ pub use store::{
     relay_frame, validate_doc_id, validate_rows, AppendResult, Hub, PatchStore, RelayOutput, Sink,
 };
 
+/// The version of operation payloads, their first byte.
+pub const OPERATIONS_VERSION: u8 = 3;
+/// The payload of a gap row: no operation. Its sequence numbers held writes
+/// that were replaced, and it stands where no earlier row can cover them.
+pub const GAP_OPERATIONS: [u8; 4] = [OPERATIONS_VERSION, 1, 0, 0];
+pub fn is_gap(operations: &[u8]) -> bool {
+    operations == GAP_OPERATIONS
+}
+
+/// What a journal or a store reads from the head of a last-value row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LastRegister<'a> {
+    pub lamport: u64,
+    /// The register, compared as bytes: the encoded target and field of the write.
+    pub register: &'a [u8],
+}
+
+/// A varuint of a payload head, read as leniently as the TypeScript codec does.
+fn head_uint(bytes: &[u8], pos: &mut usize) -> Option<u64> {
+    let mut value = 0_u64;
+    for shift in (0..=56).step_by(7) {
+        let byte = *bytes.get(*pos)?;
+        *pos += 1;
+        value |= u64::from(byte & 127) << shift;
+        if value > MAX_SAFE_INTEGER {
+            return None;
+        }
+        if byte < 128 {
+            return Some(value);
+        }
+    }
+    None
+}
+
+/// `None` unless the payload is one last-value write: exactly one operation of
+/// kind 7 (assign) or 8 (delete), to a register that keeps no history. Mirror
+/// of `lastRegisterOf`: nothing is decoded beyond the head,
+/// `version, lamport, schema, count = 1, kind, target, field`.
+pub fn last_register_of(operations: &[u8]) -> Option<LastRegister<'_>> {
+    let mut pos = 0;
+    // The next read fails when a length reaches beyond the payload.
+    let skip = |pos: &mut usize| -> Option<()> {
+        let length = usize::try_from(head_uint(operations, pos)?).ok()?;
+        *pos = pos.checked_add(length)?;
+        Some(())
+    };
+    if head_uint(operations, &mut pos)? != u64::from(OPERATIONS_VERSION) {
+        return None;
+    }
+    let lamport = head_uint(operations, &mut pos)?;
+    skip(&mut pos)?;
+    if head_uint(operations, &mut pos)? != 1 {
+        return None;
+    }
+    if !matches!(head_uint(operations, &mut pos)?, 7 | 8) {
+        return None;
+    }
+    let start = pos;
+    skip(&mut pos)?;
+    if head_uint(operations, &mut pos)? == 0 {
+        skip(&mut pos)?;
+    } else {
+        head_uint(operations, &mut pos)?;
+    }
+    Some(LastRegister {
+        lamport,
+        register: operations.get(start..pos)?,
+    })
+}
+
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PATCH_BYTES: usize = 1024 * 1024;
@@ -520,13 +590,48 @@ pub fn decode(bytes: &[u8]) -> Result<Message> {
     Ok(message)
 }
 
-/// Opaque immutable segments; the frontier advances only when dependencies exist.
+/// The row that holds a register without history: the newest write to it.
+#[derive(Clone, Copy, Debug)]
+struct Holder {
+    sid: u64,
+    clock: u64,
+    lamport: u64,
+}
+
+/// Journal bytes charged for a row.
+fn cost(row: &PatchRow) -> usize {
+    row.operations.len() + row.dependencies.len() * 16 + row.doc_id.encode_utf16().count() * 2 + 40
+}
+/// A row without operations, covering sequence numbers of replaced writes.
+fn gap_row(doc_id: &str, sid: u64, clock: u64, span: u64) -> PatchRow {
+    PatchRow {
+        doc_id: doc_id.to_owned(),
+        sid,
+        clock,
+        span,
+        dependencies: if clock > 1 {
+            vec![(sid, clock)]
+        } else {
+            vec![]
+        },
+        operations: GAP_OPERATIONS.to_vec(),
+    }
+}
+fn differ(held: &[u8], incoming: &[u8]) -> bool {
+    !is_gap(held) && !is_gap(incoming) && held != incoming
+}
+
+/// Opaque segments whose operations are immutable; the frontier advances only
+/// when dependencies exist. A register without history keeps one row, the
+/// newest write: see "Fields without history" in `docs/PROTOCOL.md`.
 #[derive(Clone, Debug)]
 pub struct PatchLog {
     pub doc_id: String,
     rows: BTreeMap<(u64, u64), PatchRow>,
     pending: BTreeSet<(u64, u64)>,
     frontier: BTreeMap<u64, u64>,
+    /// The row that holds each register without history.
+    registers: BTreeMap<Vec<u8>, Holder>,
     bytes: usize,
 }
 impl PatchLog {
@@ -536,6 +641,7 @@ impl PatchLog {
             rows: BTreeMap::new(),
             pending: BTreeSet::new(),
             frontier: BTreeMap::new(),
+            registers: BTreeMap::new(),
             bytes: 0,
         }
     }
@@ -548,6 +654,13 @@ impl PatchLog {
     pub fn pending_count(&self) -> usize {
         self.pending.len()
     }
+    /// How many rows the journal holds, waiting ones included.
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
     pub fn missing(&self, vv: &VersionVector) -> Vec<PatchRow> {
         self.rows
             .values()
@@ -555,48 +668,104 @@ impl PatchLog {
             .cloned()
             .collect()
     }
+    /// Stores rows atomically: a conflict leaves the journal as it was.
     pub fn append(&mut self, rows: &[PatchRow]) -> Result<()> {
         let mut next = self.clone();
+        next.insert(rows)?;
+        *self = next;
+        Ok(())
+    }
+
+    fn drop_row(&mut self, key: (u64, u64)) {
+        if let Some(row) = self.rows.remove(&key) {
+            self.bytes -= cost(&row);
+        }
+        self.pending.remove(&key);
+    }
+
+    fn insert(&mut self, rows: &[PatchRow]) -> Result<()> {
+        // A row that starts below its actor's frontier is already known, or was
+        // replaced here: only the sequence numbers its span covers beyond the
+        // frontier are news, and they come as a gap row to append.
+        let mut incoming: Vec<PatchRow> = Vec::with_capacity(rows.len());
+        let mut gaps: BTreeMap<u64, usize> = BTreeMap::new();
         for row in rows {
             row.validate(&self.doc_id)?;
-            let key = (row.sid, row.clock);
-            if let Some(existing) = next.rows.get(&key) {
-                if existing != row {
-                    return Err(Error::new("CONFLICT", "Conflicting segment"));
-                }
+            let frontier = self.frontier.get(&row.sid).copied().unwrap_or(1);
+            if row.clock >= frontier {
+                incoming.push(row.clone());
                 continue;
             }
-            for other in next.rows.values().filter(|other| other.sid == row.sid) {
-                if row.clock < other.end() && other.clock < row.end() {
-                    return Err(Error::new("CONFLICT", "Overlapping segments"));
+            if let Some(held) = self.rows.get(&(row.sid, row.clock)) {
+                if differ(&held.operations, &row.operations) {
+                    return Err(Error::new("CONFLICT", "Conflicting segment"));
                 }
-                let (previous, after) = if row.clock > other.clock {
-                    (other, row)
-                } else {
-                    (row, other)
-                };
-                if own_clock(&after.dependencies, row.sid) < previous.end() {
+            }
+            if row.end() <= frontier {
+                continue;
+            }
+            let span = row.end() - frontier;
+            match gaps.get(&row.sid) {
+                Some(&at) => incoming[at].span = incoming[at].span.max(span),
+                None => {
+                    gaps.insert(row.sid, incoming.len());
+                    incoming.push(gap_row(&self.doc_id, row.sid, frontier, span));
+                }
+            }
+        }
+        for row in incoming {
+            let key = (row.sid, row.clock);
+            if let Some(existing) = self.rows.get(&key) {
+                // A span is how much a peer has replaced since: only contents conflict.
+                if differ(&existing.operations, &row.operations) {
+                    return Err(Error::new("CONFLICT", "Conflicting segment"));
+                }
+                // The longer span knows of more replaced writes: it takes the place.
+                if row.end() <= existing.end() {
+                    continue;
+                }
+                self.drop_row(key);
+            }
+            if let Some(before) = self.rows.range((row.sid, 0)..key).next_back().map(|e| e.1) {
+                // It starts among the writes that a waiting row has replaced.
+                if before.end() > row.clock {
+                    continue;
+                }
+                if own_clock(&row.dependencies, row.sid) < before.end() {
                     return Err(Error::new("CONFLICT", "Actor history fork"));
                 }
             }
-            next.bytes += row.operations.len()
-                + row.dependencies.len() * 16
-                + row.doc_id.encode_utf16().count() * 2
-                + 40;
-            if next.rows.len() >= 100_000 || next.bytes > 64 * 1024 * 1024 {
+            // Rows still waiting whose sequence numbers this row declares replaced.
+            while let Some(after) = self
+                .rows
+                .range(key..=(row.sid, u64::MAX))
+                .next()
+                .map(|e| e.1)
+            {
+                if after.clock >= row.end() {
+                    if own_clock(&after.dependencies, row.sid) < row.end() {
+                        return Err(Error::new("CONFLICT", "Actor history fork"));
+                    }
+                    break;
+                }
+                self.drop_row((after.sid, after.clock));
+            }
+            self.bytes += cost(&row);
+            if self.rows.len() >= 100_000 || self.bytes > 64 * 1024 * 1024 {
                 return Err(limit("Document history limit exceeded"));
             }
-            next.rows.insert(key, row.clone());
-            next.pending.insert(key);
+            self.rows.insert(key, row);
+            self.pending.insert(key);
         }
+        let mut fresh = Vec::new();
         loop {
-            let ready: Vec<_> = next
+            let ready: Vec<_> = self
                 .pending
                 .iter()
                 .filter(|key| {
-                    let row = &next.rows[key];
-                    covers(&next.frontier, &row.dependencies)
-                        && row.clock == next.frontier.get(&row.sid).copied().unwrap_or(1)
+                    let row = &self.rows[key];
+                    covers(&self.frontier, &row.dependencies)
+                        && row.clock == self.frontier.get(&row.sid).copied().unwrap_or(1)
                 })
                 .copied()
                 .collect();
@@ -604,19 +773,85 @@ impl PatchLog {
                 break;
             }
             for key in ready {
-                let row = &next.rows[&key];
-                next.frontier
-                    .entry(row.sid)
-                    .and_modify(|clock| *clock = (*clock).max(row.end()))
-                    .or_insert(row.end());
-                next.pending.remove(&key);
+                let row = &self.rows[&key];
+                self.frontier.insert(row.sid, row.end());
+                self.pending.remove(&key);
+                fresh.push(key);
             }
         }
-        if next.frontier.len() > MAX_VECTOR_ENTRIES {
+        if self.frontier.len() > MAX_VECTOR_ENTRIES {
             return Err(limit("Too many actors"));
         }
-        *self = next;
+        for key in fresh {
+            self.settle(key);
+        }
         Ok(())
+    }
+
+    /// Once a row is applicable: a register without history holds one row, the
+    /// newest write, and a gap folds into the row before it.
+    fn settle(&mut self, key: (u64, u64)) {
+        let Some(row) = self.rows.get(&key) else {
+            return;
+        };
+        if is_gap(&row.operations) {
+            return self.kill(key);
+        }
+        let Some(last) = last_register_of(&row.operations) else {
+            return;
+        };
+        let (lamport, register) = (last.lamport, last.register.to_vec());
+        let held = self.registers.get(&register).copied();
+        if let Some(held) = held {
+            if (held.sid, held.clock) == key {
+                return;
+            }
+            // Last writer wins, by Lamport time then actor: the same order as the
+            // register itself, so the row that stays is the value every replica shows.
+            if (held.lamport, held.sid) > (lamport, key.0) {
+                return self.kill(key);
+            }
+        }
+        let holder = Holder {
+            sid: key.0,
+            clock: key.1,
+            lamport,
+        };
+        self.registers.insert(register, holder);
+        if let Some(held) = held {
+            self.kill((held.sid, held.clock));
+        }
+    }
+
+    /// Remove a row; the row before it covers its sequence numbers, or a gap does.
+    fn kill(&mut self, key: (u64, u64)) {
+        let Some(row) = self.rows.get(&key) else {
+            return;
+        };
+        if self.pending.contains(&key) {
+            return;
+        }
+        let span = row.span;
+        let previous = self
+            .rows
+            .range((key.0, 0)..key)
+            .next_back()
+            .filter(|(at, previous)| previous.end() == key.1 && !self.pending.contains(at))
+            .map(|(at, _)| *at);
+        match previous {
+            Some(previous) => {
+                self.drop_row(key);
+                if let Some(previous) = self.rows.get_mut(&previous) {
+                    previous.span += span;
+                }
+            }
+            None if is_gap(&row.operations) => {}
+            None => {
+                let gap = gap_row(&self.doc_id, key.0, key.1, span);
+                self.bytes = self.bytes + cost(&gap) - cost(row);
+                self.rows.insert(key, gap);
+            }
+        }
     }
 }
 
@@ -832,9 +1067,220 @@ mod tests {
                 ..first.clone()
             }])
             .is_err());
-        assert!(log.append(&[PatchRow { clock: 2, ..first }]).is_err());
+        // A row that starts among the writes another row covers is ignored.
+        log.append(&[PatchRow { clock: 2, ..first }]).unwrap();
+        assert_eq!(log.len(), 2);
         assert!(log.missing(&log.vector()).is_empty());
+        // A fork: the next row does not build on the actor's history.
+        let fork = PatchRow {
+            doc_id: "test".into(),
+            sid: 65536,
+            clock: 5,
+            span: 1,
+            dependencies: vec![(65536, 4)],
+            operations: vec![1],
+        };
+        assert_eq!(
+            log.append(&[fork]).unwrap_err().message,
+            "Actor history fork"
+        );
     }
+
+    const A: u64 = 65536;
+    const B: u64 = 65537;
+    fn unhex(value: &str) -> Vec<u8> {
+        (0..value.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&value[i..i + 2], 16).unwrap())
+            .collect()
+    }
+    fn own(sid: u64, clock: u64) -> VersionVector {
+        if clock > 1 {
+            vec![(sid, clock)]
+        } else {
+            vec![]
+        }
+    }
+    /// A row that is not a last-value write.
+    fn kept(sid: u64, clock: u64) -> PatchRow {
+        PatchRow {
+            doc_id: "doc".into(),
+            sid,
+            clock,
+            span: 1,
+            dependencies: own(sid, clock),
+            operations: vec![OPERATIONS_VERSION, clock as u8, 0, 1, 3, sid as u8],
+        }
+    }
+    /// One kind 7 write to the numeric field `field` of the node "n".
+    fn write(sid: u64, clock: u64, lamport: u8, field: u8) -> PatchRow {
+        PatchRow {
+            operations: vec![
+                OPERATIONS_VERSION,
+                lamport,
+                0,
+                1,
+                7,
+                1,
+                b'n',
+                1,
+                field,
+                sid as u8,
+            ],
+            ..kept(sid, clock)
+        }
+    }
+    fn spans(log: &PatchLog) -> Vec<(u64, u64, u64)> {
+        log.missing(&vec![])
+            .iter()
+            .map(|row| (row.sid, row.clock, row.span))
+            .collect()
+    }
+
+    #[test]
+    fn reads_the_register_of_a_last_value_row() {
+        // Rows written by the TypeScript engine: a deletion, then assignments
+        // to a string field and to a numeric one.
+        for (operations, lamport, register) in [
+            (
+                "030520356337343230653061663033343238346437303438313861633038323965383801080936353533363a313a320101",
+                5,
+                "0936353533363a313a320101",
+            ),
+            (
+                "030620356337343230653061663033343238346437303438313861633038323965383801070936353533363a313a330001780a0201790000",
+                6,
+                "0936353533363a313a33000178",
+            ),
+            (
+                "030720356337343230653061663033343238346437303438313861633038323965383801070936353533363a313a300100030201630000",
+                7,
+                "0936353533363a313a300100",
+            ),
+        ] {
+            let operations = unhex(operations);
+            let last = last_register_of(&operations).unwrap();
+            assert_eq!((last.lamport, last.register), (lamport, &unhex(register)[..]));
+            assert!(!is_gap(&operations));
+            // Cut anywhere inside its head, it is not a last-value row.
+            let head = operations.len() - last.register.len();
+            for cut in 0..head {
+                assert_eq!(last_register_of(&operations[..cut]), None);
+            }
+        }
+        assert!(is_gap(&GAP_OPERATIONS) && is_gap(&[3, 1, 0, 0]));
+        assert_eq!(last_register_of(&GAP_OPERATIONS), None);
+        let one = write(A, 1, 9, 2).operations;
+        assert_eq!(last_register_of(&one).unwrap().register, [1, b'n', 1, 2]);
+        // Other kinds, two operations, another version or a length beyond the end.
+        for (at, byte) in [(4, 1), (4, 2), (4, 9), (3, 2), (0, 2), (5, 200)] {
+            let mut other = one.clone();
+            other[at] = byte;
+            assert_eq!(last_register_of(&other), None, "{other:?}");
+        }
+        assert!(!is_gap(&[3, 1, 0, 0, 0]) && !is_gap(&[3, 2, 0, 0]) && !is_gap(&[]));
+    }
+
+    #[test]
+    fn a_register_rewritten_many_times_keeps_one_row() {
+        let mut log = PatchLog::new("doc");
+        log.append(&[kept(A, 1), kept(B, 1)]).unwrap();
+        for clock in 2..=300u64 {
+            // Two registers of A, and one that B also writes with older times.
+            let field = (clock % 2) as u8;
+            log.append(&[write(A, clock, 100, field)]).unwrap();
+            log.append(&[write(B, clock, 1, 0)]).unwrap();
+        }
+        // A: its first row and the last write to each register. B's writes all
+        // arrived already replaced: its first row covers them.
+        assert_eq!(
+            spans(&log),
+            vec![(A, 1, 298), (A, 299, 1), (A, 300, 1), (B, 1, 300)]
+        );
+        assert_eq!(log.vector(), vec![(A, 301), (B, 301)]);
+        assert_eq!(log.registers.len(), 2);
+        // The rows that stay are the newest writes.
+        assert_eq!(
+            log.missing(&vec![(A, 300), (B, 301)]),
+            vec![write(A, 300, 100, 0)]
+        );
+    }
+
+    #[test]
+    fn a_replaced_first_row_stays_as_a_gap() {
+        let mut log = PatchLog::new("doc");
+        log.append(&[write(A, 1, 1, 0)]).unwrap();
+        log.append(&[write(B, 1, 2, 0)]).unwrap();
+        let gap = gap_row("doc", A, 1, 1);
+        assert_eq!(log.missing(&vec![]), vec![gap.clone(), write(B, 1, 2, 0)]);
+        // The gap takes the replaced writes that follow, and folds into nothing.
+        log.append(&[write(A, 2, 1, 0)]).unwrap();
+        assert_eq!(spans(&log), vec![(A, 1, 2), (B, 1, 1)]);
+        // A peer that kept less sends the same sequence numbers as a gap row.
+        log.append(&[gap, write(A, 1, 1, 0)]).unwrap();
+        log.append(&[gap_row("doc", B, 2, 3)]).unwrap();
+        assert_eq!(spans(&log), vec![(A, 1, 2), (B, 1, 4)]);
+        assert_eq!(log.vector(), vec![(A, 3), (B, 5)]);
+    }
+
+    #[test]
+    fn a_known_row_with_a_longer_span_moves_the_frontier() {
+        let mut log = PatchLog::new("doc");
+        log.append(&[kept(A, 1), kept(A, 2), kept(A, 7)]).unwrap();
+        assert_eq!(log.pending_count(), 1);
+        // The sender replaced two writes after the second one.
+        let long = PatchRow {
+            span: 3,
+            ..kept(A, 2)
+        };
+        log.append(std::slice::from_ref(&long)).unwrap();
+        assert_eq!(log.vector(), vec![(A, 5)]);
+        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 2, 3), (A, 7, 1)]);
+        // Sent again, or shorter, it changes nothing; other contents conflict.
+        log.append(&[long, kept(A, 2), kept(A, 1)]).unwrap();
+        assert_eq!(log.vector(), vec![(A, 5)]);
+        let changed = PatchRow {
+            operations: vec![9],
+            ..kept(A, 2)
+        };
+        assert_eq!(log.append(&[changed]).unwrap_err().code, "CONFLICT");
+        // Up to a waiting row, which becomes applicable.
+        log.append(&[PatchRow {
+            span: 5,
+            ..kept(A, 2)
+        }])
+        .unwrap();
+        assert_eq!(log.vector(), vec![(A, 8)]);
+        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 2, 5), (A, 7, 1)]);
+        assert_eq!(log.pending_count(), 0);
+    }
+
+    #[test]
+    fn a_row_replaces_the_waiting_rows_its_span_covers() {
+        let mut log = PatchLog::new("doc");
+        log.append(&[kept(A, 1), kept(A, 4), kept(A, 5), kept(A, 7)])
+            .unwrap();
+        assert_eq!(log.pending_count(), 3);
+        // A waiting row that starts inside another one's span is dropped.
+        let wide = PatchRow {
+            span: 2,
+            ..kept(A, 4)
+        };
+        log.append(&[wide.clone(), kept(A, 5)]).unwrap();
+        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 4, 2), (A, 7, 1)]);
+        // The row at the frontier covers every waiting row up to the last.
+        let long = PatchRow {
+            span: 5,
+            ..kept(A, 2)
+        };
+        log.append(&[long]).unwrap();
+        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 2, 5), (A, 7, 1)]);
+        assert_eq!((log.vector(), log.pending_count()), (vec![(A, 8)], 0));
+        // What it replaced is ignored from now on, whatever it holds.
+        log.append(&[wide, kept(A, 5)]).unwrap();
+        assert_eq!(log.len(), 3);
+    }
+
     #[test]
     fn actor_frontier_does_not_skip_an_undeclared_gap() {
         let mut log = PatchLog::new("gap");

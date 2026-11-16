@@ -252,8 +252,8 @@ with 1008 like any other invalid frame.
 
 Patch rows use the Pulsify stores of [STORAGE.md](STORAGE.md) unchanged.
 
-**Compaction while asleep.** A document keeps one row per update, which a
-client loading it would all read. When the last socket of a root closes, the
+**Compaction while asleep.** A document keeps one row per update that keeps
+its history, which a client loading it would all read. When the last socket of a root closes, the
 object sets an alarm 60 seconds later (`COMPACT_AFTER_MS`; the
 `PULSIFY_COMPACT_AFTER_MS` variable overrides it). If a socket is connected
 when the alarm fires, nothing happens: the next time the last one closes sets

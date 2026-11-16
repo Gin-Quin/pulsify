@@ -28,10 +28,21 @@ import {
 
 export type CoreField = string | number;
 export type CoreScalar = null | undefined | boolean | number | string;
+/**
+ * `last` marks a write to a register that keeps no history: its row is
+ * deleted once a newer write to the same register is known. It travels as
+ * kind 7 (assignment) or 8 (deletion), and its value creates no node.
+ */
 export type CoreOperation =
 	| { kind: 0; value: PreparedValue }
-	| { kind: 1; target: string; field: CoreField; value: PreparedValue }
-	| { kind: 2; target: string; field: CoreField }
+	| {
+			kind: 1;
+			target: string;
+			field: CoreField;
+			value: PreparedValue;
+			last?: true;
+	  }
+	| { kind: 2; target: string; field: CoreField; last?: true }
 	| {
 			kind: 3;
 			target: string;
@@ -54,6 +65,8 @@ export class CorePatch {
 		public readonly lamport: number,
 		public readonly schema: string,
 		private body: CoreOperation[] | undefined,
+		/** The writer's wall clock in milliseconds, for registers that record it. */
+		public readonly time?: number,
 	) {}
 	get ops(): CoreOperation[] {
 		return (this.body ??= this.createOperations());
@@ -78,6 +91,7 @@ export class ScalarPatch extends CorePatch {
 		public readonly target: string,
 		public readonly field: CoreField,
 		public readonly value: CoreScalar,
+		public readonly last?: true,
 	) {
 		super(sid, clock, lamport, schema, undefined);
 	}
@@ -88,6 +102,7 @@ export class ScalarPatch extends CorePatch {
 				target: this.target,
 				field: this.field,
 				value: { value: this.value, constants: [], texts: [] },
+				...(this.last ? { last: true as const } : {}),
 			},
 		];
 	}
@@ -115,8 +130,96 @@ const operationSchema = union({
 		4: { target: "string", entry: "string", value: valueSchema },
 		5: { target: "string", entries: array("string"), attributes: "unknown" },
 		6: { target: "string", entries: array("string"), after: "string" },
+		// Kinds 7 and 8 are kinds 1 and 2 for a register without history. A store
+		// reads their target and field without a schema: see `lastValueOf`.
+		7: { target: "string", field: fieldSchema, value: valueSchema },
+		8: { target: "string", field: fieldSchema },
+		9: { time: "uint" },
 	},
 });
+/**
+ * A row without operations: its sequence numbers held writes that were
+ * replaced. It stands where no earlier row can cover them.
+ */
+export const GAP_OPERATIONS: Uint8Array = Uint8Array.of(
+	OPERATIONS_VERSION,
+	1,
+	0,
+	0,
+);
+export function isGap(operations: Uint8Array): boolean {
+	return (
+		operations.length === 4 &&
+		operations[0] === OPERATIONS_VERSION &&
+		operations[1] === 1 &&
+		operations[2] === 0 &&
+		operations[3] === 0
+	);
+}
+/** What a journal reads from one last-value write, without a schema. */
+export type LastValue = { lamport: number; target: string; field: CoreField };
+/** `undefined` unless the patch is one last-value write. */
+export function lastValueOfPatch(patch: CorePatch): LastValue | undefined {
+	if (patch instanceof ScalarPatch)
+		return patch.last
+			? { lamport: patch.lamport, target: patch.target, field: patch.field }
+			: undefined;
+	const op = patch.ops.length === 1 ? patch.ops[0]! : undefined;
+	return (op?.kind === 1 || op?.kind === 2) && op.last
+		? { lamport: patch.lamport, target: op.target, field: op.field }
+		: undefined;
+}
+/** `undefined` unless the row is one last-value write. */
+export function lastValueOf(operations: Uint8Array): LastValue | undefined {
+	try {
+		const decoder = createDecoder(operations);
+		if (readVarUint(decoder) !== OPERATIONS_VERSION) return;
+		const lamport = readVarUint(decoder);
+		// Read the length first: `pos += read()` would add it to the stale position.
+		const schema = readVarUint(decoder);
+		decoder.pos += schema;
+		if (readVarUint(decoder) !== 1) return;
+		const kind = readVarUint(decoder);
+		if (kind !== 7 && kind !== 8) return;
+		const target = readVarString(decoder);
+		const field: CoreField =
+			readVarUint(decoder) === 0
+				? readVarString(decoder)
+				: readVarUint(decoder);
+		return { lamport, target, field };
+	} catch {
+		return;
+	}
+}
+/**
+ * The same for a store, which compares registers as bytes: the encoded target
+ * and field of the write.
+ */
+export function lastRegisterOf(
+	operations: Uint8Array,
+): { lamport: number; register: Uint8Array } | undefined {
+	try {
+		const decoder = createDecoder(operations);
+		if (readVarUint(decoder) !== OPERATIONS_VERSION) return;
+		const lamport = readVarUint(decoder);
+		const schema = readVarUint(decoder);
+		decoder.pos += schema;
+		if (readVarUint(decoder) !== 1) return;
+		const kind = readVarUint(decoder);
+		if (kind !== 7 && kind !== 8) return;
+		const start = decoder.pos;
+		const target = readVarUint(decoder);
+		decoder.pos += target;
+		if (readVarUint(decoder) === 0) {
+			const field = readVarUint(decoder);
+			decoder.pos += field;
+		} else readVarUint(decoder);
+		if (decoder.pos > operations.length) return;
+		return { lamport, register: operations.slice(start, decoder.pos) };
+	} catch {
+		return;
+	}
+}
 const codec = createCodec(
 	object({
 		version: "uint",
@@ -211,7 +314,7 @@ function encodeSingleSet(
 	writeVarUint(encoder, patch.lamport);
 	writePatchString(encoder, patch.schema, 0);
 	writeVarUint(encoder, 1);
-	writeVarUint(encoder, 1);
+	writeVarUint(encoder, op.last ? 7 : 1);
 	writePatchString(encoder, op.target, 1);
 	if (typeof op.field === "string") {
 		writeVarUint(encoder, 0);
@@ -233,7 +336,8 @@ function decodePatch(decoder: Decoder): ReturnType<typeof codec.decode> {
 	const version = readVarUint(decoder),
 		lamport = readVarUint(decoder),
 		schema = readPatchString(decoder, 0);
-	if (readVarUint(decoder) === 1 && readVarUint(decoder) === 1) {
+	const kind = readVarUint(decoder) === 1 ? readVarUint(decoder) : 0;
+	if (kind === 1 || kind === 7) {
 		const target = readPatchString(decoder, 1),
 			fieldKind = readVarUint(decoder);
 		if (fieldKind > 1)
@@ -250,7 +354,7 @@ function decodePatch(decoder: Decoder): ReturnType<typeof codec.decode> {
 			version,
 			lamport,
 			schema,
-			ops: [{ kind: 1, target, field, value }],
+			ops: [{ kind, target, field, value }],
 		};
 	}
 	decoder.pos = 0;
@@ -283,7 +387,11 @@ export function encodeCorePatch(
 	patch: CorePatch,
 	encoding = fallback,
 ): Uint8Array<ArrayBuffer> {
-	if (patch.ops.length === 1 && patch.ops[0]!.kind === 1) {
+	if (
+		patch.ops.length === 1 &&
+		patch.ops[0]!.kind === 1 &&
+		patch.time === undefined
+	) {
 		const bytes = encodeSingleSet(
 			patch,
 			patch.ops[0] as Extract<CoreOperation, { kind: 1 }>,
@@ -298,13 +406,24 @@ export function encodeCorePatch(
 		constants: prepared.constants,
 		texts: prepared.texts,
 	});
-	const ops = patch.ops.map((op) => {
-		if (op.kind === 0 || op.kind === 1 || op.kind === 4)
+	const ops: Parameters<typeof codec.encode>[0]["ops"] = patch.ops.map((op) => {
+		if (op.kind === 1) {
+			const { last, ...write } = op;
+			return last
+				? { ...write, kind: 7, value: value(op.value, op) }
+				: { ...write, value: value(op.value, op) };
+		}
+		if (op.kind === 2) {
+			const { last, ...removal } = op;
+			return last ? { ...removal, kind: 8 } : removal;
+		}
+		if (op.kind === 0 || op.kind === 4)
 			return { ...op, value: value(op.value, op) };
 		if (op.kind === 3)
 			return { ...op, values: op.values.map((v) => value(v, op)) };
 		return op;
 	});
+	if (patch.time !== undefined) ops.push({ kind: 9, time: patch.time });
 	const bytes = codec.encode({
 		version: OPERATIONS_VERSION,
 		lamport: patch.lamport,
@@ -323,12 +442,15 @@ export function decodeCorePatch(
 	try {
 		if (row.operations.length > MAX_PATCH_BYTES)
 			throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
+		// A span above one also covers replaced writes that followed this one.
+		if (isGap(row.operations))
+			return new CorePatch(row.sid, row.clock, 1, "", []);
 		const decoder = createDecoder(row.operations);
 		const decoded = decodePatch(decoder);
 		if (
 			decoder.pos !== row.operations.length ||
 			decoded.version !== OPERATIONS_VERSION ||
-			row.span !== 1 ||
+			row.span < 1 ||
 			!decoded.ops.length ||
 			!Number.isSafeInteger(decoded.lamport) ||
 			decoded.lamport < 1
@@ -358,6 +480,7 @@ export function decodeCorePatch(
 				validatePrepared(result);
 			return result;
 		};
+		let time: number | undefined;
 		const operation = (op: (typeof decoded.ops)[number]): CoreOperation => {
 			if (op.kind === 1)
 				return {
@@ -366,6 +489,17 @@ export function decodeCorePatch(
 					field: op.field,
 					value: value(op.value),
 				};
+			if (op.kind === 7)
+				return {
+					kind: 1,
+					target: op.target,
+					field: op.field,
+					value: value(op.value),
+					last: true,
+				};
+			if (op.kind === 8)
+				return { kind: 2, target: op.target, field: op.field, last: true };
+			if (op.kind === 9) throw new PulseError("INVALID_MESSAGE", "Stray time");
 			if (op.kind === 0 || op.kind === 4)
 				return { ...op, value: value(op.value) };
 			if (op.kind === 3) return { ...op, values: op.values.map(value) };
@@ -379,6 +513,14 @@ export function decodeCorePatch(
 				};
 			return op as CoreOperation;
 		};
+		// The time of a transaction is its last operation, and never its only one.
+		const stamped = decoded.ops[decoded.ops.length - 1]!;
+		if (stamped.kind === 9) {
+			time = stamped.time;
+			decoded.ops.pop();
+			if (!decoded.ops.length || !Number.isSafeInteger(time))
+				throw new PulseError("INVALID_MESSAGE", "Invalid transaction time");
+		}
 		const ops =
 			decoded.ops.length === 1
 				? [operation(decoded.ops[0]!)]
@@ -389,6 +531,7 @@ export function decodeCorePatch(
 			decoded.lamport,
 			decoded.schema,
 			ops,
+			time,
 		);
 	} catch (error) {
 		if (error instanceof PulseError) throw error;
@@ -399,12 +542,13 @@ export function decodeCorePatch(
 }
 // Relays validate the envelope without knowing the application schema or decoding values.
 export function validateCoreRow(row: PulsePatchRow): void {
+	if (isGap(row.operations)) return;
 	const decoder = createDecoder(row.operations);
 	const decoded = codec.decode(decoder);
 	if (
 		decoder.pos !== row.operations.length ||
 		decoded.version !== OPERATIONS_VERSION ||
-		row.span !== 1 ||
+		row.span < 1 ||
 		!decoded.ops.length ||
 		!Number.isSafeInteger(decoded.lamport) ||
 		decoded.lamport < 1

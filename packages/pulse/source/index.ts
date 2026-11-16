@@ -19,10 +19,16 @@ export type {
 export { richText } from "./core/richText.js";
 export { plainText } from "./core/plainText.js";
 export type { PlainText } from "./core/plainText.js";
+export { counter } from "./core/counter.js";
+export type { Counter, CounterSchema } from "./core/counter.js";
 export { tree } from "./core/treeSchema.js";
 export { sub } from "./core/subSchema.js";
-export { constant, frozen } from "./core/constantSchema.js";
-export type { ConstantSchema, FrozenSchema } from "./core/constantSchema.js";
+export { constant, frozen, versioned } from "./core/constantSchema.js";
+export type {
+	ConstantSchema,
+	FrozenSchema,
+	VersionedSchema,
+} from "./core/constantSchema.js";
 export type { SubSchema } from "./core/subSchema.js";
 export { pulseRef } from "./pulses/PulseRef.js";
 export type { PulseRef } from "./pulses/PulseRef.js";

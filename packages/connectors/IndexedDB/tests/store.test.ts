@@ -7,11 +7,13 @@ import {
 	destroyPulse,
 	exportPulseUpdates,
 	getPulseMeta,
+	versioned,
 } from "pulsify-core";
 import { encodeMessage } from "pulsify-core/protocol";
 import type { StoredPatchRow } from "pulsify-core/storage";
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { IndexedDbPatchStore } from "../source/index";
+import { lastValueStoreConformance } from "../../../pulse/tests/history-store.js";
 
 const actor = 70001,
 	other = 70002;
@@ -39,7 +41,144 @@ function storeOptions() {
 }
 const create = () => new IndexedDbPatchStore(storeOptions());
 
+lastValueStoreConformance("IndexedDB", async () => create());
+
 describe("IndexedDbPatchStore", () => {
+	test("a database from before version 13 is upgraded in place", async () => {
+		const options = storeOptions(),
+			docId = crypto.randomUUID();
+		// The layout that versions before 13 created: no registers.
+		const old = await new Promise<IDBDatabase>((resolve, reject) => {
+			const open = options.indexedDB.open(options.name, 1);
+			open.onupgradeneeded = () => {
+				open.result
+					.createObjectStore("rows", { keyPath: ["docId", "sid", "clock"] })
+					.createIndex("state", ["docId", "ready", "sid", "end"]);
+				open.result.createObjectStore("clocks", { keyPath: ["docId", "sid"] });
+			};
+			open.onsuccess = () => resolve(open.result);
+			open.onerror = () => reject(open.error);
+		});
+		const first = row(docId),
+			second = row(docId, 2);
+		await new Promise<void>((resolve, reject) => {
+			const tx = old.transaction(["rows", "clocks"], "readwrite");
+			for (const each of [first, second])
+				tx.objectStore("rows").put({ ...each, end: each.clock + 1, ready: 1 });
+			tx.objectStore("clocks").put({ docId, sid: actor, clock: 3 });
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+		old.close();
+
+		const store = new IndexedDbPatchStore(options);
+		expect(await store.vector(docId)).toEqual([[actor, 3]]);
+		expect(await store.missing(docId, [])).toEqual([first, second]);
+		expect([...(await store.database()).objectStoreNames].sort()).toEqual([
+			"clocks",
+			"rows",
+			"values",
+		]);
+		// And it keeps the last value only of what is written from now on.
+		const pulse = createPulse(
+			definePulse("UpgradedStore", object({ title: "string" })).materialize(),
+			{ id: crypto.randomUUID(), title: "" },
+			{ scope: createPulseScope(), sessionId: actor },
+		);
+		try {
+			const log = getPulseMeta(pulse).log;
+			for (let i = 0; i < 20; i++) {
+				pulse.title = `title ${i}`;
+				await store.append(log.missing(await store.vector(pulse.id)));
+			}
+			expect(await store.missing(pulse.id, [])).toHaveLength(2);
+		} finally {
+			destroyPulse(pulse);
+			store.close();
+		}
+	});
+	test("a database that indexed registers drops the index and keeps its rows", async () => {
+		const options = storeOptions(),
+			docId = crypto.randomUUID();
+		// The unreleased version 2: a register index, spans grown over replaced
+		// writes, and gap rows where no row could grow.
+		const old = await new Promise<IDBDatabase>((resolve, reject) => {
+			const open = options.indexedDB.open(options.name, 2);
+			open.onupgradeneeded = () => {
+				open.result
+					.createObjectStore("rows", { keyPath: ["docId", "sid", "clock"] })
+					.createIndex("state", ["docId", "ready", "sid", "end"]);
+				open.result.createObjectStore("clocks", { keyPath: ["docId", "sid"] });
+				open.result.createObjectStore("registers", {
+					keyPath: ["docId", "register"],
+				});
+			};
+			open.onsuccess = () => resolve(open.result);
+			open.onerror = () => reject(open.error);
+		});
+		const gap = {
+			...row(docId, 1, other),
+			span: 2,
+			operations: Uint8Array.of(3, 1, 0, 0),
+		};
+		const long = { ...row(docId), span: 3 },
+			last = row(docId, 4),
+			after = row(docId, 3, other);
+		await new Promise<void>((resolve, reject) => {
+			const tx = old.transaction(["rows", "clocks", "registers"], "readwrite");
+			for (const each of [long, last, gap, after])
+				tx.objectStore("rows").put({
+					...each,
+					end: each.clock + each.span,
+					ready: 1,
+				});
+			tx.objectStore("clocks").put({ docId, sid: actor, clock: 5 });
+			tx.objectStore("clocks").put({ docId, sid: other, clock: 4 });
+			tx.objectStore("registers").put({
+				docId,
+				register: "x",
+				sid: actor,
+				clock: 4,
+				lamport: 1,
+			});
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+		old.close();
+
+		const store = new IndexedDbPatchStore(options);
+		expect([...(await store.database()).objectStoreNames].sort()).toEqual([
+			"clocks",
+			"rows",
+			"values",
+		]);
+		// Spans and gaps are served as before, from any remote clock.
+		expect(await store.missing(docId, [])).toEqual([long, last, gap, after]);
+		expect(await store.missing(docId, [[actor, 2]])).toEqual([
+			long,
+			last,
+			gap,
+			after,
+		]);
+		expect(
+			await store.missing(docId, [
+				[actor, 5],
+				[other, 2],
+			]),
+		).toEqual([
+			{ ...gap, clock: 2, span: 1, dependencies: [[other, 2]] },
+			after,
+		]);
+		const next = row(docId, 5);
+		expect(await store.append([next])).toMatchObject({ ready: 1 });
+		expect(
+			await store.missing(docId, [
+				[actor, 5],
+				[other, 4],
+			]),
+		).toEqual([next]);
+		store.close();
+	});
 	test("append is opaque, idempotent, isolated and queryable from a vector", async () => {
 		const store = create(),
 			docId = crypto.randomUUID();
@@ -130,6 +269,42 @@ describe("IndexedDbPatchStore", () => {
 		]);
 	});
 
+	test("a waiting row that learns a longer span replaces the rows it covers", async () => {
+		const store = create(),
+			docId = crypto.randomUUID();
+		const fifth = row(docId, 5),
+			sixth = row(docId, 6);
+		expect(await store.append([fifth, sixth])).toMatchObject({ pending: 2 });
+		expect(await store.append([{ ...fifth, span: 3 }])).toMatchObject({
+			pending: 1,
+		});
+		const first = { ...row(docId), span: 4 };
+		expect(await store.append([first])).toMatchObject({ ready: 2, pending: 0 });
+		expect(await store.vector(docId)).toEqual([[actor, 8]]);
+		expect(await store.missing(docId, [])).toEqual([
+			first,
+			{ ...fifth, span: 3 },
+		]);
+		// What it replaced is ignored when it comes again, whatever it holds.
+		expect(
+			await store.append([{ ...sixth, operations: Uint8Array.of(9) }]),
+		).toMatchObject({ inserted: 0 });
+	});
+
+	test("the first row past a span must build on it", async () => {
+		const store = create(),
+			docId = crypto.randomUUID();
+		// Waiting rows: the second one says its actor's history ended at 7.
+		await store.append([row(docId, 6), row(docId, 9, actor, [[actor, 7]])]);
+		await expect(
+			store.append([{ ...row(docId, 5), span: 3 }]),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(await store.append([row(docId, 6)])).toMatchObject({
+			inserted: 0,
+			pending: 2,
+		});
+	});
+
 	test("conflicting duplicates, partial overlaps and forks reject atomically", async () => {
 		const store = create(),
 			docId = crypto.randomUUID();
@@ -145,9 +320,9 @@ describe("IndexedDbPatchStore", () => {
 		await expect(
 			store.append([fresh, { ...fresh, operations: new Uint8Array([9]) }]),
 		).rejects.toMatchObject({ code: "CONFLICT" });
-		await expect(store.append([row(docId, 3)])).rejects.toMatchObject({
-			code: "CONFLICT",
-		});
+		// A row that starts among the writes another row replaced is ignored.
+		expect(await store.append([row(docId, 3)])).toMatchObject({ inserted: 0 });
+		expect(await store.missing(docId, [])).toEqual([first]);
 		await expect(
 			store.append([row(docId, 7, actor, [])]),
 		).rejects.toMatchObject({ code: "CONFLICT" });
@@ -341,7 +516,7 @@ describe("IndexedDbPatchStore", () => {
 
 		const D = definePulse(
 			"StoreState",
-			object({ count: "float64" }),
+			versioned(object({ count: "float64" })),
 		).materialize();
 		const stateDoc = crypto.randomUUID();
 		const pulse = createPulse(

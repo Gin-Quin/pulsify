@@ -275,14 +275,16 @@ test("histories larger than one frame upload and download in complete pages", as
 		...options(),
 		connectors: [connector],
 	});
-	for (let i = 0; i < 4200; i++) seed.nested.count = i;
+	// Sequence edits always keep their history, unlike a rewritten field.
+	for (let i = 0; i < 4200; i++) seed.items.push({ value: i });
 	await connectPulse(seed).synced;
 	const loaded = await loadPulse(Document, seed.id, {
 		...options(),
 		connectors: [connector],
 		waitFor: "all",
 	});
-	expect(loaded.nested.count).toBe(4199);
+	expect(loaded.items.length).toBe(4200 + seed.items.length - 4200);
+	expect(loaded.items.at(-1)).toEqual({ value: 4199 });
 	expect(getPulseMeta(loaded).log.size).toBe(4201);
 	expect(getPulseMeta(loaded).log.pendingCount).toBe(0);
 	destroyPulse(loaded);

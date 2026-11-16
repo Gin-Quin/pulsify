@@ -80,7 +80,7 @@ export default function Databases() {
 
 			<h2>How storage works</h2>
 			<p>
-				Every committed change is an immutable row:{" "}
+				A committed change is a row whose operations never change:{" "}
 				<code>(docId, actor, clock, span, dependencies, bytes)</code>. The store
 				never decodes operations or instantiates a schema. Two queries do all
 				the work:
@@ -140,10 +140,10 @@ export default function Databases() {
 			<p>
 				Nothing in the protocol depends on SQL. A store is any object that
 				implements <code>PatchStore</code>, and <code>relayStoreMessage</code>{" "}
-				serves frames from any of them. Keep the rules above (immutable rows,
-				idempotent duplicates, atomic batches, dangling rows until their
-				dependencies land) and any database with ordered keys and atomic writes
-				can hold pulses.
+				serves frames from any of them. Keep the rules above (immutable
+				operations, idempotent duplicates, atomic batches, dangling rows until
+				their dependencies land) and any database with ordered keys and atomic
+				writes can hold pulses.
 			</p>
 			<CodeBlock title="store.ts" code={custom} />
 

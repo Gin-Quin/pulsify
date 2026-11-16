@@ -128,6 +128,7 @@ async function loadSubPulses(
 						),
 					);
 				return;
+			case "record":
 			case "map":
 				if (typeof value === "object")
 					for (const item of Object.values(value)) visit(layout.element, item);

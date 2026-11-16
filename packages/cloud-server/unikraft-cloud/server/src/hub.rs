@@ -310,6 +310,8 @@ impl Root {
             Err(error) => return peer.send_error(&doc_id, request_id, error.code, &error.message),
         };
         Self::send(peer, &doc_id, request_id, Body::Ack { vv: vector.clone() });
+        // Rows stored or frontiers moved, even when the row count did not grow:
+        // the other peers get the upload as it was received.
         if inserted == 0 {
             return;
         }

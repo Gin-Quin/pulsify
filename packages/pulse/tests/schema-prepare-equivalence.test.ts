@@ -3,7 +3,7 @@ import {
 	array,
 	bigint,
 	literal,
-	map,
+	record,
 	object,
 	optional,
 	set,
@@ -264,7 +264,7 @@ describe("compiled preparation matches the previous mutation pipeline", () => {
 	test("map, tuple, literal and unknown layouts preserve the portable value grammar", () => {
 		const cases: readonly [Schema, readonly unknown[]][] = [
 			[
-				map(optional("string")),
+				record(optional("string")),
 				[
 					{},
 					{ b: undefined, a: "ok" },
@@ -417,7 +417,7 @@ describe("compiled preparation matches the previous mutation pipeline", () => {
 				object({ a: optional("float32"), b: optional("string") }),
 			).root,
 			compilePulseSchema(
-				map(union(["string", "float32", "uint8Array", bigint()])),
+				record(union(["string", "float32", "uint8Array", bigint()])),
 			).root,
 			compilePulseSchema(
 				union([

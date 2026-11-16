@@ -166,7 +166,7 @@ export default function Sync() {
 					about the connector: it sends the local version vector, downloads what
 					is missing, then uploads everything the connector does not
 					acknowledge. A server restored from an old backup, or one that lost
-					its data, gets the complete history back.
+					its data, gets everything the client holds back.
 				</li>
 				<li>
 					<strong>Errors that a retry cannot fix</strong> stop that connector:

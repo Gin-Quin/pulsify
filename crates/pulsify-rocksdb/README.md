@@ -30,9 +30,9 @@ also defines the `PatchStore` trait both stores implement.
 
 ## Durability and concurrency
 
-An append is one atomic RocksDB write batch: the rows, the clocks they advance
-and the pending entries are stored together or not at all, and a refused batch
-writes nothing. By default the write-ahead log is synced before `append`
+An append is one atomic RocksDB write batch: the rows, the clocks they advance,
+the pending entries and the register index are stored together or not at all,
+and a refused batch writes nothing. By default the write-ahead log is synced before `append`
 returns, like SQLite's `synchronous=FULL`. With `sync: false`, a power loss
 can lose the last appends, never corrupt the database; a process crash loses
 nothing.
@@ -46,7 +46,7 @@ append reads nothing from the database.
 
 ## Layout
 
-Three column families, whose keys all start with the document ID and a NUL
+Four column families, whose keys all start with the document ID and a NUL
 (which an ID cannot contain), followed by big-endian integers:
 
 | Column family | Key | Value |
@@ -54,9 +54,20 @@ Three column families, whose keys all start with the document ID and a NUL
 | `rows` | `doc_id NUL sid clock` | format byte `0`, span, dependencies (varuints), operations |
 | `clocks` | `doc_id NUL sid` | the actor's committed clock |
 | `pending` | `doc_id NUL sid clock` | format byte `0`, span, dependencies of a row that is not ready |
+| `values` | `doc_id NUL sid register` | clock (big-endian), then the row as `rows` encodes it: an actor's newest write to a field without history |
 
 A row is ready when it starts before its actor's clock, so promoting a pending
 row moves the clock and deletes the `pending` entry without rewriting the row.
+
+A field without history keeps each actor's newest write to it, as
+[the protocol](https://github.com/Gin-Quin/pulsify/blob/main/docs/PROTOCOL.md#fields-without-history)
+describes: `values` holds it under its actor and its register, the encoded
+target and field of the write, and the actor's next write to the register
+overwrites it with one `put`. The sequence numbers of overwritten writes hold
+nothing; spans are computed when rows are read, and a gap row is served where
+no row precedes them. Blob garbage collection is enabled for what overwrites
+leave in blob files. A database written by this version cannot be opened by an
+earlier one, which does not know the `values` column family.
 
 Rows are not packed into segments as `SqlitePatchStore.compact` does: RocksDB
 already stores consecutive keys in shared, compressed blocks, and a full read
@@ -72,8 +83,10 @@ bun test tests/rocksdb.test.ts
 ```
 
 The Rust tests run one behaviour suite against `RocksStore` and `SqliteStore`,
-then apply random histories (gaps, dependencies, resends, conflicts, forks) to
-both and require identical answers. The benchmark prints both stores side by
+then apply random histories (gaps, dependencies, resends, conflicts, forks,
+replaced writes and the spans that cover them) to both and require identical
+answers, and let replicas with the journal of `pulsify-protocol` converge
+through both. The benchmark prints both stores side by
 side. The Bun test builds the `pulsify-rocksdb` harness binary and drives real
 documents through it.
 

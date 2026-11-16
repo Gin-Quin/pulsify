@@ -174,7 +174,9 @@ export class PulseRelay {
 					}
 					for (const row of message.rows) this.validateRow?.(row);
 					const before = log.size;
-					log.append(message.rows);
+					// A row can arrive while the one it replaces leaves: the size alone
+					// does not tell that something new is to be forwarded.
+					const ready = log.append(message.rows);
 					this.documents.set(message.docId, log);
 					send(
 						encode({
@@ -184,7 +186,7 @@ export class PulseRelay {
 							vv: log.vector,
 						}),
 					);
-					if (log.size === before) return;
+					if (!ready.length && log.size === before) return;
 					for (const other of this.peers) {
 						if (other === peer || other.docId !== message.docId) continue;
 						other.send(

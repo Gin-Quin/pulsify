@@ -8,7 +8,7 @@
         "@codemirror/commands": "^6.11.1",
         "@codemirror/state": "^6.7.6",
         "@codemirror/view": "^6.43.15",
-        "@gin-quin/codec": "2.1.1",
+        "@gin-quin/codec": "3.0.0",
         "@lexical/headless": "^0.53.0",
         "@lexical/history": "^0.53.0",
         "@lexical/link": "^0.53.0",
@@ -45,7 +45,7 @@
     "benchmarks": {
       "name": "pulsify-benchmarks",
       "dependencies": {
-        "@gin-quin/codec": "2.1.1",
+        "@gin-quin/codec": "3.0.0",
         "json-joy": "18.28.0",
         "loro-crdt": "1.17.1",
         "yjs": "13.6.33",
@@ -139,7 +139,7 @@
       "name": "pulsify-core",
       "version": "12.1.0",
       "dependencies": {
-        "@gin-quin/codec": "^2.1.1",
+        "@gin-quin/codec": "^3.0.0",
       },
       "devDependencies": {
         "@types/bun": "^1.2.10",
@@ -370,7 +370,7 @@
 
     "@exodus/bytes": ["@exodus/bytes@1.16.0", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA=="],
 
-    "@gin-quin/codec": ["@gin-quin/codec@2.1.1", "", {}, "sha512-ycpc8IAx7BLOrS3j+phnF+AUE8kNsTi/Izhyt4b0POUiPDdEipdBIikU7JOHMebOz8qdnvWsjRLlnVBpCSKZnQ=="],
+    "@gin-quin/codec": ["@gin-quin/codec@3.0.0", "", {}, "sha512-dCBXbZGiNKIIg8Bygt07+FYr9iTJSku0Sm3X15vXxs2CP4aG4li4ntgQe3KthDpBbEkVhqaiYqiQo5NI6UyOIw=="],
 
     "@img/colour": ["@img/colour@1.1.0", "", {}, "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="],
 

@@ -1,7 +1,7 @@
 import {
-	map,
+	record,
 	object,
-	type MapSchema,
+	type RecordSchema,
 	type ObjectSchema,
 	type Schema,
 } from "@gin-quin/codec";
@@ -24,7 +24,7 @@ export type TreeData<Item> = Record<
 >;
 
 /** How a tree of `S` is stored: a flat map of nodes keyed by ID. */
-export type TreeStorageSchema<S extends Schema> = MapSchema<
+export type TreeStorageSchema<S extends Schema> = RecordSchema<
 	ObjectSchema<{
 		data: S;
 		location: ObjectSchema<{ parent: "string"; position: "string" }>;
@@ -33,7 +33,7 @@ export type TreeStorageSchema<S extends Schema> = MapSchema<
 >;
 
 function storage<S extends Schema>(element: S): TreeStorageSchema<S> {
-	return map(
+	return record(
 		Object.assign(
 			object({
 				data: element,

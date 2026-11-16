@@ -104,6 +104,7 @@ then in the main process:
 
 ```ts
 db.prepare("DELETE FROM pulsify_op_rows WHERE doc_id = ?").run(docId);
+db.prepare("DELETE FROM pulsify_values WHERE doc_id = ?").run(docId);
 db.prepare("DELETE FROM pulsify_doc_clocks WHERE doc_id = ?").run(docId);
 ```
 

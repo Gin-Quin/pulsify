@@ -12,6 +12,8 @@ import {
 } from "../migration/MigrationChain.js";
 import {
 	compilePulseSchema,
+	containsMap,
+	isKeyed,
 	schemaFingerprint,
 	type CompiledPulseSchema,
 	type PulseLayout,
@@ -25,6 +27,7 @@ import {
 } from "./operations.js";
 import {
 	assertKey,
+	CounterSymbol,
 	freezeConstant,
 	RichTextSymbol,
 	prepareValue,
@@ -107,6 +110,16 @@ const newer = (a: Stamp, b?: Stamp): boolean =>
 	a[0] > b[0] ||
 	(a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])));
 const keyPath = (path: readonly string[]) => JSON.stringify(path);
+/**
+ * A counter node holds one count per actor. Its value is their sum, which its
+ * parent's data holds: reading it does not depend on the number of actors.
+ */
+export function counterValue(node: CoreNode): number {
+	const parent = node.parent!;
+	return parent.kind === "object"
+		? parent.data[node.parentKey!]
+		: (parent.entries.get(node.parentKey!)!.value as number);
+}
 
 /** ID-addressed LWW object registers and an RGA sequence. Scalars live inline. */
 export class CoreModel {
@@ -121,12 +134,15 @@ export class CoreModel {
 	readonly schemaId: string;
 	readonly encoding: ValueEncoding;
 	private readonly rootCodec: Codec<unknown> | undefined;
-	commit!: (ops: CoreOperation[], hint?: number) => void;
+	/** `time` is the writer's clock, for registers that record it. */
+	commit!: (ops: CoreOperation[], hint?: number, time?: number) => void;
+	/** `last` makes it a last-value write, which replaces the previous one. */
 	commitScalar!: (
 		node: CoreNode,
 		key: string,
 		field: CoreField,
 		value: CoreScalar,
+		last?: true,
 	) => void;
 	constructor(
 		sid: number,
@@ -297,27 +313,38 @@ export class CoreModel {
 			: (node.layout?.fieldsByKey.get(key)?.id ?? key);
 	}
 	fieldKey(node: CoreNode, field: CoreField): string {
+		// A counter's field is the actor that owns the count.
 		const key =
-			typeof field === "number" ? node.wireLayout?.fields[field]?.key : field;
+			typeof field === "number"
+				? (node.wireLayout?.fields[field]?.key ??
+					(node.wireLayout?.counter ? String(field) : undefined))
+				: field;
 		if (key === undefined)
 			throw new PulseError("INVALID_MESSAGE", "Unknown schema field");
-		if (typeof field === "string") assertKey(key);
+		if (typeof field === "string") {
+			assertKey(key);
+			// A map key has one spelling, so "01" can never shadow 1.
+			node.layout?.key?.decode(key);
+		}
 		return key;
 	}
 	set(node: CoreNode, key: string, input: unknown): void {
 		const field = this.writableField(node, key);
 		this.assertTreeMutation(node, key, false, input);
 		const layout =
-			field?.layout ??
-			(node.layout?.kind === "map" ? node.layout.element : undefined);
+			field?.layout ?? (isKeyed(node.layout) ? node.layout.element : undefined);
 		const child = node.child(key);
 		const text = plainTextEdit(layout, child, input);
 		if (text !== undefined) return this.setText(child!, text);
+		const total = counterEdit(layout, child, input);
+		if (total !== undefined)
+			return this.addCount(child!, total - (node.data[key] as number));
 		if (
 			this.maxVersion === 1 &&
 			!field?.richText &&
 			!layout?.richText &&
 			!layout?.constant &&
+			!layout?.counter &&
 			(input === null ||
 				input === undefined ||
 				typeof input === "boolean" ||
@@ -330,32 +357,106 @@ export class CoreModel {
 				throw new TypeError("Strings must be valid Unicode");
 			const scalar = typeof input === "number" && input === 0 ? 0 : input;
 			layout?.assert(scalar);
-			this.commitScalar(
+			this.writeScalar(
 				node,
 				key,
 				field?.id ?? key,
 				layout ? (layout.clone(scalar) as CoreScalar) : scalar,
+				layout,
 			);
 			return;
 		}
-		const value = layout ? layout.prepare(input) : prepareValue(input);
-		this.commit([
-			{
-				kind: 1,
-				target: node.id,
-				field: this.maxVersion > 1 ? key : (field?.id ?? key),
-				value: this.fieldPrepared(value, field ?? layout),
-			},
-		]);
+		const value = this.fieldPrepared(
+			layout ? layout.prepare(input) : prepareValue(input),
+			field ?? layout,
+		);
+		this.commit(
+			[
+				{
+					kind: 1,
+					target: node.id,
+					field: this.maxVersion > 1 ? key : (field?.id ?? key),
+					value,
+					...(this.plain(layout, value) ? { last: true as const } : {}),
+				},
+			],
+			undefined,
+			layout?.timestamps ? Date.now() : undefined,
+		);
 	}
 	delete(node: CoreNode, key: string): void {
 		this.assertWritable(node, key);
 		this.assertTreeMutation(node, key, true);
 		if (Object.hasOwn(node.data, key)) {
-			if (node.layout?.kind !== "map")
-				this.validateValue(this.layoutField(node, key), undefined);
-			this.commit([{ kind: 2, target: node.id, field: this.field(node, key) }]);
+			const layout = this.layoutField(node, key);
+			if (!isKeyed(node.layout)) this.validateValue(layout, undefined);
+			this.commit(
+				[
+					{
+						kind: 2,
+						target: node.id,
+						field: this.field(node, key),
+						...(layout?.versioned ? {} : { last: true as const }),
+					},
+				],
+				undefined,
+				layout?.timestamps ? Date.now() : undefined,
+			);
 		}
+	}
+	/**
+	 * Whether a write keeps the last value only: its register has no history
+	 * and its value creates no node that another operation could address.
+	 */
+	private plain(
+		layout: PulseLayout | undefined,
+		value: PreparedValue,
+	): boolean {
+		if (
+			layout?.versioned ||
+			layout?.counter ||
+			value.texts.length ||
+			value.constants.length
+		)
+			return false;
+		const data = value.value;
+		return (
+			data === null ||
+			typeof data !== "object" ||
+			data instanceof Uint8Array ||
+			!!layout?.frozen ||
+			!!resolveLayout(layout, data)?.frozen
+		);
+	}
+	/** One scalar write: kept when its layout is versioned, the last value otherwise. */
+	private writeScalar(
+		node: CoreNode,
+		key: string,
+		field: CoreField,
+		value: CoreScalar,
+		layout: PulseLayout | undefined,
+	): void {
+		if (layout?.timestamps)
+			this.commit(
+				[
+					{
+						kind: 1,
+						target: node.id,
+						field,
+						value: { value, constants: [], texts: [] },
+					},
+				],
+				undefined,
+				Date.now(),
+			);
+		else
+			this.commitScalar(
+				node,
+				key,
+				field,
+				value,
+				layout?.versioned ? undefined : true,
+			);
 	}
 	splice(
 		node: CoreNode,
@@ -371,14 +472,15 @@ export class CoreModel {
 			throw new TypeError("Tuple cardinality is fixed");
 		if (count === 1 && input.length === 1) {
 			const entry = node.visible[start];
-			const text = plainTextEdit(
-				tuple ? node.layout?.elements?.[start] : node.layout?.element,
-				entry?.child,
-				input[0],
-			);
-			if (text !== undefined) {
+			const layout = tuple
+				? node.layout?.elements?.[start]
+				: node.layout?.element;
+			const text = plainTextEdit(layout, entry?.child, input[0]);
+			const total = counterEdit(layout, entry?.child, input[0]);
+			if (text !== undefined || total !== undefined) {
 				const removed = [entry!.value];
-				this.setText(entry!.child!, text);
+				if (text !== undefined) this.setText(entry!.child!, text);
+				else this.addCount(entry!.child!, total! - (entry!.value as number));
 				return removed;
 			}
 		}
@@ -388,10 +490,16 @@ export class CoreModel {
 				: node.layout?.element;
 			return layout ? layout.prepare(value) : prepareValue(value);
 		});
+		// A stored map is a record of key strings; hand back the Map it stands for.
+		const element = node.layout?.element;
 		const removed = count
 			? node.visible
 					.slice(start, start + count)
-					.map((entry) => structuredClone(entry.value))
+					.map((entry) =>
+						element && containsMap(element)
+							? element.snapshot(entry.value)
+							: structuredClone(entry.value),
+					)
 			: [];
 		if (tuple && values.length) {
 			this.commit(
@@ -430,6 +538,20 @@ export class CoreModel {
 			);
 		}
 		return removed;
+	}
+	/** Add to the local actor's count of a counter: an actor writes only its own. */
+	addCount(node: CoreNode, delta: number): void {
+		if (!delta) return;
+		const sid = this.sid,
+			key = String(sid);
+		const count = (node.data[key] ?? 0) + delta;
+		if (!Number.isSafeInteger(count))
+			throw new RangeError("A counter count must stay a safe integer");
+		this.writeScalar(node, key, sid, count, node.layout);
+	}
+	/** A counter's value lives in its parent's data: add what a count changed by. */
+	addToCounter(node: CoreNode, delta: number): void {
+		this.project(node, counterValue(node) + delta);
 	}
 	/** Replace the characters `[start, end)` of a plain text in one operation. */
 	spliceText(
@@ -533,7 +655,7 @@ export class CoreModel {
 		if (
 			field?.constant ||
 			node.layout?.constant ||
-			(node.layout?.kind === "map" && node.layout.element?.constant)
+			(isKeyed(node.layout) && node.layout.element?.constant)
 		)
 			throw new TypeError(`${key} is constant`);
 		if (node.layout?.kind === "object" && !field)
@@ -555,7 +677,7 @@ export class CoreModel {
 		if (node === this.root && managedFields.has(key)) return undefined;
 		return (
 			node.layout?.fieldsByKey.get(key)?.layout ??
-			(node.layout?.kind === "map" ? node.layout.element : undefined)
+			(isKeyed(node.layout) ? node.layout.element : undefined)
 		);
 	}
 	private valueLayout(
@@ -566,7 +688,9 @@ export class CoreModel {
 		const target = this.index.get(op.target);
 		if (!target) return;
 		if (op.kind === 1)
-			return this.layoutField(target, this.fieldKey(target, op.field));
+			return target.layout?.counter
+				? target.layout
+				: this.layoutField(target, this.fieldKey(target, op.field));
 		if (op.kind === 3 || op.kind === 4) return target.layout?.element;
 		void value;
 		return undefined;
@@ -596,7 +720,7 @@ export class CoreModel {
 		if (!compiled) return prepared;
 		const data = prepared.value as Record<string, unknown>;
 		const application =
-			compiled.root.kind === "literal" || compiled.root.kind === "map"
+			compiled.root.kind === "literal" || isKeyed(compiled.root)
 				? withoutMetadata(data)
 				: data;
 		const normalized = this.normalize(
@@ -617,7 +741,7 @@ export class CoreModel {
 	prepareRootInput(data: Record<string, unknown>): PreparedValue {
 		if (!this.compiled) return prepareValue(data);
 		const application =
-			this.compiled.root.kind === "literal" || this.compiled.root.kind === "map"
+			this.compiled.root.kind === "literal" || isKeyed(this.compiled.root)
 				? withoutMetadata(data)
 				: data;
 		const prepared = this.compiled.prepare(application);
@@ -738,6 +862,12 @@ export class CoreModel {
 					if (target.kind !== "object")
 						throw new PulseError("INVALID_MESSAGE", "Expected object target");
 					const key = this.fieldKey(target, op.field);
+					if (target.layout?.counter)
+						this.assertCount(
+							op.field,
+							patch.sid,
+							op.kind === 1 ? op.value : undefined,
+						);
 					this.assertTreeMutation(
 						target,
 						key,
@@ -829,8 +959,7 @@ export class CoreModel {
 						!managedFields.has(key) &&
 						(target.layout?.constant ||
 							target.layout?.fieldsByKey.get(key)?.constant ||
-							(target.layout?.kind === "map" &&
-								target.layout.element?.constant))
+							(isKeyed(target.layout) && target.layout.element?.constant))
 					) {
 						const version = patch.ops.find(
 							(change) =>
@@ -886,13 +1015,11 @@ export class CoreModel {
 					const fieldLayout = metadata
 						? undefined
 						: (operationLayout?.fieldsByKey.get(key)?.layout ??
-							(operationLayout?.kind === "map"
-								? operationLayout.element
-								: undefined));
-					if (op.kind === 2 && operationLayout?.kind !== "map")
+							(isKeyed(operationLayout) ? operationLayout.element : undefined));
+					if (op.kind === 2 && !isKeyed(operationLayout))
 						this.validateValue(fieldLayout, undefined);
-					if (op.kind === 1)
-						build(
+					if (op.kind === 1) {
+						const built = build(
 							metadata
 								? op.value
 								: this.fieldPrepared(
@@ -901,6 +1028,18 @@ export class CoreModel {
 									),
 							fieldLayout,
 						);
+						// Its row is deleted once replaced: nothing may address into it.
+						if (
+							op.last &&
+							(built.child ||
+								op.value.constants.length ||
+								op.value.texts.length)
+						)
+							throw new PulseError(
+								"INVALID_MESSAGE",
+								"A last-value write holds a plain value",
+							);
+					}
 				} else {
 					if (target.kind === "object")
 						throw new PulseError("INVALID_MESSAGE", "Expected sequence target");
@@ -1033,6 +1172,9 @@ export class CoreModel {
 		const node = this.index.get(target);
 		if (!node || node.kind !== "object") return;
 		if (node.layout?.treeRole) return;
+		// A count is a float64 register like any other, named by its actor.
+		if (node.layout?.counter)
+			return typeof field === "number" ? node.layout : undefined;
 		const key = this.fieldKey(node, field);
 		if (managedFields.has(key)) return;
 		const entry = node.layout?.fieldsByKey.get(key),
@@ -1089,6 +1231,11 @@ export class CoreModel {
 				"INVALID_MESSAGE",
 				"Operation reference is not causally covered",
 			);
+		if (node.layout?.counter && run.field !== run.sid)
+			throw new PulseError(
+				"INVALID_MESSAGE",
+				"A counter count is an integer written by its actor",
+			);
 		for (const value of values) layout.assert(value);
 	}
 
@@ -1137,6 +1284,7 @@ export class CoreModel {
 				"Operation reference is not causally covered",
 			);
 		const key = this.fieldKey(node, op.field);
+		if (node.layout?.counter) this.assertCount(op.field, patch.sid, op.value);
 		this.assertTreeMutation(node, key, false, op.value.value);
 		const field = node.layout?.fieldsByKey.get(key);
 		if (
@@ -1158,7 +1306,7 @@ export class CoreModel {
 				"INCOMPATIBLE_DOCUMENT",
 				"Cannot mutate a constant field",
 			);
-		if (field?.richText || layout?.richText) return false;
+		if (field?.richText || layout?.richText || layout?.counter) return false;
 		if (
 			node.layout?.kind === "object" &&
 			!field &&
@@ -1167,6 +1315,24 @@ export class CoreModel {
 			throw new PulseError("INVALID_MESSAGE", "Unknown schema property");
 		this.validateValue(layout, op.value.value);
 		return true;
+	}
+	/** A counter holds one count per actor, and each actor writes only its own. */
+	private assertCount(
+		field: CoreField,
+		sid: number,
+		value: PreparedValue | undefined,
+	): void {
+		if (
+			field !== sid ||
+			!value ||
+			value.constants.length ||
+			value.texts.length ||
+			!Number.isSafeInteger(value.value)
+		)
+			throw new PulseError(
+				"INVALID_MESSAGE",
+				"A counter count is an integer written by its actor",
+			);
 	}
 	private readonly planned = new WeakMap<CorePatch, BuiltValue[]>();
 	private rootStamp: Stamp | undefined;
@@ -1226,17 +1392,23 @@ export class CoreModel {
 		) {
 			const node = this.index.get(single.target)!;
 			const key = this.fieldKey(node, single.field);
-			if (newer(stamp, node.stamps.get(key) ?? node.initialStamp)) {
-				node.stamps.set(key, stamp);
-				node.removeChild(key);
-				const layout = this.layoutField(node, key);
-				node.data[key] =
-					layout?.kind === "float32"
-						? Math.fround(single.value.value as number)
-						: single.value.value;
+			const layout = this.layoutField(node, key);
+			// A number assigned to a counter field builds its node below.
+			if (!layout?.counter) {
+				if (newer(stamp, node.stamps.get(key) ?? node.initialStamp)) {
+					node.stamps.set(key, stamp);
+					node.removeChild(key);
+					const value =
+						layout?.kind === "float32"
+							? Math.fround(single.value.value as number)
+							: single.value.value;
+					if (node.layout?.counter)
+						this.addToCounter(node, (value as number) - (node.data[key] ?? 0));
+					node.data[key] = value;
+				}
+				this.planned.delete(patch);
+				return;
 			}
-			this.planned.delete(patch);
-			return;
 		}
 		let serial = 0;
 		const id = () => `${patch.sid}:${patch.clock}:${serial++}`;
@@ -1288,9 +1460,7 @@ export class CoreModel {
 				const fieldLayout = metadata
 					? undefined
 					: (field?.layout ??
-						(operationLayout?.kind === "map"
-							? operationLayout.element
-							: undefined));
+						(isKeyed(operationLayout) ? operationLayout.element : undefined));
 				const built =
 					op.kind === 1
 						? build(
@@ -1310,6 +1480,11 @@ export class CoreModel {
 				if (write) {
 					node.stamps.set(key, stamp);
 					node.removeChild(key);
+					if (op.kind === 1 && node.layout?.counter)
+						this.addToCounter(
+							node,
+							(built.value as number) - (node.data[key] ?? 0),
+						);
 					if (op.kind === 2) delete node.data[key];
 					else {
 						node.data[key] = built.value;
@@ -1431,7 +1606,7 @@ export class CoreModel {
 					this.retype(
 						child,
 						field?.layout ??
-							(node.layout?.kind === "map" ? node.layout.element : undefined),
+							(isKeyed(node.layout) ? node.layout.element : undefined),
 					);
 			}
 		else
@@ -1444,7 +1619,10 @@ export class CoreModel {
 					);
 	}
 	private syncText(node: CoreNode) {
-		const text = richTextContent(node);
+		this.project(node, richTextContent(node));
+	}
+	/** A text or counter node reads as a plain value in its parent's data. */
+	private project(node: CoreNode, text: unknown) {
 		const parent = node.parent,
 			key = node.parentKey;
 		if (!parent || key === undefined) return;
@@ -1490,6 +1668,7 @@ export class CoreModel {
 			!validate &&
 			!layout?.constant &&
 			!layout?.richText &&
+			!layout?.counter &&
 			!prepared.constants.length &&
 			!prepared.texts.length &&
 			(prepared.value === null || typeof prepared.value !== "object")
@@ -1535,7 +1714,7 @@ export class CoreModel {
 				const application =
 					documentRoot &&
 					depth === 0 &&
-					(current?.kind === "map" || current?.kind === "literal")
+					(isKeyed(current) || current?.kind === "literal")
 						? withoutMetadata(value)
 						: value;
 				current?.assertShallow(application);
@@ -1561,6 +1740,18 @@ export class CoreModel {
 					? this.receivedConstant(value, current, depth)
 					: structuredClone(value);
 				return { value: freezeConstant(owned), child: undefined };
+			}
+			// A counter is a number in its parent, and one count per actor below.
+			if (current?.counter && typeof value === "number") {
+				const node = new CoreNode(
+					id(),
+					"object",
+					value ? { [stamp[1]]: value } : {},
+					current,
+					stamp,
+				);
+				index.set(node.id, node);
+				return { value, child: node };
 			}
 			const isText =
 				typeof value === "string" &&
@@ -1674,6 +1865,7 @@ export class CoreModel {
 						continue;
 					}
 					if (current?.kind !== "object") assertKey(key);
+					if (validate) current?.key?.decode(key);
 					const metadata =
 						documentRoot && depth === 0 && managedFields.has(key);
 					if (validate && metadata) field?.layout.assertShallow(value[key]);
@@ -1683,7 +1875,7 @@ export class CoreModel {
 						metadata
 							? undefined
 							: (field?.layout ??
-									(current?.kind === "map" ? current.element : undefined)),
+									(isKeyed(current) ? current.element : undefined)),
 						!metadata &&
 							(field?.constant ||
 								(documentRoot && depth === 0 && !!current?.constant)),
@@ -1788,6 +1980,24 @@ function plainTextEdit(
 		throw new TypeError("Strings must be valid Unicode");
 	return text;
 }
+/** The number assigned over an existing counter: a `set`, not a replacement. */
+function counterEdit(
+	layout: PulseLayout | undefined,
+	child: CoreNode | undefined,
+	input: unknown,
+): number | undefined {
+	if (!layout?.counter || !child?.layout?.counter) return;
+	const total =
+		typeof input === "number"
+			? input
+			: input !== null &&
+				  typeof input === "object" &&
+				  Reflect.get(input, CounterSymbol)
+				? Number(input)
+				: undefined;
+	if (total !== undefined) child.layout.assert(total);
+	return total;
+}
 type BuiltValue = {
 	value: unknown;
 	child: CoreNode | undefined;
@@ -1833,6 +2043,11 @@ export function prepareCoreSchema(compiled: CompiledPulseSchema): {
 } {
 	let cached = schemaCache.get(compiled);
 	if (cached) return cached;
+	// The root is the pulse object, which carries `id` and the other metadata.
+	if (compiled.root.kind === "map")
+		throw new TypeError(
+			"A pulse cannot be a map; use a record, or put the map in a field",
+		);
 	const schema = compiled.codecSchema ?? compiled.schema;
 	cached = { id: schemaFingerprint(compiled) };
 	if (typeof schema === "object" && schema._type === "object")

@@ -6,6 +6,7 @@ import type { RichText } from "./richText.js";
 import { PlainTextSchemaSymbol, RichTextSchemaSymbol } from "./values.js";
 import { hasSchemaMarker } from "./constantSchema.js";
 import type { PlainText } from "./plainText.js";
+import type { Counter, CounterSchema } from "./counter.js";
 import type { SubSchema } from "./subSchema.js";
 import type { PulseRef } from "../pulses/PulseRef.js";
 
@@ -47,44 +48,48 @@ export type PublicRichTextSchema<S extends Schema> = Schema extends S
 			? LiteralSchema<PlainText>
 			: S extends RichTextSchema
 				? LiteralSchema<RichText>
-				: S extends TreeSchema<infer Element>
-					? LiteralSchema<Tree<PulseSchemaValue<Element>>>
-					: S extends () => infer Inner
-						? Inner extends Schema
-							? () => PublicRichTextSchema<Inner>
-							: S
-						: S extends object
-							? {
-									[Key in keyof S]: Key extends "fields"
-										? S[Key] extends Record<string, Schema>
-											? PublicSchemaFields<S[Key]>
-											: S[Key]
-										: Key extends "element" | "schema"
-											? S[Key] extends Schema
-												? PublicRichTextSchema<S[Key]>
+				: S extends CounterSchema
+					? LiteralSchema<Counter>
+					: S extends TreeSchema<infer Element>
+						? LiteralSchema<Tree<PulseSchemaValue<Element>>>
+						: S extends () => infer Inner
+							? Inner extends Schema
+								? () => PublicRichTextSchema<Inner>
+								: S
+							: S extends object
+								? {
+										[Key in keyof S]: Key extends "fields"
+											? S[Key] extends Record<string, Schema>
+												? PublicSchemaFields<S[Key]>
 												: S[Key]
-											: Key extends "elements"
-												? S[Key] extends readonly Schema[]
-													? PublicSchemaList<S[Key]>
+											: Key extends "element" | "schema"
+												? S[Key] extends Schema
+													? PublicRichTextSchema<S[Key]>
 													: S[Key]
-												: Key extends "variants"
+												: Key extends "elements"
 													? S[Key] extends readonly Schema[]
 														? PublicSchemaList<S[Key]>
-														: S[Key] extends Record<
-																	string | number,
-																	Record<string, Schema>
-															  >
-															? {
-																	[Tag in keyof S[Key]]: {
-																		[
-																			Field in keyof S[Key][Tag]
-																		]: PublicRichTextSchema<S[Key][Tag][Field]>;
-																	};
-																}
-															: S[Key]
-													: S[Key];
-								}
-							: S;
+														: S[Key]
+													: Key extends "variants"
+														? S[Key] extends readonly Schema[]
+															? PublicSchemaList<S[Key]>
+															: S[Key] extends Record<
+																		string | number,
+																		Record<string, Schema>
+																  >
+																? {
+																		[Tag in keyof S[Key]]: {
+																			[
+																				Field in keyof S[Key][Tag]
+																			]: PublicRichTextSchema<
+																				S[Key][Tag][Field]
+																			>;
+																		};
+																	}
+																: S[Key]
+														: S[Key];
+									}
+								: S;
 
 /** Recognize an occurrence through optional/lazy wrappers, at compile time only. */
 export const isPlainTextSchema = (schema: Schema): boolean =>
@@ -129,8 +134,16 @@ export function codecSchemas(schema: Schema): {
 					]),
 				);
 				break;
-			case "array":
 			case "map":
+				// The wire holds a map as a record of canonical key strings, the
+				// same spelling its operations and its marker paths use.
+				hasMarker = true;
+				copy["_type"] = "record";
+				delete copy["key"];
+				copy["element"] = normalize(value.element);
+				break;
+			case "array":
+			case "record":
 			case "set":
 				copy["element"] = normalize(value.element);
 				break;

@@ -27,7 +27,7 @@ class ObjectHandler implements ProxyHandler<object> {
 	}
 	private layoutOf(node: CoreNode, key: string) {
 		const layout = node.layout;
-		return layout?.kind === "map"
+		return layout?.kind === "record"
 			? layout.element
 			: layout?.fieldsByKey.get(key)?.layout;
 	}

@@ -4,16 +4,17 @@ import {
 	type PulseVersionVector,
 } from "pulsify-core/protocol";
 import {
+	isGap,
+	lastRegisterOf,
 	type AppendResult,
 	type PatchStore,
 	type StoredPatchRow,
 } from "pulsify-core/storage";
 import {
-	assertCompatible,
 	covered,
 	MAX_VECTOR_ENTRIES,
 	rowsFromFrame,
-	sameRow,
+	serve,
 	validateDocId,
 	validateRows,
 } from "./rows.js";
@@ -42,10 +43,30 @@ type RowRecord = {
 };
 /** The ready frontier of one actor: `[docId, sid]` is the primary key. */
 type ClockRecord = { docId: string; sid: number; clock: number };
+/**
+ * An actor's newest write to a register without history, overwritten in
+ * place: `[docId, sid, register]` is the primary key.
+ */
+type ValueRecord = {
+	docId: string;
+	sid: number;
+	register: string;
+	clock: number;
+	dependencies: PulseVersionVector;
+	operations: Uint8Array;
+};
 
-const VERSION = 1;
+// Version 3 adds the values. Version 2 was never released: its `registers`
+// store is dropped, and its rows stay as history rows.
+const VERSION = 3;
 const ROWS = "rows";
 const CLOCKS = "clocks";
+const VALUES = "values";
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
+	a.length === b.length && a.every((byte, i) => b[i] === byte);
+/** Register bytes as a key every IndexedDB implementation orders the same. */
+const registerKey = (register: Uint8Array): string =>
+	String.fromCharCode(...register);
 /** `[docId, ready, sid, end]`: ready rows to send, or pending rows to promote. */
 const BY_STATE = "state";
 
@@ -65,6 +86,14 @@ function unpack(record: RowRecord): StoredPatchRow {
 		operations: record.operations,
 	};
 }
+const unpackValue = (record: ValueRecord): StoredPatchRow => ({
+	docId: record.docId,
+	sid: record.sid,
+	clock: record.clock,
+	span: 1,
+	dependencies: record.dependencies,
+	operations: record.operations,
+});
 function pack(row: StoredPatchRow, ready: boolean): RowRecord {
 	const { operations } = row;
 	return {
@@ -144,8 +173,8 @@ export class IndexedDbPatchStore implements PatchStore {
 	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
-		return this.transaction("readwrite", (rows_, clocks) =>
-			this.write(rows_, clocks, docId, rows),
+		return this.transaction("readwrite", (rows_, clocks, values) =>
+			this.write(rows_, clocks, values, docId, rows),
 		);
 	}
 	async vector(docId: string): Promise<PulseVersionVector> {
@@ -161,40 +190,64 @@ export class IndexedDbPatchStore implements PatchStore {
 		validateDocId(docId);
 		validateVector(remote);
 		const peer = new Map(remote);
-		return this.transaction("readonly", async (rows, clocks) => {
-			const index = rows.index(BY_STATE);
+		return this.transaction("readonly", async (rows, clocks, values) => {
+			const keys = this.keys;
 			const runs = await Promise.all(
 				(await this.readVector(clocks, docId))
 					.filter(([sid, clock]) => clock > (peer.get(sid) ?? 0))
-					.map(([sid]) =>
-						request<RowRecord[]>(
-							index.getAll(
-								this.keys.bound(
-									[docId, 1, sid, peer.get(sid) ?? 0],
-									[docId, 1, sid, Infinity],
-									true,
+					.map(async ([sid, frontier]) => {
+						const since = peer.get(sid) ?? 0;
+						// The rows from the last one that starts at or before the
+						// remote clock, and every value of the actor.
+						const anchor = (
+							await request(
+								rows.openCursor(
+									keys.bound([docId, sid], [docId, sid, Math.max(since, 1)]),
+									"prev",
+								),
+							)
+						)?.value as RowRecord | undefined;
+						const [stored, kept] = await Promise.all([
+							request<RowRecord[]>(
+								rows.getAll(
+									keys.bound(
+										[docId, sid, anchor?.clock ?? 0],
+										[docId, sid, []],
+									),
 								),
 							),
-						),
-					),
+							request<ValueRecord[]>(
+								values.getAll(keys.bound([docId, sid], [docId, sid, []])),
+							),
+						]);
+						const held = [
+							...stored.filter((row) => row.ready).map(unpack),
+							...kept.map(unpackValue),
+						]
+							.filter((row) => !isGap(row.operations))
+							.sort((a, b) => a.clock - b.clock);
+						return serve(docId, sid, held, since, frontier);
+					}),
 			);
-			return runs.flat().map(unpack);
+			return runs.flat();
 		});
 	}
 	/** Deletes every stored row of one document. */
 	async forget(docId: string): Promise<void> {
 		validateDocId(docId);
-		await this.transaction("readwrite", async (rows, clocks) => {
+		await this.transaction("readwrite", async (rows, clocks, values) => {
 			const range = this.documentRange(docId);
 			rows.delete(range);
 			clocks.delete(range);
+			values.delete(range);
 		});
 	}
 	/** Deletes every document in this database. */
 	async clear(): Promise<void> {
-		await this.transaction("readwrite", async (rows, clocks) => {
+		await this.transaction("readwrite", async (rows, clocks, values) => {
 			rows.clear();
 			clocks.clear();
+			values.clear();
 		});
 	}
 
@@ -225,6 +278,12 @@ export class IndexedDbPatchStore implements PatchStore {
 					}).createIndex(BY_STATE, ["docId", "ready", "sid", "end"]);
 				if (!db.objectStoreNames.contains(CLOCKS))
 					db.createObjectStore(CLOCKS, { keyPath: ["docId", "sid"] });
+				if (db.objectStoreNames.contains("registers"))
+					db.deleteObjectStore("registers");
+				if (!db.objectStoreNames.contains(VALUES))
+					db.createObjectStore(VALUES, {
+						keyPath: ["docId", "sid", "register"],
+					});
 			};
 			open.onerror = () =>
 				reject(
@@ -272,14 +331,18 @@ export class IndexedDbPatchStore implements PatchStore {
 	/** Runs `work` in one transaction and resolves once it has committed. */
 	private async transaction<T>(
 		mode: IDBTransactionMode,
-		work: (rows: IDBObjectStore, clocks: IDBObjectStore) => Promise<T>,
+		work: (
+			rows: IDBObjectStore,
+			clocks: IDBObjectStore,
+			values: IDBObjectStore,
+		) => Promise<T>,
 	): Promise<T> {
 		const db = await this.database();
 		return new Promise<T>((resolve, reject) => {
 			let tx: IDBTransaction;
 			try {
 				tx = db.transaction(
-					[ROWS, CLOCKS],
+					[ROWS, CLOCKS, VALUES],
 					mode,
 					this.options.durability
 						? { durability: this.options.durability }
@@ -301,7 +364,11 @@ export class IndexedDbPatchStore implements PatchStore {
 				this.checkLost(db, tx.error);
 				reject(storageError(failure ?? tx.error ?? "Transaction aborted"));
 			};
-			work(tx.objectStore(ROWS), tx.objectStore(CLOCKS)).then(
+			work(
+				tx.objectStore(ROWS),
+				tx.objectStore(CLOCKS),
+				tx.objectStore(VALUES),
+			).then(
 				(value) => {
 					result = { value };
 				},
@@ -325,98 +392,186 @@ export class IndexedDbPatchStore implements PatchStore {
 		);
 		return records.map(({ sid, clock }) => [sid, clock]);
 	}
+	/**
+	 * The `SqlitePatchStore.append` rules, one request after the other: a read
+	 * in a transaction sees the writes made before it.
+	 */
 	private async write(
 		store: IDBObjectStore,
 		clocks: IDBObjectStore,
+		values: IDBObjectStore,
 		docId: string,
 		rows: readonly StoredPatchRow[],
 	): Promise<AppendResult> {
 		const keys = this.keys;
-		const byActor = new Map<number, StoredPatchRow[]>();
-		for (const row of rows) {
-			const list = byActor.get(row.sid);
-			if (list) list.push(row);
-			else byActor.set(row.sid, [row]);
-		}
-		// The stored rows around and inside each actor's incoming clock range
-		// are enough to detect duplicates, overlaps and forks.
-		const nearby = Promise.all(
-			[...byActor].map(async ([sid, list]) => {
-				list.sort((a, b) => a.clock - b.clock);
-				const first = list[0]!.clock,
-					last = list[list.length - 1]!.clock;
-				const [before, within, after] = await Promise.all([
-					request(
-						store.openCursor(
-							keys.bound([docId, sid], [docId, sid, first], false, true),
-							"prev",
-						),
-					),
-					request<RowRecord[]>(
-						store.getAll(keys.bound([docId, sid, first], [docId, sid, last])),
-					),
-					request(
-						store.openCursor(
-							keys.bound([docId, sid, last], [docId, sid, []], true),
-						),
-					),
-				]);
-				const stored = within.map(unpack);
-				if (before) stored.unshift(unpack(before.value as RowRecord));
-				if (after) stored.push(unpack(after.value as RowRecord));
-				return { list, stored };
-			}),
-		);
-		const [actors, frontierVector, waiting] = await Promise.all([
-			nearby,
+		const [frontierVector, waitingRecords] = await Promise.all([
 			this.readVector(clocks, docId),
 			request<RowRecord[]>(
 				store.index(BY_STATE).getAll(keys.bound([docId, 0], [docId, 0, []])),
 			),
 		]);
+		const frontier = new Map(frontierVector);
+		let waiting = waitingRecords.map(unpack);
+		const changedActors = new Set<number>();
+		let inserted = 0,
+			ready = 0;
 
-		const fresh: StoredPatchRow[] = [];
-		for (const { list, stored } of actors) {
-			const known = new Map(stored.map((row) => [row.clock, row]));
-			const added: StoredPatchRow[] = [];
-			for (const row of list) {
-				const existing = known.get(row.clock);
+		const get = (sid: number, clock: number) =>
+			request<RowRecord | undefined>(store.get([docId, sid, clock]));
+		/** The stored row of an actor that starts last before a sequence number. */
+		const before = async (sid: number, clock: number) =>
+			(
+				await request(
+					store.openCursor(
+						keys.bound([docId, sid], [docId, sid, clock], false, true),
+						"prev",
+					),
+				)
+			)?.value as RowRecord | undefined;
+		const after = async (sid: number, clock: number) =>
+			(
+				await request(
+					store.openCursor(
+						keys.bound([docId, sid, clock], [docId, sid, []], true),
+					),
+				)
+			)?.value as RowRecord | undefined;
+		/** Drop the waiting rows of an actor that start in `[from, to)`: replaced. */
+		const dropWaiting = (sid: number, from: number, to: number) => {
+			if (from >= to) return;
+			store.delete(
+				keys.bound([docId, sid, from], [docId, sid, to], false, true),
+			);
+			waiting = waiting.filter(
+				(row) => row.sid !== sid || row.clock < from || row.clock >= to,
+			);
+		};
+		/** Where each value of an actor is, read once for rows sent again. */
+		const valuesOf = new Map<number, Map<number, Uint8Array>>();
+		/** The operations held at this sequence number: a row, or a value. */
+		const heldAt = async (sid: number, clock: number) => {
+			const row = await get(sid, clock);
+			if (row) return row.operations;
+			let clocks = valuesOf.get(sid);
+			if (!clocks) {
+				const records = await request<ValueRecord[]>(
+					values.getAll(keys.bound([docId, sid], [docId, sid, []])),
+				);
+				clocks = new Map(
+					records.map((value) => [value.clock, value.operations]),
+				);
+				valuesOf.set(sid, clocks);
+			}
+			return clocks.get(clock);
+		};
+		/**
+		 * Store a ready row: a last-value row as its actor's value of the
+		 * register, replacing the older one; a gap row not at all, as the
+		 * frontier says how far the actor goes. Whether it stays a row.
+		 */
+		const keep = (row: StoredPatchRow): boolean => {
+			const last = lastRegisterOf(row.operations);
+			if (last) {
+				const { operations } = pack(row, true);
+				values.put({
+					docId,
+					sid: row.sid,
+					register: registerKey(last.register),
+					clock: row.clock,
+					dependencies: row.dependencies.map(([sid, clock]) => [sid, clock]),
+					operations,
+				} satisfies ValueRecord);
+				valuesOf.delete(row.sid);
+			}
+			return !last && !isGap(row.operations);
+		};
+
+		for (const row of rows) {
+			const reached = frontier.get(row.sid) ?? 1,
+				end = row.clock + row.span;
+			if (row.clock < reached) {
+				// Known, or replaced here: only its contents can conflict, and only
+				// its span can say that more writes were replaced.
+				const held = await heldAt(row.sid, row.clock);
+				if (
+					held &&
+					!isGap(held) &&
+					!isGap(row.operations) &&
+					!sameBytes(held, row.operations)
+				)
+					throw new PulseError("CONFLICT", "Conflicting storage segment");
+				if (end <= reached) continue;
+				dropWaiting(row.sid, reached, end);
+				frontier.set(row.sid, end);
+				changedActors.add(row.sid);
+				inserted++;
+				continue;
+			}
+			const readyNow =
+				row.clock === reached && covered(frontier, row.dependencies);
+			const own = new Map(row.dependencies).get(row.sid) ?? 0;
+			if (readyNow && !waiting.some((each) => each.sid === row.sid)) {
+				// Ready rows start below the frontier and none waits: no stored row
+				// starts at or after this one. Only the fork check remains.
+				if (row.clock > 1 && own < row.clock)
+					throw new PulseError("CONFLICT", "Actor history fork");
+			} else {
+				const existing = await get(row.sid, row.clock);
 				if (existing) {
-					if (!sameRow(existing, row))
+					// A waiting row with the same start: only contents conflict.
+					if (
+						!isGap(existing.operations) &&
+						!isGap(row.operations) &&
+						!sameBytes(existing.operations, row.operations)
+					)
 						throw new PulseError("CONFLICT", "Conflicting storage segment");
+					// The longer span knows of more replaced writes.
+					if (row.span > existing.span) {
+						store.put({ ...existing, span: row.span, end } satisfies RowRecord);
+						// The waiting rows it now covers were replaced.
+						dropWaiting(row.sid, row.clock + 1, end);
+						for (const each of waiting)
+							if (each.sid === row.sid && each.clock === row.clock)
+								each.span = row.span;
+					}
 					continue;
 				}
-				known.set(row.clock, row);
-				added.push(row);
+				const previous = await before(row.sid, row.clock);
+				if (previous) {
+					// It starts among the writes a waiting row has replaced.
+					if (previous.end > row.clock) continue;
+					if (own < previous.end)
+						throw new PulseError("CONFLICT", "Actor history fork");
+				}
+				const next = await after(row.sid, end - 1);
+				if (next && (new Map(next.dependencies).get(row.sid) ?? 0) < end)
+					throw new PulseError("CONFLICT", "Actor history fork");
+				// Rows still waiting that this row has replaced.
+				dropWaiting(row.sid, row.clock + 1, end);
 			}
-			if (!added.length) continue;
-			fresh.push(...added);
-			const isNew = new Set(added);
-			const merged = [...known.values()].sort((a, b) => a.clock - b.clock);
-			for (let i = 1; i < merged.length; i++) {
-				const previous = merged[i - 1]!,
-					next = merged[i]!;
-				if (isNew.has(previous) || isNew.has(next))
-					assertCompatible(previous, next);
+			inserted++;
+			if (readyNow) {
+				if (keep(row)) store.put(pack(row, true));
+				frontier.set(row.sid, end);
+				changedActors.add(row.sid);
+				ready++;
+			} else {
+				store.put(pack(row, false));
+				waiting.push(pack(row, false));
 			}
 		}
-
-		const frontier = new Map(frontierVector);
-		let pending: StoredPatchRow[] = [...waiting.map(unpack), ...fresh].sort(
-			(a, b) => a.sid - b.sid || a.clock - b.clock,
-		);
 		if (
-			new Set([...frontier.keys(), ...pending.map((row) => row.sid)]).size >
+			new Set([...frontier.keys(), ...waiting.map((row) => row.sid)]).size >
 			MAX_VECTOR_ENTRIES
 		)
 			throw new PulseError("LIMIT_EXCEEDED", "Document actor limit exceeded");
-		const promoted = new Set<StoredPatchRow>();
-		const changedActors = new Set<number>();
+
+		waiting.sort((a, b) => a.sid - b.sid || a.clock - b.clock);
 		let changed: boolean;
 		do {
 			changed = false;
 			const blocked: StoredPatchRow[] = [];
-			for (const row of pending) {
+			for (const row of waiting) {
 				if (
 					row.clock !== (frontier.get(row.sid) ?? 1) ||
 					!covered(frontier, row.dependencies)
@@ -424,28 +579,22 @@ export class IndexedDbPatchStore implements PatchStore {
 					blocked.push(row);
 					continue;
 				}
+				if (keep(row)) store.put(pack(row, true));
+				else store.delete([docId, row.sid, row.clock]);
 				frontier.set(row.sid, row.clock + row.span);
 				changedActors.add(row.sid);
-				promoted.add(row);
+				ready++;
 				changed = true;
 			}
-			pending = blocked;
+			waiting = blocked;
 		} while (changed);
 
-		const freshRows = new Set(fresh);
-		for (const row of fresh) store.put(pack(row, promoted.has(row)));
-		for (const row of promoted)
-			if (!freshRows.has(row)) store.put(pack(row, true));
 		for (const sid of changedActors)
 			clocks.put({
 				docId,
 				sid,
 				clock: frontier.get(sid)!,
 			} satisfies ClockRecord);
-		return {
-			inserted: fresh.length,
-			ready: promoted.size,
-			pending: pending.length,
-		};
+		return { inserted, ready, pending: waiting.length };
 	}
 }

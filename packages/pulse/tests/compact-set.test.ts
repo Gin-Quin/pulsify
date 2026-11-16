@@ -12,6 +12,7 @@ import {
 	decodeMessage,
 	SUPPORTED_PROTOCOL_VERSIONS,
 	type Pulse,
+	versioned,
 } from "../source/index.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -19,11 +20,13 @@ import { PulseRelay } from "../source/protocol/PulseRelay.js";
 
 const D = definePulse(
 	"Compact",
-	object({
-		title: "string",
-		nested: object({ count: "float64" }),
-		items: array("string"),
-	}),
+	versioned(
+		object({
+			title: "string",
+			nested: object({ count: "float64" }),
+			items: array("string"),
+		}),
+	),
 ).materialize();
 const opts = (sessionId: number) => ({
 	...defaultPulseOptions,

@@ -1,5 +1,6 @@
 import type { CoreNode } from "./model.js";
 import { TreeSymbol, type TreeData } from "./treeSchema.js";
+import { containsMap } from "./schema.js";
 import { positionBetween } from "./fractionalPosition.js";
 import { pulsify, type Pulsify } from "../utilities/pulsify.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
@@ -266,7 +267,9 @@ export function createTreeProxy(
 		},
 		snapshot() {
 			attached();
-			return structuredClone(records());
+			return node.layout && containsMap(node.layout)
+				? (node.layout.snapshot(records()) as TreeData<unknown>)
+				: structuredClone(records());
 		},
 		toJSON() {
 			const state = structure();

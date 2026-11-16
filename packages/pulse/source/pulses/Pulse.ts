@@ -4,9 +4,10 @@ import { RichTextSymbol, PulseRefSymbol } from "../core/values.js";
 import type { PulseRef } from "./PulseRef.js";
 import type { RichText } from "../core/richText.js";
 import type { PlainText } from "../core/plainText.js";
+import type { Counter } from "../core/counter.js";
 import type { Tree } from "../core/tree.js";
 import { TreeSymbol, type TreeData } from "../core/treeSchema.js";
-import type { PulseLayout } from "../core/schema.js";
+import { containsMap, type PulseLayout } from "../core/schema.js";
 import type { Pulsify } from "../utilities/pulsify.js";
 import { type PulseMeta, PulseMetaSymbol } from "./PulseMeta.js";
 import { defaultPulseScope } from "./PulseOptions.js";
@@ -91,23 +92,27 @@ export type PulseSnapshot<Value> = unknown extends Value
 		? string
 		: Value extends RichText | PlainText
 			? string
-			: Value extends Tree<infer Item>
-				? TreeData<PulseSnapshot<Item>>
-				: Value extends Uint8Array
-					? Uint8Array
-					: Value extends readonly (infer Item)[]
-						? number extends Value["length"]
-							? PulseSnapshot<Item>[]
-							: SnapshotTuple<Value>
-						: Value extends object
-							? {
-									[
-										Key in keyof Value as Key extends string | number
-											? Key
-											: never
-									]: PulseSnapshot<Value[Key]>;
-								}
-							: Value;
+			: Value extends Counter
+				? number
+				: Value extends Tree<infer Item>
+					? TreeData<PulseSnapshot<Item>>
+					: Value extends Uint8Array
+						? Uint8Array
+						: Value extends readonly (infer Item)[]
+							? number extends Value["length"]
+								? PulseSnapshot<Item>[]
+								: SnapshotTuple<Value>
+							: Value extends Map<infer Key, infer Item>
+								? Map<Key, PulseSnapshot<Item>>
+								: Value extends object
+									? {
+											[
+												Key in keyof Value as Key extends string | number
+													? Key
+													: never
+											]: PulseSnapshot<Value[Key]>;
+										}
+									: Value;
 const snapshotFieldCounts = new WeakMap<PulseLayout, number>();
 function snapshotFieldCount(layout: PulseLayout): number {
 	let count = snapshotFieldCounts.get(layout);
@@ -131,8 +136,10 @@ export function snapshotPulse<P extends Pulse<any>>(
 			compiled &&
 			layout?.kind === "object" &&
 			compiled.layouts[layout.id] === layout &&
-			data.version === meta.definition.migrations.length + 1 &&
-			Object.keys(data).length === snapshotFieldCount(layout)
+			// A map is only a Map through its layout, whatever fields are stored.
+			(containsMap(layout) ||
+				(data.version === meta.definition.migrations.length + 1 &&
+					Object.keys(data).length === snapshotFieldCount(layout)))
 		) {
 			return layout.snapshot(data, true) as PulseSnapshot<P>;
 		}
@@ -146,6 +153,8 @@ export function snapshotPulse<P extends Pulse<any>>(
 		if (value && typeof value === "object" && value[PulseRefSymbol])
 			return value.id;
 		if (value instanceof Uint8Array) return new Uint8Array(value);
+		if (value instanceof Map)
+			return new Map(Array.from(value, ([key, item]) => [key, clone(item)]));
 		return value && typeof value === "object"
 			? Array.isArray(value)
 				? Array.from(value, clone)

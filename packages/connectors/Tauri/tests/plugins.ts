@@ -1,5 +1,11 @@
-import { encodeBroadcast, PulseError, relayStoreMessage } from "pulsify-core";
-import type { PatchStore } from "pulsify-core/storage";
+import {
+	decodeMessage,
+	encodeBroadcast,
+	encodeMessage,
+	PulseError,
+	relayStoreMessage,
+} from "pulsify-core";
+import type { PatchStore, StoredPatchRow } from "pulsify-core/storage";
 import { TAURI_SESSION_HEADER, type TauriInvoke } from "../source/index";
 
 /** Stands in for a Tauri `Channel`: the fake plugins call `onMessage` directly. */
@@ -13,6 +19,69 @@ const createChannel = (onMessage: (message: unknown) => void) => ({
 });
 const sessionOf = (options: { headers?: HeadersInit } | undefined) =>
 	Number(new Headers(options?.headers).get(TAURI_SESSION_HEADER));
+
+/**
+ * The rows a hub serves to a peer that holds nothing: what its store keeps of
+ * a document, read through a session of its own.
+ */
+export async function downloadRows(
+	plugin: FakePlugin,
+	docId: string,
+): Promise<StoredPatchRow[]> {
+	const rows: StoredPatchRow[] = [];
+	const { promise, resolve, reject } = Promise.withResolvers<void>();
+	const channel = plugin.createChannel((message) => {
+		const reply = decodeMessage(new Uint8Array(message as ArrayBuffer));
+		if (reply.kind !== 2)
+			return reject(new Error(`Expected a sync frame, got kind ${reply.kind}`));
+		rows.push(...reply.rows);
+		if (reply.complete) resolve();
+	});
+	const sessionId = await plugin.invoke("plugin:pulsify|open", {
+		docId,
+		channel,
+	});
+	await plugin.invoke(
+		"plugin:pulsify|send",
+		encodeMessage({ kind: 1, docId, requestId: 1, vv: [] }),
+		{ headers: { [TAURI_SESSION_HEADER]: String(sessionId) } },
+	);
+	await promise;
+	await plugin.invoke("plugin:pulsify|close", { sessionId });
+	return rows;
+}
+
+/**
+ * A session of a hub that uploads rows as they are given, without a journal:
+ * `upload` resolves to the acknowledged vector, or to the error the hub sent.
+ */
+export async function openUploader(plugin: FakePlugin, docId: string) {
+	let reply: ((bytes: Uint8Array) => void) | undefined;
+	const channel = plugin.createChannel((message) =>
+		reply?.(new Uint8Array(message as ArrayBuffer)),
+	);
+	const sessionId = await plugin.invoke("plugin:pulsify|open", {
+		docId,
+		channel,
+	});
+	const headers = { [TAURI_SESSION_HEADER]: String(sessionId) };
+	let requestId = 0;
+	return {
+		async upload(rows: StoredPatchRow[]) {
+			const answered = new Promise<Uint8Array>((resolve) => (reply = resolve));
+			const frame = encodeMessage({
+				kind: 4,
+				docId,
+				requestId: ++requestId,
+				vv: [],
+				rows,
+			});
+			await plugin.invoke("plugin:pulsify|send", frame, { headers });
+			return { frame, reply: decodeMessage(await answered) };
+		},
+		close: () => plugin.invoke("plugin:pulsify|close", { sessionId }),
+	};
+}
 
 /** The plugin's contract in TypeScript, over `relayStoreMessage` and any `PatchStore`. */
 export function createStorePlugin(store: PatchStore) {

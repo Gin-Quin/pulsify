@@ -2,6 +2,7 @@ import { constantView } from "../core/values.js";
 import type { CoreNode } from "../core/model.js";
 import { createTextProxy, type RichText } from "../core/richText.js";
 import { createPlainTextProxy, type PlainText } from "../core/plainText.js";
+import { createCounterProxy, type Counter } from "../core/counter.js";
 import { createTreeProxy, type Tree } from "../core/tree.js";
 import {
 	createArrayProxy,
@@ -9,6 +10,7 @@ import {
 	type PulseTuple,
 } from "../pulses/PulseArray.js";
 import { createObjectProxy } from "../pulses/PulseObject.js";
+import { createMapProxy } from "../pulses/PulseMap.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
 import type { IsSameType } from "./IsSameType.js";
 import type { PulseLayout } from "../core/schema.js";
@@ -19,21 +21,22 @@ type PulseBytes<Value extends Uint8Array> =
 		? Readonly<Uint8Array>
 		: Uint8Array;
 
-export type Pulsify<Value> =
-	Value extends PulseRef<any>
-		? Value
-		: Value extends PlainText
-			? PlainText
-			: Value extends RichText
-				? RichText
-				: Value extends Tree<infer Item>
-					? Tree<Item>
-					: Value extends Uint8Array
-						? PulseBytes<Value>
-						: Value extends Array<infer Item>
-							? number extends Value["length"]
-								? PulseArray<Pulsify<Item>>
-								: PulseTuple<Value>
+export type Pulsify<Value> = Value extends PulseRef<any> | Counter
+	? Value
+	: Value extends PlainText
+		? PlainText
+		: Value extends RichText
+			? RichText
+			: Value extends Tree<infer Item>
+				? Tree<Item>
+				: Value extends Uint8Array
+					? PulseBytes<Value>
+					: Value extends Array<infer Item>
+						? number extends Value["length"]
+							? PulseArray<Pulsify<Item>>
+							: PulseTuple<Value>
+						: Value extends Map<infer Key, infer Item>
+							? Map<Key, Pulsify<Item>>
 							: Value extends object
 								? { [Key in keyof Value]: Pulsify<Value[Key]> }
 								: Value;
@@ -70,6 +73,14 @@ export function pulsify(
 		)(node, context.meta.model, context.assertActive, binding);
 	} else if (node.kind === "array")
 		node.proxy = createArrayProxy(node, context);
+	else if (node.layout?.counter)
+		node.proxy = createCounterProxy(
+			node,
+			context.meta.model,
+			context.assertActive,
+		);
+	else if (node.layout?.kind === "map")
+		node.proxy = createMapProxy(node, context);
 	else node.proxy = createObjectProxy(() => node, context);
 	return node.proxy;
 }

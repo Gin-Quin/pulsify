@@ -59,6 +59,26 @@ const Shape = definePulse("Shape", object({
 shape.type = "other";  // rejected
 shape.theme = "dark";  // ok: the field is a union, not a literal`;
 
+const versions = `import { counter, definePulse, object, versioned } from "pulsify-core";
+
+const Invoice = definePulse("Invoice", object({
+  title: "string",                                   // last value only
+  status: versioned("string"),                       // every write is kept
+  total: versioned("float64", { timestamps: true }), // and the time of each write
+  views: counter(),                                  // last count per peer
+  edits: versioned(counter()),                       // every change
+})).materialize();
+
+// A whole document, or any object inside one:
+const Audited = definePulse("Audited", versioned(object({ title: "string" })));`;
+
+const versionsMigration = `const v1 = object({ status: "string" });
+const v2 = object({ status: versioned("string") });
+
+const Invoice = definePulse("Invoice", v1)
+  .migrateTo(v2, () => ({})) // the value stays; history starts here
+  .materialize();`;
+
 const combined = `object({
   label: optional(constant("string")), // may be absent, never changes once created
   snapshot: optional(frozen(object({ x: "float64", y: "float64" }))),
@@ -133,7 +153,7 @@ export default function Modifiers() {
 			<h2>Constant</h2>
 			<p>
 				<code>constant(schema)</code> keeps the value it was created with: it
-				can be neither replaced nor edited, deeply. Inside an array or a map,
+				can be neither replaced nor edited, deeply. Inside an array or a record,
 				each element gets its own constant when it is inserted. Use it for
 				identifiers, provenance and anything other code relies on staying put.
 			</p>
@@ -145,8 +165,8 @@ export default function Modifiers() {
 				contents are deeply readonly, so concurrent replacements never
 				interleave: one complete value wins. Use it for small structured values
 				that only make sense together, like coordinates, ranges or settings
-				snapshots. It requires a structured schema (object, array, tuple, map);
-				a frozen primitive would just be a plain field.
+				snapshots. It requires a structured schema (object, array, tuple,
+				record); a frozen primitive would just be a plain field.
 			</p>
 			<CodeBlock title="board.ts" code={frozens} />
 
@@ -157,6 +177,35 @@ export default function Modifiers() {
 				values of an editable field.
 			</p>
 			<CodeBlock title="shape.ts" code={literals} />
+
+			<h2 id="versioned">Versioned</h2>
+			<p>
+				A field keeps its last value only: writing it again replaces the
+				previous write in every store, so a database grows with the size of its
+				documents, not with the number of edits. <code>versioned(schema)</code>{" "}
+				keeps every write of a value, and of everything inside it.{" "}
+				<code>timestamps</code> also records when each write was made, from the
+				writer's clock: the time of the edit, even offline, which a client could
+				forge.
+			</p>
+			<CodeBlock title="invoice.ts" code={versions} />
+			<p>
+				Text, arrays and trees always keep their history, since every edit is
+				part of the result, and so does an assignment that creates an object, an
+				array, a text or a counter. What peers see does not change: the same
+				write wins everywhere.
+			</p>
+			<p>
+				Changing the mode of a field is a schema change, made by a migration
+				step. The value stays as it is. Turned on, history starts at that
+				version; turned off, it stops, and the rows already stored stay.
+			</p>
+			<CodeBlock title="invoice.ts" code={versionsMigration} />
+			<Note>
+				A document created before version 13 keeps the history it has, and its
+				fields stop adding to it. There is no API yet to read the past values of
+				a versioned field.
+			</Note>
 
 			<h2>Combining modifiers</h2>
 			<p>

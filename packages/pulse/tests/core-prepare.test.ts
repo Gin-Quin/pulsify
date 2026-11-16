@@ -3,7 +3,7 @@ import {
 	bigint,
 	createCodec,
 	literal,
-	map,
+	record,
 	object,
 	optional,
 	union,
@@ -54,7 +54,7 @@ describe("single-pass compiled preparation", () => {
 		const schema = union({
 			tagName: "kind",
 			tagType: "string",
-			variants: { note: { body: "string", values: map("uint") } },
+			variants: { note: { body: "string", values: record("uint") } },
 		});
 		let tags = 0,
 			bodies = 0,

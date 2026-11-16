@@ -1,6 +1,6 @@
 # pulsify-protocol
 
-An independent Rust implementation of the Pulsify v1 envelope and v2 grouped input, version vectors, immutable causal patch journal and single-peer reference relay. The library has no runtime dependencies; `serde_json` is used only by fixture tests.
+An independent Rust implementation of the Pulsify v1 envelope and v2 grouped input, version vectors, causal patch journal and single-peer reference relay. The library has no runtime dependencies; `serde_json` is used only by fixture tests.
 
 All supported envelopes use operations version 3. Earlier operation versions are
 rejected. Inner operation payloads stay opaque to this relay.
@@ -25,7 +25,7 @@ The CLI accepts one hex frame per stdin line. `roundtrip` decodes and re-encodes
 
 For durable stores, the `PatchStore` trait describes what `pulsify-sqlite` and `pulsify-rocksdb` implement; `relay_frame` serves one frame from any of them, and `Hub` adds sessions pinned to a document with broadcast to the document's other sessions.
 
-The crate stores operation payloads as opaque bytes. It validates the envelope and causal metadata, buffers gaps and handles exact retransmissions. Applying CRDT operations, verifying their inner spans, authorizing document access, storing data durably and broadcasting across multiple peers belong to the embedding application. The TypeScript interoperability test verifies a real create/load/offline-edit cycle against the Rust relay.
+The crate stores operation payloads as opaque bytes, except for the head of a last-value row: `last_register_of` reads the register and the Lamport time of a write to a field without history (operation kinds 7 and 8), and `is_gap` recognizes a gap row, without a schema. The journal keeps the newest row of each such register, as `docs/PROTOCOL.md` ("Fields without history") describes. It validates the envelope and causal metadata, buffers gaps and handles retransmissions. Applying CRDT operations, verifying their inner spans, authorizing document access, storing data durably and broadcasting across multiple peers belong to the embedding application. The TypeScript interoperability test verifies a real create/load/offline-edit cycle against the Rust relay.
 
 The protocol specification (`docs/PROTOCOL.md`) and the shared fixtures (`fixtures/protocol.json`) live in the Pulsify repository.
 

@@ -20,11 +20,12 @@ impl<E: std::error::Error + 'static> From<E> for StoreError {
             .and_then(|error| error.as_db_error())
             .map(|error| error.message().to_owned());
         match database.as_deref() {
-            Some(
-                message @ ("Conflicting storage segment"
-                | "Overlapping segments or actor history fork"),
-            ) => StoreError {
+            Some(message @ ("Conflicting storage segment" | "Actor history fork")) => StoreError {
                 code: "CONFLICT",
+                message: message.into(),
+            },
+            Some(message @ "Invalid segment batch") => StoreError {
+                code: "INVALID_MESSAGE",
                 message: message.into(),
             },
             Some(message @ "Document actor limit exceeded") => StoreError {
@@ -153,7 +154,8 @@ impl Store {
             .collect())
     }
 
-    /// Rows the peer lacks, straight from the index, without reading a document.
+    /// Rows the peer lacks, without reading a document: `pulsify_missing`
+    /// computes their spans from the rows and values still held.
     pub async fn missing(
         &self,
         doc_id: &str,
@@ -162,11 +164,8 @@ impl Store {
         let client = self.pool.get().await?;
         let statement = client
             .prepare_cached(
-                "WITH remote(sid, clock) AS (SELECT * FROM unnest($2::bigint[], $3::bigint[])) \
-                 SELECT o.sid, o.time_start, o.span, o.dependencies::text, o.operations \
-                 FROM pulsify_op_rows o LEFT JOIN remote r ON r.sid = o.sid \
-                 WHERE o.doc_id = $1 AND o.ready AND o.time_end > COALESCE(r.clock, 0) \
-                 ORDER BY o.sid, o.time_start",
+                "SELECT sid, time_start, span, dependencies::text, operations \
+                 FROM pulsify_missing($1::text, $2::bigint[], $3::bigint[])",
             )
             .await?;
         let sids: Vec<i64> = remote.iter().map(|(sid, _)| *sid as i64).collect();
@@ -185,7 +184,10 @@ impl Store {
         Ok(rows)
     }
 
-    /// One `pulsify_append` call: lock, validate, insert and promote in one transaction.
+    /// One `pulsify_append` call: lock, validate, insert, promote and keep the
+    /// last value only of fields without history, in one transaction. Returns
+    /// how many rows it stored or frontiers it moved: above zero, the upload is
+    /// worth forwarding.
     pub async fn append(&self, doc_id: &str, rows: &[PatchRow]) -> StoreResult<i32> {
         if rows.is_empty() {
             return Ok(0);
@@ -214,7 +216,8 @@ impl Store {
         let statement = client
             .prepare_cached(
                 "SELECT COUNT(DISTINCT doc_id)::bigint, COUNT(*)::bigint, COALESCE(SUM(octet_length(operations)), 0)::bigint \
-                 FROM pulsify_op_rows WHERE doc_id = $1::text OR starts_with(doc_id, $1::text || '/')",
+                 FROM (SELECT doc_id, operations FROM pulsify_op_rows UNION ALL SELECT doc_id, operations FROM pulsify_values) held \
+                 WHERE doc_id = $1::text OR starts_with(doc_id, $1::text || '/')",
             )
             .await?;
         let row = client.query_one(&statement, &[&root]).await?;

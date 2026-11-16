@@ -14,6 +14,7 @@ import {
 	connectPulse,
 	disconnectPulse,
 	recoverPulseHistory,
+	versioned,
 } from "../source/index.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
@@ -29,7 +30,9 @@ import { rowsFromFrame } from "../source/storage/rows.js";
 import { PulseRelay } from "../source/protocol/PulseRelay.js";
 const D = definePulse(
 	"State",
-	object({ title: "string", count: "float64", items: array("string") }),
+	versioned(
+		object({ title: "string", count: "float64", items: array("string") }),
+	),
 ).materialize();
 const opts = (sessionId: number) => ({
 	...defaultPulseOptions,

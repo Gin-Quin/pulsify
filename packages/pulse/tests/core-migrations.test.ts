@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { array, map, object, optional } from "@gin-quin/codec";
+import { array, record, object, optional } from "@gin-quin/codec";
 import { frozen } from "../source/index.js";
 import {
 	createPulse,
@@ -806,8 +806,8 @@ describe("versioned typed document migrations", () => {
 		const schema = object({
 			profile: object({ origin: object({ source: "string" }), bio: "string" }),
 			items: array(object({ id: "string" })),
-			labels: map(optional("string")),
-			fixed: map(object({ count: "uint" })),
+			labels: record(optional("string")),
+			fixed: record(object({ count: "uint" })),
 		});
 		const builder = definePulse("NestedCollectionAnnotations", schema);
 		const oldDefinition = builder.materialize();

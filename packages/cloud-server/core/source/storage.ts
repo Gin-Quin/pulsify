@@ -148,7 +148,7 @@ export class SqliteCloudStorage implements CloudRootStorage {
 	async usage(): Promise<CloudUsage> {
 		const row = this.db
 			.query(
-				"SELECT COUNT(DISTINCT doc_id) AS documents, COUNT(*) AS rows, COALESCE(SUM(length(operations)), 0) AS bytes FROM pulsify_op_rows",
+				"SELECT COUNT(DISTINCT doc_id) AS documents, COUNT(*) AS rows, COALESCE(SUM(length(operations)), 0) AS bytes FROM (SELECT doc_id, operations FROM pulsify_op_rows UNION ALL SELECT doc_id, operations FROM pulsify_values)",
 			)
 			.get() as { documents: number; rows: number; bytes: number };
 		return {

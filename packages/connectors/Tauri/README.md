@@ -110,7 +110,8 @@ against the app data directory.
 ```
 
 The file uses `SQLITE_PATCH_SCHEMA` and the append rules of `SqlitePatchStore`
-(`pulsify-core/storage`): immutable rows keyed by document, actor and clock,
+(`pulsify-core/storage`): rows keyed by document, actor and clock, the last
+one only for a field without history,
 idempotent retransmissions, `CONFLICT` for changed bytes or forked histories,
 rows pending until their causal history is complete. Copy it to a server and
 serve it with `relayStoreMessage`, or read it from Bun with `bun:sqlite`:

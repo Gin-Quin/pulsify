@@ -27,6 +27,8 @@ import {
 	prepareValue,
 	validatePrepared,
 	assertKey,
+	CounterSchemaSymbol,
+	CounterSymbol,
 	PlainTextSymbol,
 	RichTextSymbol,
 	type PreparedValue,
@@ -35,8 +37,10 @@ import {
 	ConstantSchemaSymbol,
 	FrozenSchemaSymbol,
 	hasSchemaMarker,
+	historyOf,
 } from "./constantSchema.js";
 import { subDefinitionOf } from "./subSchema.js";
+import { mapEntries, mapKey, type MapKey } from "./mapKey.js";
 import { PulseRefSymbol } from "./values.js";
 import { PulseMetaSymbol } from "../pulses/PulseMeta.js";
 import type { AnyPulseDefinition } from "../pulses/PulseDefinition.js";
@@ -105,7 +109,7 @@ type MarkerPaths<
 										readonly []
 									>
 							: S extends {
-										_type: "array" | "map";
+										_type: "array" | "record" | "map";
 										element: infer Inner extends Schema;
 								  }
 								? PrependPath<
@@ -190,34 +194,36 @@ type ApplyConstantPaths<Value, Paths> = [Paths] extends [never]
 			? Tree<
 					ApplyConstantPaths<Item, ChildPaths<ChildPaths<Paths, "*">, "data">>
 				>
-			: Value extends Date | Uint8Array | Set<unknown>
-				? Value
-				: Value extends readonly unknown[]
-					? {
-							[Key in keyof Value]: ApplyConstantPaths<
-								Value[Key],
-								ChildPaths<Paths, Key>
-							>;
-						}
-					: Value extends object
+			: Value extends Map<infer MapKey, infer Item>
+				? Map<MapKey, ApplyConstantPaths<Item, ChildPaths<Paths, string>>>
+				: Value extends Date | Uint8Array | Set<unknown>
+					? Value
+					: Value extends readonly unknown[]
 						? {
-								[
-									Key in keyof Value as IsConstant<
-										ChildPaths<Paths, Key>
-									> extends true
-										? never
-										: Key
-								]: ApplyConstantPaths<Value[Key], ChildPaths<Paths, Key>>;
-							} & {
-								readonly [
-									Key in keyof Value as IsConstant<
-										ChildPaths<Paths, Key>
-									> extends true
-										? Key
-										: never
-								]: DeepReadonly<Value[Key]>;
+								[Key in keyof Value]: ApplyConstantPaths<
+									Value[Key],
+									ChildPaths<Paths, Key>
+								>;
 							}
-						: Value;
+						: Value extends object
+							? {
+									[
+										Key in keyof Value as IsConstant<
+											ChildPaths<Paths, Key>
+										> extends true
+											? never
+											: Key
+									]: ApplyConstantPaths<Value[Key], ChildPaths<Paths, Key>>;
+								} & {
+									readonly [
+										Key in keyof Value as IsConstant<
+											ChildPaths<Paths, Key>
+										> extends true
+											? Key
+											: never
+									]: DeepReadonly<Value[Key]>;
+								}
+							: Value;
 type ApplyRichTextPaths<Value, Paths> = [Paths] extends [never]
 	? Value
 	: IsConstant<Paths> extends true
@@ -228,16 +234,18 @@ type ApplyRichTextPaths<Value, Paths> = [Paths] extends [never]
 			? Tree<
 					ApplyRichTextPaths<Item, ChildPaths<ChildPaths<Paths, "*">, "data">>
 				>
-			: Value extends Date | Uint8Array | Set<unknown>
-				? Value
-				: Value extends object
-					? {
-							[Key in keyof Value]: ApplyRichTextPaths<
-								Value[Key],
-								ChildPaths<Paths, Key>
-							>;
-						}
-					: Value;
+			: Value extends Map<infer MapKey, infer Item>
+				? Map<MapKey, ApplyRichTextPaths<Item, ChildPaths<Paths, string>>>
+				: Value extends Date | Uint8Array | Set<unknown>
+					? Value
+					: Value extends object
+						? {
+								[Key in keyof Value]: ApplyRichTextPaths<
+									Value[Key],
+									ChildPaths<Paths, Key>
+								>;
+							}
+						: Value;
 
 type ApplyFrozenPaths<Value, Paths> = [Paths] extends [never]
 	? Value
@@ -245,16 +253,18 @@ type ApplyFrozenPaths<Value, Paths> = [Paths] extends [never]
 		? DeepReadonly<Value>
 		: Value extends Tree<infer Item>
 			? Tree<ApplyFrozenPaths<Item, ChildPaths<ChildPaths<Paths, "*">, "data">>>
-			: Value extends Date | Uint8Array | Set<unknown>
-				? Value
-				: Value extends object
-					? {
-							[Key in keyof Value]: ApplyFrozenPaths<
-								Value[Key],
-								ChildPaths<Paths, Key>
-							>;
-						}
-					: Value;
+			: Value extends Map<infer MapKey, infer Item>
+				? Map<MapKey, ApplyFrozenPaths<Item, ChildPaths<Paths, string>>>
+				: Value extends Date | Uint8Array | Set<unknown>
+					? Value
+					: Value extends object
+						? {
+								[Key in keyof Value]: ApplyFrozenPaths<
+									Value[Key],
+									ChildPaths<Paths, Key>
+								>;
+							}
+						: Value;
 
 /** Infer codec values while exposing declared constants as readonly properties. */
 type SchemaPublicValue<S extends Schema> =
@@ -299,6 +309,12 @@ export interface PulseLayout {
 	readonly richText: boolean;
 	/** A `plainText()` occurrence: a text sequence without attributes. */
 	readonly plainText: boolean;
+	/** A `counter()` occurrence: a number stored as one count per actor. */
+	readonly counter: boolean;
+	/** Inside `versioned()`: every write is kept, not only the last value. */
+	readonly versioned: boolean;
+	/** Inside `versioned(…, { timestamps: true })`: every write records its time. */
+	readonly timestamps: boolean;
 	readonly tree: boolean;
 	readonly treeRole?: "tree" | "node" | "location";
 	/** The child definition of a `sub()` field; the stored value is its ID. */
@@ -314,6 +330,8 @@ export interface PulseLayout {
 	readonly fields: readonly PulseField[];
 	readonly fieldsByKey: ReadonlyMap<string, PulseField>;
 	readonly element?: PulseLayout;
+	/** The key of a `map(key, value)`, stored under its canonical string. */
+	readonly key?: MapKey;
 	readonly elements?: readonly PulseLayout[];
 	readonly variants?: ReadonlyMap<string, PulseLayout>;
 	readonly tagName?: string;
@@ -352,6 +370,9 @@ interface MutableLayout {
 	frozen: boolean;
 	richText: boolean;
 	plainText: boolean;
+	counter: boolean;
+	versioned: boolean;
+	timestamps: boolean;
 	tree: boolean;
 	treeRole?: "tree" | "node" | "location";
 	sub?: AnyPulseDefinition;
@@ -364,6 +385,7 @@ interface MutableLayout {
 	fields: PulseField[];
 	fieldsByKey: Map<string, PulseField>;
 	element?: PulseLayout;
+	key?: MapKey;
 	elements?: PulseLayout[];
 	variants?: Map<string, PulseLayout>;
 	tagName?: string;
@@ -444,10 +466,14 @@ export function compilePulseSchema<S extends Schema>(
 		path: PulseSchemaPath,
 		inherited = false,
 		inheritedFrozen = false,
+		inheritedHistory: 0 | 1 | 2 = 0,
 	): MutableLayout => {
 		const resolved = resolveSchema(descriptor);
+		const history = Math.max(inheritedHistory, historyOf(descriptor)) as
+			0 | 1 | 2;
 		const inlineRichText = isRichTextSchema(descriptor);
 		const plainText = isPlainTextSchema(descriptor);
+		const counter = hasSchemaMarker(descriptor, CounterSchemaSymbol);
 		const inlineConstant = hasSchemaMarker(descriptor, ConstantSchemaSymbol);
 		const treeRole = treeSchemaRole(descriptor);
 		const subDefinition = subDefinitionOf(descriptor);
@@ -470,6 +496,8 @@ export function compilePulseSchema<S extends Schema>(
 			annotationState(path, constant, richText) +
 			(frozen ? ".frozen" : "") +
 			(plainText ? ".plain" : "") +
+			(counter ? ".counter" : "") +
+			(history ? `.history${history}` : "") +
 			(treeRole ? `.${treeRole}` : "");
 		const existing = active.get(descriptor)?.get(state);
 		if (existing) return existing;
@@ -496,6 +524,9 @@ export function compilePulseSchema<S extends Schema>(
 			frozen,
 			richText,
 			plainText,
+			counter,
+			versioned: history > 0,
+			timestamps: history === 2,
 			codec: codecFor(descriptor),
 			tree,
 			...(treeRole ? { treeRole } : {}),
@@ -531,7 +562,7 @@ export function compilePulseSchema<S extends Schema>(
 					for (const [key, fieldSchema] of Object.entries(resolved.fields)) {
 						assertSchemaProperty(key);
 						const fieldPath = [...path, key];
-						const child = build(fieldSchema, fieldPath, locked);
+						const child = build(fieldSchema, fieldPath, locked, false, history);
 						const field: PulseField = {
 							id: layout.fields.length,
 							key,
@@ -565,18 +596,39 @@ export function compilePulseSchema<S extends Schema>(
 						layout.fieldsByKey.set(key, field);
 					}
 					break;
-				case "array":
 				case "map":
+					// ponytail: a constant is read through a plain frozen view, which
+					// has no Map form; add a read-only Map view if this is ever needed.
+					if (locked)
+						throw new TypeError(
+							"A map cannot be constant or frozen; use a record instead",
+						);
+					layout.key = mapKey(resolved.key);
+				// falls through
+				case "array":
+				case "record":
 				case "set":
-					layout.element = build(resolved.element, [...path, "*"], locked);
+					layout.element = build(
+						resolved.element,
+						[...path, "*"],
+						locked,
+						false,
+						history,
+					);
 					break;
 				case "tuple":
 					layout.elements = resolved.elements.map((element, index) =>
-						build(element, [...path, index], locked),
+						build(element, [...path, index], locked, false, history),
 					);
 					break;
 				case "optional":
-					layout.value = build(resolved.schema, path, constant, frozen);
+					layout.value = build(
+						resolved.schema,
+						path,
+						constant,
+						frozen,
+						history,
+					);
 					break;
 				case "union": {
 					assertSchemaProperty(resolved.tagName);
@@ -597,13 +649,16 @@ export function compilePulseSchema<S extends Schema>(
 							_type: "object",
 							fields: variantFields,
 						};
-						layout.variants.set(tag, build(variantSchema, path, locked));
+						layout.variants.set(
+							tag,
+							build(variantSchema, path, locked, false, history),
+						);
 					}
 					break;
 				}
 				case "untaggedUnion":
 					layout.elements = resolved.variants.map((variant) =>
-						build(variant, path, locked),
+						build(variant, path, locked, false, history),
 					);
 					break;
 			}
@@ -617,6 +672,10 @@ export function compilePulseSchema<S extends Schema>(
 		if (layout.tree && (layout.constant || layout.frozen))
 			throw new TypeError(
 				"A constant field cannot also be a collaborative tree",
+			);
+		if (layout.counter && (layout.constant || layout.frozen))
+			throw new TypeError(
+				"A constant field cannot also be a collaborative counter",
 			);
 		active.get(descriptor)?.delete(state);
 		active.get(resolved)?.delete(state);
@@ -636,8 +695,10 @@ export function compilePulseSchema<S extends Schema>(
 		snapshotFunctions[layout.id] = new Function(
 			"snapshots",
 			"matches",
+			"layouts",
+			"mapEntries",
 			`return function snapshotSchemaValue(value,documentRoot=false) {${snapshotSource(layout)}}`,
-		)(snapshotFunctions, matchFunctions) as (
+		)(snapshotFunctions, matchFunctions, layouts, mapEntries) as (
 			value: unknown,
 			documentRoot?: boolean,
 		) => unknown;
@@ -646,12 +707,14 @@ export function compilePulseSchema<S extends Schema>(
 			"codecs",
 			"isRecord",
 			"assertTreeStructure",
+			"layouts",
 			`return function matchesSchemaValue(value,stack) {${layout.treeRole ? `if(value!==undefined){try{assertTreeStructure(value,${JSON.stringify(layout.treeRole)});}catch{return false;}}` : ""}${matchSource(layout)}}`,
 		)(
 			matchFunctions,
 			layouts.map((entry) => entry.codec),
 			isRecord,
 			assertTreeStructure,
+			layouts,
 		) as (value: unknown, stack: WeakSet<object>) => boolean;
 	}
 	const cyclic = cyclicLayouts(layouts);
@@ -660,10 +723,11 @@ export function compilePulseSchema<S extends Schema>(
 			"prepares",
 			"layouts",
 			"helpers",
-			`const {RichTextSymbol,PlainTextSymbol,TreeSymbol,PulseRefSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
+			`const {RichTextSymbol,PlainTextSymbol,CounterSymbol,TreeSymbol,PulseRefSymbol,PulseMetaSymbol,assertTreeStructure,recordMarker,prepareFallback,prepareExtra,assertKey}=helpers;return function prepareCompiled(value,ctx,initialDepth,skipMarkers){${prepareSource(layout, cyclic)}}`,
 		)(prepareFunctions, layouts, {
 			RichTextSymbol,
 			PlainTextSymbol,
+			CounterSymbol,
 			TreeSymbol,
 			PulseRefSymbol,
 			PulseMetaSymbol,
@@ -689,7 +753,7 @@ export function compilePulseSchema<S extends Schema>(
 			if (current.kind === "object") {
 				field = current.fieldsByKey.get(String(key));
 				current = field?.layout;
-			} else if (current.kind === "array" || current.kind === "map") {
+			} else if (current.kind === "array" || isKeyed(current)) {
 				if (current.kind === "array" && key !== "*" && !isArrayIndex(key))
 					return undefined;
 				current = current.element;
@@ -765,6 +829,28 @@ function assertSchemaProperty(key: string): void {
 		);
 }
 
+/** A record or a map: one register per key, every value of one layout. */
+export function isKeyed(
+	layout: PulseLayout | undefined,
+): layout is PulseLayout & { readonly element: PulseLayout } {
+	return layout?.kind === "record" || layout?.kind === "map";
+}
+
+const mapLayouts = new WeakMap<PulseLayout, boolean>();
+/** Whether stored values of this layout differ from public ones: a map is below. */
+export function containsMap(layout: PulseLayout): boolean {
+	let known = mapLayouts.get(layout);
+	if (known === undefined) {
+		const seen = new Set<PulseLayout>();
+		const visit = (current: PulseLayout): boolean =>
+			current.kind === "map" ||
+			(!seen.has(current) &&
+				(seen.add(current), layoutChildren(current).some(visit)));
+		mapLayouts.set(layout, (known = visit(layout)));
+	}
+	return known;
+}
+
 function unwrapOptional(layout: PulseLayout): PulseLayout {
 	while (layout.kind === "optional" && layout.value) layout = layout.value;
 	return layout;
@@ -821,7 +907,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 		!Array.isArray(value) &&
 		!(value instanceof Date) &&
 		!(value instanceof Uint8Array) &&
-		!(value instanceof Set)
+		!(value instanceof Set) &&
+		!(value instanceof Map)
 	);
 }
 
@@ -843,8 +930,11 @@ function matchSource(layout: PulseLayout): string {
 			)}`;
 		case "array":
 			return `if(!Array.isArray(value)) return false;${guardCycle(`for(let i=0;i<value.length;i++) if(!Object.hasOwn(value,i)||!${matchAt(layout.element!, "value[i]")}) return false;return true;`)}`;
-		case "map":
+		case "record":
 			return `if(!isRecord(value)) return false;${guardCycle(`for(const key of Object.keys(value)) if(!${matchAt(layout.element!, "value[key]")}) return false;return true;`)}`;
+		case "map":
+			// A stored map is a record of canonical keys; any other spelling fails.
+			return `if(!isRecord(value)) return false;${guardCycle(`try{for(const key of Object.keys(value)){layouts[${layout.id}].key.decode(key);if(!${matchAt(layout.element!, "value[key]")}) return false;}}catch{return false;}return true;`)}`;
 		case "set":
 			return `if(!(value instanceof Set)) return false;${guardCycle(`for(const item of value) if(!${matchAt(layout.element!, "item")}) return false;return true;`)}`;
 		case "tuple":
@@ -873,7 +963,9 @@ function matchSource(layout: PulseLayout): string {
 		case "float32":
 			return 'return typeof value === "number" && Number.isFinite(Math.fround(value));';
 		case "float64":
-			return 'return typeof value === "number" && Number.isFinite(value);';
+			return layout.counter
+				? "return Number.isSafeInteger(value);"
+				: 'return typeof value === "number" && Number.isFinite(value);';
 		case "boolean":
 			return `return typeof value === ${JSON.stringify(layout.kind)};`;
 		case "string":
@@ -908,6 +1000,7 @@ function cloneSource(layout: PulseLayout, literals: unknown[]): string {
 				.join(",")}};`;
 		case "array":
 			return `const result = new Array(value.length);for(let i=0;i<value.length;i++) result[i]=${cloneAt(layout.element!, "value[i]")};return result;`;
+		case "record":
 		case "map":
 			return `const result = {};for(const key of Object.keys(value)) Object.defineProperty(result,key,{value:${cloneAt(layout.element!, "value[key]")},enumerable:true,writable:true,configurable:true});return result;`;
 		case "set":
@@ -978,14 +1071,24 @@ function snapshotSource(layout: PulseLayout): string {
 					const expression = `value[${JSON.stringify(key)}]`;
 					return `[${JSON.stringify(key)}]:${field ? snapshotAt(field.layout, expression) : expression}`;
 				});
-				return `if(${shape})return structuredClone(value);return {${entries.join(",")}};`;
+				// Stored data whose keys moved is copied as it is, except the fields
+				// holding a map, whose public form differs from the stored one.
+				const mapped = layout.fields.filter((field) =>
+					containsMap(field.layout),
+				);
+				const copy = mapped.length
+					? `{const copy={};for(const key of keys)switch(key){${mapped.map((field) => `case ${JSON.stringify(field.key)}:copy[key]=${snapshotAt(field.layout, "value[key]")};break;`).join("")}default:copy[key]=structuredClone(value[key]);}return copy;}`
+					: "return structuredClone(value);";
+				return `if(${shape})${copy}return {${entries.join(",")}};`;
 			};
 			return `const keys=Object.keys(value);${metadata.length ? `if(documentRoot){${objectSource([...fields, ...metadata])}}` : ""}${objectSource(fields)}`;
 		}
 		case "array":
 			return `const result=new Array(value.length);for(let i=0;i<value.length;i++)result[i]=${snapshotAt(layout.element!, "value[i]")};return result;`;
-		case "map":
+		case "record":
 			return `const result={};for(const key of Object.keys(value))Object.defineProperty(result,key,{value:${snapshotAt(layout.element!, "value[key]")},enumerable:true,writable:true,configurable:true});return result;`;
+		case "map":
+			return `const result=new Map();for(const entry of mapEntries(layouts[${layout.id}].key,value))result.set(entry[0],${snapshotAt(layout.element!, "value[entry[1]]")});return result;`;
 		case "set":
 			return `const result=new Set();for(const item of value)result.add(${snapshotAt(layout.element!, "item")});return result;`;
 		case "tuple":
@@ -1234,7 +1337,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 			depth = fresh("depth");
 		const fail = `throw new TypeError(${JSON.stringify(`Value does not match pulse schema layout ${layout.id} (${layout.kind})`)})`;
 		let code = `let ${value}=${input};let ${depth}=${initialDepth};if(${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");`;
-		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});if(!${value}[PlainTextSymbol])recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");}}}`;
+		const markerCode = `if(${value}!==null&&typeof ${value}==="object"){if(${value}[TreeSymbol])${value}=${value}.snapshot();else if(${value}[CounterSymbol])${value}=${value}.value;if(${value}[RichTextSymbol]){const wrappers=new Set();while(${value}!==null&&typeof ${value}==="object"&&${value}[RichTextSymbol]){if(wrappers.has(${value}))throw new TypeError("Pulse values cannot contain cycles");wrappers.add(${value});if(!${value}[PlainTextSymbol])recordMarker(ctx,true);${value}=${value}.text;if(++${depth}>32)throw new TypeError("Pulse values may nest at most 32 levels");}}}`;
 		if (mode === "yes") code += markerCode;
 		else if (mode === "conditional") code += `if(!skipMarkers){${markerCode}}`;
 		const next = new Map(active);
@@ -1303,13 +1406,28 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 				}
 				break;
 			}
-			case "map": {
+			case "record": {
 				const keys = fresh("keys"),
 					key = fresh("key");
 				const fragment = child(layout.element!, `${value}[${key}]`, key);
 				body =
 					plainRecordCheck(value, fail) +
 					`const ${keys}=Object.keys(${value});ctx.keyOrders[ctx.path.length]=${keys};${result}={};for(const ${key} of ${keys}){assertKey(${key});${fragment.code}${result}[${key}]=${fragment.value};}`;
+				break;
+			}
+			case "map": {
+				// A Map is the public form; a record of canonical keys is the stored
+				// one, which arrives here when a prepared value is normalized again.
+				const keys = fresh("keys"),
+					key = fresh("key"),
+					source = fresh("source");
+				const fragment = child(layout.element!, `${source}[${key}]`, key);
+				const mapKey = `layouts[${layout.id}].key`;
+				body =
+					`let ${source}=${value};if(${value} instanceof Map){${source}={};for(const entry of ${value})${source}[${mapKey}.encode(entry[0])]=entry[1];}else{` +
+					plainRecordCheck(value, fail) +
+					`for(const ${key} of Object.keys(${value}))${mapKey}.decode(${key});}` +
+					`const ${keys}=Object.keys(${source});ctx.keyOrders[ctx.path.length]=${keys};${result}={};for(const ${key} of ${keys}){${fragment.code}${result}[${key}]=${fragment.value};}`;
 				break;
 			}
 			case "optional": {
@@ -1362,7 +1480,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 				body = `if(typeof ${value}!=="number"||!Number.isFinite(Math.fround(${value})))${fail};${result}=${value}===0?0:Math.fround(${value});`;
 				break;
 			case "float64":
-				body = `if(typeof ${value}!=="number"||!Number.isFinite(${value}))${fail};${result}=${value}===0?0:${value};`;
+				body = `if(${layout.counter ? `!Number.isSafeInteger(${value})` : `typeof ${value}!=="number"||!Number.isFinite(${value})`})${fail};${result}=${value}===0?0:${value};`;
 				break;
 			case "uint8Array":
 				body = `if(!(${value} instanceof Uint8Array))${fail};${result}=new Uint8Array(${value});`;
@@ -1373,7 +1491,7 @@ function prepareSource(root: PulseLayout, cyclic: ReadonlySet<number>): string {
 		code += `let ${result};`;
 		if (
 			cyclic.has(layout.id) &&
-			["object", "array", "map", "tuple"].includes(layout.kind)
+			["object", "array", "record", "map", "tuple"].includes(layout.kind)
 		) {
 			const ancestors = fresh("ancestors");
 			code += `const ${ancestors}=ctx.ancestors??(ctx.ancestors=new Set());if(${ancestors}.has(${value}))throw new TypeError("Pulse values cannot contain cycles");${ancestors}.add(${value});try{${body}}finally{${ancestors}.delete(${value});}`;
@@ -1397,6 +1515,7 @@ function shallowSource(layout: PulseLayout): string {
 	const fail = `throw new TypeError(${JSON.stringify(`Value does not match pulse schema layout ${layout.id} (${layout.kind})`)})`;
 	switch (layout.kind) {
 		case "object":
+		case "record":
 		case "map":
 			return `${plainRecordCheck("value", fail)}return value;`;
 		case "array":
@@ -1443,7 +1562,7 @@ function shallowSource(layout: PulseLayout): string {
 		case "float32":
 			return `if(typeof value!=="number"||!Number.isFinite(Math.fround(value)))${fail};return value;`;
 		case "float64":
-			return `if(typeof value!=="number"||!Number.isFinite(value))${fail};return value;`;
+			return `if(${layout.counter ? "!Number.isSafeInteger(value)" : 'typeof value!=="number"||!Number.isFinite(value)'})${fail};return value;`;
 		case "uint8Array":
 			return `if(!(value instanceof Uint8Array))${fail};return value;`;
 		case "date":
@@ -1457,6 +1576,13 @@ function shallowSource(layout: PulseLayout): string {
 	}
 }
 
+/** Codec 3 renamed string-keyed maps to records; identities keep the old name. */
+const fingerprintKind = (layout: PulseLayout): string =>
+	layout.kind === "record"
+		? "map"
+		: layout.key
+			? `map:${layout.key.kind}`
+			: layout.kind;
 const fingerprints = new WeakMap<object, string>();
 const literalFingerprintCodec = createCodec("unknown");
 const fingerprintCodec = createCodec(
@@ -1521,13 +1647,21 @@ export function schemaFingerprint<S extends Schema>(
 		layouts: compiled.layouts.map((layout) => {
 			const descriptor = resolveSchema(layout.schema);
 			return {
-				kind: layout.treeRole
-					? `tree:${layout.treeRole}`
-					: layout.frozen
-						? `frozen:${layout.kind}`
-						: layout.plainText
-							? `plainText:${layout.kind}`
-							: layout.kind,
+				kind:
+					(layout.timestamps
+						? "timed:"
+						: layout.versioned
+							? "versioned:"
+							: "") +
+					(layout.treeRole
+						? `tree:${layout.treeRole}`
+						: layout.frozen
+							? `frozen:${fingerprintKind(layout)}`
+							: layout.plainText
+								? `plainText:${fingerprintKind(layout)}`
+								: layout.counter
+									? `counter:${fingerprintKind(layout)}`
+									: fingerprintKind(layout)),
 				constant: layout.constant,
 				richText: layout.richText,
 				keys: layout.fields.map((field) => field.key),
