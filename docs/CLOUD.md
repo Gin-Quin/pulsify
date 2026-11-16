@@ -111,22 +111,35 @@ The `prefix` filter keeps grants whose prefix it covers. Bodies are limited to
 
 ### Deleting documents
 
-`DELETE …/documents?docId=` erases the document and every document it covers
-(`u1/a` covers `u1/a/b`, never `u1/ab`): their rows and the grants whose
-prefix it covers. `deleted` counts the documents that had rows. Every
-subscription to an erased document ends: the socket receives an error frame
-`NOT_FOUND` with request ID 0 for that document, and its other documents are
-untouched. `NOT_FOUND` is not retryable, so the reference client stops the
-pulse instead of uploading the document again.
+`DELETE …/documents?docId=` permanently retires that document ID and every
+`docId/…` descendant. It erases their operation data and grants and leaves a
+durable prefix tombstone. The operation is idempotent, including when no data
+has arrived yet. `deleted` counts documents whose stored data was erased.
+Removing a reference alone does not delete its target.
+Protection applies to deletions recorded by version 14 or later. Previously erased
+IDs can be retired by deleting them again, even if they currently contain no rows.
 
-Erasing the root document erases the root. On Cloudflare the object then
-closes its sockets with 1000 and deletes its storage and its alarm, which
-deletes the Durable Object; a later request starts an empty root.
+A covered ID can never be reused. A new document needs a new ID. This includes
+root names: deleting `alice` permanently retires that namespace. Tombstones have
+no expiry and survive compaction, restart and Durable Object hibernation.
+Cloudflare closes a deleted root's sockets and cancels its alarm but retains
+its storage and tombstone. Restoring a backup from before a deletion also
+restores the earlier lifecycle state; keep backups consistent with deletion policy.
 
-The server keeps no tombstone: a client that still holds an erased document
-and may write it (a grant on a parent prefix) uploads it again the next time it
-connects. Delete it on the clients too, or revoke the grants that cover it.
-The Unikraft Cloud server does not delete documents yet.
+Reads and uploads to deleted IDs fail with a terminal `NOT_FOUND` error frame,
+never an empty `found:false` sync that would invite an upload. Even unseen
+descendants created offline are rejected. Permission checks still happen first;
+a user whose grants were removed may see `FORBIDDEN`. New grants beneath a
+retired prefix are rejected. The server never edits references in parent documents.
+
+Updated clients stop the document and remember authoritative deletion in local
+stores. They preserve local operations for explicit recovery (`recoverRows` on
+SQLite/IndexedDB, `recover_rows` on native stores) and keep an already loaded
+pulse readable through `snapshotPulse`. Normal loading and editing are blocked.
+Copy recovered content into a new ID to publish it again. A normally absent
+document, or a failure from an arbitrary peer, is not proof of permanent deletion.
+Offline devices learn deletion when they next contact the authority; a server
+cannot invalidate an unreachable device immediately.
 
 ## WebSocket sessions
 
@@ -222,7 +235,7 @@ closes an idle socket after `lingerMs`.
 
 Presence is a capability: a backend that relays it says `presence: true` in
 its welcome, and the conformance suite checks it only then. The Cloudflare
-backend does; the Unikraft Cloud server does not yet.
+backend does.
 
 Presence frames (kind 7 of [PROTOCOL.md](PROTOCOL.md#presence-kind-7)) follow
 the subscriptions of the socket, not the socket itself:
@@ -290,3 +303,55 @@ Objects are reachable only through the binding and trust these headers.
 A breaking change to routes, subprotocols, control messages or grant semantics
 increments the session protocol (`pulsify-cloud.2.*`) and Pulsify's major
 version. Changes to the frames themselves follow [PROTOCOL.md](PROTOCOL.md).
+
+### Initial subtree prefetch
+
+A welcome with `subtrees:true` advertises streamed initial data fetches. A client
+may send `{type:"fetch",docId,requestId,descendants,vectors}` over its root's
+socket, where `vectors` is an array of `[docId,versionVector]` and request IDs
+are in the reserved range `[2^52, 2^53-1]`. Ordinary per-document sync requests
+use lower IDs. Control messages are bounded to 64 KiB. Vectors are optional
+bandwidth hints: the connector omits excess hints to fit that control message,
+and the server sends complete history for documents without a hint.
+
+The server sends role messages and ordinary binary sync frames carrying that
+request ID, then `{type:"fetched",requestId,complete}`. A single request fetches
+one document (`descendants:false`) or its ID-prefix subtree (`true`), without
+parents or siblings. There is no total document or byte cutoff. The server
+pages through document IDs internally, with 128 IDs per storage query, and
+sends ordinary bounded binary frames. Transport windows target 64 frames or
+1 MiB (one valid protocol frame may exceed that byte target). Before sending
+the next window it sends `{type:"fetch-batch",requestId,batch}` and waits for
+`{type:"fetch-ack",requestId,batch}`. These acknowledgements apply flow control
+to the same request; the client never has to request another page.
+
+Other reads, writes, deletions and grant changes can run between windows.
+Authorization and tombstones are rechecked before sending more data. A child
+deleted halfway through a document is reported with a `NOT_FOUND` frame for
+that child, and its buffered rows are discarded without retiring its parent.
+Deleting the requested document or revoking access terminates the fetch.
+`{type:"cancel-fetch",requestId}` or disconnecting releases pending work.
+The server stops a transfer whose window remains unacknowledged for 30 seconds.
+The connector's `timeoutMs` is an inactivity timeout during transfer, not a
+limit on its total duration. There is no cross-document transaction guarantee;
+each document keeps its own causal vector.
+
+The cloud connector exposes `prefetch(docId,{descendants,vectors})`, returning
+`{documents,complete:true}` after the whole fetch succeeds; interruptions reject
+instead of silently returning a truncated result. This collecting API retains
+the returned rows in client memory. Server reads and response construction still
+buffer one document's missing history at a time; a bounded transport window is
+not a bound on the size of an individual document in memory.
+`loadPulse` uses it automatically for cold eager subtree
+loading, applies cached rows only to references it actually visits and falls
+back to ordinary loads for out-of-prefix documents and old servers.
+Unreferenced descendants may be prefetched but are not instantiated. Explicit
+per-document connects install subscriptions and retrieve writes made after
+prefetch. Role listeners notify when a role changes, including its first value.
+
+Local cache presence is checked first so a cached document stays available offline.
+Connectors without a cache-presence capability retain the ordinary local-first path.
+
+Cloud deletion is an authorized management operation. Directly marking a local
+store deleted does not issue a cloud deletion request; apps queue offline
+management actions themselves and submit them when connectivity returns.

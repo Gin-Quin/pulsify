@@ -830,3 +830,19 @@ Frames are canonical: integers are minimal varints, unknown flags, an empty
 flagged vector, a zero flagged request ID, a flagged vector equal to the derived
 one and an unflagged integer value are rejected, as are trailing bytes. The
 frame, vector and expanded payload bounds of envelope 2 apply.
+
+## Permanent deletion (Pulsify 14)
+
+Permanent deletion belongs to a store's document lifecycle, outside CRDT values.
+A durable prefix tombstone excludes a document and every slash-separated descendant,
+including IDs first uploaded after deletion. The ID cannot be reused. A connect
+or upload to such an ID returns the existing kind-6 `NOT_FOUND` error, not a
+kind-2 `found:false` response. No new binary envelope or operation encoding is
+required. Ordinary absent documents still have empty vectors and can be created.
+
+A client may persist a deletion marker only on an authoritative deletion signal
+(`Connector.authoritativeDeletions`), never from its locally inferred `NOT_FOUND`
+after all connectors reported absence. It stops synchronization and mutation,
+preserves local recovery data and excludes deleted handles from normal reference
+resolution. A dangling parent reference remains a valid CRDT value. Tombstones
+must survive storage cleanup, and backups restoring older state can undo deletion.

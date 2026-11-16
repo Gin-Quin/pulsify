@@ -1,3 +1,8 @@
+import {
+	coversDocument,
+	documentPrefixes,
+	deletedDocument,
+} from "./documents.js";
 import { PulseError } from "../protocol/errors.js";
 import { validateDocId } from "../protocol/validateDocId.js";
 import { MAX_VECTOR_ENTRIES } from "../protocol/limits.js";
@@ -14,7 +19,7 @@ import {
 	rowsFromFrame,
 	validateRows,
 	type AppendResult,
-	type PatchStore,
+	type DocumentStore,
 	type StoredPatchRow,
 } from "./rows.js";
 
@@ -129,6 +134,7 @@ function unpackAll(row: RecordRow): StoredPatchRow[] {
 }
 
 export const SQLITE_PATCH_SCHEMA: string = `
+CREATE TABLE IF NOT EXISTS pulsify_tombstones (prefix TEXT PRIMARY KEY) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, time_start INTEGER NOT NULL,
  span INTEGER NOT NULL CHECK(span > 0), time_end INTEGER GENERATED ALWAYS AS (time_start + span) STORED,
@@ -213,7 +219,7 @@ export type SqlitePatchStoreOptions = {
 };
 
 /** Writes only indexed operation metadata and opaque bytes; never materializes a document. */
-export class SqlitePatchStore implements PatchStore {
+export class SqlitePatchStore implements DocumentStore {
 	private readonly vectors = new Map<string, PulseVersionVector>();
 	private readonly vectorCacheSize: number;
 	constructor(
@@ -252,10 +258,17 @@ export class SqlitePatchStore implements PatchStore {
 		return this.append(rowsFromFrame(frame));
 	}
 	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
+		return this.appendRows(rows);
+	}
+	private appendRows(
+		rows: readonly StoredPatchRow[],
+		recovery = false,
+	): AppendResult {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
 		const result = this.db
 			.transaction(() => {
+				if (!recovery) this.assertLive(docId);
 				const get = this.db.query(
 					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start=?",
 				);
@@ -576,6 +589,7 @@ export class SqlitePatchStore implements PatchStore {
 	}
 	async vector(docId: string): Promise<PulseVersionVector> {
 		validateDocId(docId);
+		this.assertLive(docId);
 		const cached = this.vectors.get(docId);
 		if (cached) {
 			this.vectors.delete(docId);
@@ -590,13 +604,27 @@ export class SqlitePatchStore implements PatchStore {
 	 * Erase a document and its sub-documents (`docId/…`): their rows and
 	 * vectors. Resolves to how many documents had rows.
 	 */
-	async deleteDocuments(docId: string): Promise<number> {
+	async deleteDocuments(
+		docId: string,
+		options: { preserveRows?: boolean } = {},
+	): Promise<number> {
 		validateDocId(docId);
 		// TEXT compares bytewise: `docId/…` sorts between `docId/` and `docId0`.
 		const where = "doc_id=? OR (doc_id>=? AND doc_id<?)";
 		const bindings = [docId, `${docId}/`, `${docId}0`];
 		const deleted = this.db
 			.transaction(() => {
+				if (!this.deleted(docId)) {
+					this.db
+						.query(
+							`DELETE FROM pulsify_tombstones WHERE prefix=? OR (prefix>=? AND prefix<?)`,
+						)
+						.run(...bindings);
+					this.db
+						.query("INSERT INTO pulsify_tombstones(prefix) VALUES(?)")
+						.run(docId);
+				}
+				if (options.preserveRows) return 0;
 				const { documents } = this.db
 					.query(
 						`SELECT COUNT(*) AS documents FROM (SELECT doc_id FROM pulsify_op_rows WHERE ${where} UNION SELECT doc_id FROM pulsify_values WHERE ${where})`,
@@ -612,11 +640,113 @@ export class SqlitePatchStore implements PatchStore {
 			})
 			.immediate();
 		for (const cached of [...this.vectors.keys()])
-			if (cached === docId || cached.startsWith(`${docId}/`))
-				this.vectors.delete(cached);
+			if (coversDocument(docId, cached)) this.vectors.delete(cached);
 		return deleted;
 	}
+	/** Atomically retain an in-memory replica before marking its subtree deleted. */
+	async markDeleted(
+		docId: string,
+		recovery: readonly StoredPatchRow[] = [],
+	): Promise<void> {
+		validateDocId(docId);
+		const groups = new Map<string, StoredPatchRow[]>();
+		try {
+			for (const row of recovery) {
+				if (!coversDocument(docId, row.docId))
+					throw new PulseError(
+						"INVALID_MESSAGE",
+						"Recovery row outside deleted subtree",
+					);
+				const group = groups.get(row.docId) ?? [];
+				group.push(row);
+				groups.set(row.docId, group);
+			}
+			this.db
+				.transaction(() => {
+					for (const [id, rows] of groups) {
+						// Recovery may add retained rows, but never clears an existing marker.
+						this.vectors.delete(id);
+						for (let i = 0; i < rows.length; i += 4096)
+							this.appendRows(rows.slice(i, i + 4096), true);
+					}
+					if (!this.deleted(docId)) {
+						this.db
+							.query(
+								"DELETE FROM pulsify_tombstones WHERE prefix>=? AND prefix<?",
+							)
+							.run(`${docId}/`, `${docId}0`);
+						this.db
+							.query("INSERT INTO pulsify_tombstones(prefix) VALUES(?)")
+							.run(docId);
+					}
+				})
+				.immediate();
+		} finally {
+			await this.deleteDocuments(docId, { preserveRows: true });
+			for (const cached of [...this.vectors.keys()])
+				if (coversDocument(docId, cached)) this.vectors.delete(cached);
+		}
+	}
+	private deleted(docId: string): boolean {
+		const get = this.db.query(
+			"SELECT 1 FROM pulsify_tombstones WHERE prefix=?",
+		);
+		return documentPrefixes(docId).some((prefix) => !!get.get(prefix));
+	}
+	private assertLive(docId: string): void {
+		if (this.deleted(docId)) throw deletedDocument(docId);
+	}
+	async isDeleted(docId: string): Promise<boolean> {
+		return this.deleted(docId);
+	}
+	/** Read retained local data explicitly, without making a deleted ID live again. */
+	async recoverRows(docId: string): Promise<StoredPatchRow[]> {
+		this.vectors.delete(docId);
+		return this.readMissing(docId, []);
+	}
+	async documents(docId: string, after = "", limit = 256): Promise<string[]> {
+		this.assertLive(docId);
+		if (!Number.isSafeInteger(limit) || limit < 1 || limit > 4096)
+			throw new RangeError("Invalid document limit");
+		const result: string[] = [];
+		if (
+			this.db
+				.query(
+					"SELECT 1 FROM pulsify_doc_clocks WHERE doc_id=? AND doc_id>? LIMIT 1",
+				)
+				.get(docId, after)
+		)
+			result.push(docId);
+		// Separate exact-ID and descendant ranges avoid scanning siblings. Seek
+		// from the last candidate on every page, including retained/deleted IDs.
+		const query = this.db.query(`SELECT DISTINCT doc_id FROM pulsify_doc_clocks
+      WHERE doc_id>=MAX(?,?) AND doc_id<? AND doc_id>?
+      ORDER BY doc_id LIMIT ?`);
+		let cursor = after;
+		while (result.length < limit) {
+			const candidates = query.all(
+				`${docId}/`,
+				cursor,
+				`${docId}0`,
+				cursor,
+				limit - result.length,
+			) as { doc_id: string }[];
+			if (!candidates.length) break;
+			for (const { doc_id: id } of candidates)
+				// Indexed point lookups per ancestor, independent of marker count.
+				if (!this.deleted(id)) result.push(id);
+			cursor = candidates.at(-1)!.doc_id;
+		}
+		return result;
+	}
 	async missing(
+		docId: string,
+		remote: PulseVersionVector,
+	): Promise<StoredPatchRow[]> {
+		this.assertLive(docId);
+		return this.readMissing(docId, remote);
+	}
+	private async readMissing(
 		docId: string,
 		remote: PulseVersionVector,
 	): Promise<StoredPatchRow[]> {

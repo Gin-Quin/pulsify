@@ -1,4 +1,5 @@
 use crate::{Error, Result};
+use pulsify_protocol::{document_prefixes, DocumentStore};
 use pulsify_protocol::{
     is_gap, last_register_of, validate_rows, validate_vector, AppendResult, PatchRow, PatchStore,
     VersionVector, GAP_OPERATIONS, MAX_VECTOR_ENTRIES,
@@ -12,6 +13,7 @@ use std::time::Duration;
 
 /// Byte-for-byte `SQLITE_PATCH_SCHEMA` from `pulsify-core/storage`.
 pub const SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS pulsify_tombstones (prefix TEXT PRIMARY KEY) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  doc_id TEXT NOT NULL, sid INTEGER NOT NULL, time_start INTEGER NOT NULL,
  span INTEGER NOT NULL CHECK(span > 0), time_end INTEGER GENERATED ALWAYS AS (time_start + span) STORED,
@@ -110,6 +112,42 @@ impl SqliteStore {
         }
         Ok(Self { db })
     }
+    /// Retain local recovery data and permanently block the prefix, in one transaction.
+    pub fn mark_deleted(&mut self, doc_id: &str, frames: &[Vec<u8>]) -> Result<()> {
+        validate_doc_id(doc_id)?;
+        let result = (|| -> Result<()> {
+            let tx = self
+                .db
+                .transaction_with_behavior(TransactionBehavior::Immediate)?;
+            for frame in frames {
+                let message = pulsify_protocol::decode(frame)?;
+                if !pulsify_protocol::covers_document(doc_id, &message.doc_id) {
+                    return Err(Error::new(
+                        "INVALID_MESSAGE",
+                        "Recovery row outside deleted subtree",
+                    ));
+                }
+                let pulsify_protocol::Body::SyncBack { rows, .. } = message.body else {
+                    return Err(Error::new("INVALID_MESSAGE", "Invalid recovery frame"));
+                };
+                if !rows.is_empty() {
+                    append_rows(&tx, &message.doc_id, &rows)?;
+                }
+            }
+            if !is_deleted(&tx, doc_id)? {
+                tx.execute(
+                    "DELETE FROM pulsify_tombstones WHERE prefix>=?1 AND prefix<?2",
+                    params![format!("{doc_id}/"), format!("{doc_id}0")],
+                )?;
+                tx.execute("INSERT INTO pulsify_tombstones(prefix) VALUES(?)", [doc_id])?;
+            }
+            tx.commit()?;
+            Ok(())
+        })();
+        // Even failed recovery must not make an authoritatively deleted ID live.
+        self.delete_documents(doc_id, true)?;
+        result
+    }
     pub fn connection(&self) -> &Connection {
         &self.db
     }
@@ -123,6 +161,7 @@ impl SqliteStore {
         let tx = self
             .db
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        assert_live(&tx, doc_id)?;
         let result = append_rows(&tx, doc_id, rows)?;
         tx.commit()?;
         Ok(result)
@@ -130,6 +169,7 @@ impl SqliteStore {
 
     pub fn vector(&self, doc_id: &str) -> Result<VersionVector> {
         validate_doc_id(doc_id)?;
+        assert_live(&self.db, doc_id)?;
         read_vector(&self.db, doc_id)
     }
 
@@ -137,6 +177,7 @@ impl SqliteStore {
     pub fn missing(&self, doc_id: &str, remote: &VersionVector) -> Result<Vec<PatchRow>> {
         validate_doc_id(doc_id)?;
         validate_vector(remote)?;
+        assert_live(&self.db, doc_id)?;
         read_missing(&self.db, doc_id, remote)
     }
 
@@ -149,10 +190,106 @@ impl SqliteStore {
         validate_doc_id(doc_id)?;
         validate_vector(remote)?;
         let tx = self.db.transaction()?;
+        assert_live(&tx, doc_id)?;
         let rows = read_missing(&tx, doc_id, remote)?;
         let vector = read_vector(&tx, doc_id)?;
         tx.commit()?;
         Ok((rows, vector))
+    }
+}
+
+fn is_deleted(db: &Connection, doc_id: &str) -> Result<bool> {
+    validate_doc_id(doc_id)?;
+    let mut get = db.prepare_cached("SELECT 1 FROM pulsify_tombstones WHERE prefix=?")?;
+    for prefix in document_prefixes(doc_id) {
+        if get.exists([prefix])? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+fn assert_live(db: &Connection, doc_id: &str) -> Result<()> {
+    if is_deleted(db, doc_id)? {
+        return Err(Error::new(
+            "NOT_FOUND",
+            format!("Document {doc_id} was permanently deleted"),
+        ));
+    }
+    Ok(())
+}
+impl DocumentStore for SqliteStore {
+    fn is_deleted(&self, doc_id: &str) -> Result<bool> {
+        is_deleted(&self.db, doc_id)
+    }
+    fn delete_documents(&mut self, doc_id: &str, preserve_rows: bool) -> Result<usize> {
+        validate_doc_id(doc_id)?;
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let lower = format!("{doc_id}/");
+        let upper = format!("{doc_id}0");
+        if !is_deleted(&tx, doc_id)? {
+            tx.execute(
+                "DELETE FROM pulsify_tombstones WHERE prefix=?1 OR (prefix>=?2 AND prefix<?3)",
+                params![doc_id, lower, upper],
+            )?;
+            tx.execute("INSERT INTO pulsify_tombstones(prefix) VALUES(?)", [doc_id])?;
+        }
+        let mut count = 0;
+        if !preserve_rows {
+            count = tx.query_row("SELECT COUNT(*) FROM (SELECT doc_id FROM pulsify_op_rows WHERE doc_id=?1 OR (doc_id>=?2 AND doc_id<?3) UNION SELECT doc_id FROM pulsify_values WHERE doc_id=?1 OR (doc_id>=?2 AND doc_id<?3))", params![doc_id, lower, upper], |r| r.get::<_, i64>(0))? as usize;
+            for table in ["pulsify_op_rows", "pulsify_values", "pulsify_doc_clocks"] {
+                tx.execute(
+                    &format!("DELETE FROM {table} WHERE doc_id=?1 OR (doc_id>=?2 AND doc_id<?3)"),
+                    params![doc_id, lower, upper],
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(count)
+    }
+    fn recover_rows(&self, doc_id: &str) -> Result<Vec<PatchRow>> {
+        validate_doc_id(doc_id)?;
+        read_missing(&self.db, doc_id, &vec![])
+    }
+    fn documents(&self, doc_id: &str, after: &str, limit: usize) -> Result<Vec<String>> {
+        assert_live(&self.db, doc_id)?;
+        if limit == 0 || limit > 4096 {
+            return Err(Error::new("INVALID_MESSAGE", "Invalid document limit"));
+        }
+        let mut result = Vec::new();
+        if self
+            .db
+            .prepare_cached(
+                "SELECT 1 FROM pulsify_doc_clocks WHERE doc_id=?1 AND doc_id>?2 LIMIT 1",
+            )?
+            .exists(params![doc_id, after])?
+        {
+            result.push(doc_id.to_owned());
+        }
+        // Range seeks plus indexed ancestor lookups: never scan the tombstone table.
+        let lower = format!("{doc_id}/");
+        let upper = format!("{doc_id}0");
+        let mut cursor = after.to_owned();
+        let mut query = self.db.prepare_cached("SELECT DISTINCT doc_id FROM pulsify_doc_clocks WHERE doc_id>=MAX(?1,?2) AND doc_id<?3 AND doc_id>?2 ORDER BY doc_id LIMIT ?4")?;
+        while result.len() < limit {
+            let candidates = query
+                .query_map(
+                    params![lower, cursor, upper, (limit - result.len()) as i64],
+                    |r| r.get::<_, String>(0),
+                )?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            let Some(last) = candidates.last() else {
+                break;
+            };
+            cursor = last.clone();
+            for id in candidates {
+                if !is_deleted(&self.db, &id)? {
+                    result.push(id);
+                }
+            }
+        }
+        Ok(result)
     }
 }
 
@@ -808,6 +945,53 @@ pub(crate) mod tests {
 
     pub const A: u64 = 65536;
     pub const B: u64 = 65537;
+
+    #[test]
+    fn subtree_listing_uses_indexed_tombstone_checks() {
+        let mut store = SqliteStore::open_in_memory().unwrap();
+        let tx = store.db.transaction().unwrap();
+        {
+            let mut marker = tx
+                .prepare("INSERT INTO pulsify_tombstones(prefix) VALUES(?)")
+                .unwrap();
+            let mut clock = tx
+                .prepare("INSERT INTO pulsify_doc_clocks(doc_id,sid,clock) VALUES(?,?,2)")
+                .unwrap();
+            for i in 0..10_000 {
+                marker.execute([format!("r/dead/{i}")]).unwrap();
+            }
+            for i in 0..100 {
+                clock
+                    .execute(params![format!("r/dead/{i}/child"), A as i64])
+                    .unwrap();
+            }
+            for i in 0..2000 {
+                for sid in [A, B] {
+                    clock
+                        .execute(params![format!("r/live/{i:04}"), sid as i64])
+                        .unwrap();
+                }
+            }
+        }
+        tx.commit().unwrap();
+        let started = std::time::Instant::now();
+        let mut found = Vec::new();
+        loop {
+            let after = found.last().map(String::as_str).unwrap_or("");
+            let page = store.documents("r", after, 128).unwrap();
+            if page.is_empty() {
+                break;
+            }
+            found.extend(page);
+        }
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert_eq!(
+            found,
+            (0..2000)
+                .map(|i| format!("r/live/{i:04}"))
+                .collect::<Vec<_>>()
+        );
+    }
 
     pub fn row(sid: u64, clock: u64, span: u64, dependencies: &[(u64, u64)]) -> PatchRow {
         PatchRow {

@@ -1,7 +1,10 @@
 import type { Connector } from "../connection/Connector.js";
 import type { Pulse } from "./Pulse.js";
 
-export type PulseScope = { readonly pulses: Map<string, Pulse<any>> };
+export type PulseScope = {
+	readonly pulses: Map<string, Pulse<any>>;
+	deleted?: Set<string>;
+};
 /** A separate identity map per application/client; useful for SSR and replicas. */
 export function createPulseScope(): PulseScope {
 	return { pulses: new Map() };

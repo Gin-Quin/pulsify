@@ -1,3 +1,4 @@
+import { deletionStoreConformance } from "./deletion-store.js";
 import { object } from "@gin-quin/codec";
 import {
 	createPulse,
@@ -1067,3 +1068,9 @@ describe("SQLite compaction is invisible to peers", () => {
 		db.close();
 	});
 });
+
+deletionStoreConformance(
+	"SQLite",
+	async () =>
+		new SqlitePatchStore(new Database(":memory:"), { vectorCacheSize: 128 }),
+);

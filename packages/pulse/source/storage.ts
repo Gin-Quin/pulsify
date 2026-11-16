@@ -23,6 +23,9 @@ export {
 	decodePackedRows,
 	MAX_PACKED_BYTES,
 	type PatchStore,
+	type DocumentStore,
 	type StoredPatchRow,
 	type AppendResult,
 } from "./storage/rows.js";
+
+export { coversDocument, documentPrefixes } from "./storage/documents.js";

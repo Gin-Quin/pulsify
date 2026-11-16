@@ -1,5 +1,11 @@
+import type { PulsePatchRow } from "pulsify-core/protocol";
 import { onOnline, type Connector, type ConnectorSession } from "pulsify-core";
-import { MAX_FRAME_BYTES, PulseError } from "pulsify-core/protocol";
+import {
+	decodeMessage,
+	MAX_FRAME_BYTES,
+	PulseError,
+	remoteError,
+} from "pulsify-core/protocol";
 import {
 	createEmitter,
 	type CloudConnection,
@@ -106,6 +112,8 @@ type Channel = {
 	server: CloudServerInfo | undefined;
 	/** The server said in its welcome that it relays presence frames. */
 	presence: boolean;
+	subtrees?: boolean;
+	pendingFetches: number;
 	latencyMs: number | undefined;
 	error: Error | undefined;
 	events: ReturnType<typeof createEmitter<CloudConnectionEvents>>;
@@ -150,9 +158,22 @@ export function createCloudConnector(
 		else channel.events.emit("state", state);
 	};
 
+	let nextFetchId = Number.MAX_SAFE_INTEGER;
+	const fetches = new Map<
+		number,
+		{
+			channel: Channel;
+			receive(bytes: Uint8Array): void;
+			progress(batch: number): void;
+			finish(complete: boolean): void;
+			fail(error: Error): void;
+		}
+	>();
 	const shutdown = (channel: Channel, error: Error) => {
 		if (channel.closed) return;
 		channel.closed = true;
+		for (const fetch of fetches.values())
+			if (fetch.channel === channel) fetch.fail(error);
 		channels.delete(channel);
 		clearTimeout(channel.linger);
 		clearInterval(channel.heartbeat);
@@ -184,6 +205,7 @@ export function createCloudConnector(
 			state: "connecting",
 			server: undefined,
 			presence: false,
+			pendingFetches: 0,
 			latencyMs: undefined,
 			error: undefined,
 			events: createEmitter<CloudConnectionEvents>(),
@@ -359,10 +381,28 @@ export function createCloudConnector(
 				if (message.type === "welcome") {
 					channel.server = message.server;
 					channel.presence = message.presence === true;
+					channel.subtrees = message.subtrees === true;
 					channel.events.emit("server", message.server);
 					return;
 				}
-				if (!channel.sessions.has(message.docId)) return;
+				if (message.type === "fetched" || message.type === "fetch-batch") {
+					const fetch = fetches.get(message.requestId);
+					if (fetch?.channel === channel) {
+						if (message.type === "fetched") fetch.finish(message.complete);
+						else fetch.progress(message.batch);
+					}
+					return;
+				}
+				if (
+					!channel.sessions.has(message.docId) &&
+					![...fetches.values()].some((fetch) => fetch.channel === channel)
+				)
+					return;
+				if (
+					roles.has(message.docId) &&
+					roles.get(message.docId) === message.role
+				)
+					return;
 				roles.set(message.docId, message.role);
 				channel.events.emit("role", message.docId, message.role);
 				for (const listener of [...roleListeners])
@@ -372,7 +412,11 @@ export function createCloudConnector(
 			if (!(data instanceof ArrayBuffer))
 				throw new PulseError("INVALID_MESSAGE", "Expected a binary frame");
 			const bytes = new Uint8Array(data);
-			channel.sessions.get(peekFrameHeader(bytes).docId)?.onMessage(bytes);
+			const header = peekFrameHeader(bytes);
+			const fetch = fetches.get(header.requestId);
+			if (fetch && fetch.channel === channel) fetch.receive(bytes);
+			else if (header.requestId < 2 ** 52)
+				channel.sessions.get(header.docId)?.onMessage(bytes);
 		} catch (error) {
 			shutdown(
 				channel,
@@ -383,6 +427,15 @@ export function createCloudConnector(
 		}
 	};
 
+	const scheduleIdle = (channel: Channel) => {
+		if (channel.closed || channel.sessions.size || channel.pendingFetches)
+			return;
+		clearTimeout(channel.linger);
+		channel.linger = setTimeout(
+			() => shutdown(channel, new PulseError("CLOSED", "Idle socket closed")),
+			options.lingerMs ?? 5_000,
+		);
+	};
 	const release = (channel: Channel, docId: string, session: Session) => {
 		if (channel.sessions.get(docId) !== session) return;
 		channel.sessions.delete(docId);
@@ -391,15 +444,210 @@ export function createCloudConnector(
 			const message: CloudUnsubscribeMessage = { type: "unsubscribe", docId };
 			channel.socket.send(JSON.stringify(message));
 		}
-		if (!channel.sessions.size)
-			channel.linger = setTimeout(
-				() => shutdown(channel, new PulseError("CLOSED", "Idle socket closed")),
-				options.lingerMs ?? 5_000,
-			);
+		scheduleIdle(channel);
 	};
 
 	return {
 		kind: "remote",
+		authoritativeDeletions: true,
+		async prefetch(docId, input) {
+			if (connectorClosed) throw closedError();
+			const root = rootOf(docId);
+			if (input.signal?.aborted)
+				throw new PulseError("CLOSED", "Fetch aborted");
+			const deadline = Date.now() + (input.timeoutMs ?? 10000);
+			const wait = async <T>(promise: Promise<T>): Promise<T> =>
+				new Promise<T>((resolve, reject) => {
+					const abort = () => {
+						cleanup();
+						reject(new PulseError("CLOSED", "Fetch aborted"));
+					};
+					const timer = setTimeout(
+						() => {
+							cleanup();
+							reject(new PulseError("TIMEOUT", "Subtree fetch timed out"));
+						},
+						Math.max(1, deadline - Date.now()),
+					);
+					const cleanup = () => {
+						clearTimeout(timer);
+						input.signal?.removeEventListener("abort", abort);
+					};
+					input.signal?.addEventListener("abort", abort, { once: true });
+					if (input.signal?.aborted) {
+						abort();
+						return;
+					}
+					promise.then(
+						(value) => {
+							cleanup();
+							resolve(value);
+						},
+						(error) => {
+							cleanup();
+							reject(error);
+						},
+					);
+				});
+			const channel =
+				[...channels].find(
+					(channel) => channel.root === root && !channel.closed,
+				) ?? openChannel(root);
+			channel.pendingFetches++;
+			clearTimeout(channel.linger);
+			try {
+				await wait(channel.ready);
+				if (!channel.server) {
+					let stop: (() => void) | undefined;
+					try {
+						await wait(
+							new Promise<void>((resolve) => {
+								stop = channel.events.on("server", () => resolve());
+							}),
+						);
+					} finally {
+						stop?.();
+					}
+				}
+				if (!channel.subtrees) return undefined;
+				const requestId = nextFetchId--;
+				const documents = new Map<string, PulsePatchRow[]>();
+				return await new Promise<{
+					documents: Map<string, PulsePatchRow[]>;
+					complete: boolean;
+				}>((resolve, reject) => {
+					let settled = false,
+						sent = false,
+						batch = 0;
+					let timer: ReturnType<typeof setTimeout>;
+					const incomplete = new Set<string>();
+					const done = (error?: Error) => {
+						if (settled) return;
+						settled = true;
+						clearTimeout(timer);
+						input.signal?.removeEventListener("abort", abort);
+						fetches.delete(requestId);
+						if (error) {
+							if (sent && channel.socket?.readyState === 1) {
+								try {
+									channel.socket.send(
+										JSON.stringify({ type: "cancel-fetch", requestId }),
+									);
+								} catch {
+									/* The socket is already closing. */
+								}
+							}
+							reject(error);
+						} else resolve({ documents, complete: true });
+					};
+					const abort = () => done(new PulseError("CLOSED", "Fetch aborted"));
+					// An active transfer may last as long as needed; only silence times out.
+					const touch = () => {
+						clearTimeout(timer);
+						timer = setTimeout(
+							() => done(new PulseError("TIMEOUT", "Subtree fetch timed out")),
+							input.timeoutMs ?? 10000,
+						);
+					};
+					fetches.set(requestId, {
+						channel,
+						finish(all) {
+							if (!all || incomplete.size) {
+								done(
+									new PulseError(
+										"INVALID_MESSAGE",
+										"Incomplete subtree response",
+									),
+								);
+								return;
+							}
+							done();
+						},
+						fail: (error) => done(error),
+						progress(next) {
+							if (next !== batch + 1) {
+								done(
+									new PulseError("INVALID_MESSAGE", "Unexpected subtree batch"),
+								);
+								return;
+							}
+							batch = next;
+							touch();
+							channel.socket!.send(
+								JSON.stringify({ type: "fetch-ack", requestId, batch }),
+							);
+						},
+						receive(frame) {
+							touch();
+							const message = decodeMessage(frame);
+							const covered =
+								message.docId === docId ||
+								(input.descendants && message.docId.startsWith(`${docId}/`));
+							if (!covered || (message.kind !== 2 && message.kind !== 6)) {
+								done(
+									new PulseError("INVALID_MESSAGE", "Invalid subtree response"),
+								);
+								return;
+							}
+							if (message.kind === 6) {
+								if (message.docId !== docId && message.code === "NOT_FOUND") {
+									for (const id of documents.keys()) {
+										if (
+											id === message.docId ||
+											id.startsWith(`${message.docId}/`)
+										) {
+											documents.delete(id);
+											incomplete.delete(id);
+										}
+									}
+									return;
+								}
+								done(remoteError(message.code, message.message));
+								return;
+							}
+							const rows = documents.get(message.docId) ?? [];
+							for (const row of message.rows) rows.push(row);
+							documents.set(message.docId, rows);
+							if (message.complete) incomplete.delete(message.docId);
+							else incomplete.add(message.docId);
+						},
+					});
+					input.signal?.addEventListener("abort", abort, { once: true });
+					if (input.signal?.aborted) {
+						abort();
+						return;
+					}
+					const request = {
+						type: "fetch",
+						docId,
+						requestId,
+						descendants: input.descendants,
+						vectors: [] as typeof input.vectors,
+					};
+					// Vectors are optional bandwidth hints. Omit excess hints instead of
+					// refusing an otherwise valid request for a large subtree.
+					let length = JSON.stringify(request).length;
+					for (const entry of input.vectors) {
+						if (request.vectors.length === 4096) break;
+						const size =
+							JSON.stringify(entry).length + (request.vectors.length ? 1 : 0);
+						if (length + size > 64 * 1024) continue;
+						request.vectors.push(entry);
+						length += size;
+					}
+					touch();
+					try {
+						sent = true;
+						channel.socket!.send(JSON.stringify(request));
+					} catch (error) {
+						done(error instanceof Error ? error : new Error(String(error)));
+					}
+				});
+			} finally {
+				channel.pendingFetches--;
+				scheduleIdle(channel);
+			}
+		},
 		async open({ docId, signal, onMessage, onClose }) {
 			if (connectorClosed) throw closedError();
 			if (signal.aborted) throw new PulseError("CLOSED", "Connection aborted");

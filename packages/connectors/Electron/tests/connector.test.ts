@@ -1,6 +1,10 @@
+import { SqlitePatchStore } from "pulsify-core/storage";
 import { describe, expect, test } from "bun:test";
 import Database from "better-sqlite3";
 import {
+	getPulseMeta,
+	loadPulse,
+	snapshotPulse,
 	connectPulse,
 	createPulse,
 	createPulseScope,
@@ -17,7 +21,7 @@ import {
 	exposePulsifyBridge,
 	type PulsifyBridge,
 } from "../source/index";
-import { servePulsifyStore } from "../source/main";
+import { betterSqliteConnection, servePulsifyStore } from "../source/main";
 import { FakeIpcMain, FakeWindow } from "./fakeElectron";
 import { createApp, eventually, Note, temporaryFile } from "./helpers";
 
@@ -66,7 +70,9 @@ describe("preload bridge", () => {
 		);
 		const bridge = window.bridge("storage");
 		expect(Object.keys(bridge).sort()).toEqual([
+			"cached",
 			"close",
+			"markDeleted",
 			"onClose",
 			"onMessage",
 			"open",
@@ -307,4 +313,89 @@ describe("connector lifecycle", () => {
 		expect((opened.closes[0] as PulseError).code).toBe("CONNECTION_FAILED");
 		await app.server.close();
 	});
+});
+
+test("native Electron deletion retains unsynced data and blocks other windows", async () => {
+	const db = new Database(":memory:"),
+		app = createApp(db);
+	const a = app.openWindow(),
+		b = app.openWindow();
+	const pulse = createPulse(
+		Note,
+		{ id: "r/note", title: "Original", body: "", tags: [], meta: { count: 0 } },
+		{ scope: createPulseScope(), connectors: [a.connector] },
+	);
+	try {
+		await connectPulse(pulse).synced;
+		pulse.title = "Recover this edit";
+		await a.connector.markDeleted!(
+			pulse.id,
+			getPulseMeta(pulse).log.missing([]),
+		);
+		await eventually(() => expect(getPulseMeta(pulse).deleted).toBe(true));
+		expect(snapshotPulse(pulse).title).toBe("Recover this edit");
+		await expect(
+			loadPulse(Note, pulse.id, {
+				scope: createPulseScope(),
+				connectors: [b.connector],
+				reconnect: false,
+			}),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		const store = new SqlitePatchStore(betterSqliteConnection(db));
+		expect((await store.recoverRows(pulse.id)).length).toBeGreaterThan(0);
+		expect(await store.isDeleted(`${pulse.id}/offline`)).toBe(true);
+	} finally {
+		destroyPulse(pulse);
+		await app.server.close();
+		db.close();
+	}
+});
+
+test("Electron retires sessions even when recovery conflicts or cannot be decoded", async () => {
+	const original = {
+		docId: "r/a",
+		sid: 70001,
+		clock: 1,
+		span: 1,
+		dependencies: [],
+		operations: Uint8Array.of(99),
+	};
+	for (const recovery of [
+		encodeMessage({
+			kind: 3,
+			docId: "r/a",
+			requestId: 0,
+			vv: [],
+			rows: [{ ...original, operations: Uint8Array.of(98) }],
+		}),
+		Uint8Array.of(1, 2),
+		connect("r/a"),
+	]) {
+		const db = new Database(":memory:"),
+			app = createApp(db);
+		try {
+			await app.server.ready;
+			const store = new SqlitePatchStore(betterSqliteConnection(db));
+			await store.append([original]);
+			const a = app.openWindow(),
+				b = app.openWindow();
+			const dead = await open(b.connector, "r/a"),
+				sibling = await open(b.connector, "r/ab");
+			expect(
+				await a.window.bridge().markDeleted!("r/a", [recovery]),
+			).toMatchObject({ ok: false });
+			await eventually(() =>
+				expect(dead.closes).toMatchObject([{ code: "NOT_FOUND" }]),
+			);
+			expect(sibling.closes).toEqual([]);
+			expect(await store.isDeleted("r/a/unseen")).toBe(true);
+			expect(await store.recoverRows("r/a")).toEqual([original]);
+			await expect(store.append([original])).rejects.toMatchObject({
+				code: "NOT_FOUND",
+			});
+		} finally {
+			await app.server.close();
+			db.close();
+		}
+	}
 });

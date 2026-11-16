@@ -1,3 +1,4 @@
+import { deletionStoreConformance } from "../../../pulse/tests/deletion-store.js";
 import { describe, expect, test } from "bun:test";
 import { object } from "@gin-quin/codec";
 import {
@@ -41,6 +42,48 @@ function storeOptions() {
 }
 const create = () => new IndexedDbPatchStore(storeOptions());
 
+test("IndexedDB pagination seeks forward without rescanning earlier pages or neighboring subtrees", async () => {
+	const store = create();
+	const db = await store.database();
+	// Observe actual cursor work, avoiding machine-dependent timing assertions.
+	const prototype = Object.getPrototypeOf(
+		db.transaction("clocks").objectStore("clocks"),
+	) as IDBObjectStore;
+	const original = prototype.openKeyCursor;
+	let visited = 0;
+	try {
+		await store.append([row("r/a")]);
+		for (let i = 0; i < 500; i++) {
+			await store.append([row(`r/a-/sibling/${i}`)]);
+			await store.append([row(`r/a/child/${String(i).padStart(4, "0")}`)]);
+		}
+		prototype.openKeyCursor = function (query, direction) {
+			const pending = original.call(this, query, direction);
+			pending.addEventListener("success", () => {
+				if (pending.result) visited++;
+			});
+			return pending;
+		};
+		const found: string[] = [];
+		for (;;) {
+			const page = await store.documents("r/a", found.at(-1) ?? "", 25);
+			if (!page.length) break;
+			found.push(...page);
+		}
+		expect(found).toEqual([
+			"r/a",
+			...Array.from(
+				{ length: 500 },
+				(_, i) => `r/a/child/${String(i).padStart(4, "0")}`,
+			),
+		]);
+		expect(visited).toBe(500);
+	} finally {
+		prototype.openKeyCursor = original;
+		store.close();
+	}
+});
+
 lastValueStoreConformance("IndexedDB", async () => create());
 
 describe("IndexedDbPatchStore", () => {
@@ -77,6 +120,7 @@ describe("IndexedDbPatchStore", () => {
 		expect([...(await store.database()).objectStoreNames].sort()).toEqual([
 			"clocks",
 			"rows",
+			"tombstones",
 			"values",
 		]);
 		// And it keeps the last value only of what is written from now on.
@@ -150,6 +194,7 @@ describe("IndexedDbPatchStore", () => {
 		expect([...(await store.database()).objectStoreNames].sort()).toEqual([
 			"clocks",
 			"rows",
+			"tombstones",
 			"values",
 		]);
 		// Spans and gaps are served as before, from any remote clock.
@@ -597,3 +642,5 @@ describe("IndexedDbPatchStore", () => {
 		store.close();
 	});
 });
+
+deletionStoreConformance("IndexedDB", async () => create());

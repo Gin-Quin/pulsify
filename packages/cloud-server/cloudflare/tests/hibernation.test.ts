@@ -440,7 +440,7 @@ test("a root that got a socket back before its alarm does not compact", async ()
 	expect(rowCount(db)).toBe(2);
 });
 
-test("deleting a document ends its sessions, and deleting the root deletes the object", async () => {
+test("deleting a document ends its sessions, and deleting the root retains its permanent tombstone", async () => {
 	const { state, sockets, db, alarm } = durableState();
 	const root = new PulsifyCloudRoot(state);
 	await admin(root, "PUT", { subject: "ada", prefix: "r", role: "owner" });
@@ -502,13 +502,27 @@ test("deleting a document ends its sessions, and deleting the root deletes the o
 		db.query("SELECT subject, prefix FROM pulsify_cloud_grants").all(),
 	).toEqual([{ subject: "ada", prefix: "r" }]);
 
-	// Deleting the root document closes its sockets and deletes the object.
+	// Deleting the root closes its sockets but retains the marker across hibernation.
 	expect(await (await remove("r")).json()).toEqual({ deleted: 2 });
 	expect(a.closed).toBe(true);
 	expect(alarm.at).toBeUndefined();
-	expect(db.query("SELECT name FROM sqlite_master").all()).toEqual([]);
+	expect(db.query("SELECT prefix FROM pulsify_tombstones").all()).toEqual([
+		{ prefix: "r" },
+	]);
+	expect(db.query("SELECT * FROM pulsify_op_rows").all()).toEqual([]);
 	// Its close event does not bring the storage back.
 	await root.webSocketClose(a as never, 1000, "");
-	expect(db.query("SELECT name FROM sqlite_master").all()).toEqual([]);
+	expect(db.query("SELECT prefix FROM pulsify_tombstones").all()).toEqual([
+		{ prefix: "r" },
+	]);
+	expect(db.query("SELECT * FROM pulsify_op_rows").all()).toEqual([]);
 	expect(alarm.at).toBeUndefined();
+	const awakened = new PulsifyCloudRoot(state);
+	const response = await admin(awakened, "PUT", {
+		subject: "ada",
+		prefix: "r",
+		role: "owner",
+	});
+	expect(response.status).toBe(404);
+	expect(await new SqlitePatchStore(db).isDeleted("r/offline/new")).toBe(true);
 });

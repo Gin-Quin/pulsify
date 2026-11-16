@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the cached command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cached",
+          "markdownDescription": "Enables the cached command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cached command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cached",
+          "markdownDescription": "Denies the cached command without any pre-configured scope."
+        },
+        {
           "description": "Enables the close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-close",
@@ -305,6 +317,18 @@
           "type": "string",
           "const": "deny-close",
           "markdownDescription": "Denies the close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the mark_deleted command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-mark-deleted",
+          "markdownDescription": "Enables the mark_deleted command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the mark_deleted command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-mark-deleted",
+          "markdownDescription": "Denies the mark_deleted command without any pre-configured scope."
         },
         {
           "description": "Enables the open command without any pre-configured scope.",
@@ -331,10 +355,10 @@
           "markdownDescription": "Denies the send command without any pre-configured scope."
         },
         {
-          "description": "Lets the webview open, use and close sessions on local Pulsify documents.\n#### This default permission set includes:\n\n- `allow-open`\n- `allow-send`\n- `allow-close`",
+          "description": "Lets the webview inspect, synchronize and retain deleted local documents for recovery.\n#### This default permission set includes:\n\n- `allow-open`\n- `allow-send`\n- `allow-close`\n- `allow-mark-deleted`\n- `allow-cached`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Lets the webview open, use and close sessions on local Pulsify documents.\n#### This default permission set includes:\n\n- `allow-open`\n- `allow-send`\n- `allow-close`"
+          "markdownDescription": "Lets the webview inspect, synchronize and retain deleted local documents for recovery.\n#### This default permission set includes:\n\n- `allow-open`\n- `allow-send`\n- `allow-close`\n- `allow-mark-deleted`\n- `allow-cached`"
         }
       ]
     }

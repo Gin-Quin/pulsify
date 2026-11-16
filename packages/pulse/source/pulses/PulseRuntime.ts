@@ -145,6 +145,8 @@ export function createRuntime(
 		dependencies: PulseVersionVector,
 	) => patchToRow(docId, patch, dependencies, model.encoding);
 	model.commit = (ops, hint, wallTime) => {
+		if (meta.deleted)
+			throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 		context.assertActive();
 		if (!ops.length) return;
 		const time = model.lamport + 1;
@@ -190,6 +192,8 @@ export function createRuntime(
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
 	model.commitScalar = (node, key, field, value, last) => {
+		if (meta.deleted)
+			throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 		context.assertActive();
 		if (log.pendingCount) {
 			model.commit([
@@ -509,6 +513,8 @@ export function createRuntime(
 			}
 		},
 		applyRows(rows) {
+			if (meta.deleted)
+				throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 			try {
 				context.assertActive();
 				const delta = stateDeltaOf(rows);

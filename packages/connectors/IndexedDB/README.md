@@ -84,3 +84,8 @@ bun test packages/connectors/IndexedDB/tests
 The tests run on `fake-indexeddb`: store conformance, reloads with rich text,
 arrays and sub-pulses, offline edits uploaded to a remote, multiple sessions and
 tabs, aborts and reconnections.
+
+Permanent deletion markers learned from the cloud block future loads and uploads,
+including after reopening the database. Local operations remain available through
+`connector.store.recoverRows(docId)` for explicit recovery into a new document ID.
+`forget` and `clear` erase cached/recovery rows but do not remove deletion markers.

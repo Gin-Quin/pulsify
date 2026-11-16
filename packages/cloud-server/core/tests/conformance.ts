@@ -390,6 +390,68 @@ export function describeCloudBackend(
 			await eventually(() => expect(c.connector.connections).toHaveLength(0));
 		});
 
+		test("streams a subtree beyond 256 documents in one fetch over a real socket", async () => {
+			const root = unique("large-subtree");
+			await admin().grant({ subject: "alice", prefix: root, role: "owner" });
+			const writer = await raw(root, "alice");
+			for (let i = 0; i <= 270; i++) {
+				const docId = i ? `${root}/child/${i}` : root;
+				writer.socket.send(
+					encodeMessage({ kind: 1, docId, requestId: 2 * i + 1, vv: [] }),
+				);
+				writer.socket.send(
+					encodeMessage({
+						kind: 4,
+						docId,
+						requestId: 2 * i + 2,
+						vv: [],
+						rows: [
+							{
+								docId,
+								sid: 70001,
+								clock: 1,
+								span: 1,
+								dependencies: [],
+								operations: Uint8Array.of(99),
+							},
+						],
+					}),
+				);
+			}
+			await eventually(() =>
+				expect(
+					writer.frames.find((frame) => frame.requestId === 542),
+				).toMatchObject({ kind: 5 }),
+			);
+			let requests = 0,
+				acknowledgements = 0;
+			const reader = device("alice", {
+				createSocket(url, protocols) {
+					const socket = new WebSocket(url, protocols),
+						send = socket.send.bind(socket);
+					socket.send = (data) => {
+						if (typeof data === "string") {
+							const message = JSON.parse(data);
+							if (message.type === "fetch") requests++;
+							if (message.type === "fetch-ack") acknowledgements++;
+						}
+						send(data);
+					};
+					return socket;
+				},
+			});
+			const result = await reader.connector.prefetch!(root, {
+				descendants: true,
+				vectors: [],
+				timeoutMs: 5000,
+			});
+			expect(result?.documents.size).toBe(271);
+			expect(result?.complete).toBe(true);
+			expect(requests).toBe(1);
+			expect(acknowledgements).toBeGreaterThan(1);
+			expect(reader.connector.connections[0]!.documents).toEqual([]);
+		});
+
 		test("enforces reader roles and applies grant changes to live sessions", async () => {
 			const { root, first, workspace } = await seed("roles");
 			await admin().grant({ subject: "bob", prefix: first.id, role: "reader" });
@@ -468,6 +530,49 @@ export function describeCloudBackend(
 				documents: 0,
 				rows: 0,
 			});
+		});
+
+		test("deleted prefixes reject offline uploads, unseen descendants and root-name reuse", async () => {
+			const { root, first } = await seed("permanent-delete");
+			await admin().deleteDocument(first.id);
+			const probe = await raw(root, "alice");
+			for (const [index, docId] of [
+				first.id,
+				`${first.id}/never-seen`,
+			].entries()) {
+				const requestId = index * 2 + 10;
+				probe.socket.send(encodeMessage({ kind: 1, docId, requestId, vv: [] }));
+				await eventually(() =>
+					expect(
+						probe.frames.find((frame) => frame.requestId === requestId),
+					).toMatchObject({ kind: 6, code: "NOT_FOUND" }),
+				);
+				const copy = createPulse(
+					Note,
+					{ id: docId, title: "Offline", body: "Never uploaded" },
+					{ scope: createPulseScope(), sessionId: 70002 },
+				);
+				probe.socket.send(
+					encodeMessage({
+						kind: 4,
+						docId,
+						requestId: requestId + 1,
+						vv: [],
+						rows: getPulseMeta(copy).log.missing([]),
+					}),
+				);
+				await eventually(() =>
+					expect(
+						probe.frames.find((frame) => frame.requestId === requestId + 1),
+					).toMatchObject({ kind: 6, code: "NOT_FOUND" }),
+				);
+				destroyPulse(copy);
+			}
+			expect((await admin().usage(root)).documents).toBe(2);
+			await admin().deleteDocument(root);
+			await expect(
+				admin().grant({ subject: "alice", prefix: root, role: "owner" }),
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
 		});
 
 		test("keeps the subscriptions of an idle root, however many a socket has", async () => {

@@ -40,6 +40,8 @@ console.log(
 	}),
 );
 
+await rm(`${root}packages/cloud-server/dist`, { recursive: true, force: true });
+
 for (const name of [
 	"pulsify-prosemirror",
 	"pulsify-lexical",
@@ -47,7 +49,6 @@ for (const name of [
 	"cloud",
 	"cloud-server/core",
 	"cloud-server/cloudflare",
-	"cloud-server/unikraft-cloud",
 	"connectors/IndexedDB",
 	"connectors/Electron",
 	"connectors/Tauri",

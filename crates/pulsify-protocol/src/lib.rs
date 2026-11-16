@@ -4,7 +4,8 @@ use std::fmt;
 
 mod store;
 pub use store::{
-    relay_frame, validate_doc_id, validate_rows, AppendResult, Hub, PatchStore, RelayOutput, Sink,
+    covers_document, document_prefixes, relay_frame, validate_doc_id, validate_rows, AppendResult,
+    DocumentStore, Hub, PatchStore, RelayOutput, Sink,
 };
 
 /// The version of operation payloads, their first byte.

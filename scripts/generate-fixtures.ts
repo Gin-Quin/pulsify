@@ -92,6 +92,16 @@ const messages: [string, PulseMessage][] = [
 		},
 	],
 ];
+messages.push([
+	"deleted-on-connect",
+	{
+		kind: 6,
+		docId: "fixture/deleted",
+		requestId: 1,
+		code: "NOT_FOUND",
+		message: "Document fixture/deleted was permanently deleted",
+	},
+]);
 const noState = new Uint8Array();
 // Kind 7: relays forward these and never store them.
 const presence: [string, PresenceFrame][] = [

@@ -47,7 +47,7 @@ export type {
 	PresenceRelay,
 	PresenceSender,
 } from "./protocol/presenceFrames.js";
-export { PulseError, isRetryable } from "./protocol/errors.js";
+export { PulseError, isRetryable, remoteError } from "./protocol/errors.js";
 export { MAX_FRAME_BYTES } from "./protocol/limits.js";
 
 export {
@@ -55,3 +55,5 @@ export {
 	historyRequestOf,
 	isStateMessage,
 } from "./protocol/stateDeltas.js";
+
+export { encodeRecoveryFrames } from "./protocol/recovery.js";

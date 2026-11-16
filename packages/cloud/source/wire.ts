@@ -1,3 +1,4 @@
+import { validateVector, type PulseVersionVector } from "pulsify-core/protocol";
 import { CloudError } from "./errors.js";
 import { assertRoot } from "./ids.js";
 import { isCloudRole, type CloudRole } from "./roles.js";
@@ -48,32 +49,140 @@ export type CloudWelcomeMessage = {
 	type: "welcome";
 	server: CloudServerInfo;
 	presence?: boolean;
+	subtrees?: boolean;
 };
 /** Client → server: stop receiving a document's updates without closing the socket. */
 export type CloudUnsubscribeMessage = { type: "unsubscribe"; docId: string };
-export type CloudServerMessage = CloudRoleMessage | CloudWelcomeMessage;
+export type CloudFetchMessage = {
+	type: "fetch";
+	docId: string;
+	requestId: number;
+	descendants: boolean;
+	vectors: [string, PulseVersionVector][];
+};
+export type CloudFetchedMessage = {
+	type: "fetched";
+	requestId: number;
+	complete: boolean;
+};
+/** Flow control within one fetch, never a request for another page. */
+export type CloudFetchBatchMessage = {
+	type: "fetch-batch";
+	requestId: number;
+	batch: number;
+};
+export type CloudFetchAckMessage = {
+	type: "fetch-ack";
+	requestId: number;
+	batch: number;
+};
+export type CloudCancelFetchMessage = {
+	type: "cancel-fetch";
+	requestId: number;
+};
+export type CloudServerMessage =
+	| CloudRoleMessage
+	| CloudWelcomeMessage
+	| CloudFetchedMessage
+	| CloudFetchBatchMessage;
 
 export function welcomeMessage(
 	server: CloudServerInfo,
-	capabilities: { presence?: boolean } = {},
+	capabilities: { presence?: boolean; subtrees?: boolean } = {},
 ): string {
 	const message: CloudWelcomeMessage = {
 		type: "welcome",
 		server,
 		...(capabilities.presence ? { presence: true } : {}),
+		...(capabilities.subtrees ? { subtrees: true } : {}),
 	};
 	return JSON.stringify(message);
 }
-export type CloudClientMessage = CloudUnsubscribeMessage;
+export type CloudClientMessage =
+	| CloudUnsubscribeMessage
+	| CloudFetchMessage
+	| CloudFetchAckMessage
+	| CloudCancelFetchMessage;
+
+function fetchRequestId(value: unknown): value is number {
+	return Number.isSafeInteger(value) && (value as number) >= 2 ** 52;
+}
+function batchNumber(value: unknown): value is number {
+	return Number.isSafeInteger(value) && (value as number) >= 1;
+}
 
 export function parseClientMessage(text: string): CloudClientMessage {
+	if (text.length > 64 * 1024)
+		throw new CloudError("LIMIT_EXCEEDED", "Control message is too large");
 	const message = parseObject(text);
+	if (message["type"] === "cancel-fetch") {
+		if (!fetchRequestId(message["requestId"]))
+			throw new CloudError("BAD_REQUEST", "Invalid fetch cancellation");
+		return { type: "cancel-fetch", requestId: message["requestId"] };
+	}
+	if (message["type"] === "fetch-ack") {
+		if (!fetchRequestId(message["requestId"]) || !batchNumber(message["batch"]))
+			throw new CloudError("BAD_REQUEST", "Invalid fetch acknowledgement");
+		return {
+			type: "fetch-ack",
+			requestId: message["requestId"],
+			batch: message["batch"],
+		};
+	}
+	if (message["type"] === "fetch") {
+		const { docId, requestId, descendants, vectors } = message;
+		if (
+			typeof docId !== "string" ||
+			!fetchRequestId(requestId) ||
+			typeof descendants !== "boolean" ||
+			!Array.isArray(vectors) ||
+			vectors.length > 4096
+		)
+			throw new CloudError("BAD_REQUEST", "Invalid subtree request");
+		for (const entry of vectors) {
+			if (
+				!Array.isArray(entry) ||
+				entry.length !== 2 ||
+				typeof entry[0] !== "string"
+			)
+				throw new CloudError("BAD_REQUEST", "Invalid subtree vector");
+			validateVector(entry[1]);
+		}
+		return {
+			type: "fetch",
+			docId,
+			requestId: requestId as number,
+			descendants,
+			vectors,
+		};
+	}
 	if (message["type"] !== "unsubscribe" || typeof message["docId"] !== "string")
 		throw new CloudError("BAD_REQUEST", "Unknown control message");
 	return { type: "unsubscribe", docId: message["docId"] };
 }
 export function parseServerMessage(text: string): CloudServerMessage {
 	const message = parseObject(text);
+	if (message["type"] === "fetch-batch") {
+		if (!fetchRequestId(message["requestId"]) || !batchNumber(message["batch"]))
+			throw new CloudError("BAD_REQUEST", "Invalid fetch batch");
+		return {
+			type: "fetch-batch",
+			requestId: message["requestId"],
+			batch: message["batch"],
+		};
+	}
+	if (message["type"] === "fetched") {
+		if (
+			!fetchRequestId(message["requestId"]) ||
+			typeof message["complete"] !== "boolean"
+		)
+			throw new CloudError("BAD_REQUEST", "Invalid subtree completion");
+		return {
+			type: "fetched",
+			requestId: message["requestId"] as number,
+			complete: message["complete"],
+		};
+	}
 	if (message["type"] === "welcome") {
 		const server = message["server"] as Record<string, unknown> | null;
 		if (
@@ -95,6 +204,7 @@ export function parseServerMessage(text: string): CloudServerMessage {
 					: {}),
 			},
 			...(message["presence"] === true ? { presence: true } : {}),
+			...(message["subtrees"] === true ? { subtrees: true } : {}),
 		};
 	}
 	const { docId, role } = message;

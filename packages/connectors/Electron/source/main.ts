@@ -1,10 +1,15 @@
 import {
+	decodeMessage,
 	encodeBroadcast,
 	MAX_FRAME_BYTES,
 	PulseError,
 	relayStoreMessage,
 } from "pulsify-core/protocol";
-import { SqlitePatchStore, type SqliteConnection } from "pulsify-core/storage";
+import {
+	SqlitePatchStore,
+	coversDocument,
+	type SqliteConnection,
+} from "pulsify-core/storage";
 import {
 	channelsOf,
 	DEFAULT_CHANNEL,
@@ -202,6 +207,76 @@ export function servePulsifyStore(
 	};
 
 	ipcMain.handle(
+		channels.cached,
+		async (_event, docId: unknown): Promise<PulsifyIpcResult> => {
+			if (closed) return failure("CLOSED", "Pulsify store closed");
+			if (typeof docId !== "string")
+				return failure("INVALID_MESSAGE", "Invalid document ID");
+			try {
+				const store = await opening;
+				return { ok: true, found: (await store.vector(docId)).length > 0 };
+			} catch (error) {
+				return error instanceof PulseError
+					? failure(error.code, error.message)
+					: failure("CONNECTION_FAILED", String(error));
+			}
+		},
+	);
+	ipcMain.handle(
+		channels.markDeleted,
+		async (
+			_event,
+			docId: unknown,
+			frames: unknown,
+		): Promise<PulsifyIpcResult> => {
+			if (closed) return failure("CLOSED", "Pulsify store closed");
+			if (
+				typeof docId !== "string" ||
+				!Array.isArray(frames) ||
+				frames.some((frame) => !(frame instanceof Uint8Array))
+			)
+				return failure("INVALID_MESSAGE", "Invalid deletion request");
+			try {
+				const store = await opening;
+				await serialize(database!, async () => {
+					try {
+						const rows = frames.flatMap((frame) => {
+							const message = decodeMessage(frame);
+							if (message.kind !== 3)
+								throw new PulseError(
+									"INVALID_MESSAGE",
+									"Invalid recovery frame",
+								);
+							return message.rows;
+						});
+						await store.markDeleted(docId, rows);
+					} catch (error) {
+						// Recovery is optional; a malformed frame cannot undo deletion.
+						await store.deleteDocuments(docId, { preserveRows: true });
+						throw error;
+					} finally {
+						if (await store.isDeleted(docId))
+							for (const [id, peers] of [...documents])
+								if (coversDocument(docId, id))
+									for (const peer of [...peers])
+										drop(
+											peer,
+											new PulseError(
+												"NOT_FOUND",
+												"Document was permanently deleted",
+											),
+										);
+					}
+				});
+				return { ok: true };
+			} catch (error) {
+				return error instanceof PulseError
+					? failure(error.code, error.message)
+					: failure("CONNECTION_FAILED", String(error));
+			}
+		},
+	);
+	ipcMain.handle(
 		channels.open,
 		async (event, id: unknown, docId: unknown): Promise<PulsifyIpcResult> => {
 			if (
@@ -293,6 +368,8 @@ export function servePulsifyStore(
 			if (closed) return;
 			closed = true;
 			ipcMain.removeHandler(channels.open);
+			ipcMain.removeHandler(channels.markDeleted);
+			ipcMain.removeHandler(channels.cached);
 			ipcMain.removeHandler(channels.send);
 			ipcMain.removeHandler(channels.close);
 			const error = new PulseError("CLOSED", "Pulsify store closed");

@@ -79,7 +79,7 @@ export function startCloudHost(secrets: CloudSecrets) {
 					socket.send(
 						welcomeMessage(
 							{ backend: "test", id: instance, location: "local" },
-							{ presence: true },
+							{ presence: true, subtrees: true },
 						),
 					);
 					const peer: CloudPeer = {

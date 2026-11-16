@@ -1,8 +1,8 @@
 //! One behaviour suite run against `RocksStore` and `SqliteStore`, then random
 //! histories applied to both, which must answer identically.
 use pulsify_protocol::{
-    decode, encode, is_gap, last_register_of, relay_frame, AppendResult, Body, Hub, Message,
-    PatchLog, PatchRow, PatchStore, VersionVector, GAP_OPERATIONS, MAX_MESSAGE_ROWS,
+    decode, encode, is_gap, last_register_of, relay_frame, AppendResult, Body, DocumentStore, Hub,
+    Message, PatchLog, PatchRow, PatchStore, VersionVector, GAP_OPERATIONS, MAX_MESSAGE_ROWS,
     MAX_VECTOR_ENTRIES,
 };
 use pulsify_rocksdb::{RocksOptions, RocksStore};
@@ -911,11 +911,14 @@ suites!(
     rejects_invalid_rows_and_documents,
     limits_the_number_of_actors,
     documents_are_separate,
+    deletion_is_permanent_and_scoped,
+    deletion_can_preserve_recovery_rows,
     relay_serves_connects_and_uploads,
     relay_forwards_whatever_an_upload_made_applicable,
     relay_failures_become_error_frames,
     relay_pages_large_documents,
-    hub_broadcasts_and_closes_sessions
+    hub_broadcasts_and_closes_sessions,
+    hub_deletion_stops_only_covered_sessions
 );
 
 /// xorshift64*: deterministic, so a failing seed can be replayed.
@@ -1359,4 +1362,227 @@ fn random_peers_converge_through_both_stores() {
         written > 4000 && stored * 2 < written && waited > 50,
         "{written} written, {stored} stored, {waited} waited"
     );
+}
+
+fn deletion_is_permanent_and_scoped<T: DocumentStore>(mut store: T) {
+    let ids = [
+        "doc",
+        "doc/a",
+        "doc/a/child",
+        "doc/ab",
+        "doc/a0",
+        "doc/b",
+        "doc/é",
+        "other",
+    ];
+    for id in ids {
+        let mut r = next(A, 1, 1);
+        r.doc_id = id.into();
+        ok(store.append(&[r]));
+    }
+    assert_eq!(
+        ok(store.documents("doc/a", "", 256)),
+        vec!["doc/a", "doc/a/child"]
+    );
+    // Prime both native stores' read paths before deletion.
+    ok(store.sync_state("doc/a/child", &vec![]));
+    let mut pending = next(A, 5, 1);
+    pending.doc_id = "doc/a/pending".into();
+    ok(store.append(&[pending]));
+    assert_eq!(ok(store.delete_documents("doc/a", false)), 3);
+    assert_eq!(ok(store.delete_documents("doc/a", false)), 0);
+    for id in ["doc/a", "doc/a/child", "doc/a/pending", "doc/a/never/seen"] {
+        assert!(ok(store.is_deleted(id)));
+        assert_eq!(failure(store.vector(id)).0, "NOT_FOUND");
+        assert_eq!(failure(store.missing(id, &vec![])).0, "NOT_FOUND");
+        assert_eq!(failure(store.sync_state(id, &vec![])).0, "NOT_FOUND");
+        let mut r = next(B, 1, 1);
+        r.doc_id = id.into();
+        assert_eq!(failure(store.append(&[r])).0, "NOT_FOUND");
+        assert!(ok(store.recover_rows(id)).is_empty());
+    }
+    assert_eq!(
+        ok(store.documents("doc", "", 256)),
+        vec!["doc", "doc/a0", "doc/ab", "doc/b", "doc/é"]
+    );
+    assert_eq!(ok(store.documents("doc", "doc/a0", 1)), vec!["doc/ab"]);
+    for id in ["doc", "doc/ab", "doc/a0", "doc/b", "other"] {
+        assert!(!ok(store.is_deleted(id)));
+        let mut r = next(A, 2, 1);
+        r.doc_id = id.into();
+        ok(store.append(&[r]));
+    }
+    assert_eq!(ok(store.vector("never")), vec![]);
+    // Deleting a parent subsumes the child marker and blocks future descendants.
+    ok(store.delete_documents("doc", false));
+    assert!(ok(store.is_deleted("doc/new")));
+    assert_eq!(failure(store.documents("doc", "", 1)).0, "NOT_FOUND");
+}
+fn deletion_can_preserve_recovery_rows<T: DocumentStore>(mut store: T) {
+    let original = next(A, 1, 1);
+    ok(store.append(std::slice::from_ref(&original)));
+    ok(store.delete_documents("doc", true));
+    assert_eq!(ok(store.recover_rows("doc")), vec![original]);
+    assert_eq!(failure(store.vector("doc")).0, "NOT_FOUND");
+    assert_eq!(failure(store.append(&[next(A, 2, 1)])).0, "NOT_FOUND");
+    // Explicitly discarding recovery data cannot clear the deletion marker.
+    ok(store.delete_documents("doc", false));
+    assert!(ok(store.recover_rows("doc")).is_empty());
+    assert!(ok(store.is_deleted("doc/new")));
+}
+#[test]
+fn deletion_survives_native_store_reopen() {
+    let path = directory("tombstones");
+    std::fs::create_dir_all(&path).unwrap();
+    {
+        let mut rocks = RocksStore::open_with(
+            path.join("rocks"),
+            &RocksOptions {
+                sync: false,
+                ..RocksOptions::default()
+            },
+        )
+        .unwrap();
+        let mut sqlite = SqliteStore::open(path.join("sqlite")).unwrap();
+        rocks.append(&[next(A, 1, 1)]).unwrap();
+        sqlite.append(&[next(A, 1, 1)]).unwrap();
+        rocks.delete_documents("doc", true).unwrap();
+        sqlite.delete_documents("doc", true).unwrap();
+        rocks.flush().unwrap();
+    }
+    let mut rocks = RocksStore::open(path.join("rocks")).unwrap();
+    let mut sqlite = SqliteStore::open(path.join("sqlite")).unwrap();
+    assert!(rocks.is_deleted("doc/offline").unwrap());
+    assert!(sqlite.is_deleted("doc/offline").unwrap());
+    assert_eq!(failure(rocks.append(&[next(B, 1, 1)])).0, "NOT_FOUND");
+    assert_eq!(failure(sqlite.append(&[next(B, 1, 1)])).0, "NOT_FOUND");
+    assert_eq!(
+        rocks.recover_rows("doc").unwrap(),
+        sqlite.recover_rows("doc").unwrap()
+    );
+    drop(rocks);
+    drop(sqlite);
+    std::fs::remove_dir_all(path).unwrap();
+}
+#[test]
+fn sqlite_concurrent_delete_and_append_cannot_resurrect() {
+    use std::sync::{Arc, Barrier};
+    let path = directory("concurrent-delete");
+    std::fs::create_dir_all(&path).unwrap();
+    let db = path.join("db");
+    let mut first = SqliteStore::open(&db).unwrap();
+    first.append(&[next(A, 1, 1)]).unwrap();
+    let mut second = SqliteStore::open(&db).unwrap();
+    let barrier = Arc::new(Barrier::new(2));
+    let other = barrier.clone();
+    let writer = std::thread::spawn(move || {
+        other.wait();
+        second.append(&[next(A, 2, 1)])
+    });
+    barrier.wait();
+    first.delete_documents("doc", false).unwrap();
+    if let Err(error) = writer.join().unwrap() {
+        assert_eq!(error.code, "NOT_FOUND");
+    }
+    assert!(first.recover_rows("doc").unwrap().is_empty());
+    assert_eq!(first.vector("doc").unwrap_err().code, "NOT_FOUND");
+    drop(first);
+    std::fs::remove_dir_all(path).unwrap();
+}
+
+fn hub_deletion_stops_only_covered_sessions<T: DocumentStore>(store: T) {
+    let mut hub: Hub<T, TestSink> = Hub::new(store);
+    let inbox: Inbox = Rc::default();
+    let killed = ok(hub.open("doc/a", "one", sink(&inbox, true)));
+    let nested = ok(hub.open("doc/a/b", "two", sink(&inbox, true)));
+    let sibling = ok(hub.open("doc/ab", "three", sink(&inbox, true)));
+    assert_eq!(ok(hub.delete_documents("doc/a", false)), 0);
+    let messages = inbox.take();
+    assert_eq!(messages.len(), 2);
+    assert!(messages
+        .iter()
+        .all(|(_, body)| matches!(body, Body::Error {code, ..} if code == "NOT_FOUND")));
+    assert_eq!(hub.session_count(), 1);
+    assert_eq!(failure(hub.send(killed, &connect(1, vec![]))).0, "CLOSED");
+    assert_eq!(failure(hub.send(nested, &connect(1, vec![]))).0, "CLOSED");
+    assert!(hub.close(sibling));
+}
+#[test]
+fn rocks_subtree_scan_crosses_sst_document_prefixes() {
+    let path = directory("subtree-sst");
+    let mut store = RocksStore::open(&path).unwrap();
+    for id in ["doc/a", "doc/a/b", "doc/a/c", "doc/ab"] {
+        let mut r = next(A, 1, 1);
+        r.doc_id = id.into();
+        store.append(&[r]).unwrap();
+    }
+    store.flush().unwrap();
+    assert_eq!(
+        store.documents("doc/a", "", 256).unwrap(),
+        vec!["doc/a", "doc/a/b", "doc/a/c"]
+    );
+    store.delete_documents("doc/a/b", true).unwrap();
+    store.flush().unwrap();
+    assert_eq!(
+        store.documents("doc/a", "", 256).unwrap(),
+        vec!["doc/a", "doc/a/c"]
+    );
+    drop(store);
+    std::fs::remove_dir_all(path).unwrap();
+}
+
+fn paged_subtree_starts_after_cursor<T: DocumentStore>(mut store: T) {
+    let ids = [
+        "doc/a",
+        "doc/a/",
+        "doc/a//x",
+        "doc/a/0",
+        "doc/a/keep",
+        "doc/a/z",
+        "doc/a-/sibling",
+        "doc/ab",
+        "other",
+    ];
+    for id in ids {
+        for sid in [A, B] {
+            let mut row = next(sid, 1, 1);
+            row.doc_id = id.to_owned();
+            ok(store.append(&[row]));
+        }
+    }
+    ok(store.delete_documents("doc/a/0", true));
+    for after in [
+        "", "doc", "doc/a", "doc/a-", "doc/a/", "doc/a//x", "doc/a/y", "doc/a0", "zzz",
+    ] {
+        let mut expected: Vec<_> = ids
+            .into_iter()
+            .filter(|id| {
+                pulsify_protocol::covers_document("doc/a", id) && *id != "doc/a/0" && *id > after
+            })
+            .collect();
+        expected.sort();
+        let mut found = Vec::new();
+        let mut cursor = after.to_owned();
+        loop {
+            let page = ok(store.documents("doc/a", &cursor, 2));
+            let Some(last) = page.last() else {
+                break;
+            };
+            cursor = last.clone();
+            found.extend(page);
+        }
+        assert_eq!(found, expected);
+    }
+}
+
+#[test]
+fn sqlite_paged_subtree_cursor_boundaries() {
+    paged_subtree_starts_after_cursor(SqliteStore::open_in_memory().unwrap());
+}
+
+#[test]
+fn rocks_paged_subtree_cursor_boundaries() {
+    let path = directory("paged-subtree-cursors");
+    paged_subtree_starts_after_cursor(RocksStore::open(&path).unwrap());
+    std::fs::remove_dir_all(path).unwrap();
 }

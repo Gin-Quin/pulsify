@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-cloud-server",
-	"version": "13.0.0",
+	"version": "14.0.0",
 	"description": "Pulsify Cloud server: one isolated root per namespace, multiplexed WebSockets and built-in access control.",
 	"type": "module",
 	"exports": {
@@ -11,23 +11,18 @@
 		"./cloudflare": {
 			"types": "./dist/cloudflare/index.d.ts",
 			"default": "./dist/cloudflare/index.js"
-		},
-		"./unikraft-cloud": {
-			"types": "./dist/unikraft-cloud/index.d.ts",
-			"default": "./dist/unikraft-cloud/index.js"
 		}
 	},
 	"files": [
 		"dist",
 		"README.md",
 		"LICENSE.md",
-		"cloudflare/README.md",
-		"unikraft-cloud/README.md"
+		"cloudflare/README.md"
 	],
 	"license": "FSL-1.1-ALv2",
 	"peerDependencies": {
-		"pulsify-core": "^13.0.0",
-		"pulsify-cloud": "^13.0.0"
+		"pulsify-core": "^14.0.0",
+		"pulsify-cloud": "^14.0.0"
 	},
 	"repository": {
 		"type": "git",

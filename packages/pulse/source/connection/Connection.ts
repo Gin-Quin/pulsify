@@ -1,3 +1,4 @@
+import { markPulseDeleted } from "../pulses/deletion.js";
 import { encodeHistoryRequest } from "../protocol/stateDeltas.js";
 import { encodePulseUpdates } from "../pulses/PulseExchange.js";
 import type { Pulse } from "../pulses/Pulse.js";
@@ -129,7 +130,7 @@ export class Connection {
 	 */
 	start(): void {
 		const meta = getPulseMeta(this.pulse);
-		if (meta.destroyed) return;
+		if (meta.destroyed || meta.deleted) return;
 		this.wanted = true;
 		this.stopOnline ??= onOnline(() => this.networkChanged());
 		if (!this.stopRows) {
@@ -291,8 +292,15 @@ export class Connection {
 							!["closed", "closing", "error", "reconnecting"].includes(
 								this.status,
 							)
-						)
+						) {
 							this.fail(error ?? new PulseError("CLOSED", "Transport closed"));
+							if (
+								error instanceof PulseError &&
+								error.code === "NOT_FOUND" &&
+								this.connector.authoritativeDeletions
+							)
+								void markPulseDeleted(this.pulse);
+						}
 					},
 				});
 			} catch (error) {
@@ -520,7 +528,19 @@ export class Connection {
 			const meta = getPulseMeta(this.pulse);
 			if (message.docId !== meta.id)
 				throw new PulseError("INVALID_MESSAGE", "Wrong document in response");
-			if (message.kind === 6) throw remoteError(message.code, message.message);
+			if (message.kind === 6) {
+				const error = remoteError(message.code, message.message);
+				if (
+					message.code === "NOT_FOUND" &&
+					this.connector.authoritativeDeletions
+				) {
+					// Fail this attempt before closing other sessions and persisting the marker.
+					this.fail(error);
+					void markPulseDeleted(this.pulse);
+					return;
+				}
+				throw error;
+			}
 			if (message.kind === 2) {
 				const request = this.pending.get(message.requestId);
 				if (!request)

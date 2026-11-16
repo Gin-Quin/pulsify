@@ -6,8 +6,10 @@ import {
 import {
 	isGap,
 	lastRegisterOf,
+	coversDocument,
+	documentPrefixes,
 	type AppendResult,
-	type PatchStore,
+	type DocumentStore,
 	type StoredPatchRow,
 } from "pulsify-core/storage";
 import {
@@ -58,7 +60,8 @@ type ValueRecord = {
 
 // Version 3 adds the values. Version 2 was never released: its `registers`
 // store is dropped, and its rows stay as history rows.
-const VERSION = 3;
+const VERSION = 4;
+const TOMBSTONES = "tombstones";
 const ROWS = "rows";
 const CLOCKS = "clocks";
 const VALUES = "values";
@@ -126,7 +129,7 @@ function storageError(error: unknown): PulseError {
  * The `SqlitePatchStore` semantics on IndexedDB: immutable rows, atomic
  * batches, and a per-document frontier advanced only by causally complete rows.
  */
-export class IndexedDbPatchStore implements PatchStore {
+export class IndexedDbPatchStore implements DocumentStore {
 	readonly name: string;
 	private opening: Promise<IDBDatabase> | undefined;
 	/** The open connection, until it is lost or the store is closed. */
@@ -173,65 +176,222 @@ export class IndexedDbPatchStore implements PatchStore {
 	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
-		return this.transaction("readwrite", (rows_, clocks, values) =>
-			this.write(rows_, clocks, values, docId, rows),
+		return this.transaction(
+			"readwrite",
+			async (rows_, clocks, values, tombstones) => {
+				await this.assertLive(tombstones, docId);
+				return this.write(rows_, clocks, values, docId, rows);
+			},
 		);
 	}
 	async vector(docId: string): Promise<PulseVersionVector> {
 		validateDocId(docId);
-		return this.transaction("readonly", async (_, clocks) =>
-			this.readVector(clocks, docId),
+		return this.transaction(
+			"readonly",
+			async (_, clocks, _values, tombstones) => {
+				await this.assertLive(tombstones, docId);
+				return this.readVector(clocks, docId);
+			},
+		);
+	}
+	private async readMissing(
+		docId: string,
+		remote: PulseVersionVector,
+		recovery = false,
+	): Promise<StoredPatchRow[]> {
+		validateDocId(docId);
+		validateVector(remote);
+		const peer = new Map(remote);
+		return this.transaction(
+			"readonly",
+			async (rows, clocks, values, tombstones) => {
+				if (!recovery) await this.assertLive(tombstones, docId);
+				const keys = this.keys;
+				const runs = await Promise.all(
+					(await this.readVector(clocks, docId))
+						.filter(([sid, clock]) => clock > (peer.get(sid) ?? 0))
+						.map(async ([sid, frontier]) => {
+							const since = peer.get(sid) ?? 0;
+							// The rows from the last one that starts at or before the
+							// remote clock, and every value of the actor.
+							const anchor = (
+								await request(
+									rows.openCursor(
+										keys.bound([docId, sid], [docId, sid, Math.max(since, 1)]),
+										"prev",
+									),
+								)
+							)?.value as RowRecord | undefined;
+							const [stored, kept] = await Promise.all([
+								request<RowRecord[]>(
+									rows.getAll(
+										keys.bound(
+											[docId, sid, anchor?.clock ?? 0],
+											[docId, sid, []],
+										),
+									),
+								),
+								request<ValueRecord[]>(
+									values.getAll(keys.bound([docId, sid], [docId, sid, []])),
+								),
+							]);
+							const held = [
+								...stored.filter((row) => row.ready).map(unpack),
+								...kept.map(unpackValue),
+							]
+								.filter((row) => !isGap(row.operations))
+								.sort((a, b) => a.clock - b.clock);
+							return serve(docId, sid, held, since, frontier);
+						}),
+				);
+				return runs.flat();
+			},
 		);
 	}
 	async missing(
 		docId: string,
 		remote: PulseVersionVector,
 	): Promise<StoredPatchRow[]> {
-		validateDocId(docId);
-		validateVector(remote);
-		const peer = new Map(remote);
-		return this.transaction("readonly", async (rows, clocks, values) => {
-			const keys = this.keys;
-			const runs = await Promise.all(
-				(await this.readVector(clocks, docId))
-					.filter(([sid, clock]) => clock > (peer.get(sid) ?? 0))
-					.map(async ([sid, frontier]) => {
-						const since = peer.get(sid) ?? 0;
-						// The rows from the last one that starts at or before the
-						// remote clock, and every value of the actor.
-						const anchor = (
-							await request(
-								rows.openCursor(
-									keys.bound([docId, sid], [docId, sid, Math.max(since, 1)]),
-									"prev",
-								),
-							)
-						)?.value as RowRecord | undefined;
-						const [stored, kept] = await Promise.all([
-							request<RowRecord[]>(
-								rows.getAll(
-									keys.bound(
-										[docId, sid, anchor?.clock ?? 0],
-										[docId, sid, []],
-									),
-								),
-							),
-							request<ValueRecord[]>(
-								values.getAll(keys.bound([docId, sid], [docId, sid, []])),
-							),
-						]);
-						const held = [
-							...stored.filter((row) => row.ready).map(unpack),
-							...kept.map(unpackValue),
-						]
-							.filter((row) => !isGap(row.operations))
-							.sort((a, b) => a.clock - b.clock);
-						return serve(docId, sid, held, since, frontier);
-					}),
+		return this.readMissing(docId, remote);
+	}
+	async recoverRows(docId: string): Promise<StoredPatchRow[]> {
+		return this.readMissing(docId, [], true);
+	}
+	private async deleted(
+		store: IDBObjectStore,
+		docId: string,
+	): Promise<boolean> {
+		const found = await Promise.all(
+			documentPrefixes(docId).map((prefix) => request(store.get(prefix))),
+		);
+		return found.some((value) => value !== undefined);
+	}
+	private async assertLive(
+		store: IDBObjectStore,
+		docId: string,
+	): Promise<void> {
+		if (await this.deleted(store, docId))
+			throw new PulseError(
+				"NOT_FOUND",
+				`Document ${docId} was permanently deleted`,
 			);
-			return runs.flat();
+	}
+	async isDeleted(docId: string): Promise<boolean> {
+		return this.transaction("readonly", async (_r, _c, _v, tombstones) =>
+			this.deleted(tombstones, docId),
+		);
+	}
+	/** Permanently block a subtree, retaining local operations for explicit recovery. */
+	async markDeleted(
+		docId: string,
+		recovery: readonly StoredPatchRow[] = [],
+	): Promise<void> {
+		validateDocId(docId);
+		const groups = new Map<string, StoredPatchRow[]>();
+		try {
+			for (const row of recovery) {
+				if (!coversDocument(docId, row.docId))
+					throw new PulseError(
+						"INVALID_MESSAGE",
+						"Recovery row outside deleted subtree",
+					);
+				const group = groups.get(row.docId) ?? [];
+				group.push(row);
+				groups.set(row.docId, group);
+			}
+			for (const rows of groups.values())
+				for (let i = 0; i < rows.length; i += 4096)
+					validateRows(rows.slice(i, i + 4096));
+			await this.transaction(
+				"readwrite",
+				async (rows, clocks, values, tombstones) => {
+					for (const [id, batch] of groups)
+						await this.write(rows, clocks, values, id, batch);
+					await this.putTombstone(tombstones, docId);
+				},
+			);
+		} finally {
+			await this.deleteDocuments(docId, { preserveRows: true });
+		}
+	}
+	private async putTombstone(
+		tombstones: IDBObjectStore,
+		docId: string,
+	): Promise<void> {
+		if (await this.deleted(tombstones, docId)) return;
+		tombstones.delete(this.keys.bound(`${docId}/`, `${docId}0`, false, true));
+		tombstones.put(true, docId);
+	}
+	async deleteDocuments(
+		docId: string,
+		options: { preserveRows?: boolean } = {},
+	): Promise<number> {
+		validateDocId(docId);
+		return this.transaction(
+			"readwrite",
+			async (rows, clocks, values, tombstones) => {
+				await this.putTombstone(tombstones, docId);
+				if (options.preserveRows) return 0;
+				const ranges = [
+					this.documentRange(docId),
+					this.keys.bound([`${docId}/`], [`${docId}0`], false, true),
+				];
+				const ids = new Set<string>();
+				for (const range of ranges) {
+					for (const store of [rows, values])
+						for (const key of await request(store.getAllKeys(range)))
+							ids.add((key as [string])[0]);
+					rows.delete(range);
+					clocks.delete(range);
+					values.delete(range);
+				}
+				return ids.size;
+			},
+		);
+	}
+	async documents(docId: string, after = "", limit = 256): Promise<string[]> {
+		validateDocId(docId);
+		if (!Number.isSafeInteger(limit) || limit < 1 || limit > 4096)
+			throw new RangeError("Invalid document limit");
+		return this.transaction("readonly", async (_r, clocks, _v, tombstones) => {
+			await this.assertLive(tombstones, docId);
+			const result: string[] = [];
+			if (
+				docId > after &&
+				(await request(clocks.getKey(this.documentRange(docId)))) !== undefined
+			)
+				result.push(docId);
+			const lower = `${docId}/`,
+				upper = `${docId}0`;
+			if (result.length === limit || after >= upper) return result;
+			return new Promise<string[]>((resolve, reject) => {
+				const request = clocks.openKeyCursor(
+					this.keys.bound(
+						after >= lower ? [after, []] : [lower],
+						[upper],
+						false,
+						true,
+					),
+				);
+				request.onerror = () => reject(request.error);
+				request.onsuccess = () => {
+					const cursor = request.result;
+					if (!cursor) {
+						resolve(result);
+						return;
+					}
+					const id = (cursor.key as [string])[0];
+					const next = () => cursor.continue([id, []]);
+					this.deleted(tombstones, id).then((deleted) => {
+						if (!deleted) result.push(id);
+						if (result.length === limit) resolve(result);
+						else next();
+					}, reject);
+				};
+			});
 		});
 	}
+
 	/** Deletes every stored row of one document. */
 	async forget(docId: string): Promise<void> {
 		validateDocId(docId);
@@ -242,7 +402,7 @@ export class IndexedDbPatchStore implements PatchStore {
 			values.delete(range);
 		});
 	}
-	/** Deletes every document in this database. */
+	/** Erases cached/recovery rows; permanent deletion markers remain. */
 	async clear(): Promise<void> {
 		await this.transaction("readwrite", async (rows, clocks, values) => {
 			rows.clear();
@@ -272,6 +432,8 @@ export class IndexedDbPatchStore implements PatchStore {
 			const open = factory.open(this.name, VERSION);
 			open.onupgradeneeded = () => {
 				const db = open.result;
+				if (!db.objectStoreNames.contains(TOMBSTONES))
+					db.createObjectStore(TOMBSTONES);
 				if (!db.objectStoreNames.contains(ROWS))
 					db.createObjectStore(ROWS, {
 						keyPath: ["docId", "sid", "clock"],
@@ -335,6 +497,7 @@ export class IndexedDbPatchStore implements PatchStore {
 			rows: IDBObjectStore,
 			clocks: IDBObjectStore,
 			values: IDBObjectStore,
+			tombstones: IDBObjectStore,
 		) => Promise<T>,
 	): Promise<T> {
 		const db = await this.database();
@@ -342,7 +505,7 @@ export class IndexedDbPatchStore implements PatchStore {
 			let tx: IDBTransaction;
 			try {
 				tx = db.transaction(
-					[ROWS, CLOCKS, VALUES],
+					[ROWS, CLOCKS, VALUES, TOMBSTONES],
 					mode,
 					this.options.durability
 						? { durability: this.options.durability }
@@ -368,6 +531,7 @@ export class IndexedDbPatchStore implements PatchStore {
 				tx.objectStore(ROWS),
 				tx.objectStore(CLOCKS),
 				tx.objectStore(VALUES),
+				tx.objectStore(TOMBSTONES),
 			).then(
 				(value) => {
 					result = { value };

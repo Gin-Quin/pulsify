@@ -1,4 +1,5 @@
 use crate::{Error, Result};
+use pulsify_protocol::{covers_document, document_prefixes, DocumentStore};
 use pulsify_protocol::{
     is_gap, last_register_of, validate_rows, validate_vector, AppendResult, PatchRow, PatchStore,
     VersionVector, GAP_OPERATIONS, MAX_VECTOR_ENTRIES,
@@ -27,7 +28,8 @@ const PENDING: &str = "pending";
 /// `rows` encodes it. The register is the encoded target and field of the
 /// write, as bytes.
 const VALUES: &str = "values";
-const FAMILIES: [&str; 4] = [ROWS, CLOCKS, PENDING, VALUES];
+const TOMBSTONES: &str = "tombstones";
+const FAMILIES: [&str; 5] = [ROWS, CLOCKS, PENDING, VALUES, TOMBSTONES];
 /// The register index of an unreleased layout: moved to `values` and dropped
 /// when the database is opened.
 const REGISTERS: &str = "registers";
@@ -212,6 +214,7 @@ impl RocksStore {
             ColumnFamilyDescriptor::new(CLOCKS, family_options(&cache, None)),
             ColumnFamilyDescriptor::new(PENDING, family_options(&cache, None)),
             ColumnFamilyDescriptor::new(VALUES, family_options(&cache, Some(options))),
+            ColumnFamilyDescriptor::new(TOMBSTONES, family_options(&cache, None)),
         ];
         if registers {
             families.push(ColumnFamilyDescriptor::new(
@@ -313,6 +316,7 @@ impl RocksStore {
         let Some(doc_id) = validate_rows(rows)? else {
             return Ok(AppendResult::default());
         };
+        self.assert_live(doc_id)?;
         let prefix = prefix_of(doc_id);
         let (name, mut document) = match self.documents.remove_entry(doc_id) {
             Some(entry) => entry,
@@ -327,6 +331,7 @@ impl RocksStore {
 
     pub fn vector(&self, doc_id: &str) -> Result<VersionVector> {
         validate_doc_id(doc_id)?;
+        self.assert_live(doc_id)?;
         Ok(match self.documents.get(doc_id) {
             Some(document) => document.frontier.iter().map(|(k, v)| (*k, *v)).collect(),
             None => self
@@ -340,6 +345,7 @@ impl RocksStore {
     pub fn missing(&self, doc_id: &str, remote: &VersionVector) -> Result<Vec<PatchRow>> {
         validate_doc_id(doc_id)?;
         validate_vector(remote)?;
+        self.assert_live(doc_id)?;
         let prefix = prefix_of(doc_id);
         match self.documents.get(doc_id) {
             Some(document) => self.read_missing(doc_id, &prefix, &document.frontier, remote),
@@ -355,6 +361,7 @@ impl RocksStore {
     ) -> Result<(Vec<PatchRow>, VersionVector)> {
         validate_doc_id(doc_id)?;
         validate_vector(remote)?;
+        self.assert_live(doc_id)?;
         let prefix = prefix_of(doc_id);
         // A peer that connects usually writes next: keep what was read.
         if !self.documents.contains_key(doc_id) {
@@ -373,6 +380,15 @@ impl RocksStore {
         Ok((rows, frontier.iter().map(|(k, v)| (*k, *v)).collect()))
     }
 
+    fn assert_live(&self, doc_id: &str) -> Result<()> {
+        if self.is_deleted(doc_id)? {
+            return Err(Error::new(
+                "NOT_FOUND",
+                format!("Document {doc_id} was permanently deleted"),
+            ));
+        }
+        Ok(())
+    }
     fn family(&self, name: &str) -> Result<&ColumnFamily> {
         self.db
             .cf_handle(name)
@@ -767,6 +783,120 @@ fn serve(
             span: end - row.clock,
             ..row
         });
+    }
+}
+
+impl DocumentStore for RocksStore {
+    fn is_deleted(&self, doc_id: &str) -> Result<bool> {
+        validate_doc_id(doc_id)?;
+        let family = self.family(TOMBSTONES)?;
+        for prefix in document_prefixes(doc_id) {
+            if self.db.get_cf(family, prefix.as_bytes())?.is_some() {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    fn delete_documents(&mut self, doc_id: &str, preserve_rows: bool) -> Result<usize> {
+        validate_doc_id(doc_id)?;
+        let mut batch = WriteBatch::default();
+        let lower = format!("{doc_id}/").into_bytes();
+        let upper = format!("{doc_id}0").into_bytes();
+        let family = self.family(TOMBSTONES)?;
+        if !self.is_deleted(doc_id)? {
+            batch.delete_range_cf(family, &lower, &upper);
+            batch.put_cf(family, doc_id.as_bytes(), []);
+        }
+        let mut found = BTreeSet::new();
+        if !preserve_rows {
+            let prefix = prefix_of(doc_id);
+            let mut end = prefix.clone();
+            *end.last_mut().unwrap() = 1;
+            for name in [ROWS, CLOCKS, PENDING, VALUES] {
+                let cf = self.family(name)?;
+                if name == ROWS || name == VALUES {
+                    for (lo, hi) in [(&prefix, &end), (&lower, &upper)] {
+                        let mut options = ReadOptions::default();
+                        options.set_total_order_seek(true);
+                        options.set_iterate_lower_bound(lo.clone());
+                        options.set_iterate_upper_bound(hi.clone());
+                        let mut cursor = self.db.raw_iterator_cf_opt(cf, options);
+                        cursor.seek(lo);
+                        while cursor.valid() {
+                            let doc = document_prefix(cursor.key().ok_or_else(corrupt)?);
+                            found.insert(doc[..doc.len() - 1].to_vec());
+                            cursor.next();
+                        }
+                        cursor.status()?;
+                    }
+                }
+                batch.delete_range_cf(cf, &prefix, &end);
+                batch.delete_range_cf(cf, &lower, &upper);
+            }
+        }
+        // A deletion is durable even when ordinary appends use relaxed WAL sync.
+        let mut options = WriteOptions::default();
+        options.set_sync(true);
+        self.db.write_opt(batch, &options)?;
+        self.documents.retain(|id, _| !covers_document(doc_id, id));
+        Ok(found.len())
+    }
+    fn recover_rows(&self, doc_id: &str) -> Result<Vec<PatchRow>> {
+        validate_doc_id(doc_id)?;
+        let prefix = prefix_of(doc_id);
+        self.read_missing(doc_id, &prefix, &self.read_frontier(&prefix)?, &vec![])
+    }
+    fn documents(&self, doc_id: &str, after: &str, limit: usize) -> Result<Vec<String>> {
+        self.assert_live(doc_id)?;
+        if limit == 0 || limit > 4096 {
+            return Err(Error::new("INVALID_MESSAGE", "Invalid document limit"));
+        }
+        let mut result = Vec::new();
+        let exact = prefix_of(doc_id);
+        let mut exact_end = exact.clone();
+        *exact_end.last_mut().unwrap() = 1;
+        for (mut lower, upper) in [
+            (exact, exact_end),
+            (
+                format!("{doc_id}/").into_bytes(),
+                format!("{doc_id}0").into_bytes(),
+            ),
+        ] {
+            // All actor keys for `after` sort below its NUL changed to 1.
+            let mut resume = prefix_of(after);
+            *resume.last_mut().unwrap() = 1;
+            if resume > lower {
+                lower = resume;
+            }
+            if lower >= upper {
+                continue;
+            }
+            let mut options = ReadOptions::default();
+            options.set_total_order_seek(true);
+            options.set_iterate_lower_bound(lower.clone());
+            options.set_iterate_upper_bound(upper);
+            let mut cursor = self.db.raw_iterator_cf_opt(self.family(CLOCKS)?, options);
+            cursor.seek(&lower);
+            while cursor.valid() {
+                let prefix = document_prefix(cursor.key().ok_or_else(corrupt)?);
+                let id = std::str::from_utf8(&prefix[..prefix.len() - 1]).map_err(|_| corrupt())?;
+                if !self.is_deleted(id)? {
+                    result.push(id.to_owned());
+                }
+                if result.len() == limit {
+                    break;
+                }
+                // Hop to the next document without walking all of its actors.
+                let mut next = prefix.to_vec();
+                *next.last_mut().unwrap() = 1;
+                cursor.seek(next);
+            }
+            cursor.status()?;
+            if result.len() == limit {
+                break;
+            }
+        }
+        Ok(result)
     }
 }
 

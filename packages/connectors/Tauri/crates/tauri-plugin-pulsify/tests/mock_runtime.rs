@@ -1,4 +1,4 @@
-use pulsify_protocol::{decode, encode, Body, Message, PatchRow};
+use pulsify_protocol::{decode, encode, Body, DocumentStore, Message, PatchRow};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 use tauri::ipc::{CallbackFn, InvokeBody, InvokeResponseBody, RuntimeAuthority};
@@ -226,4 +226,163 @@ fn an_unavailable_database_fails_open_without_failing_startup() {
     assert!(invoke(&webview, "open", body, None).unwrap().is_u64());
     drop(webview);
     let _ = std::fs::remove_dir_all(&blocker);
+}
+
+#[test]
+fn deletion_command_preserves_recovery_and_notifies_other_windows() {
+    let directory =
+        std::env::temp_dir().join(format!("pulsify-tombstone-ipc-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&directory);
+    let (app, webview, frames) = app(
+        &directory.join("db.sqlite"),
+        &["open", "send", "mark_deleted", "cached"],
+    );
+    for channel in [11, 12] {
+        invoke(
+            &webview,
+            "open",
+            InvokeBody::Json(json!({"docId":"doc", "channel":format!("__CHANNEL__:{channel}")})),
+            None,
+        )
+        .unwrap();
+    }
+    let row = PatchRow {
+        doc_id: "doc".into(),
+        sid: 65536,
+        clock: 1,
+        span: 1,
+        dependencies: vec![],
+        operations: vec![1, 2, 3],
+    };
+    app.state::<Pulsify>()
+        .with_store(|store| store.append(std::slice::from_ref(&row)))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        invoke(
+            &webview,
+            "cached",
+            InvokeBody::Json(json!({"docId":"doc"})),
+            None
+        )
+        .unwrap(),
+        json!(true)
+    );
+    let saved = frame(
+        0,
+        Body::SyncBack {
+            vv: vec![],
+            rows: vec![row.clone()],
+        },
+    );
+    invoke(
+        &webview,
+        "mark_deleted",
+        InvokeBody::Json(json!({"docId":"doc", "frames":[saved]})),
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(
+            &webview,
+            "cached",
+            InvokeBody::Json(json!({"docId":"doc"})),
+            None
+        )
+        .unwrap_err()["code"],
+        "NOT_FOUND"
+    );
+    let received = frames.lock().unwrap();
+    assert_eq!(received.len(), 2);
+    assert!(received.iter().all(
+        |(_, message)| matches!(&message.body, Body::Error {code, ..} if code == "NOT_FOUND")
+    ));
+    app.state::<Pulsify>()
+        .with_store(|store| {
+            assert_eq!(store.recover_rows("doc").unwrap(), vec![row]);
+            assert_eq!(store.vector("doc").unwrap_err().code, "NOT_FOUND");
+            assert!(store.is_deleted("doc/never-seen").unwrap());
+        })
+        .unwrap();
+    drop(received);
+    drop(app);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn failed_recovery_still_retires_native_sessions_and_preserves_original_data() {
+    for malformed in [false, true] {
+        let directory = std::env::temp_dir().join(format!(
+            "pulsify-failed-recovery-{}-{malformed}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&directory);
+        let (app, webview, received) = app(&directory.join("db.sqlite"), &["open", "mark_deleted"]);
+        for channel in [11, 12] {
+            invoke(
+                &webview,
+                "open",
+                InvokeBody::Json(
+                    json!({"docId":"doc", "channel":format!("__CHANNEL__:{channel}")}),
+                ),
+                None,
+            )
+            .unwrap();
+        }
+        let original = PatchRow {
+            doc_id: "doc".into(),
+            sid: 65536,
+            clock: 1,
+            span: 1,
+            dependencies: vec![],
+            operations: vec![1, 2, 3],
+        };
+        app.state::<Pulsify>()
+            .with_store(|store| store.append(std::slice::from_ref(&original)))
+            .unwrap()
+            .unwrap();
+        let recovery = if malformed {
+            vec![1, 2]
+        } else {
+            let mut changed = original.clone();
+            changed.operations = vec![99];
+            frame(
+                0,
+                Body::SyncBack {
+                    vv: vec![],
+                    rows: vec![changed],
+                },
+            )
+        };
+        let error = invoke(
+            &webview,
+            "mark_deleted",
+            InvokeBody::Json(json!({"docId":"doc", "frames":[recovery]})),
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error["code"],
+            if malformed {
+                "UNSUPPORTED_VERSION"
+            } else {
+                "CONFLICT"
+            }
+        );
+        let frames = received.lock().unwrap();
+        assert_eq!(frames.len(), 2);
+        assert!(frames.iter().all(
+            |(_, message)| matches!(&message.body, Body::Error { code, .. } if code == "NOT_FOUND")
+        ));
+        app.state::<Pulsify>()
+            .with_store(|store| {
+                assert!(store.is_deleted("doc/offline").unwrap());
+                assert_eq!(store.recover_rows("doc").unwrap(), vec![original]);
+                assert_eq!(store.vector("doc").unwrap_err().code, "NOT_FOUND");
+            })
+            .unwrap();
+        drop(frames);
+        drop(app);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

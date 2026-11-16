@@ -66,3 +66,14 @@ prefix and everything below it, and the strongest one wins.
 ## License
 
 Apache-2.0
+
+`loadPulse` eagerly prefetches an ID subtree in one data request when the server
+advertises support, then subscribes to the referenced documents individually.
+Use `subPulses:false` to load only the requested document, without ancestors.
+The lower-level `cloud.prefetch(docId,{descendants:true,vectors:[]})` returns
+`{documents,complete:true}` after streaming the whole result, with no total
+document or byte cutoff. Internal transport acknowledgements pace the same
+request; the client does not request additional pages. Deleted
+prefixes are excluded. Deleting a document permanently retires its ID and all
+descendant IDs. Local unsynced operations are retained for recovery, not uploaded
+again. Use new IDs for recovered documents.

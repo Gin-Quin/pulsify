@@ -1,3 +1,4 @@
+import { assertScopeLive } from "./deletion.js";
 import { connectPulse } from "../connection/connectPulse.js";
 import type { RichText } from "../core/richText.js";
 import type { PlainText } from "../core/plainText.js";
@@ -76,6 +77,7 @@ export function createPulse<Definition extends AnyPulseDefinition>(
 			throw new TypeError(`A sub-pulse ID must start with ${prefix}`);
 	}
 	id ??= options.createId();
+	assertScopeLive(options.scope, id);
 	const existing = options.scope.pulses.get(id);
 	if (existing) {
 		if (getPulseMeta(existing).definition !== definition)

@@ -21,6 +21,8 @@ export type PulseMeta = {
 	status: SynchronizationStatus;
 	statusListeners: Set<(status: SynchronizationStatus) => void>;
 	destroyed: boolean;
+	deleted?: boolean;
+	deletion?: Promise<void>;
 	loaded: boolean;
 	lastError: Error | undefined;
 	connections: Connection[];

@@ -1,3 +1,4 @@
+import { encodeRecoveryFrames } from "pulsify-core/protocol";
 import {
 	Channel,
 	invoke as tauriInvoke,
@@ -84,6 +85,27 @@ export function createTauriConnector(
 		`plugin:${options.plugin ?? "pulsify"}|${name}`;
 	return {
 		kind: "local",
+		authoritativeDeletions: true,
+		async cached(docId) {
+			try {
+				const found = await invoke(command("cached"), { docId });
+				if (typeof found !== "boolean")
+					throw new PulseError("CONNECTION_FAILED", "Invalid cache response");
+				return found;
+			} catch (error) {
+				throw asPulseError(error);
+			}
+		},
+		async markDeleted(docId, rows) {
+			try {
+				await invoke(command("mark_deleted"), {
+					docId,
+					frames: encodeRecoveryFrames(rows).map((frame) => Array.from(frame)),
+				});
+			} catch (error) {
+				throw asPulseError(error);
+			}
+		},
 		// One pool of reusable actor IDs per plugin, and so per database.
 		actorPool: `tauri:${options.plugin ?? "pulsify"}`,
 		async open({ docId, signal, onMessage, onClose }) {

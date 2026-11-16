@@ -1,9 +1,11 @@
 import {
 	createPresenceBudget,
+	decodeMessage,
 	encodeBroadcast,
 	encodeMessage,
 	encodePresenceLeave,
 	PRESENCE_KIND,
+	PulseError,
 	relayPresenceFrame,
 	relayStoreMessage,
 } from "pulsify-core/protocol";
@@ -24,6 +26,7 @@ import {
 	peekFrameHeader,
 	roleFor,
 	rootOf,
+	type CloudFetchMessage,
 	type CloudAction,
 	type CloudEnvelope,
 	type CloudGrant,
@@ -60,6 +63,20 @@ export type CloudPeers = {
 	all(): Iterable<CloudPeer>;
 };
 
+type FetchState = {
+	docId: string;
+	cancelled: boolean;
+	error?: Error;
+	batch: number;
+	resume?: (() => void) | undefined;
+};
+
+// Work/transport windows, not limits on the size of a requested subtree.
+const FETCH_DOCUMENT_PAGE = 128;
+const FETCH_BATCH_FRAMES = 64;
+const FETCH_BATCH_BYTES = 1024 * 1024;
+const FETCH_ACK_TIMEOUT_MS = 30_000;
+
 /**
  * A session's presence peer number. Derived from the connection ID, so it
  * survives hibernation, needs no storage, and is still known when the socket
@@ -91,6 +108,7 @@ export class CloudRoot {
 	private readonly stored = new Map<string, Set<string>>();
 	/** What each connection may still send this second; lost on hibernation. */
 	private readonly presenceBudgets = new Map<string, () => boolean>();
+	private readonly fetches = new Map<string, Map<number, FetchState>>();
 	private queue: Promise<unknown> = Promise.resolve();
 
 	constructor(
@@ -104,7 +122,7 @@ export class CloudRoot {
 	}
 
 	/** Handle one WebSocket message; protocol violations close the socket. */
-	receive(
+	async receive(
 		peer: CloudPeer,
 		data: Uint8Array | ArrayBuffer | string,
 	): Promise<void> {
@@ -112,22 +130,44 @@ export class CloudRoot {
 			safely(() => peer.send(CLOUD_PONG));
 			return Promise.resolve();
 		}
-		return this.run(async () => {
-			try {
-				if (typeof data === "string") {
-					const message = parseClientMessage(data);
-					await this.unsubscribe(peer, message.docId);
-				} else
-					await this.frame(
+		try {
+			if (typeof data === "string") {
+				const message = parseClientMessage(data);
+				// The handler stays alive, but never holds the root queue while
+				// waiting for the network. Other events run between fetch windows.
+				if (message.type === "fetch") {
+					await this.fetchDocuments(peer, message);
+					return;
+				}
+				await this.run(async () => {
+					if (message.type === "unsubscribe")
+						await this.unsubscribe(peer, message.docId);
+					else {
+						const fetch = this.fetches.get(peer.id)?.get(message.requestId);
+						if (!fetch) return; // Late acknowledgement/cancellation.
+						if (message.type === "cancel-fetch") fetch.cancelled = true;
+						else if (message.batch !== fetch.batch || !fetch.resume)
+							throw new CloudError(
+								"BAD_REQUEST",
+								"Unexpected fetch acknowledgement",
+							);
+						fetch.resume?.();
+					}
+				});
+			} else
+				await this.run(() =>
+					this.frame(
 						peer,
 						data instanceof Uint8Array ? data : new Uint8Array(data),
-					);
-			} catch (error) {
+					),
+				);
+		} catch (error) {
+			await this.run(async () => {
 				const reason = error instanceof Error ? error.message : "Invalid frame";
 				safely(() => peer.close(1008, reason.slice(0, 120)));
 				await this.forget(peer);
-			}
-		});
+			});
+		}
 	}
 
 	disconnect(peer: CloudPeer): Promise<void> {
@@ -303,6 +343,173 @@ export class CloudRoot {
 		);
 	}
 
+	/** Initial data prefetch only: live subscriptions are still explicit per document. */
+	private async fetchDocuments(
+		peer: CloudPeer,
+		input: CloudFetchMessage,
+	): Promise<void> {
+		const { docId, requestId } = input;
+		const state: FetchState = { docId, cancelled: false, batch: 0 };
+		let registered = false;
+		const check = async () => {
+			if (!this.peers.get(peer.id)) state.cancelled = true;
+			if (state.cancelled) throw new PulseError("CLOSED", "Fetch cancelled");
+			if (state.error) throw state.error;
+			// Recheck before every read/send after yielding to deletion or grants.
+			if (!this.role(peer.subject, docId))
+				throw new CloudError("FORBIDDEN", "No access to document");
+			if (await this.storage.isDeleted(docId))
+				throw new CloudError("NOT_FOUND", "Document was permanently deleted");
+		};
+		let frames = 0,
+			bytes = 0;
+		const flush = async () => {
+			if (!frames) return;
+			let acknowledged: Promise<void> = Promise.resolve();
+			await this.run(async () => {
+				await check();
+				acknowledged = new Promise<void>((resolve) => {
+					const timer = setTimeout(() => {
+						state.error = new PulseError(
+							"TIMEOUT",
+							"Fetch acknowledgement timed out",
+						);
+						state.resume?.();
+					}, FETCH_ACK_TIMEOUT_MS);
+					state.resume = () => {
+						clearTimeout(timer);
+						state.resume = undefined;
+						resolve();
+					};
+				});
+				peer.send(
+					JSON.stringify({
+						type: "fetch-batch",
+						requestId,
+						batch: ++state.batch,
+					}),
+				);
+			});
+			await acknowledged;
+			frames = bytes = 0;
+		};
+		try {
+			await this.run(async () => {
+				assertDocumentOf(this.root, docId);
+				await check();
+				let active = this.fetches.get(peer.id);
+				if (!active) this.fetches.set(peer.id, (active = new Map()));
+				if (active.has(requestId))
+					throw new CloudError("BAD_REQUEST", "Duplicate fetch request ID");
+				active.set(requestId, state);
+				registered = true;
+			});
+			const vectors = new Map(input.vectors);
+			let ids = [docId],
+				after = docId;
+			for (;;) {
+				for (const id of ids) {
+					const result = await this.run(async () => {
+						await check();
+						if (id !== docId && (await this.storage.isDeleted(id))) return;
+						sendRole(peer, id, this.role(peer.subject, id)!);
+						return relayStoreMessage(
+							this.storage.patches,
+							encodeMessage({
+								kind: 1,
+								docId: id,
+								requestId,
+								vv: vectors.get(id) ?? [],
+							}),
+							{ docId: id, protocolVersion: peer.envelope },
+						);
+					});
+					if (!result) continue;
+					for (const frame of result.responses) {
+						if (
+							frames &&
+							(frames >= FETCH_BATCH_FRAMES ||
+								bytes + frame.byteLength > FETCH_BATCH_BYTES)
+						)
+							await flush();
+						const sent = await this.run(async () => {
+							await check();
+							if (id !== docId && (await this.storage.isDeleted(id))) {
+								// A partially sent child was deleted while the batch was
+								// in flight. Discard that child, never retire its parent.
+								peer.send(
+									encodeMessage({
+										kind: 6,
+										docId: id,
+										requestId,
+										code: "NOT_FOUND",
+										message: "Document was permanently deleted",
+									}),
+								);
+								return false;
+							}
+							peer.send(frame);
+							return true;
+						});
+						if (!sent) break;
+						frames++;
+						bytes += frame.byteLength;
+						if (peekFrameHeader(frame).kind === 6) {
+							const failure = decodeMessage(frame);
+							if (
+								failure.kind === 6 &&
+								failure.code === "NOT_FOUND" &&
+								id !== docId
+							)
+								break;
+							return;
+						}
+					}
+				}
+				if (!input.descendants) break;
+				ids = await this.run(async () => {
+					await check();
+					return this.storage.patches.documents(
+						docId,
+						after,
+						FETCH_DOCUMENT_PAGE,
+					);
+				});
+				if (!ids.length) break;
+				after = ids.at(-1)!;
+			}
+			await this.run(async () => {
+				await check();
+				peer.send(
+					JSON.stringify({ type: "fetched", requestId, complete: true }),
+				);
+			});
+		} catch (error) {
+			if (state.cancelled) return;
+			const code =
+				error instanceof CloudError
+					? error.code
+					: ((error as { code?: string })?.code ?? "CONNECTION_FAILED");
+			safely(() =>
+				peer.send(
+					encodeMessage({
+						kind: 6,
+						docId,
+						requestId,
+						code,
+						message: error instanceof Error ? error.message : "Fetch failed",
+					}),
+				),
+			);
+		} finally {
+			state.resume?.();
+			if (registered) {
+				const active = this.fetches.get(peer.id)!;
+				active.delete(requestId);
+				if (!active.size) this.fetches.delete(peer.id);
+			}
+		}
+	}
 	private async frame(peer: CloudPeer, bytes: Uint8Array): Promise<void> {
 		const { envelope, kind, docId, requestId } = peekFrameHeader(bytes);
 		if (envelope > peer.envelope)
@@ -323,6 +530,10 @@ export class CloudRoot {
 			// frame is dropped: the client already got its FORBIDDEN.
 			if (subscribed && role) this.presence(peer, bytes);
 			return;
+		}
+		if (role && (await this.storage.isDeleted(docId))) {
+			if (subscribed) await this.unsubscribe(peer, docId);
+			return fail("NOT_FOUND", "Document was permanently deleted");
 		}
 		if (kind === 1) {
 			if (!role) {
@@ -394,6 +605,10 @@ export class CloudRoot {
 
 	private async forget(peer: CloudPeer): Promise<void> {
 		const connection = peer.id;
+		for (const fetch of this.fetches.get(connection)?.values() ?? []) {
+			fetch.cancelled = true;
+			fetch.resume?.();
+		}
 		this.presenceBudgets.delete(connection);
 		const documents = this.subscriptions.get(connection);
 		if (!documents) return;
@@ -440,6 +655,17 @@ export class CloudRoot {
 		docId: string,
 	): Promise<number> {
 		this.assertManager(caller, docId, "delete it");
+		// Persist first: a failed delete must never tell clients to retire live data.
+		const deleted = await this.storage.deleteDocuments(docId);
+		for (const active of this.fetches.values())
+			for (const fetch of active.values())
+				if (covers(docId, fetch.docId)) {
+					fetch.error = new CloudError(
+						"NOT_FOUND",
+						"Document was permanently deleted",
+					);
+					fetch.resume?.();
+				}
 		for (const peer of this.peers.all())
 			for (const subscribed of [
 				...(this.subscriptions.get(peer.id)?.keys() ?? []),
@@ -458,7 +684,6 @@ export class CloudRoot {
 					),
 				);
 			}
-		const deleted = await this.storage.deleteDocuments(docId);
 		this.setGrants(
 			this.grants!.filter((grant) => !covers(docId, grant.prefix)),
 		);
@@ -470,6 +695,8 @@ export class CloudRoot {
 		grant: CloudGrant,
 	): Promise<CloudGrant> {
 		this.assertManager(caller, grant.prefix);
+		if (await this.storage.isDeleted(grant.prefix))
+			throw new CloudError("NOT_FOUND", "Document was permanently deleted");
 		const others = this.grants!.filter(
 			(other) =>
 				other.subject !== grant.subject || other.prefix !== grant.prefix,
@@ -502,6 +729,14 @@ export class CloudRoot {
 	private async refreshRoles(subject: string): Promise<void> {
 		for (const peer of this.peers.all()) {
 			if (subject !== ANY_SUBJECT && peer.subject !== subject) continue;
+			for (const fetch of this.fetches.get(peer.id)?.values() ?? [])
+				if (!this.role(peer.subject, fetch.docId)) {
+					fetch.error = new CloudError(
+						"FORBIDDEN",
+						"Access to document was revoked",
+					);
+					fetch.resume?.();
+				}
 			const documents = this.subscriptions.get(peer.id);
 			if (!documents) continue;
 			for (const [docId, previous] of [...documents]) {

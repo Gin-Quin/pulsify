@@ -1,3 +1,4 @@
+import { encodeRecoveryFrames } from "pulsify-core/protocol";
 import {
 	PulseError,
 	type Connector,
@@ -85,6 +86,27 @@ export function createElectronConnector(
 
 	return {
 		kind: "local",
+		authoritativeDeletions: true,
+		async cached(docId) {
+			const bridge = resolve();
+			if (!bridge?.cached) return true; // Older bridges preserve local-first behavior.
+			const result = await bridge.cached(docId);
+			if (!result.ok) throw errorOf(result);
+			return result.found !== false;
+		},
+		async markDeleted(docId, rows) {
+			const bridge = resolve();
+			if (!bridge?.markDeleted)
+				throw new PulseError(
+					"UNSUPPORTED_VERSION",
+					"Update the Pulsify preload bridge to persist deletion markers",
+				);
+			const result = await bridge.markDeleted(
+				docId,
+				encodeRecoveryFrames(rows),
+			);
+			if (!result.ok) throw errorOf(result);
+		},
 		// One pool of reusable actor IDs per bridge, and so per database.
 		actorPool: `electron:${typeof bridge === "string" ? bridge : DEFAULT_KEY}`,
 		open({ docId, signal, onMessage, onClose }): Promise<ConnectorSession> {

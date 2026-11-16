@@ -29,6 +29,17 @@ export interface PatchStore {
 	missing(docId: string, remote: PulseVersionVector): Promise<StoredPatchRow[]>;
 }
 
+/** Durable document lifecycle, separate from opaque operation storage. */
+export interface DocumentStore extends PatchStore {
+	isDeleted(docId: string): Promise<boolean>;
+	deleteDocuments(
+		docId: string,
+		options?: { preserveRows?: boolean },
+	): Promise<number>;
+	recoverRows(docId: string): Promise<StoredPatchRow[]>;
+	documents(docId: string, after?: string, limit?: number): Promise<string[]>;
+}
+
 const rowCodec = wireCodec(PulsePatchRowSchema);
 export const encodeStoredRow = (row: StoredPatchRow): Uint8Array => {
 	validateRows([row]);

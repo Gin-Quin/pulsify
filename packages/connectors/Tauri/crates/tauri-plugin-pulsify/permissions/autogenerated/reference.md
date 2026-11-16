@@ -1,12 +1,14 @@
 ## Default Permission
 
-Lets the webview open, use and close sessions on local Pulsify documents.
+Lets the webview inspect, synchronize and retain deleted local documents for recovery.
 
 #### This default permission set includes the following:
 
 - `allow-open`
 - `allow-send`
 - `allow-close`
+- `allow-mark-deleted`
+- `allow-cached`
 
 ## Permission Table
 
@@ -16,6 +18,32 @@ Lets the webview open, use and close sessions on local Pulsify documents.
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`pulsify:allow-cached`
+
+</td>
+<td>
+
+Enables the cached command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pulsify:deny-cached`
+
+</td>
+<td>
+
+Denies the cached command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -39,6 +67,32 @@ Enables the close command without any pre-configured scope.
 <td>
 
 Denies the close command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pulsify:allow-mark-deleted`
+
+</td>
+<td>
+
+Enables the mark_deleted command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pulsify:deny-mark-deleted`
+
+</td>
+<td>
+
+Denies the mark_deleted command without any pre-configured scope.
 
 </td>
 </tr>

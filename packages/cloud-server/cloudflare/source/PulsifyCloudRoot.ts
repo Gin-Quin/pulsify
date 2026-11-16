@@ -104,7 +104,7 @@ export class PulsifyCloudRoot {
 			if (action === "grants" || action === "usage")
 				return await engine.handleRequest(action, request, caller);
 			if (action === "documents") {
-				// Deleting the root document deletes the object.
+				// Retire a deleted root while retaining its durable tombstone.
 				const response = await engine.handleRequest(action, request, caller);
 				if (
 					response.ok &&
@@ -137,7 +137,7 @@ export class PulsifyCloudRoot {
 						id: this.state.id?.toString() ?? root,
 						...(location ? { location } : {}),
 					},
-					{ presence: true },
+					{ presence: true, subtrees: true },
 				),
 			);
 			return new Response(null, {
@@ -198,9 +198,8 @@ export class PulsifyCloudRoot {
 	}
 
 	/**
-	 * The root document was deleted, so the root holds nothing: close its
-	 * sockets and delete its storage and alarm, which deletes the object. A
-	 * later request starts an empty root.
+	 * The root document was deleted: close its sockets and cancel its alarm.
+	 * Keep the durable tombstone so a later request cannot recreate this ID.
 	 */
 	protected async erase(): Promise<void> {
 		this.engine = this.storage = this.compaction = undefined;
@@ -215,7 +214,6 @@ export class PulsifyCloudRoot {
 			}
 		}
 		await this.state.storage.deleteAlarm();
-		await this.state.storage.deleteAll();
 	}
 
 	/** After a socket closed: if it was the last, compact once the root stayed idle. */

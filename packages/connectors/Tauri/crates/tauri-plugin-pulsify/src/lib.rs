@@ -2,7 +2,7 @@
 //!
 //! Register it with `.plugin(tauri_plugin_pulsify::init())` and connect documents
 //! with `createTauriConnector()` from `pulsify-tauri`.
-use pulsify_sqlite::{Hub, SqliteStore};
+use pulsify_sqlite::{DocumentStore, Hub, SqliteStore};
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -146,6 +146,30 @@ async fn close(state: State<'_, Pulsify>, session_id: u64) -> Result<(), Command
         .await
 }
 
+#[tauri::command]
+async fn cached(state: State<'_, Pulsify>, doc_id: String) -> Result<bool, CommandError> {
+    state
+        .run(move |hub| Ok(!hub.store().vector(&doc_id)?.is_empty()))
+        .await
+}
+
+#[tauri::command]
+async fn mark_deleted(
+    state: State<'_, Pulsify>,
+    doc_id: String,
+    frames: Vec<Vec<u8>>,
+) -> Result<(), CommandError> {
+    state
+        .run(move |hub| {
+            let recovery = hub.store().mark_deleted(&doc_id, &frames);
+            if hub.store().is_deleted(&doc_id)? {
+                hub.retire_prefix(&doc_id)?;
+            }
+            recovery
+        })
+        .await
+}
+
 #[derive(Debug, Default)]
 pub struct Builder {
     path: Option<PathBuf>,
@@ -162,7 +186,13 @@ impl Builder {
     }
     pub fn build<R: Runtime>(self) -> TauriPlugin<R> {
         PluginBuilder::new("pulsify")
-            .invoke_handler(tauri::generate_handler![open, send, close])
+            .invoke_handler(tauri::generate_handler![
+                open,
+                send,
+                close,
+                mark_deleted,
+                cached
+            ])
             .setup(move |app, _api| {
                 let path = self.path.unwrap_or_else(|| "pulsify.sqlite".into());
                 let path = if path.is_absolute() {

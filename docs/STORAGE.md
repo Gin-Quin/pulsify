@@ -282,3 +282,37 @@ Use that vector for incremental state synchronization, and its physical history
 vector for exact backfill. `recoverPulseHistory` checks that the requested bytes
 were obtained; a final state delta never serves as proof of a complete upload.
 See [state and history semantics](PROTOCOL.md#optional-state-deltas-envelope-3).
+
+## Permanent document lifecycle (version 14)
+
+SQLite and IndexedDB implement `DocumentStore` in addition to `PatchStore`;
+the native SQLite/RocksDB stores implement `pulsify_protocol::DocumentStore`.
+`deleteDocuments(prefix)` / `delete_documents(prefix, false)` retire an entire
+ID-prefix subtree permanently, including documents never seen by the store.
+A slash is a boundary: deleting `a/b` never deletes `a/bc`. Repeated deletion is
+safe. SQLite uses `pulsify_tombstones(prefix)`; RocksDB adds a `tombstones`
+column family; IndexedDB schema version 4 adds a tombstone object store.
+
+All ordinary append/vector/missing/sync-state operations reject covered IDs
+with `NOT_FOUND`, before consulting cached state. No generation or TTL clears
+a marker. Native RocksDB deletion syncs its atomic write batch even if ordinary
+writes use relaxed durability. SQLite checks deletion in its append transaction.
+Caches are invalidated after a committed deletion. Older databases migrate on
+opening; older Pulsify binaries must not open a version-14 database.
+
+Local replicas can retain data with `preserveRows:true` / `preserve_rows=true`.
+The normal protocol cannot read that data. Explicit `recoverRows(docId)` /
+`recover_rows(doc_id)` returns retained operations for recovery without making
+the ID live again. `markDeleted` / native SQLite `mark_deleted` retain current
+in-memory operations before recording an authoritative deletion. Clearing local
+cached rows does not remove deletion markers. Data preservation is best effort
+when storage fails; failures are reported and the loaded snapshot remains readable.
+Failed or malformed recovery still records the deletion and retires other local
+sessions once the marker is durable.
+
+`documents(prefix,after,limit)` lists live IDs with committed clocks, in ID order,
+for bounded subtree fetching. It excludes tombstoned retained data and documents
+whose only rows are waiting for dependencies. The standard PostgreSQL patch
+adapter remains an operation store; it does not provide these lifecycle methods.
+Listings seek past `after` in separate exact-ID and descendant ranges. Tombstone
+filtering uses indexed ancestor lookups rather than scanning all stored markers.

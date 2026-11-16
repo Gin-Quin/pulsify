@@ -57,6 +57,11 @@ export {
 export type {
 	CloudAction,
 	CloudClientMessage,
+	CloudFetchMessage,
+	CloudFetchedMessage,
+	CloudFetchBatchMessage,
+	CloudFetchAckMessage,
+	CloudCancelFetchMessage,
 	CloudEnvelope,
 	CloudRoleMessage,
 	CloudServerInfo,

@@ -46,7 +46,7 @@ append reads nothing from the database.
 
 ## Layout
 
-Four column families, whose keys all start with the document ID and a NUL
+Five column families, whose keys all start with the document ID and a NUL
 (which an ID cannot contain), followed by big-endian integers:
 
 | Column family | Key | Value |
@@ -54,6 +54,7 @@ Four column families, whose keys all start with the document ID and a NUL
 | `rows` | `doc_id NUL sid clock` | format byte `0`, span, dependencies (varuints), operations |
 | `clocks` | `doc_id NUL sid` | the actor's committed clock |
 | `pending` | `doc_id NUL sid clock` | format byte `0`, span, dependencies of a row that is not ready |
+| `tombstones` | deleted document prefix | permanent deletion marker |
 | `values` | `doc_id NUL sid register` | clock (big-endian), then the row as `rows` encodes it: an actor's newest write to a field without history |
 
 A row is ready when it starts before its actor's clock, so promoting a pending
@@ -96,3 +97,10 @@ Building needs a C++ compiler and libclang, as the
 ## License
 
 Apache-2.0
+
+Permanent lifecycle operations are available through `pulsify_protocol::DocumentStore`:
+`delete_documents(prefix, false)` purges and permanently retires a subtree;
+`delete_documents(prefix, true)` retains rows exclusively for `recover_rows`.
+`documents` enumerates live subtree IDs. Reads and uploads to deleted IDs return
+`NOT_FOUND`, including previously unseen descendants and after a database restart.
+Deletion always syncs the WAL. Deleted IDs and their descendants cannot be reused.

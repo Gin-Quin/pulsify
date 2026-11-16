@@ -7,7 +7,8 @@ mod relay;
 mod store;
 
 pub use pulsify_protocol::{
-    chunk_rows, relay_frame, AppendResult, PatchRow, PatchStore, RelayOutput, Sink, VersionVector,
+    chunk_rows, relay_frame, AppendResult, DocumentStore, PatchRow, PatchStore, RelayOutput, Sink,
+    VersionVector,
 };
 pub use store::{validate_doc_id, SqliteStore, PACKED_MIGRATION, SCHEMA};
 

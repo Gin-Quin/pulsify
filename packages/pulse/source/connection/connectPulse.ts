@@ -59,8 +59,13 @@ export function connectPulse<P extends Pulse<any>>(
 	};
 	const state = { settled: false, succeeded: false };
 	tasks.set(task, state);
-	if (meta.destroyed) {
-		const error = new PulseError("CLOSED", "Pulse has been destroyed");
+	if (meta.destroyed || meta.deleted) {
+		const error = new PulseError(
+			meta.deleted ? "NOT_FOUND" : "CLOSED",
+			meta.deleted
+				? "Document was permanently deleted"
+				: "Pulse has been destroyed",
+		);
 		ready.reject(error);
 		connected.reject(error);
 		synced.reject(error);

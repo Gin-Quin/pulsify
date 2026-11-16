@@ -1,3 +1,5 @@
+import type { PulsePatchRow } from "../connection/PulsePatch.js";
+import { assertScopeLive, markPulseDeleted } from "./deletion.js";
 import {
 	connectPulse,
 	type ConnectPulseOptions,
@@ -25,8 +27,73 @@ export async function loadPulse<Definition extends AnyPulseDefinition>(
 	input: LoadPulseOptions = {},
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
 	const { subPulses = defaultPulseOptions.subPulses, ...connectInput } = input;
-	const pulse = await loadOne(definition, id, connectInput);
-	if (subPulses) await loadSubPulses(pulse, connectInput, new Set());
+	const options = { ...defaultPulseOptions, ...connectInput };
+	assertScopeLive(options.scope, id);
+	const retire = async (error: PulseError): Promise<never> => {
+		const existing = options.scope.pulses.get(id);
+		const retained = existing ?? createRuntime(definition, id, options);
+		try {
+			await markPulseDeleted(retained).catch(() => {});
+		} finally {
+			if (!existing) destroyPulse(retained);
+		}
+		throw error;
+	};
+	const locals = options.connectors.filter(
+		(connector) => connector.kind === "local",
+	);
+	let cold = locals.length === 0;
+	if (subPulses && locals.length && locals.every((local) => local.cached)) {
+		const probes = await Promise.allSettled(
+			locals.map((local) => local.cached!(id)),
+		);
+		cold = probes.every(
+			(probe) => probe.status === "fulfilled" && !probe.value,
+		);
+		for (const [index, probe] of probes.entries()) {
+			if (
+				probe.status === "rejected" &&
+				probe.reason instanceof PulseError &&
+				probe.reason.code === "NOT_FOUND" &&
+				locals[index]!.authoritativeDeletions
+			)
+				return retire(probe.reason);
+		}
+	}
+	let prefetched: Map<string, PulsePatchRow[]> | undefined;
+	if (subPulses && cold) {
+		const remote = options.connectors.find((connector) => connector.prefetch);
+		try {
+			if (options.sessionId === undefined)
+				await leaseActor(options.scope, actorPoolOf(options.connectors));
+			prefetched = (
+				await remote?.prefetch?.(id, {
+					descendants: true,
+					timeoutMs: options.timeoutMs,
+					signal: input.signal,
+					vectors: [...options.scope.pulses]
+						.filter(([name]) => name === id || name.startsWith(`${id}/`))
+						.map(([name, pulse]) => [
+							name,
+							getPulseMeta(pulse).log.historyVector,
+						]),
+				})
+			)?.documents;
+		} catch (error) {
+			if (
+				error instanceof PulseError &&
+				error.code === "NOT_FOUND" &&
+				remote?.authoritativeDeletions
+			) {
+				return retire(error);
+			}
+			if (error instanceof PulseError && error.code === "TIMEOUT") throw error;
+			if (input.signal?.aborted) throw new PulseError("CLOSED", "Load aborted");
+		}
+	}
+	const pulse = await loadOne(definition, id, connectInput, prefetched);
+	if (subPulses)
+		await loadSubPulses(pulse, connectInput, new Set(), prefetched);
 	return pulse;
 }
 
@@ -34,8 +101,10 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	id: string,
 	input: Omit<LoadPulseOptions, "subPulses">,
+	prefetched?: Map<string, PulsePatchRow[]>,
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
 	const options = { ...defaultPulseOptions, ...input };
+	assertScopeLive(options.scope, id);
 	// A runtime reuses the scope's leased actor only if the lease came first,
 	// so that every download it relies on happened under the lease.
 	if (options.sessionId === undefined && !options.scope.pulses.has(id)) {
@@ -52,6 +121,10 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 		return existing as Pulse<ModelFromDefinition<Definition>>;
 	const pulse = existing ?? createRuntime(definition, id, options);
 	try {
+		if (prefetched?.has(id)) {
+			getPulseMeta(pulse).applyRows(prefetched.get(id)!);
+			prefetched.delete(id);
+		}
 		const task = connectPulse(pulse, input);
 		if (Array.isArray(input.waitFor)) {
 			const required = input.waitFor;
@@ -78,6 +151,7 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 			];
 		return pulse as Pulse<ModelFromDefinition<Definition>>;
 	} catch (error) {
+		await getPulseMeta(pulse).deletion?.catch(() => {});
 		if (!existing) destroyPulse(pulse);
 		throw error;
 	}
@@ -88,6 +162,7 @@ async function loadSubPulses(
 	pulse: Pulse<any>,
 	input: Omit<LoadPulseOptions, "subPulses">,
 	visited: Set<string>,
+	prefetched?: Map<string, PulsePatchRow[]>,
 ): Promise<void> {
 	const meta = getPulseMeta(pulse);
 	if (visited.has(meta.id)) return;
@@ -100,8 +175,8 @@ async function loadSubPulses(
 		if (layout.sub) {
 			if (typeof value !== "string") return;
 			tasks.push(
-				loadOne(layout.sub, value, input).then(
-					(loaded) => loadSubPulses(loaded, input, visited),
+				loadOne(layout.sub, value, input, prefetched).then(
+					(loaded) => loadSubPulses(loaded, input, visited, prefetched),
 					// A dangling ID is tolerated: its reference keeps `pulse === undefined`.
 					(error) => {
 						if (!(error instanceof PulseError && error.code === "NOT_FOUND"))

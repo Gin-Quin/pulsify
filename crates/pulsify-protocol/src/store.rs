@@ -45,6 +45,36 @@ pub trait PatchStore {
     ) -> Result<(Vec<PatchRow>, VersionVector), Self::Error>;
 }
 
+/// Persistent lifecycle for ID-prefix subtrees. Deleted IDs can never be reused.
+pub trait DocumentStore: PatchStore {
+    fn is_deleted(&self, doc_id: &str) -> Result<bool, Self::Error>;
+    fn delete_documents(&mut self, doc_id: &str, preserve_rows: bool)
+        -> Result<usize, Self::Error>;
+    fn recover_rows(&self, doc_id: &str) -> Result<Vec<PatchRow>, Self::Error>;
+    fn documents(
+        &self,
+        doc_id: &str,
+        after: &str,
+        limit: usize,
+    ) -> Result<Vec<String>, Self::Error>;
+}
+
+pub fn covers_document(prefix: &str, doc_id: &str) -> bool {
+    doc_id == prefix
+        || doc_id
+            .strip_prefix(prefix)
+            .is_some_and(|tail| tail.starts_with('/'))
+}
+
+pub fn document_prefixes(doc_id: &str) -> impl Iterator<Item = &str> {
+    std::iter::once(doc_id).chain(
+        doc_id
+            .match_indices('/')
+            .filter(|(i, _)| *i > 0)
+            .map(|(i, _)| &doc_id[..i]),
+    )
+}
+
 pub fn validate_doc_id(doc_id: &str) -> Result<(), Error> {
     if doc_id.is_empty() || doc_id.contains('\0') || doc_id.encode_utf16().count() > 1024 {
         return Err(Error::new("INVALID_MESSAGE", "Invalid document ID"));
@@ -269,6 +299,30 @@ impl<T: PatchStore, S: Sink> Hub<T, S> {
         }
         Ok(())
     }
+    /// Notify and close sessions only after their subtree has been durably retired.
+    pub fn retire_prefix(&mut self, prefix: &str) -> Result<usize, T::Error> {
+        validate_doc_id(prefix)?;
+        let ids: Vec<_> = self
+            .sessions
+            .iter()
+            .filter(|(_, peer)| covers_document(prefix, &peer.doc_id))
+            .map(|(id, _)| *id)
+            .collect();
+        for id in &ids {
+            if let Some(peer) = self.sessions.remove(id) {
+                let frame = encode(&Message {
+                    doc_id: peer.doc_id,
+                    request_id: 0,
+                    body: Body::Error {
+                        code: "NOT_FOUND".into(),
+                        message: "Document was permanently deleted".into(),
+                    },
+                })?;
+                peer.sink.deliver(*id, frame);
+            }
+        }
+        Ok(ids.len())
+    }
     pub fn close(&mut self, session: u64) -> bool {
         self.sessions.remove(&session).is_some()
     }
@@ -280,5 +334,18 @@ impl<T: PatchStore, S: Sink> Hub<T, S> {
     }
     pub fn session_count(&self) -> usize {
         self.sessions.len()
+    }
+}
+
+impl<T: DocumentStore, S: Sink> Hub<T, S> {
+    /// Atomically retire stored data, then stop affected subscribers.
+    pub fn delete_documents(
+        &mut self,
+        prefix: &str,
+        preserve_rows: bool,
+    ) -> Result<usize, T::Error> {
+        let count = self.store.delete_documents(prefix, preserve_rows)?;
+        self.retire_prefix(prefix)?;
+        Ok(count)
     }
 }

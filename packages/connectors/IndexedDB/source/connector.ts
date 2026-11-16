@@ -11,7 +11,7 @@ export type IndexedDbConnector = Connector & {
 	readonly store: IndexedDbPatchStore;
 	/** Deletes one document's local rows. Destroy its pulses first, or they write it back. */
 	forget(docId: string): Promise<void>;
-	/** Deletes every local document, e.g. on logout. */
+	/** Erases cached/recovery rows, e.g. on logout; permanent markers remain. */
 	clear(): Promise<void>;
 	/** Closes open sessions and the database; later `open()` calls fail. */
 	close(): void;
@@ -21,7 +21,7 @@ type Session = {
 	deliver(bytes: Uint8Array): void;
 	fail(error: PulseError): void;
 };
-type ChannelMessage = { docId: string; frame: Uint8Array };
+type ChannelMessage = { docId: string; frame: Uint8Array; deleted?: boolean };
 
 /**
  * Persists documents in IndexedDB and serves them as a local peer. Writes are
@@ -42,7 +42,16 @@ export function createIndexedDbConnector(
 		if (channel || typeof BroadcastChannel === "undefined") return;
 		channel = new BroadcastChannel(channelName);
 		channel.onmessage = ({ data }: MessageEvent) => {
-			const { docId, frame } = (data ?? {}) as Partial<ChannelMessage>;
+			const { docId, frame, deleted } = (data ?? {}) as Partial<ChannelMessage>;
+			if (deleted && typeof docId === "string") {
+				for (const [id, peers] of sessions)
+					if (id === docId || id.startsWith(`${docId}/`))
+						for (const peer of [...peers])
+							peer.fail(
+								new PulseError("NOT_FOUND", "Document was permanently deleted"),
+							);
+				return;
+			}
 			if (typeof docId !== "string" || !(frame instanceof Uint8Array)) return;
 			for (const session of [...(sessions.get(docId) ?? [])])
 				session.deliver(frame);
@@ -63,6 +72,28 @@ export function createIndexedDbConnector(
 
 	return {
 		kind: "local",
+		authoritativeDeletions: true,
+		cached: async (docId) => (await store.vector(docId)).length > 0,
+		async markDeleted(docId, recovery) {
+			const already = await store.isDeleted(docId);
+			try {
+				await store.markDeleted(docId, recovery);
+			} finally {
+				if (await store.isDeleted(docId)) {
+					const frame = new Uint8Array();
+					for (const [id, peers] of sessions)
+						if (id === docId || id.startsWith(`${docId}/`))
+							for (const peer of [...peers])
+								peer.fail(
+									new PulseError(
+										"NOT_FOUND",
+										"Document was permanently deleted",
+									),
+								);
+					if (!already) post({ docId, frame, deleted: true });
+				}
+			}
+		},
 		// One pool of reusable actor IDs per database: see "Actor IDs" in pulsify-core.
 		actorPool: `indexeddb:${store.name}`,
 		store,

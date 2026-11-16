@@ -39,6 +39,13 @@ export function createPulsifyBridge(
 		};
 	};
 	return Object.freeze({
+		cached: (docId: string): Promise<PulsifyIpcResult> =>
+			ipcRenderer.invoke(channels.cached, String(docId)),
+		markDeleted: (
+			docId: string,
+			frames: Uint8Array[],
+		): Promise<PulsifyIpcResult> =>
+			ipcRenderer.invoke(channels.markDeleted, String(docId), frames),
 		open: (session: string, docId: string): Promise<PulsifyIpcResult> =>
 			ipcRenderer.invoke(channels.open, String(session), String(docId)),
 		send: (session: string, frame: Uint8Array): Promise<PulsifyIpcResult> =>

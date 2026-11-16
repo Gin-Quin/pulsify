@@ -1,6 +1,6 @@
 import {
 	SqlitePatchStore,
-	type PatchStore,
+	type DocumentStore,
 	type SqliteCompactCursor,
 	type SqliteConnection,
 } from "pulsify-core/storage";
@@ -22,7 +22,8 @@ export type CloudUsage = { documents: number; rows: number; bytes: number };
  * Object hibernation).
  */
 export interface CloudRootStorage {
-	readonly patches: PatchStore;
+	readonly patches: DocumentStore;
+	isDeleted(docId: string): Promise<boolean>;
 	loadGrants(): Promise<CloudGrant[]>;
 	putGrant(grant: CloudGrant): Promise<void>;
 	deleteGrant(subject: string, prefix: string): Promise<boolean>;
@@ -66,6 +67,9 @@ export class SqliteCloudStorage implements CloudRootStorage {
 		// A root is the only writer of its database: vectors can stay in memory.
 		this.patches = new SqlitePatchStore(db, { vectorCacheSize: 128 });
 		db.exec(CLOUD_SQLITE_SCHEMA);
+	}
+	async isDeleted(docId: string): Promise<boolean> {
+		return this.patches.isDeleted(docId);
 	}
 	async loadGrants(): Promise<CloudGrant[]> {
 		return (
@@ -132,12 +136,14 @@ export class SqliteCloudStorage implements CloudRootStorage {
 			.run(connection);
 	}
 	async deleteDocuments(docId: string): Promise<number> {
+		// Commit the tombstone before removing grants or notifying clients.
+		const count = await this.patches.deleteDocuments(docId);
 		this.db
 			.query(
 				"DELETE FROM pulsify_cloud_grants WHERE prefix = ? OR (prefix >= ? AND prefix < ?)",
 			)
 			.run(docId, `${docId}/`, `${docId}0`);
-		return this.patches.deleteDocuments(docId);
+		return count;
 	}
 	async compact(resume?: unknown): Promise<SqliteCompactCursor | undefined> {
 		const { next } = await this.patches.compact({
