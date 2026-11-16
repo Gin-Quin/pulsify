@@ -2,6 +2,7 @@ import { CloudError } from "pulsify-cloud";
 import { errorResponse, jsonResponse } from "pulsify-cloud-server";
 import { handleCloudRequest } from "pulsify-cloud-server/cloudflare";
 import { call, type DurableNamespace, type DurableStub } from "./durable.js";
+import { loginEmail } from "./loginEmail.js";
 import { polar, verifyWebhook, type PolarEnv } from "./polar.js";
 import type { Dashboard, Plan, ProjectConfig } from "./Project.js";
 import { PROJECT_HEADER } from "./Root.js";
@@ -125,7 +126,7 @@ async function sendLoginLink(
 		from: { email: env.EMAIL_FROM, name: "Pulsify Cloud" },
 		subject: `${code} is your Pulsify Cloud sign-in code`,
 		text: `Your Pulsify Cloud sign-in code is ${code}. Or open this link:\n\n${link}\n\nBoth work for 15 minutes. If you did not ask for them, ignore this email.`,
-		html: `<p>Your Pulsify Cloud sign-in code is <strong>${code}</strong>.</p><p>Or <a href="${link}">open the dashboard</a>.</p><p>Both work for 15 minutes. If you did not ask for them, ignore this email.</p>`,
+		html: loginEmail(link, code, env.DASHBOARD_URL),
 	});
 }
 
