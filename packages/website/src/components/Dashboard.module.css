@@ -103,8 +103,8 @@
 
 .row {
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
+	flex-direction: column;
+	align-items: center;
 	gap: var(--space-3);
 }
 
@@ -115,7 +115,7 @@
 }
 
 .input {
-	flex: 1 1 16rem;
+	align-self: stretch;
 	min-width: 0;
 	padding: var(--space-3) var(--space-4);
 	border: var(--border-width) solid var(--color-border);

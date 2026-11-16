@@ -103,9 +103,8 @@ export function SignInCard(props: { expired: boolean; onSignIn: () => void }) {
 						</Show>
 						<h2 class={styles.panelTitle}>Sign in to Pulsify Cloud</h2>
 						<p class={cloud.text}>
-							Open your Pulsify Cloud dashboard: your project's URL, secrets,
-							usage and plan. We email you a sign-in code, no password. A new
-							address gets a free project.
+							Open your dashboard: URL, secrets, usage and plan. A new address
+							gets a free project.
 						</p>
 						<form class={styles.form} onSubmit={submit}>
 							<label class={styles.label} for="dashboard-email">
@@ -124,7 +123,7 @@ export function SignInCard(props: { expired: boolean; onSignIn: () => void }) {
 									onInput={(event) => setEmail(event.currentTarget.value)}
 								/>
 								<Button type="submit" icon="arrow" disabled={sending()}>
-									{sending() ? "Sending…" : "Email me a code"}
+									{sending() ? "Sending code…" : "Email me a code"}
 								</Button>
 							</div>
 						</form>
@@ -139,10 +138,8 @@ export function SignInCard(props: { expired: boolean; onSignIn: () => void }) {
 			>
 				<h2 class={styles.panelTitle}>Check your inbox</h2>
 				<p class={cloud.text} role="status">
-					If <strong>{sentTo()}</strong> is a valid address, a sign-in code is
-					on its way. Type it below, or open the link in the same email. Both
-					work for 15 minutes. Nothing after a minute? Check your spam folder,
-					then ask for a new code: we send at most one per minute.
+					If <strong>{sentTo()}</strong> is a valid address, a code is on its
+					way. Type it below or open the link in the email.
 				</p>
 				<form class={styles.form} onSubmit={verify}>
 					<label class={styles.label} for="dashboard-code">
