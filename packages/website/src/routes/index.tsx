@@ -5,6 +5,7 @@ import {
 	Benchmarks,
 	Compare,
 	Everywhere,
+	Frameworks,
 	Pillars,
 	Showcase,
 } from "~/components/Landing";
@@ -20,6 +21,7 @@ export default function Home() {
 			<Sky>
 				<Pillars />
 				<Showcase />
+				<Frameworks />
 				<Benchmarks />
 				<Compare />
 				<Everywhere />
