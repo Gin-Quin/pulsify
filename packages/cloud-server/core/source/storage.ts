@@ -37,6 +37,9 @@ export interface CloudRootStorage {
 	 */
 	deleteDocuments(docId: string): Promise<number>;
 	usage(): Promise<CloudUsage>;
+	/** Since `cloud.expire`: how long the root may stay without sockets before it is erased. */
+	expiry?(): Promise<number | undefined>;
+	setExpiry?(idleMs: number): Promise<void>;
 	/**
 	 * Pack the history of the root's documents so that loading them reads few
 	 * rows, a bounded amount of work per call. Resolves to what to pass to the
@@ -58,6 +61,9 @@ CREATE TABLE IF NOT EXISTS pulsify_cloud_subscriptions (
  role TEXT NOT NULL CHECK(role IN ('reader','editor','owner')),
  PRIMARY KEY(connection, doc_id)
 ) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS pulsify_cloud_expiry (
+ id INTEGER PRIMARY KEY CHECK(id = 1), idle_ms INTEGER NOT NULL
+);
 `;
 
 /** One SQLite database per root, as in a Durable Object. */
@@ -144,6 +150,17 @@ export class SqliteCloudStorage implements CloudRootStorage {
 			)
 			.run(docId, `${docId}/`, `${docId}0`);
 		return count;
+	}
+	async expiry(): Promise<number | undefined> {
+		const row = this.db
+			.query("SELECT idle_ms FROM pulsify_cloud_expiry")
+			.get() as { idle_ms: number } | null;
+		return row ? Number(row.idle_ms) : undefined;
+	}
+	async setExpiry(idleMs: number): Promise<void> {
+		this.db
+			.query("INSERT OR REPLACE INTO pulsify_cloud_expiry VALUES (1, ?)")
+			.run(idleMs);
 	}
 	async compact(resume?: unknown): Promise<SqliteCompactCursor | undefined> {
 		const { next } = await this.patches.compact({

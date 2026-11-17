@@ -105,6 +105,7 @@ answers 204 with the allowed methods and headers. Bodies are JSON. Errors are
 | `DELETE /v1/roots/{root}/grants?subject=&prefix=` | admin, or an owner of `prefix` | `{"removed":boolean}` |
 | `GET /v1/roots/{root}/usage` | admin | `{"root","documents","rows","bytes","connections"}` |
 | `DELETE /v1/roots/{root}/documents?docId=` | admin, or an owner of `docId` | `{"deleted":number}` |
+| `PUT /v1/roots/{root}/expire` `{"idleMs":number}` | admin, or an owner of `root` | `{"idleMs":number}` |
 
 The `prefix` filter keeps grants whose prefix it covers. Bodies are limited to
 64 KiB.
@@ -278,6 +279,20 @@ Clients see no difference: frames are those of an uncompacted root. `rows` in
 the usage of a root counts stored rows, so it drops after a compaction. The
 alarm is the only one the object uses. Backends built on `CloudRootStorage`
 schedule `compact()` themselves; the core never does.
+
+**Expiring roots.** `PUT …/expire` (`cloud.expire(root, { idleMs })`) stores
+a lifetime in the root, from 60,000 ms to 30 days, which a later call replaces.
+On Cloudflare the last socket's close then sets the alarm `idleMs` later
+instead of `COMPACT_AFTER_MS`, and so does the call itself when no socket is
+open. When the alarm finds no socket, the object deletes all of its storage,
+tombstone included, instead of compacting; the hosted service also tells the
+project that the root holds no bytes. A later request to the root finds an
+empty root without grants, so clients get `FORBIDDEN`, and its ID can be
+granted and used again. The same alarm wipes a root that holds no document
+rows, grants or tombstones, such as the empty database a request to an expired
+root leaves behind: there is nothing to lose. `CloudRootStorage.expiry` and `setExpiry` are optional:
+a backend without them answers `BAD_REQUEST`, and one that stores the lifetime
+schedules the erasure itself, as it does compaction.
 
 One SQLite database per root (Durable Object storage) holds the SQLite patch
 schema, `pulsify_cloud_grants(subject, prefix, role)` and

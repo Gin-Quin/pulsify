@@ -67,7 +67,8 @@ export const ROOT_HEADERS = {
  * One Durable Object per root. Its SQLite database holds the root's documents
  * and its grant table. Its hibernating WebSockets carry their subscriptions in
  * their attachment; SQLite only takes those that do not fit there. Once its
- * last socket has been closed for a while, an alarm compacts its history.
+ * last socket has been closed for a while, an alarm compacts its history, or
+ * erases the whole root when `cloud.expire` gave it a lifetime or it is empty.
  */
 export class PulsifyCloudRoot {
 	private engine: CloudRoot | undefined;
@@ -103,6 +104,13 @@ export class PulsifyCloudRoot {
 			const action = request.headers.get(ROOT_HEADERS.action);
 			if (action === "grants" || action === "usage")
 				return await engine.handleRequest(action, request, caller);
+			if (action === "expire") {
+				const response = await engine.handleRequest(action, request, caller);
+				// A root nobody connects to expires too: count from now.
+				if (response.ok && !this.state.getWebSockets().length)
+					await this.state.storage.setAlarm(Date.now() + (await this.idleMs()));
+				return response;
+			}
 			if (action === "documents") {
 				// Retire a deleted root while retaining its durable tombstone.
 				const response = await engine.handleRequest(action, request, caller);
@@ -184,14 +192,19 @@ export class PulsifyCloudRoot {
 
 	/**
 	 * The root's only alarm: compact while nobody is connected, a bounded step
-	 * at a time. A root that got a socket back does nothing; the next time its
-	 * last socket closes sets the alarm again.
+	 * at a time, or erase an expiring root. A root that got a socket back does
+	 * nothing; the next time its last socket closes sets the alarm again.
 	 */
 	async alarm(): Promise<void> {
 		if (this.state.getWebSockets().length) {
 			this.compaction = undefined;
 			return;
 		}
+		if (
+			(await this.rootStorage().expiry()) !== undefined ||
+			(await this.isEmpty())
+		)
+			return this.wipe();
 		this.compaction = await this.rootStorage().compact(this.compaction);
 		if (this.compaction !== undefined)
 			await this.state.storage.setAlarm(Date.now() + COMPACT_STEP_MS);
@@ -216,13 +229,45 @@ export class PulsifyCloudRoot {
 		await this.state.storage.deleteAlarm();
 	}
 
-	/** After a socket closed: if it was the last, compact once the root stayed idle. */
+	/**
+	 * Nothing to keep: no document, grant or tombstone. A request to an expired
+	 * root, a link opened after the room was erased, leaves such a database.
+	 */
+	private async isEmpty(): Promise<boolean> {
+		const storage = this.rootStorage();
+		return (
+			(await storage.usage()).rows === 0 &&
+			!(await storage.loadGrants()).length &&
+			!this.state.storage.sql
+				.exec("SELECT 1 FROM pulsify_tombstones LIMIT 1")
+				.toArray().length
+		);
+	}
+
+	/**
+	 * `cloud.expire`'s lifetime ran out, or the root is empty: delete everything
+	 * the object stores, tombstone included, so that it costs nothing anymore.
+	 * Nobody is connected.
+	 */
+	protected async wipe(): Promise<void> {
+		this.engine = this.storage = this.compaction = undefined;
+		await this.state.storage.deleteAlarm();
+		await this.state.storage.deleteAll();
+	}
+
+	/** How long the root waits without sockets: its lifetime, or until it compacts. */
+	private async idleMs(): Promise<number> {
+		// ponytail: an expiring root is erased instead of compacted; compact first if long lifetimes matter.
+		return (await this.rootStorage().expiry()) ?? this.compactAfterMs;
+	}
+
+	/** After a socket closed: if it was the last, compact or expire once the root stayed idle. */
 	private async rest(closed: string): Promise<void> {
 		// The runtime still lists the socket that is closing.
 		for (const socket of this.state.getWebSockets())
 			if (this.peer(socket).id !== closed) return;
 		this.compaction = undefined;
-		await this.state.storage.setAlarm(Date.now() + this.compactAfterMs);
+		await this.state.storage.setAlarm(Date.now() + (await this.idleMs()));
 	}
 
 	private rootStorage(): SqliteCloudStorage {

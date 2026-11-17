@@ -40,6 +40,16 @@ export type CloudClient = {
 	 * document erases the whole root. Resolves to how many documents had data.
 	 */
 	deleteDocument(docId: string): Promise<number>;
+	/**
+	 * Erase the whole root once it has had no open socket for `idleMs`
+	 * (at least a minute), as `deleteDocument(root)` would: for rooms that
+	 * live as long as someone uses them. The API key, or an owner of the root.
+	 * Counted from now when nobody is connected.
+	 */
+	expire(
+		root: string,
+		options: { idleMs: number },
+	): Promise<{ idleMs: number }>;
 };
 
 /** The management API of a deployment, identical on every backend. */
@@ -107,6 +117,11 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 				})
 			).removed,
 		usage: (root) => request<CloudRootUsage>(root, "usage", { method: "GET" }),
+		expire: (root, { idleMs }) =>
+			request<{ idleMs: number }>(root, "expire", {
+				method: "PUT",
+				body: { idleMs },
+			}),
 		deleteDocument: async (docId) =>
 			(
 				await request<{ deleted: number }>(rootOf(docId), "documents", {

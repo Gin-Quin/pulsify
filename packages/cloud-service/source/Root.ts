@@ -147,6 +147,29 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		this.reportedAt = 0;
 	}
 
+	/** Expired or empty, the root is wiped: the project stops counting it. */
+	protected override async wipe(): Promise<void> {
+		const names = this.identity();
+		await super.wipe();
+		this.names = undefined;
+		this.reportedAt = 0;
+		if (!names) return;
+		const report: RootReport = {
+			root: names.root,
+			messages: this.pending,
+			bytes: 0,
+			connections: 0,
+		};
+		this.pending = 0;
+		await call(
+			this.env.PROJECTS.get(this.env.PROJECTS.idFromName(names.project)),
+			"report",
+			report,
+		).catch(() => {
+			// Unreachable: the project keeps counting this root's last size.
+		});
+	}
+
 	private identity() {
 		try {
 			return (this.names ??= first<{ project: string; root: string }>(

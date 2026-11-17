@@ -108,6 +108,15 @@ const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! 
 await cloud.deleteDocument("alice/notes/n1"); // the note, its sub-documents, their grants
 await cloud.deleteDocument("alice");          // the whole root: its Durable Object is deleted`;
 
+const expiry = `import { createCloudClient } from "pulsify-cloud";
+
+const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! });
+
+// A meeting room, a game, a whiteboard: it lives while someone uses it.
+const room = \`room-\${crypto.randomUUID()}\`;
+await cloud.grant({ subject: "*", prefix: room, role: "editor" });
+await cloud.expire(room, { idleMs: 10 * 60_000 }); // erased ten minutes after the last socket closed`;
+
 const wire = `GET  /v1/health                         { "ok": true }
 GET  /v1/roots/{root}/connect           WebSocket, one per user and root
 GET  /v1/roots/{root}/grants            list grants
@@ -115,6 +124,7 @@ PUT  /v1/roots/{root}/grants            create or replace a grant
 DELETE /v1/roots/{root}/grants?subject=…&prefix=…
 GET  /v1/roots/{root}/usage             documents, rows, bytes, sockets (API key)
 DELETE /v1/roots/{root}/documents?docId=…   erase a document and its subtree
+PUT  /v1/roots/{root}/expire            {"idleMs":…}: erase the root once idle
 
 Subprotocols offered by the client:
   pulsify-cloud.1.e2, pulsify-cloud.1.e1, pulsify-cloud.token.<jwt>
@@ -401,6 +411,29 @@ export default function CloudOverview() {
 				The server keeps no trace of a deleted document: a client that still has
 				it offline and may write it uploads it again when it reconnects. Delete
 				it on your clients too, or revoke the grants that cover it.
+			</p>
+
+			<h2>Expire roots</h2>
+			<p>
+				Some roots only matter while people use them: a call, a game, a
+				whiteboard shared for a meeting. <code>expire</code> gives a root a
+				lifetime without sockets. Once its last socket has been closed for{" "}
+				<code>idleMs</code>, the root erases itself with its documents, its
+				grants and its Durable Object, and no longer counts in your storage. Any
+				socket that opens in the meantime starts the countdown again, so a
+				reload or a lost network does not end a room. A root that nobody
+				connects to expires too, counted from the call.
+			</p>
+			<CodeBlock title="rooms.ts" code={expiry} />
+			<p>
+				It takes the API key, or the token of an owner of the root, and{" "}
+				<code>idleMs</code> from a minute to thirty days. Calling it again
+				replaces the lifetime. An expiring root is erased instead of compacted.
+				Unlike <code>deleteDocument</code>, an expired root leaves no tombstone:
+				its ID can be used again, as a new and empty root, after you grant
+				access to it again. Until then, clients that still have the link get{" "}
+				<code>FORBIDDEN</code>, and the empty root they wake up erases itself
+				once they leave. The <a href="/demos">demos</a> work this way.
 			</p>
 
 			<h2>Plans and limits</h2>

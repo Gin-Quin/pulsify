@@ -72,6 +72,9 @@ type FetchState = {
 };
 
 // Work/transport windows, not limits on the size of a requested subtree.
+/** Bounds of `cloud.expire`: a minute to thirty days without sockets. */
+export const MIN_EXPIRY_MS = 60_000;
+export const MAX_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
 const FETCH_DOCUMENT_PAGE = 128;
 const FETCH_BATCH_FRAMES = 64;
 const FETCH_BATCH_BYTES = 1024 * 1024;
@@ -178,7 +181,7 @@ export class CloudRoot {
 		});
 	}
 
-	/** The management API of this root: `grants`, `usage` and `documents`. */
+	/** The management API of this root: `grants`, `usage`, `documents` and `expire`. */
 	handleRequest(
 		action: Exclude<CloudAction, "connect">,
 		request: Request,
@@ -187,6 +190,13 @@ export class CloudRoot {
 		return this.run(async () => {
 			try {
 				if (action === "usage") return jsonResponse(await this.usage(caller));
+				if (action === "expire") {
+					if (request.method !== "PUT")
+						throw new CloudError("METHOD_NOT_ALLOWED", "Use PUT");
+					return jsonResponse({
+						idleMs: await this.expire(caller, await readJson(request)),
+					});
+				}
 				const url = new URL(request.url);
 				if (action === "documents") {
 					if (request.method !== "DELETE")
@@ -688,6 +698,28 @@ export class CloudRoot {
 			this.grants!.filter((grant) => !covers(docId, grant.prefix)),
 		);
 		return deleted;
+	}
+
+	/** `cloud.expire`: store how long the root may stay idle before it is erased. */
+	private async expire(caller: CloudCaller, body: unknown): Promise<number> {
+		this.assertManager(caller, this.root, "make it expire");
+		const idleMs = (body as { idleMs?: unknown } | null)?.idleMs;
+		if (
+			typeof idleMs !== "number" ||
+			!Number.isSafeInteger(idleMs) ||
+			idleMs < MIN_EXPIRY_MS ||
+			idleMs > MAX_EXPIRY_MS
+		)
+			throw new CloudError(
+				"BAD_REQUEST",
+				`idleMs must be a whole number of milliseconds from ${MIN_EXPIRY_MS} to ${MAX_EXPIRY_MS}`,
+			);
+		if (!this.storage.setExpiry)
+			throw new CloudError("BAD_REQUEST", "This server does not expire roots");
+		if (await this.storage.isDeleted(this.root))
+			throw new CloudError("NOT_FOUND", "Document was permanently deleted");
+		await this.storage.setExpiry(idleMs);
+		return idleMs;
 	}
 
 	private async putGrant(

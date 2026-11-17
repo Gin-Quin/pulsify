@@ -526,3 +526,90 @@ test("deleting a document ends its sessions, and deleting the root retains its p
 	expect(response.status).toBe(404);
 	expect(await new SqlitePatchStore(db).isDeleted("r/offline/new")).toBe(true);
 });
+
+test("cloud.expire erases the whole root once it stayed without sockets, for an owner or the API key", async () => {
+	const { state, sockets, db, alarm } = durableState();
+	const root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "ada", prefix: "r", role: "owner" });
+	await admin(root, "PUT", { subject: "bob", prefix: "r", role: "editor" });
+	const expire = (
+		caller: Parameters<typeof callerToHeaders>[0],
+		body: unknown,
+		method = "PUT",
+	) =>
+		root.fetch(
+			new Request("https://root/expire", {
+				method,
+				headers: {
+					[ROOT_HEADERS.root]: "r",
+					[ROOT_HEADERS.action]: "expire",
+					...callerToHeaders(caller),
+				},
+				...(method === "PUT" ? { body: JSON.stringify(body) } : {}),
+			}),
+		);
+	const day = 86_400_000;
+	expect(
+		(await expire({ kind: "user", subject: "bob" }, { idleMs: day })).status,
+	).toBe(403);
+	expect((await expire({ kind: "admin" }, { idleMs: 1000 })).status).toBe(400);
+	expect((await expire({ kind: "admin" }, { idleMs: "1d" })).status).toBe(400);
+	expect((await expire({ kind: "admin" }, {}, "GET")).status).toBe(405);
+	expect(alarm.at).toBeUndefined();
+
+	// Nobody is connected: it counts from now.
+	const response = await expire(
+		{ kind: "user", subject: "ada" },
+		{ idleMs: day },
+	);
+	expect(await response.json()).toEqual({ idleMs: day });
+	expect(alarm.at).toBeGreaterThanOrEqual(Date.now() + day - 1000);
+
+	// A socket comes and goes: the lifetime starts again when it leaves.
+	const a = socket("a", "bob");
+	sockets.push(a);
+	await send(root, a, connect("r"));
+	await root.alarm(); // due while the socket is open: nothing happens
+	expect(
+		db.query("SELECT COUNT(*) AS n FROM pulsify_cloud_grants").get(),
+	).toEqual({ n: 2 });
+	delete alarm.at;
+	const before = Date.now();
+	await root.webSocketClose(a as never, 1000, "");
+	a.closed = true;
+	expect(alarm.at).toBeGreaterThanOrEqual(before + day);
+
+	// Its alarm erases everything the object stores, and leaves no alarm.
+	await new PulsifyCloudRoot(state).alarm();
+	expect(
+		db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all(),
+	).toEqual([]);
+	expect(alarm.at).toBeUndefined();
+});
+
+test("a root left with no document, grant or tombstone wipes itself once idle", async () => {
+	const { state, sockets, db, alarm } = durableState();
+	const tables = () =>
+		db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all();
+
+	// A link opened after its room was erased: no grant, so nothing is written.
+	let root = new PulsifyCloudRoot(state);
+	const late = socket("late", "demo");
+	sockets.push(late);
+	await send(root, late, connect("r"));
+	expect(tables().length).toBeGreaterThan(0);
+	await root.webSocketClose(late as never, 1000, "");
+	late.closed = true;
+	expect(alarm.at).toBeDefined();
+	delete alarm.at;
+	await new PulsifyCloudRoot(state).alarm();
+	expect(tables()).toEqual([]);
+
+	// A grant alone is something to keep: the alarm only compacts.
+	root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "ada", prefix: "r", role: "owner" });
+	await root.alarm();
+	expect(db.query("SELECT subject FROM pulsify_cloud_grants").all()).toEqual([
+		{ subject: "ada" },
+	]);
+});
