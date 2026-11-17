@@ -4,7 +4,7 @@ import { Show } from "solid-js";
 import { SITE_URL } from "./links";
 
 /** Sections with their own share image in public/og, made by scripts/og-images.sh. */
-const sections = ["docs", "cloud", "benchmarks", "pricing"];
+const sections = ["docs", "cloud", "benchmarks", "pricing", "demos"];
 
 /**
  * Title, description, canonical URL and share card of a page. Use it once per

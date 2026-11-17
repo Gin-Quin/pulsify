@@ -1,5 +1,7 @@
 User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
+# Each call opens a demo room; crawlers rendering /demos/* must not.
+Disallow: /api/
 
 Sitemap: https://pulsify.cloud/sitemap.xml

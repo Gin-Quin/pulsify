@@ -108,7 +108,7 @@ export default function Pricing() {
 			<main class={styles.starryTop}>
 				<Seo
 					title="Pricing · Pulsify"
-					description="The Pulsify CRDT engine is free and open source. Pulsify Cloud has a free plan, and Pro costs €25 a month for 25 times the storage and ten times the connections."
+					description="The Pulsify CRDT engine is free and open source. Pulsify Cloud has a free plan; Pro costs €25 a month for 25 times the storage and ten times the connections."
 				/>
 				<section class={`${styles.section} ${styles.plansHead}`}>
 					<h1 class={styles.title}>
