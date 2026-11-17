@@ -60,7 +60,9 @@
 	pointer-events: none;
 }
 
-.button[data-variant="primary"]:hover {
+/* Also when hovering a link that contains the button, such as a card. */
+.button[data-variant="primary"]:hover,
+:global([data-button-hover]):hover .button[data-variant="primary"] {
 	background: var(--color-accent-hover);
 	color: var(--color-text-on-accent);
 	box-shadow:
@@ -69,12 +71,14 @@
 	transform: translateY(-2px);
 }
 
-.button[data-variant="primary"]:hover::after {
+.button[data-variant="primary"]:hover::after,
+:global([data-button-hover]):hover .button[data-variant="primary"]::after {
 	transform: translateX(100%);
 	transition: transform var(--duration-slow) var(--easing);
 }
 
-.button[data-variant="primary"]:hover svg {
+.button[data-variant="primary"]:hover svg,
+:global([data-button-hover]):hover .button[data-variant="primary"] svg {
 	transform: translateX(3px);
 }
 

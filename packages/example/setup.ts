@@ -5,6 +5,7 @@
 //   PULSIFY_URL=… PULSIFY_API_KEY=… PULSIFY_TOKEN_SECRET=… bun run setup --production
 //                                 a real project, .env.production.local
 import { createCloudClient, signCloudToken } from "pulsify-cloud";
+import { localCloudProject } from "../../scripts/local-cloud";
 
 const production = process.argv.includes("--production");
 let {
@@ -13,34 +14,10 @@ let {
 	PULSIFY_TOKEN_SECRET: tokenSecret,
 } = process.env;
 
-if (!production) {
-	// The local service signs in any address that asked for a code with 444444.
-	const service = "http://localhost:8787";
-	const headers = {
-		"Content-Type": "application/json",
-		Origin: "http://localhost:3000",
-	};
-	const email = "example@pulsify.cloud";
-	await fetch(`${service}/account/login`, {
-		method: "POST",
-		headers,
-		body: JSON.stringify({ email }),
-	}).catch(() => {
-		throw new Error(
-			`No local Pulsify Cloud at ${service}: bun run dev:service`,
-		);
-	});
-	const signIn = await fetch(`${service}/account/code`, {
-		method: "POST",
-		headers,
-		body: JSON.stringify({ email, code: "444444" }),
-	});
-	const cookie = signIn.headers.get("set-cookie")?.split(";")[0];
-	if (!cookie) throw new Error(`Sign-in failed: ${await signIn.text()}`);
-	({ url, apiKey, tokenSecret } = (await (
-		await fetch(`${service}/account/`, { headers: { Cookie: cookie } })
-	).json()) as Record<string, string>);
-}
+if (!production)
+	({ url, apiKey, tokenSecret } = await localCloudProject(
+		"example@pulsify.cloud",
+	));
 if (!url || !apiKey || !tokenSecret)
 	throw new Error("Set PULSIFY_URL, PULSIFY_API_KEY and PULSIFY_TOKEN_SECRET");
 

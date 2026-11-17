@@ -1,20 +1,26 @@
 import { MetaProvider, Title } from "@solidjs/meta";
-import { Router } from "@solidjs/router";
+import { Router, useLocation } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
-import { Suspense } from "solid-js";
+import { Show, Suspense } from "solid-js";
 import { Header } from "~/components/Header";
 import "./styles/global.css";
 
 export default function App() {
 	return (
 		<Router
-			root={(props) => (
-				<MetaProvider>
-					<Title>Pulsify: distributed sync, beautifully composed</Title>
-					<Header />
-					<Suspense>{props.children}</Suspense>
-				</MetaProvider>
-			)}
+			root={(props) => {
+				const location = useLocation();
+				return (
+					<MetaProvider>
+						<Title>Pulsify: distributed sync, beautifully composed</Title>
+						{/* A demo app fills its window with a header of its own. */}
+						<Show when={!location.pathname.startsWith("/demos/")}>
+							<Header />
+						</Show>
+						<Suspense>{props.children}</Suspense>
+					</MetaProvider>
+				);
+			}}
 		>
 			<FileRoutes />
 		</Router>

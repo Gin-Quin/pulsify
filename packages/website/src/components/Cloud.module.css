@@ -283,3 +283,99 @@
 		padding: var(--space-3);
 	}
 }
+
+/* The demos page: the pricing page's layout, a screenshot atop each card. */
+.demos {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	max-width: 56rem;
+	margin: 0 auto;
+}
+
+.demosLead {
+	display: grid;
+	gap: var(--space-3);
+	max-width: 44rem;
+	margin: calc(var(--space-5) - var(--space-7)) auto var(--space-7);
+	color: var(--color-text-muted);
+	font-size: var(--font-size-md);
+	text-align: center;
+}
+
+/* Two classes: above the Card's own padding, radius and transition. */
+.demos .demoCard {
+	--pad: var(--space-5);
+	color: var(--color-text);
+	cursor: pointer;
+	gap: var(--space-2);
+	padding: var(--pad);
+	border-radius: var(--radius-sm);
+	animation: rise var(--duration-slow) var(--easing) backwards;
+	transition:
+		transform var(--duration-fast) var(--easing),
+		border-color var(--duration-fast) var(--easing),
+		box-shadow var(--duration-fast) var(--easing);
+}
+
+.demos .demoCard:hover {
+	color: var(--color-text);
+	transform: translateY(-4px);
+}
+
+.demos .demoCard:nth-child(2) {
+	animation-delay: 80ms;
+}
+
+.demos .demoCard:nth-child(3) {
+	animation-delay: 160ms;
+}
+
+.demos .demoCard:nth-child(4) {
+	animation-delay: 240ms;
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(24px);
+	}
+}
+
+/* The top of the screenshot, where the app is. */
+.shotFrame {
+	aspect-ratio: 16 / 9;
+	margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) var(--space-2);
+	overflow: hidden;
+	border-bottom: var(--border-width) solid var(--color-border);
+	border-radius: calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0 0;
+}
+
+.shot {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top;
+	transition: transform var(--duration-slow) var(--easing);
+}
+
+.demos .demoCard:hover .shot {
+	transform: scale(1.05);
+}
+
+.demoTitle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.demoAction {
+	display: flex;
+	justify-content: center;
+	margin-top: auto;
+	padding-top: var(--space-3);
+}
+
+@media (max-width: 720px) {
+	.demos {
+		grid-template-columns: 1fr;
+	}
+}

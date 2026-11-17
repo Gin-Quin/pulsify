@@ -31,6 +31,23 @@ const paths = {
 		"M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm5 16h.01",
 	sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41",
 	moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z",
+	userPlus:
+		"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10-3v6m3-3h-6",
+	download: "M12 3v12m0 0-5-5m5 5 5-5M5 21h14",
+	plus: "M12 5v14M5 12h14",
+	undo: "M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4",
+	redo: "m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h4",
+	minus: "M5 12h14",
+	trash: "M3 6h18M8 6V4h8v2m2 0-1 14H7L6 6",
+	pointer: "m5 3 14 7-6 2-2 6-6-15Z",
+	square: "M4 4h16v16H4Z",
+	circle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+	line: "M5 19 19 5m-8 0h8v8",
+	pen: "m4 20 4-1L19 8l-3-3L5 16l-1 4Z",
+	text: "M5 7V4h14v3M12 4v16m-3 0h6",
+	file: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Zm0 0v5h5",
+	columns: "M4 4h4v16H4Zm6 0h4v10h-4Zm6 0h4v13h-4Z",
+	paddle: "M5 4v10m14-4v10M12 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z",
 } as const;
 
 export type IconName = keyof typeof paths;

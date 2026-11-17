@@ -1,0 +1,69 @@
+.stage {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-4);
+	padding: var(--space-5);
+	background: radial-gradient(
+		ellipse at center,
+		rgb(61 245 224 / 0.08),
+		transparent 70%
+	);
+}
+
+.table {
+	width: min(100%, calc((100dvh - 3.5rem - 7rem) * 1.6));
+	aspect-ratio: 8 / 5;
+	border: var(--border-width) solid var(--color-border-strong);
+	border-radius: var(--radius-md);
+	background: rgb(2 10 16 / 0.9);
+	box-shadow:
+		0 0 40px rgb(61 245 224 / 0.15),
+		inset 0 0 60px rgb(61 245 224 / 0.05);
+	cursor: none;
+	touch-action: none;
+}
+
+.hint {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-xs);
+	text-align: center;
+}
+
+/* Until both players are here, the invitation is all there is. */
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-5);
+	padding: var(--space-5);
+	background: rgb(3 13 20 / 0.92);
+	backdrop-filter: var(--blur-glass);
+}
+
+.overlay h1 {
+	font-size: var(--font-size-xl);
+	background: var(--gradient-accent);
+	background-clip: text;
+	-webkit-background-clip: text;
+	color: transparent;
+	text-align: center;
+}
+
+.overlay > div {
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface-strong);
+	box-shadow: var(--shadow-glow);
+}
+
+.waiting {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-md);
+}

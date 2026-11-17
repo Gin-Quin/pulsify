@@ -56,6 +56,7 @@ export function Header() {
 							["/cloud", "Cloud"],
 							["/pricing", "Pricing"],
 							["/docs", "Docs"],
+							["/demos", "Demos"],
 						]}
 					>
 						{([href, label]) => (

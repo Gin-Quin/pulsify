@@ -10,7 +10,15 @@
 		"isolatedModules": true,
 		"skipLibCheck": true,
 		"types": ["vite/client", "@solidjs/start/env"],
-		"paths": { "~/*": ["./src/*"] }
+		"paths": {
+			"~/*": ["./src/*"],
+			"pulsify-core": ["../pulse/source/index.ts"],
+			"pulsify-core/bindings": ["../pulse/source/bindings.ts"],
+			"pulsify-core/protocol": ["../pulse/source/protocol.ts"],
+			"pulsify-cloud": ["../cloud/source/index.ts"],
+			"pulsify-solid": ["../pulsify-solid/source/index.ts"],
+			"pulsify-prosemirror": ["../pulsify-prosemirror/source/index.ts"]
+		}
 	},
-	"include": ["src", "vite.config.ts"]
+	"include": ["src", "vite.config.ts", "worker.ts"]
 }

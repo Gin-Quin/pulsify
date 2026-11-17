@@ -1,11 +1,31 @@
-// The static landing page on Workers static assets: bun run deploy:website
+// The website on Workers static assets, and the demos' backend: bun run deploy:website
+// Secrets of the demo project (its own Pulsify Cloud account, so that its
+// quotas are its own): DEMO_PULSIFY_URL, DEMO_PULSIFY_API_KEY and
+// DEMO_PULSIFY_TOKEN_SECRET (bunx wrangler secret put … -c packages/website/wrangler.jsonc)
 {
 	"name": "pulsify-website",
 	"account_id": "0607b213538e700239aa5e3f48cc2737",
 	"compatibility_date": "2026-11-05",
 	"routes": [{ "pattern": "pulsify.cloud", "custom_domain": true }],
+	"main": "worker.ts",
+	// The Pulsify packages from their sources, as in vite.config.ts: no build needed.
+	"alias": {
+		"pulsify-cloud": "../cloud/source/index.ts",
+		"pulsify-core": "../pulse/source/index.ts",
+		"pulsify-core/protocol": "../pulse/source/protocol.ts",
+	},
+	"vars": { "DEMO_ORIGIN": "https://pulsify.cloud" },
+	"ratelimits": [
+		{
+			"name": "DEMO_RATE_LIMIT",
+			"namespace_id": "1001",
+			"simple": { "limit": 20, "period": 60 },
+		},
+	],
 	"assets": {
 		"directory": ".output/public",
+		"binding": "ASSETS",
+		"run_worker_first": ["/api/*"],
 		// Serve /docs/index.html at /docs, as every link writes it, and redirect /docs/ there.
 		"html_handling": "drop-trailing-slash",
 		"not_found_handling": "404-page",
