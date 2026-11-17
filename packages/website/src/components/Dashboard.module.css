@@ -263,3 +263,20 @@
 		animation-duration: 3s;
 	}
 }
+
+.linkButton {
+	align-self: center;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--color-accent);
+	font: inherit;
+	font-size: var(--font-size-sm);
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+	cursor: pointer;
+}
+
+.linkButton:hover {
+	color: var(--color-secondary);
+}

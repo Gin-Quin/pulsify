@@ -165,17 +165,16 @@ export function SignInCard(props: { expired: boolean; onSignIn: () => void }) {
 						</Button>
 					</div>
 				</form>
-				<div class={styles.actions}>
-					<Button
-						variant="outline"
-						onClick={() => {
-							setError(undefined);
-							setSentTo(undefined);
-						}}
-					>
-						Send another code
-					</Button>
-				</div>
+				<button
+					type="button"
+					class={styles.linkButton}
+					onClick={() => {
+						setError(undefined);
+						setSentTo(undefined);
+					}}
+				>
+					Send another code
+				</button>
 			</Show>
 			<Show when={error()}>
 				<p class={styles.error} role="alert">
