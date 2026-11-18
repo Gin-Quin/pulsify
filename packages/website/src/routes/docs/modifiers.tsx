@@ -293,8 +293,8 @@ export default function Modifiers() {
 				that matter instead. A copy is the frames of the document, which hold
 				what it has now and nothing of what it dropped. Opening one gives a
 				read-only pulse, to which the migrations added since are applied.{" "}
-				<a href="/docs/cloud#snapshots">Pulsify Cloud</a> keeps snapshots on the
-				server, with their time and author.
+				<a href="/docs/cloud/documents#snapshots">Pulsify Cloud</a> keeps
+				snapshots on the server, with their time and author.
 			</p>
 			<CodeBlock title="snapshot.ts" code={snapshots} />
 

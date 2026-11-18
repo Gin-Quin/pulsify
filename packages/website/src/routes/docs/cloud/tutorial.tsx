@@ -231,6 +231,11 @@ export default function CloudTutorial() {
 
 			<h2>4. Create the connector</h2>
 			<CodeBlock title="cloud.ts" code={connector} />
+			<Note>
+				No project yet? <code>bun run pulsify dev</code> runs Pulsify Cloud on
+				your machine and prints a URL and two secrets to use in this tutorial.
+				See <a href="/docs/cloud/local">Local development</a>.
+			</Note>
 
 			<h2>5. Open the notebook and add notes</h2>
 			<p>

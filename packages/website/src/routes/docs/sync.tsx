@@ -207,8 +207,8 @@ export default function Sync() {
 				during sleep. While <code>navigator.onLine</code> is false, attempts
 				wait for that event. Between those events, detecting a transport that
 				died without closing is the connector's job, once per socket: the{" "}
-				<a href="/docs/cloud">cloud connector</a> pings each idle socket, and
-				local connectors cannot die silently.
+				<a href="/docs/cloud/connections">cloud connector</a> pings each idle
+				socket, and local connectors cannot die silently.
 			</p>
 			<CodeBlock title="connection.ts" code={events} />
 

@@ -426,8 +426,8 @@ describe("connection events", () => {
 		expect(connection!.root).toBe(workspace.id);
 		expect(connection!.state).toBe("open");
 		expect(connection!.server).toEqual({
-			backend: "test",
-			id: host.instance,
+			backend: "local",
+			id: expect.stringMatching(/^local-/),
 			location: "local",
 		});
 		expect([...connection!.documents].sort()).toEqual(

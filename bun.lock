@@ -64,6 +64,9 @@
     "packages/cloud-server": {
       "name": "pulsify-cloud-server",
       "version": "15.0.0",
+      "bin": {
+        "pulsify": "./dist/local/cli.js",
+      },
       "peerDependencies": {
         "pulsify-cloud": "^15.0.0",
         "pulsify-core": "^15.0.0",

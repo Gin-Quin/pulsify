@@ -1,0 +1,12 @@
+{
+	"extends": "../../pulse/tsconfig.build.json",
+	"compilerOptions": {
+		"rootDir": "./source",
+		"outDir": "../dist/local",
+		"paths": {},
+		"types": ["bun"],
+		"typeRoots": ["../../pulse/node_modules/@types"]
+	},
+	"include": ["source/**/*.ts"],
+	"exclude": ["tests", "node_modules"]
+}

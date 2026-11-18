@@ -6,13 +6,16 @@ const secrets = {
 	tokenSecret: "a test token secret of at least 32 characters",
 	apiKey: "a test api key of at least thirty-two characters",
 };
+// A root compacts 60 s after its last socket closed: too long for a test.
+const compactAfterMs = 1000;
 let host: ReturnType<typeof startCloudHost>;
 beforeAll(() => {
-	host = startCloudHost(secrets);
+	host = startCloudHost(secrets, { compactAfterMs });
 });
 afterAll(() => host.stop());
 
 describeCloudBackend("In-process", (): CloudBackend => ({
 	url: host.url,
 	...secrets,
+	compactsAfterMs: compactAfterMs,
 }));

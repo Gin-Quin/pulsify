@@ -3,11 +3,12 @@
 Cloud session protocol **1**. It carries the unchanged Pulsify frames described
 in [PROTOCOL.md](PROTOCOL.md) (envelopes 1 and 2, operations version 3) and
 adds routing, authentication, multiplexing and access control. Every backend
-(`pulsify-cloud-server/cloudflare`) implements this document; the conformance
-suite in
+(`pulsify-cloud-server/cloudflare`, `pulsify-cloud-server/local`) implements
+this document; the conformance suite in
 [`packages/cloud-server/core/tests/conformance.ts`](../packages/cloud-server/core/tests/conformance.ts)
 is the executable authority. Run it with
-`bun run test:cloud --backend cloudflare`.
+`bun run test:cloud --backend cloudflare`, and against the local server with
+`bun test packages/cloud-server`.
 
 ## Hosted service
 
@@ -30,6 +31,30 @@ databases, and the live sockets across all roots. At the limits:
 
 Deleting a project from the dashboard closes its sockets with 1008 and erases
 its roots; its URL then answers `NOT_FOUND`.
+
+The metering does not depend on the host. It is a `CloudMeter`
+(`pulsify-cloud-server`), which a host calls at four moments: a socket asks to
+open, a management request arrives, a client sends a binary frame, and a
+socket closes or the root is erased. A host that calls it enforces the plans.
+
+## Local server
+
+`pulsify-cloud-server/local` serves this protocol on one machine, for
+development: `bun run pulsify dev`. It needs Bun. It answers at
+`http://127.0.0.1:3345/<project>` for any `<project>` of 1 to 64 characters of
+`[a-z0-9-]`, and strips the prefix like the hosted service. Every project
+shares one token secret and one API key: `PULSIFY_TOKEN_SECRET` and
+`PULSIFY_API_KEY`, or development secrets that the command prints. Nothing is
+metered unless the server is given a `CloudMeter`.
+
+Each root is one SQLite file, `<directory>/<project>/<root>.sqlite`, in
+`.pulsify` by default. In the file name, lower-case letters, digits, `-` and
+`_` stay and every other byte of the root is `%xx`; a name over 200 characters
+is `~` followed by the SHA-256 of the root. A root lives like a Durable Object:
+it is in memory while it has sockets or waits to compact or expire, and
+[compaction and expiry](#storage) follow the rules below with a timer in place
+of the alarm. The timer does not survive the process: a root that was waiting
+when the server stopped compacts or expires after its next socket closes.
 
 ## Roots
 
@@ -240,7 +265,7 @@ server → client  {"type":"pong"}      exactly these bytes
 
 `welcome` is the first frame of every socket. It names who answers, for
 debugging only: clients never route on it. `backend` names the host
-(`cloudflare`); `id` identifies the instance (the Durable Object ID on
+(`cloudflare`, `local`); `id` identifies the instance (the Durable Object ID on
 Cloudflare), so a new value means a new instance; `location` is where the
 socket was accepted (the Cloudflare colo). `presence: true` says the server
 relays [presence frames](#presence); a client never sends them otherwise.

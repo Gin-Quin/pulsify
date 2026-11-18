@@ -119,6 +119,13 @@ export default function CloudAuthentication() {
 				secret there if it leaks: the old value stops working within a minute.
 			</p>
 			<CodeBlock title="environment" code={secrets} />
+			<p>
+				In development,{" "}
+				<a href="/docs/cloud/local">
+					<code>pulsify dev</code>
+				</a>{" "}
+				runs the cloud on your machine and prints the same three values for it.
+			</p>
 
 			<h2>Sign tokens</h2>
 			<p>

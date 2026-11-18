@@ -49,6 +49,7 @@ for (const name of [
 	"cloud",
 	"cloud-server/core",
 	"cloud-server/cloudflare",
+	"cloud-server/local",
 	"connectors/IndexedDB",
 	"connectors/Electron",
 	"connectors/Tauri",
@@ -67,17 +68,21 @@ for (const name of [
 		? `${packageDirectory}/dist/${subpath}`
 		: `${directory}/dist`;
 	await rm(outdir, { recursive: true, force: true });
+	// The local server is a Bun program, with the `pulsify` command next to it.
+	const local = subpath === "local";
 	// One entry per export: "." is source/index.ts, "./main" is source/main.ts.
-	const entries = subpath
-		? ["index"]
-		: Object.keys(manifest.exports ?? { ".": null }).map((key) =>
-				key === "." ? "index" : key.slice(2),
-			);
+	const entries = local
+		? ["index", "cli"]
+		: subpath
+			? ["index"]
+			: Object.keys(manifest.exports ?? { ".": null }).map((key) =>
+					key === "." ? "index" : key.slice(2),
+				);
 	const adapter = await Bun.build({
 		entrypoints: entries.map((entry) => `${directory}/source/${entry}.ts`),
 		outdir,
 		splitting: entries.length > 1,
-		target: "browser",
+		target: local ? "bun" : "browser",
 		format: "esm",
 		sourcemap: "external",
 		minify: true,

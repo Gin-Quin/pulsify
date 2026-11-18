@@ -1,127 +1,46 @@
-import { Database } from "bun:sqlite";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { CLOUD_PING } from "pulsify-cloud";
 import {
-	CLOUD_PING,
-	CLOUD_SUBPROTOCOLS,
-	type CloudEnvelope,
-	welcomeMessage,
-} from "pulsify-cloud";
-import {
-	CloudRoot,
-	routeCloudRequest,
-	SqliteCloudStorage,
-	type CloudPeer,
-	type CloudSecrets,
-} from "../source/index.js";
-
-type SocketData = {
-	id: string;
-	root: string;
-	subject: string;
-	envelope: CloudEnvelope;
-};
+	createLocalCloud,
+	type LocalCloudOptions,
+	type LocalCloudSocket,
+} from "../../local/source/index.js";
+import type { CloudSecrets } from "../source/index.js";
 
 /**
- * An in-process backend built from the same primitives as the Durable Object:
- * the gateway routes and authenticates, one CloudRoot per root owns its
- * SQLite database. Used to run the backend conformance suite under Bun.
+ * The local server (`pulsify-cloud-server/local`) in a temporary directory,
+ * with what tests need on top: outages, a transport that died silently and a
+ * count of the heartbeats. Used to run the backend conformance suite under Bun.
  */
-export function startCloudHost(secrets: CloudSecrets) {
-	const roots = new Map<
-		string,
-		{ engine: CloudRoot; peers: Map<string, CloudPeer> }
-	>();
-	const instance = `test-${crypto.randomUUID().slice(0, 8)}`;
+export function startCloudHost(
+	secrets: CloudSecrets,
+	options: Partial<LocalCloudOptions> = {},
+) {
+	const directory = mkdtempSync(join(tmpdir(), "pulsify-host-"));
+	const cloud = createLocalCloud({ directory, secrets, ...options });
 	let frozen = false;
 	let pings = 0;
-	const rootFor = (name: string) => {
-		let entry = roots.get(name);
-		if (!entry) {
-			const peers = new Map<string, CloudPeer>();
-			entry = {
-				peers,
-				engine: new CloudRoot(
-					name,
-					new SqliteCloudStorage(new Database(":memory:")),
-					{ get: (id) => peers.get(id), all: () => peers.values() },
-				),
-			};
-			roots.set(name, entry);
-		}
-		return entry;
-	};
 	const serve = (port: number) =>
-		Bun.serve<SocketData>({
+		Bun.serve<LocalCloudSocket>({
 			port,
-			async fetch(request, server) {
-				const route = await routeCloudRequest(request, secrets);
-				if (route.type === "response") return route.response;
-				const { engine } = rootFor(route.root);
-				if (route.type === "request")
-					return engine.handleRequest(route.action, request, route.caller);
-				const data: SocketData = {
-					id: crypto.randomUUID(),
-					root: route.root,
-					subject: route.subject,
-					envelope: route.envelope,
-				};
-				return server.upgrade(request, {
-					data,
-					headers: {
-						"Sec-WebSocket-Protocol": CLOUD_SUBPROTOCOLS[route.envelope],
-					},
-				})
-					? undefined
-					: new Response(null, { status: 400 });
-			},
+			fetch: cloud.fetch,
 			websocket: {
-				open(socket) {
-					const { id, root, subject, envelope } = socket.data;
-					socket.send(
-						welcomeMessage(
-							{ backend: "test", id: instance, location: "local" },
-							{ presence: true, subtrees: true },
-						),
-					);
-					const peer: CloudPeer = {
-						id,
-						subject,
-						envelope,
-						presence: false,
-						usePresence: () =>
-							rootFor(root).peers.set(id, { ...peer, presence: true }),
-						// Never evicted: the root's memory is enough.
-						subscriptions: new Map(),
-						keepSubscriptions: () => true,
-						send: (data) => socket.send(data),
-						close: (code, reason) => socket.close(code, reason),
-					};
-					rootFor(root).peers.set(id, peer);
-				},
+				...cloud.websocket,
 				message(socket, message) {
 					if (frozen) return;
 					if (message === CLOUD_PING) pings++;
-					const { id, root } = socket.data;
-					const entry = rootFor(root);
-					const peer = entry.peers.get(id);
-					if (peer)
-						void entry.engine.receive(
-							peer,
-							typeof message === "string" ? message : new Uint8Array(message),
-						);
-				},
-				close(socket) {
-					const { id, root } = socket.data;
-					const entry = rootFor(root);
-					const peer = entry.peers.get(id);
-					entry.peers.delete(id);
-					if (peer) void entry.engine.disconnect(peer);
+					return cloud.websocket.message(socket, message);
 				},
 			},
 		});
 	let server: ReturnType<typeof serve> | undefined = serve(0);
 	const port = server.port!;
 	return {
-		url: `http://127.0.0.1:${port}`,
+		/** The URL of one project. */
+		url: `http://127.0.0.1:${port}/test`,
+		directory,
 		/** Close every socket and refuse connections, keeping all data: an outage. */
 		suspend() {
 			server?.stop(true);
@@ -140,7 +59,10 @@ export function startCloudHost(secrets: CloudSecrets) {
 		get pings() {
 			return pings;
 		},
-		instance,
-		stop: () => server?.stop(true),
+		stop() {
+			cloud.close();
+			server?.stop(true);
+			rmSync(directory, { recursive: true, force: true });
+		},
 	};
 }

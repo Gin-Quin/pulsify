@@ -1,19 +1,17 @@
-import { CloudError, peekFrameHeader } from "pulsify-cloud";
-import { errorResponse } from "pulsify-cloud-server";
+import { CloudError } from "pulsify-cloud";
+import { errorResponse, type CloudRootSize } from "pulsify-cloud-server";
 import {
 	PulsifyCloudRoot,
 	ROOT_HEADERS,
 	type DurableObjectStateLike,
 	type PulsifyCloudRootEnv,
 } from "pulsify-cloud-server/cloudflare";
-import { encodeMessage, PRESENCE_KIND } from "pulsify-core/protocol";
 import { call, first, type DurableNamespace } from "./durable.js";
-import { PURGE_ACTION, type RootReport, type RootStatus } from "./Project.js";
+import { RootMeter } from "./meter.js";
+import { PURGE_ACTION, type RootStatus } from "./Project.js";
 
 /** Set by the gateway on every request it forwards to a root. */
 export const PROJECT_HEADER = "x-pulsify-project";
-/** How often an active root reports its usage to its project. */
-export const REPORT_EVERY_MS = 30_000;
 
 type RootState = DurableObjectStateLike & {
 	storage: DurableObjectStateLike["storage"] & {
@@ -23,14 +21,13 @@ type RootState = DurableObjectStateLike & {
 export type RootEnv = PulsifyCloudRootEnv & { PROJECTS: DurableNamespace };
 
 /**
- * A Pulsify Cloud root that belongs to a customer project: it counts the
- * frames clients send (presence aside), refuses uploads once a Free project is
- * over its limits, and sockets over the plan's connection limit.
+ * A Pulsify Cloud root that belongs to a customer project, on Cloudflare. It
+ * remembers its project, hands the root's sockets, requests and frames to a
+ * `RootMeter`, which knows nothing of Durable Objects, and wipes itself when
+ * the project is deleted.
  */
 export class PulsifyRoot extends PulsifyCloudRoot {
-	private pending = 0;
-	private reportedAt = 0;
-	private writable = true;
+	private metering: RootMeter | undefined;
 	private names: { project: string; root: string } | undefined;
 	/** The project was deleted: the tables are gone until this object restarts. */
 	private purged = false;
@@ -63,18 +60,16 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 			);
 			this.names = { project, root };
 		}
-		if (action === "connect") {
-			const { connectable } = await this.report(1);
-			if (!connectable)
-				return errorResponse(
-					new CloudError(
-						"LIMIT_EXCEEDED",
-						"The project reached its plan's connection limit",
-					),
-				);
-		}
-		// A root used only over HTTP reports too: the project lists every root it must delete.
-		else if (!this.reportedAt) await this.report(0);
+		const meter = this.meter();
+		if (action !== "connect") await meter?.request(() => this.size());
+		// The socket that asks to open is not accepted yet.
+		else if (meter && !(await meter.connect(this.size(1))))
+			return errorResponse(
+				new CloudError(
+					"LIMIT_EXCEEDED",
+					"The project reached its plan's connection limit",
+				),
+			);
 		return super.fetch(request);
 	}
 
@@ -94,29 +89,12 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 	): Promise<void> {
 		if (this.purged) return;
 		if (typeof message !== "string") {
-			let header: ReturnType<typeof peekFrameHeader> | undefined;
-			try {
-				header = peekFrameHeader(new Uint8Array(message));
-			} catch {
-				// Invalid: the root closes the socket.
-			}
-			if (header && header.kind !== PRESENCE_KIND) {
-				this.pending++;
-				if (!this.reportedAt || Date.now() - this.reportedAt >= REPORT_EVERY_MS)
-					await this.report(0);
-				// kind 3 is syncBack, 4 an update: the uploads.
-				if (!this.writable && (header.kind === 3 || header.kind === 4)) {
-					socket.send(
-						encodeMessage({
-							kind: 6,
-							docId: header.docId,
-							requestId: header.requestId,
-							code: "LIMIT_EXCEEDED",
-							message: "The project reached its Free plan limits",
-						}) as Uint8Array<ArrayBuffer>,
-					);
-					return;
-				}
+			const refusal = await this.meter()?.frame(new Uint8Array(message), () =>
+				this.size(),
+			);
+			if (refusal) {
+				socket.send(refusal as Uint8Array<ArrayBuffer>);
+				return;
 			}
 		}
 		await super.webSocketMessage(socket, message);
@@ -130,44 +108,29 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		if (this.purged) return;
 		await super.webSocketClose(socket, code, reason);
 		// The runtime still lists the socket that is closing.
-		await this.report(-1);
+		await this.meter()?.settle(this.size(-1));
 	}
 
 	override async webSocketError(socket: WebSocket): Promise<void> {
 		if (this.purged) return;
 		await super.webSocketError(socket);
-		await this.report(-1);
+		await this.meter()?.settle(this.size(-1));
 	}
 
-	/** The root document was deleted: report the empty root, then forget it. */
+	/** The root document was deleted: report the root without sockets, then forget it. */
 	protected override async erase(): Promise<void> {
 		await super.erase();
-		await this.report(-this.durable.getWebSockets().length);
-		this.names = undefined;
-		this.reportedAt = 0;
+		await this.meter()?.settle({ ...this.size(), connections: 0 });
+		this.names = this.metering = undefined;
 	}
 
 	/** Expired or empty, the root is wiped: the project stops counting it. */
 	protected override async wipe(): Promise<void> {
-		const names = this.identity();
+		// Before the wipe: it deletes the table that names the project.
+		const meter = this.meter();
 		await super.wipe();
-		this.names = undefined;
-		this.reportedAt = 0;
-		if (!names) return;
-		const report: RootReport = {
-			root: names.root,
-			messages: this.pending,
-			bytes: 0,
-			connections: 0,
-		};
-		this.pending = 0;
-		await call(
-			this.env.PROJECTS.get(this.env.PROJECTS.idFromName(names.project)),
-			"report",
-			report,
-		).catch(() => {
-			// Unreachable: the project keeps counting this root's last size.
-		});
+		this.names = this.metering = undefined;
+		await meter?.settle({ bytes: 0, connections: 0 });
 	}
 
 	private identity() {
@@ -183,31 +146,24 @@ export class PulsifyRoot extends PulsifyCloudRoot {
 		}
 	}
 
-	/** Send the counted frames, this root's size and sockets; learn what it may do. */
-	private async report(sockets: number): Promise<RootStatus> {
-		const names = this.identity();
-		if (!names) return { writable: true, connectable: true };
-		const messages = this.pending;
-		this.pending = 0;
-		this.reportedAt = Date.now();
-		const report: RootReport = {
-			root: names.root,
-			messages,
+	/** What this root measures, with `sockets` more or fewer than the runtime lists. */
+	private size(sockets = 0): CloudRootSize {
+		return {
 			bytes: this.durable.storage.sql.databaseSize,
 			connections: Math.max(0, this.durable.getWebSockets().length + sockets),
 		};
-		try {
-			const status = await call<RootStatus>(
-				this.env.PROJECTS.get(this.env.PROJECTS.idFromName(names.project)),
-				"report",
-				report,
-			);
-			this.writable = status.writable;
-			return status;
-		} catch {
-			// The project is unreachable: count again next time, keep serving.
-			this.pending += messages;
-			return { writable: this.writable, connectable: true };
-		}
+	}
+
+	/** The meter of this root, once it knows its project. */
+	private meter(): RootMeter | undefined {
+		if (this.metering) return this.metering;
+		const names = this.identity();
+		if (!names) return undefined;
+		const project = this.env.PROJECTS.get(
+			this.env.PROJECTS.idFromName(names.project),
+		);
+		return (this.metering = new RootMeter(names.root, (report) =>
+			call<RootStatus>(project, "report", report),
+		));
 	}
 }

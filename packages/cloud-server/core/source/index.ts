@@ -14,6 +14,7 @@ export {
 	presencePeer,
 } from "./CloudRoot.js";
 export type { CloudPeer, CloudPeers } from "./CloudRoot.js";
+export type { CloudMeter, CloudRootSize } from "./meter.js";
 export { CLOUD_SQLITE_SCHEMA, SqliteCloudStorage } from "./storage.js";
 export type {
 	CloudRootStorage,

@@ -16,9 +16,11 @@ License: [FSL-1.1-ALv2](LICENSE.md), like the cloud server it wraps.
 Three Durable Object classes:
 
 - `PulsifyRoot`, one per project and root (`<project>/<root>`): a
-  `PulsifyCloudRoot` that counts the frames clients send (presence aside) and
-  reports them, with its database size and sockets, to its project every 30
-  seconds while active, and on every socket open and close.
+  `PulsifyCloudRoot` that remembers its project and hands its sockets, requests
+  and frames to a `RootMeter`. The meter counts the frames clients send
+  (presence aside) and reports them, with the root's database size and
+  sockets, to its project every 30 seconds while active, and on every socket
+  open and close.
 - `PulsifyProject`, one per project: secrets, plan, sessions and usage. It
   answers each report: a Free project over 1M messages this month or 1 GB
   refuses uploads (`LIMIT_EXCEEDED`); any project over its plan's live
@@ -35,6 +37,18 @@ the address starts a new project at its next sign-in. A Pro project answers
 
 The Polar products, meters and credits are set up in the Polar dashboard; the
 Pro product IDs are in `wrangler.jsonc`.
+
+## Hosts
+
+The service must be able to leave Durable Objects. What a root does for its
+project is `RootMeter` (`source/meter.ts`), a `CloudMeter` of
+`pulsify-cloud-server`: it knows the root's name and how to reach the project,
+nothing of the host. `PulsifyRoot` is only its Cloudflare adapter, and
+`tests/meter.test.ts` runs the same meter on the local server. A root and its
+project exchange three messages, as JSON over `fetch`: `config` (the project's
+secrets and plan), `report` (a `RootReport`, answered by a `RootStatus`) and
+`purge`. A new host implements these, not the classes: keep host APIs out of
+`meter.ts`, `Project.ts` and `Account.ts`.
 
 ## Develop
 
@@ -77,6 +91,6 @@ bun run deploy:service
 ## Test
 
 ```sh
-bun test packages/cloud-service/tests       # accounts, tenancy, quotas, Polar
+bun test packages/cloud-service/tests       # accounts, tenancy, quotas, Polar, the meter on the local server
 bun run test:cloud --backend service        # the conformance suite through a project, in workerd
 ```

@@ -11,7 +11,14 @@
 		"./cloudflare": {
 			"types": "./dist/cloudflare/index.d.ts",
 			"default": "./dist/cloudflare/index.js"
+		},
+		"./local": {
+			"types": "./dist/local/index.d.ts",
+			"default": "./dist/local/index.js"
 		}
+	},
+	"bin": {
+		"pulsify": "./dist/local/cli.js"
 	},
 	"files": [
 		"dist",

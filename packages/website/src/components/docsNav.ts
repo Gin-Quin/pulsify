@@ -34,18 +34,21 @@ export const docsNav: readonly DocsEntry[] = [
 		],
 	},
 	{
-		group: "Self-hosting",
-		pages: [
-			{ href: "/docs/databases", title: "Databases" },
-			{ href: "/docs/auth", title: "Authentication" },
-		],
-	},
-	{
 		group: "Cloud",
 		pages: [
 			{ href: "/docs/cloud", title: "How it works" },
 			{ href: "/docs/cloud/authentication", title: "Authentication" },
 			{ href: "/docs/cloud/tutorial", title: "Tutorial: a notes app" },
+			{ href: "/docs/cloud/local", title: "Local development" },
+			{ href: "/docs/cloud/connections", title: "Connections" },
+			{ href: "/docs/cloud/documents", title: "Managing documents" },
+		],
+	},
+	{
+		group: "Self-hosting",
+		pages: [
+			{ href: "/docs/databases", title: "Databases" },
+			{ href: "/docs/auth", title: "Authentication" },
 		],
 	},
 	{ href: "/docs/api", title: "API cheat sheet" },

@@ -2,7 +2,6 @@ import { Seo } from "~/components/Seo";
 import { CodeBlock } from "~/components/CodeBlock";
 import { Note } from "~/components/DocsLayout";
 import { SequenceDiagram } from "~/components/SequenceDiagram";
-import { Tabs } from "~/components/Tabs";
 
 const tree = `alice                     root: one namespace, one actor
 ├── alice/notes/n1        sub-document
@@ -39,99 +38,6 @@ await Promise.all(root.notes.map((ref) => ref.load({ subPulses: false })));
 // Unsubscribe: the socket stays open for the other documents of the root
 destroyPulse(note); // or disconnectPulse(note)`;
 
-const heartbeat = `import { createCloudConnector, createUserActivity } from "pulsify-cloud";
-
-const cloud = createCloudConnector({
-  url,
-  token,
-  heartbeat: {
-    staleMs: 5_000,    // ping a socket silent this long before using it
-    timeoutMs: 5_000,  // no frame this long after a ping: the socket is dead
-    intervalMs: 2_000, // background check while someone is there; false = on demand only
-  },                   // defaults; heartbeat: false relies on transport errors
-  // Optional: by default every connector of the page shares \`userActivity\`.
-  activity: createUserActivity({
-    activeMs: 300_000,   // "someone is there": input within this long, page not hidden
-    unfocusedMs: 30_000, // ...or within this long when the window lost focus
-  }),
-});`;
-
-const tauriActivity = `// Tauri, desktop and mobile: minimized or hidden means away, shown or focused means back.
-import { userActivity } from "pulsify-cloud";
-import { watchTauriActivity } from "pulsify-tauri";
-
-const stop = await watchTauriActivity(userActivity);`;
-
-const electrobunActivity = `// Electrobun, main process (Bun): report the native window state.
-const report = (present: boolean) => sendToWebview("activity", present); // your RPC message
-const update = () => report(win.isVisible() && !win.isMinimized());
-win.on("resize", update);
-win.on("blur", update);
-win.on("focus", () => report(true));
-
-// Webview: hand it to the page's user activity, shared by every connector.
-import { userActivity } from "pulsify-cloud";
-
-onActivityMessage((present) => userActivity.set(present));`;
-
-const debug = `import { userActivity } from "pulsify-cloud";
-import { subscribePulseStatus } from "pulsify-core";
-
-// The window: called now, then on every change. It involves no server.
-userActivity.on("change", (p) => {
-  // { present, reason: "blur" | "idle" | "focus" | "native" | …, visible, focused, away, lastActivity }
-  activityBadge.textContent = p.present ? "here" : \`away (\${p.reason})\`;
-});
-
-// The servers: one connection per root, to the instance that hosts it.
-// Called with the current connections, then with each new one (reconnections included).
-cloud.onConnection((connection) => {
-  const { root } = connection;
-  connection.on("server", ({ backend, id, location }) => log(root, "served by", backend, id, location));
-  connection.on("state", (state, error) => log(root, state, error?.message)); // open | closed
-  connection.on("ping", (reason) => log(root, "ping", reason)); // send | interval | network | return | resume
-  connection.on("pong", (latencyMs) => log(root, "pong", latencyMs));
-  connection.on("timeout", (waitedMs) => log(root, "dead socket", waitedMs));
-  connection.on("suspended", (gapMs) => log(root, "process was suspended for", gapMs));
-  connection.on("role", (docId, role) => log(docId, "role", role));
-});
-
-cloud.connections; // the current ones, without listening: root, state, server, documents, latencyMs, error
-userActivity.state; // the same for the window
-
-// Documents: idle | syncing | ready | synced | offline | error.
-subscribePulseStatus(notebook, (status) => (statusBadge.textContent = status));`;
-
-const deletion = `import { createCloudClient } from "pulsify-cloud";
-
-const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! });
-await cloud.deleteDocument("alice/notes/n1"); // the note, its sub-documents, their grants
-await cloud.deleteDocument("alice");          // the whole root: its Durable Object is deleted`;
-
-const cloudSnapshots = `import { destroyPulse, restorePulse } from "pulsify-core";
-import { createCloudClient } from "pulsify-cloud";
-
-// In the browser, with the user's token: an editor snapshots, a reader opens.
-const cloud = createCloudClient({ url, credential: () => fetchToken() });
-
-const saved = await cloud.snapshot(note.id, { label: "Sent to the client" });
-await cloud.snapshots(note.id); // [{ id, time, label, subject, version }], oldest first
-
-const old = await cloud.loadSnapshot(Note, note.id, saved.id); // a read-only pulse
-restorePulse(note, old); // the client writes the restore, sent like any edit
-destroyPulse(old);
-
-await cloud.deleteSnapshot(note.id, saved.id); // an owner`;
-
-const expiry = `import { createCloudClient } from "pulsify-cloud";
-
-const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! });
-
-// A meeting room, a game, a whiteboard: it lives while someone uses it.
-const room = \`room-\${crypto.randomUUID()}\`;
-await cloud.grant({ subject: "*", prefix: room, role: "editor" });
-await cloud.expire(room, { idleMs: 10 * 60_000 }); // erased ten minutes after the last socket closed`;
-
 const wire = `GET  /v1/health                         { "ok": true }
 GET  /v1/roots/{root}/connect           WebSocket, one per user and root
 GET  /v1/roots/{root}/grants            list grants
@@ -167,7 +73,8 @@ export default function CloudOverview() {
 				Sign in to the <a href="/dashboard">dashboard</a> to get your project:
 				its URL, <code>https://api.pulsify.cloud/&lt;your-project&gt;</code>,
 				and its two secrets, <code>PULSIFY_TOKEN_SECRET</code> and{" "}
-				<code>PULSIFY_API_KEY</code>.
+				<code>PULSIFY_API_KEY</code>. Or run the same server on your machine:
+				see <a href="/docs/cloud/local">Local development</a>.
 			</p>
 			<ul>
 				<li>
@@ -245,155 +152,10 @@ export default function CloudOverview() {
 				closed, the socket closes after <code>lingerMs</code> (5 seconds by
 				default).
 			</p>
-
-			<h2>Lost connections</h2>
 			<p>
-				Connected pulses <a href="/docs/sync">reconnect on their own</a> with
-				backoff, and every reconnection is a complete synchronization. All
-				documents of a root come back on one new socket.
+				A socket that dies is replaced, and one that dies silently is found out:
+				see <a href="/docs/cloud/connections">Connections</a>.
 			</p>
-			<p>
-				A socket can also die without closing: a laptop that slept, a network
-				switch, a proxy dropping idle connections. The connector checks sockets
-				when they are needed, once per socket rather than per document:
-			</p>
-			<ul>
-				<li>
-					<strong>Before using a silent socket.</strong> An edit sent on a
-					socket that received nothing for 5 seconds goes out with a ping. Any
-					frame counts as an answer, so a busy socket never pings.
-				</li>
-				<li>
-					<strong>When the user comes back.</strong> Focusing the window or
-					showing the page checks silent sockets; the network coming back checks
-					all of them.
-				</li>
-				<li>
-					<strong>Without an answer within 5 seconds</strong>, the socket is
-					closed and its documents reconnect, the edit included.
-				</li>
-				<li>
-					<strong>Passive readers.</strong> Nothing needs a socket that only
-					receives, so while someone is there (input in the last 5 minutes, page
-					not hidden) a silent socket is pinged every 2 seconds. Any frame
-					counts as an answer, so busy sockets never ping. Set{" "}
-					<code>intervalMs: false</code> to check on demand only.
-				</li>
-				<li>
-					<strong>A page left open</strong> (hidden, or untouched for 5 minutes)
-					sends nothing at all, so the server can sleep. Its sockets stay open
-					and still receive updates; if one died meanwhile, the first input,
-					focus or edit finds out within 5 seconds and resynchronizes.
-				</li>
-			</ul>
-			<CodeBlock title="cloud.ts" code={heartbeat} />
-			<p>
-				Pings are answered without waking the root: a hibernated root stays
-				asleep. Only pages in use ping in the background, so a root costs
-				nothing once its users walk away.
-			</p>
-			<p>
-				A screen nobody touches, such as a dashboard on an office TV or a kiosk,
-				stops background pings after 5 minutes like any idle page. It still
-				receives updates, but a socket that died silently would only be noticed
-				at the next touch. Give such displays <code>activeMs: Infinity</code>.
-			</p>
-
-			<h3>Desktop and mobile apps</h3>
-			<p>
-				User activity works in every webview because it relies on what they all
-				report: input events (pointer, keyboard, wheel, touch) and timers. When
-				timers run late, the process was suspended (laptop sleep, mobile app in
-				the background), and every socket is checked on resume. Visibility,
-				focus, <code>pageshow</code> and <code>resume</code> only make detection
-				faster where the webview reports them:
-			</p>
-			<table>
-				<thead>
-					<tr>
-						<th>Runtime</th>
-						<th>Page hidden when minimized or in the background</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td>Browsers, Electron (Chromium)</td>
-						<td>Yes</td>
-					</tr>
-					<tr>
-						<td>Tauri, Electrobun on macOS (WKWebView)</td>
-						<td>On minimize, not when covered by another window</td>
-					</tr>
-					<tr>
-						<td>Tauri, Electrobun on Windows (WebView2)</td>
-						<td>
-							Never (
-							<a href="https://github.com/tauri-apps/tauri/issues/10592">
-								tauri#10592
-							</a>
-							). Minimizing removes the focus, so pings stop 30 seconds after
-							the last input; at once with native events.
-						</td>
-					</tr>
-					<tr>
-						<td>Tauri on iOS and Android</td>
-						<td>
-							The app is suspended in the background; sockets are checked on
-							resume
-						</td>
-					</tr>
-				</tbody>
-			</table>
-			<p>
-				A window that loses focus (another app in front, or minimized) counts as
-				away 30 seconds after the last input instead of 5 minutes. Every webview
-				reports focus, including WebView2. To react the moment a window is
-				minimized or hidden, forward the native state to the page's{" "}
-				<code>userActivity</code>, which every connector shares:
-			</p>
-			<Tabs
-				tabs={[
-					{
-						label: "Tauri",
-						content: <CodeBlock title="activity.ts" code={tauriActivity} />,
-					},
-					{
-						label: "Electrobun",
-						content: (
-							<CodeBlock title="activity.ts" code={electrobunActivity} />
-						),
-					},
-				]}
-			/>
-			<p>
-				Electron needs nothing: Chromium reports minimized and hidden windows to
-				the page.
-			</p>
-
-			<h2>Debugging and status displays</h2>
-			<p>
-				A client talks to several servers at once: each root it uses has its own
-				socket, served by the instance that hosts that root. So events are
-				reported where they happen:
-			</p>
-			<ul>
-				<li>
-					<strong>User activity</strong> belongs to the window, not to any
-					server: whether someone is there, and why.
-				</li>
-				<li>
-					<strong>Each connection</strong> reports its own server (the first
-					frame of every socket names the backend, the instance ID and its
-					location), its lifecycle, every ping with why it was sent, round
-					trips, a dead socket and process suspensions. A reconnection is a new
-					connection; a new server ID means a new instance.
-				</li>
-				<li>
-					<strong>Each pulse</strong> reports its synchronization status.
-				</li>
-			</ul>
-			<p>Use them for a debug panel, logs, or to show the state of a window.</p>
-			<CodeBlock title="debug.ts" code={debug} />
 
 			<h2>Storage and access</h2>
 			<p>Each root stores three things:</p>
@@ -412,66 +174,9 @@ export default function CloudOverview() {
 					hibernated root wakes up knowing whom to notify.
 				</li>
 			</ul>
-
-			<h2>Delete documents</h2>
 			<p>
-				<code>deleteDocument</code> erases a document, everything below it and
-				the grants on them. It takes the API key, or the token of an owner of
-				the document. Open pulses of an erased document stop with{" "}
-				<code>NOT_FOUND</code> instead of uploading it again. Deleting the root
-				document deletes the root and its Durable Object.
-			</p>
-			<CodeBlock title="delete.ts" code={deletion} />
-			<p>
-				The server keeps no trace of a deleted document: a client that still has
-				it offline and may write it uploads it again when it reconnects. Delete
-				it on your clients too, or revoke the grants that cover it.
-			</p>
-
-			<h2 id="snapshots">Snapshots</h2>
-			<p>
-				A field keeps its last value only, unless it is{" "}
-				<a href="/docs/modifiers#versioned">versioned</a>. To go back to a past
-				state of a document without keeping every edit, take snapshots of it:
-				the server copies the rows it holds for the document, with its clock and
-				the subject of the token, without ever reading them. A snapshot has the
-				size of the document, counts in your storage, and is erased with it. For
-				a document that keeps every write, it is the version alone and stores
-				nothing more.
-			</p>
-			<CodeBlock title="snapshots.ts" code={cloudSnapshots} />
-			<p>
-				An editor of the document creates snapshots, a reader lists and opens
-				them, an owner erases them, and the API key does all of it. The server
-				copies what it has received, so take a snapshot once the pulse is{" "}
-				<code>synced</code>. Opening one gives a read-only pulse, detached from
-				the live document, to render with the same components; the{" "}
-				<a href="/docs/migrations">migrations</a> added since it was made are
-				applied to it. <code>restorePulse</code> then replaces the live document
-				by a new <a href="/docs/modifiers#restore">generation</a> of it.
-			</p>
-
-			<h2>Expire roots</h2>
-			<p>
-				Some roots only matter while people use them: a call, a game, a
-				whiteboard shared for a meeting. <code>expire</code> gives a root a
-				lifetime without sockets. Once its last socket has been closed for{" "}
-				<code>idleMs</code>, the root erases itself with its documents, its
-				grants and its Durable Object, and no longer counts in your storage. Any
-				socket that opens in the meantime starts the countdown again, so a
-				reload or a lost network does not end a room. A root that nobody
-				connects to expires too, counted from the call.
-			</p>
-			<CodeBlock title="rooms.ts" code={expiry} />
-			<p>
-				It takes the API key, or the token of an owner of the root, and{" "}
-				<code>idleMs</code> from a minute to thirty days. Calling it again
-				replaces the lifetime. An expiring root is erased instead of compacted.
-				Unlike <code>deleteDocument</code>, an expired root leaves no tombstone:
-				its ID can be used again, as a new and empty root, after you grant
-				access to it again. Until then, clients that still have the link get{" "}
-				<code>FORBIDDEN</code>, and the empty root they wake up erases itself
-				once they leave. The <a href="/demos">demos</a> work this way.
+				To delete documents, keep snapshots of them or let a root expire, see{" "}
+				<a href="/docs/cloud/documents">Managing documents</a>.
 			</p>
 
 			<h2>Plans and limits</h2>
@@ -541,7 +246,8 @@ export default function CloudOverview() {
 						</td>
 						<td>
 							The server: the gateway and <code>CloudRoot</code>, the
-							runtime-independent state machine of a root.
+							runtime-independent state machine of a root. Its{" "}
+							<code>pulsify dev</code> command runs it on your machine.
 						</td>
 						<td>
 							FSL-1.1-ALv2: any use except a competing service; Apache-2.0 two

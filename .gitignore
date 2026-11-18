@@ -8,6 +8,8 @@ benchmarks/results/
 .nitro/
 .vinxi/
 .wrangler/
+# The roots of the local Pulsify Cloud: bun run dev:cloud
+.pulsify/
 # Local credentials, such as CLOUDFLARE_API_TOKEN for the deploy scripts.
 .env
 .env.*
