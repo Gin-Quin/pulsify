@@ -57,7 +57,22 @@ const groups: { title: string; items: [string, string][] }[] = [
 				"subscribePulse(pulse, fn)",
 				"Called now and after each commit. Returns unsubscribe.",
 			],
-			["snapshotPulse(pulse)", "Detached plain copy, materialized."],
+			[
+				"snapshotPulse(pulse, { at? })",
+				"Detached plain copy, materialized; at a past version or date of a versioned document.",
+			],
+			[
+				"getPulseHistory(pulse, key?, { since?, until? })",
+				"Versions of a document, or the writes of a versioned field with their values.",
+			],
+			[
+				"restorePulse(pulse, version | date | snapshot)",
+				"Bring a past state back as a new generation; edits to the previous one are discarded.",
+			],
+			[
+				"openPulseSnapshot(Def, id, frames)",
+				"Read-only pulse from saved frames, migrated to the latest version.",
+			],
 			["arrayOperations(arr)", "insert, delete, move, replaceAll."],
 			["destroyPulse(pulse)", "Close sessions and release the instance."],
 		],

@@ -270,10 +270,12 @@ Each operation starts with its numeric `kind:uint`, followed by these fields:
 | 7 | Assign object register, keeping no history | target:string, field:fieldRef, value:encodedValue |
 | 8 | Delete object register, keeping no history | target:string, field:fieldRef |
 | 9 | Time of the transaction | time:uint |
+| 10 | Restore the document at a version | version:vector, generation:uint |
+| 11 | Set or remove text attributes of a range of entries | target:string, first:string, count:uint, attributes:codec-unknown |
 
-Kinds 7 to 9 were added in Pulsify 13 without a new payload version: an
-older decoder rejects a payload that contains one, and a version 13 decoder
-reads every earlier payload. All operation kinds use payload version 3. Encoders and decoders require this
+Kinds 7 to 9 were added in Pulsify 13, and kinds 10 and 11 in Pulsify 15,
+without a new payload version: an older decoder rejects a payload that
+contains one, and a newer decoder reads every earlier payload. All operation kinds use payload version 3. Encoders and decoders require this
 version for ordinary, grouped and state envelopes. The Rust relay uses operations
 version 3 in both its ordinary and grouped envelopes; inner rows remain opaque.
 
@@ -439,7 +441,9 @@ of envelopes 2, 3 and 4 carry kind 1 rows only. Rows written before version
 **Time.** A write under `versioned(…, { timestamps: true })` is followed, in
 the same transaction, by one kind 9 operation: the writer's clock in
 milliseconds since the Unix epoch. It is the last operation, never the only
-one, and changes no state.
+one, and changes no state. Since version 15, when the root itself records
+times, every transaction of the document carries one: the root, sequence and
+attribute operations and migrations too.
 
 `versioned()` enters the layout fingerprint as a `versioned:` prefix of the
 layout kind (`timed:` with timestamps), on the marked layout and on every
@@ -449,6 +453,93 @@ valid, and its new writes to fields without history are kinds 7 and 8.
 Changing whether a field is versioned is a schema change, made by a
 migration step, and needs no rewrite of the value: only the kind of the
 following writes changes.
+
+## Generations and restores
+
+A document is created at generation 0. A **restore** gives it a new root
+whose `generation` is the current one plus one. Every node of that root has a
+new ID, `actor:clock:serial` of the restoring transaction, as in any kind 0.
+
+The root of a document is the one with the greatest `generation`, then the
+greatest `(lamport, actor, clock)` stamp. Before version 15 only the stamp
+decided, and a root with a generation other than zero was rejected: **versions
+before 15 cannot read a restored document.**
+
+Operations addressed to nodes of another root are still valid rows: they are
+stored, forwarded and applied to nodes that are not part of the document.
+Nothing is compared or rejected, so replicas converge whatever the order in
+which restores and such edits arrive, and whatever their Lamport clocks.
+Edits made to an earlier generation are thereby discarded, and of two
+restores made apart one root wins everywhere, with the edits that followed
+it; the edits that followed the other one are discarded with it. A writer
+that has applied a restore addresses the nodes of the winning root.
+
+A restore takes one of two forms.
+
+**By version (kind 10).** The transaction holds this operation alone, and
+its time if the root records them. `version` is a vector its dependencies
+cover, and `generation` is at least 1; a receiver rejects anything else.
+Every replica builds the root itself, from the rows of its journal below
+`version`:
+
+- **The rows.** Exactly one row per sequence number below the vector, none
+  of them a last-value write (kinds 7 and 8), a gap row, or a row whose span
+  covers a sequence number below the vector. Where a write replaced another,
+  replicas hold different rows and would build different roots: a receiver
+  rejects such a restore, and a writer uses the other form. A replica that
+  holds a state without its operations
+  ([envelope 3](#optional-state-deltas-envelope-3)) first obtains them: the
+  reference client keeps the rows aside, requests the history, then applies
+  them.
+- **The value.** The state those rows give does not depend on the order in
+  which they are applied. The root value is the stored value of its root:
+  counters as their totals, tree records with their IDs and positions, texts
+  as all their characters, structural anchors of editor bindings included,
+  and its own `generation`. A text also keeps the anchors that were deleted
+  and still redirect or remove their node, which bindings read from deleted
+  anchors too: they are built with the others, then deleted. A restore among
+  those rows is itself rebuilt the same way.
+- **The IDs.** Nodes are numbered as a kind 0 numbers them, visiting the
+  fields of an object in the order of its schema and the keys of any other
+  object in ascending UTF-16 order: the order in which a replica received
+  concurrent keys must not matter.
+- **The schema.** The root keeps the `version` it had, and is built with the
+  schema of that version. A replica that knows later versions then migrates
+  it like any document it loads.
+- **Fields.** Only what the schema of that version declares is built: a
+  stored object keeps the fields a migration retired, and a restore leaves
+  them out, with the texts they held.
+- **Attributes.** Each character takes the attributes its source carried
+  (`null` and absent ones aside), with the stamp of the restore. Stamps are
+  what decides between the structural anchors that name one editor node, so
+  each of them first takes, for every attribute it has other than the
+  removal flag, the value of the newest write among them.
+
+A writer checks a restore as a receiver would before it writes it: a row
+that other replicas refuse would keep the document from loading.
+
+**By content (kind 0).** The transaction starts with a kind 0 whose root has
+the next `generation` and the writer's latest `version`; the root must fit
+the patch. The characters of its texts are those of the source, and their
+attributes follow in the same transaction as kind 11 operations, then a
+kind 3 that deletes the anchors that were deleted in the source.
+
+Kind 11 is kind 5 for entries one transaction created in a row: `first`
+names an entry `actor:clock:serial`, and the operation covers the `count`
+entries `serial` to `serial + count - 1` of that transaction, which must all
+be entries of `target`. A range is a few bytes whatever it covers, so what
+the ranges of one transaction write is bounded instead: their counts, each
+multiplied by its number of attributes (at least one), add up to at most
+4,194,304. A restored text
+costs one such operation per stretch of characters that share their
+attributes; where that still exceeds a patch, the rest follows in the
+writer's next transactions.
+
+`getPulseHistory` orders the transactions a journal holds by `(lamport,
+actor, clock)`, moving a transaction after the ones it depends on when its
+Lamport clock says otherwise. The version of a transaction is the join of its
+dependencies and its own end, over everything before it in that order: the
+rows below that vector are exactly that prefix.
 
 ## Collaborative semantics and schemas
 
@@ -560,7 +651,7 @@ the existing reserved editor attributes, so hiding a block also hides remote
 text inside it. These operations use the existing payload version and require
 no new message kinds or protocol negotiation.
 
-Root `id`, `kind` and generation zero are managed metadata. Version changes are
+Root `id`, `kind` and `generation` are managed metadata. Version changes are
 reserved for compatible registered migrations. Roots must be objects with the
 expected identity and kind. Replacing a parent or entry value does not reattach
 edits addressed to its old child; cached public views of detached children
@@ -625,8 +716,8 @@ transport with backoff; every reconnection starts a fresh session that assumes
 nothing about the peer: a connect with the local vector, then uploads of every
 row the peer does not acknowledge, from retained journal history. Peers must
 therefore accept repeated connects, on new sessions and within one (liveness
-probes), and exact retransmissions, which the idempotent journal guarantees. Generation zero remains the only supported
-generation. Applications must plan retention and compaction before reaching
+probes), and exact retransmissions, which the idempotent journal guarantees.
+Applications must plan retention and compaction before reaching
 history bounds; silently dropping rows required by offline replicas is not
 supported.
 

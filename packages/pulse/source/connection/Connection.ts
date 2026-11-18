@@ -26,6 +26,7 @@ import {
 	type PulseVersionVector,
 } from "./PulseVersionVector.js";
 import { refreshPulseStatus } from "./refreshPulseStatus.js";
+import type { PulsePatchRow } from "./PulsePatch.js";
 import type { ReconnectOptions } from "../pulses/PulseOptions.js";
 
 type ConnectionEventMap = {
@@ -84,6 +85,12 @@ export class Connection {
 	private epoch = 0;
 	/** Incremented by `close()`; a lifecycle loop only runs for its generation. */
 	private generation = 0;
+	/** Received rows that wait for history this pulse does not hold: see `apply`. */
+	private held: PulsePatchRow[][] = [];
+	/** The request for that history, until those rows are applied. */
+	private recovery: Promise<void> | undefined;
+	/** Requests for history: their answers never wait for a recovery. */
+	private readonly historyRequests = new Set<number>();
 	private running: number | undefined;
 	private wanted = false;
 	private outage = false;
@@ -386,7 +393,14 @@ export class Connection {
 	}
 
 	async fetchHistory(): Promise<void> {
-		if (!this.session || !ESTABLISHED.includes(this.status))
+		if (!ESTABLISHED.includes(this.status))
+			throw new PulseError("CLOSED", "No active history connection");
+		// A recovery in progress is that same request.
+		return this.recovery ?? this.history();
+	}
+	/** Also while the session is being established: see `apply`. */
+	private async history(): Promise<void> {
+		if (!this.session)
 			throw new PulseError("CLOSED", "No active history connection");
 		const meta = getPulseMeta(this.pulse),
 			message = {
@@ -395,12 +409,13 @@ export class Connection {
 				requestId: this.nextRequestId++,
 				vv: meta.log.historyVector,
 			};
+		this.historyRequests.add(message.requestId);
 		const response = await this.requestFrame(
 			message.requestId,
 			this.session.protocolVersion === 3
 				? encodeHistoryRequest(message, true)
 				: encodeMessage(message),
-		);
+		).finally(() => this.historyRequests.delete(message.requestId));
 		if (response.kind !== 2)
 			throw new PulseError("INVALID_MESSAGE", "Expected history sync response");
 	}
@@ -546,12 +561,20 @@ export class Connection {
 				if (!request)
 					throw new PulseError("INVALID_MESSAGE", "Unknown sync request");
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
-				meta.applyRows(message.rows);
+				this.apply(message.rows);
 				if (epoch !== this.epoch) return;
-				if (message.complete) request.resolve(message);
+				if (!message.complete) return;
+				// A download is not complete while a restore it brought waits
+				// for history: the document would be read, and edited, as it
+				// was before the restore.
+				if (this.recovery && !this.historyRequests.has(message.requestId))
+					void this.recovery.then(() => {
+						if (epoch === this.epoch) request.resolve(message);
+					});
+				else request.resolve(message);
 			} else if (message.kind === 4 && message.requestId === 0) {
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
-				meta.applyRows(message.rows);
+				this.apply(message.rows);
 			} else if (message.kind === 5 && this.pending.has(message.requestId)) {
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
 				this.pending.get(message.requestId)!.resolve(message);
@@ -570,6 +593,54 @@ export class Connection {
 							}),
 				);
 		}
+	}
+
+	/**
+	 * Apply received rows. A restore is rebuilt from the journal, which a
+	 * session that condenses states (protocol 3) may have left without the
+	 * operations below it: the rows then wait for that history, which is
+	 * requested at once.
+	 */
+	private apply(rows: PulsePatchRow[]): void {
+		const meta = getPulseMeta(this.pulse);
+		try {
+			meta.applyRows(rows);
+		} catch (error) {
+			if (
+				!(error instanceof PulseError) ||
+				error.code !== "HISTORY_UNAVAILABLE" ||
+				vectorCovers(meta.log.historyVector, meta.log.vector)
+			)
+				throw error;
+			// The history itself arrives with the rows that wait for it: what
+			// the state already covers goes in first.
+			const state = new Map(meta.log.vector);
+			const known = (row: PulsePatchRow) =>
+				row.clock < (state.get(row.sid) ?? 0);
+			if (rows.some(known) && !rows.every(known)) {
+				meta.applyRows(rows.filter(known));
+				return this.apply(rows.filter((row) => !known(row)));
+			}
+			this.held.push(rows);
+			this.recover();
+		}
+	}
+	private recover(): void {
+		if (this.recovery || !this.held.length) return;
+		const epoch = this.epoch;
+		this.recovery = this.history()
+			.then(() => {
+				if (epoch !== this.epoch) return;
+				const meta = getPulseMeta(this.pulse);
+				for (const rows of this.held.splice(0)) meta.applyRows(rows);
+			})
+			.catch((error) => {
+				if (epoch === this.epoch) this.fail(asPulseError(error));
+			})
+			.finally(() => {
+				this.recovery = undefined;
+				if (epoch !== this.epoch) this.held = [];
+			});
 	}
 
 	/** Stop synchronizing this connector. `start()` resumes. */

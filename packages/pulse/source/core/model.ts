@@ -4,7 +4,11 @@ import {
 	richTextContent,
 	trackRichTextAnchor,
 } from "./richTextBinding.js";
-import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
+import {
+	validateVector,
+	type PulseVersionVector,
+} from "../connection/PulseVersionVector.js";
+import { MAX_RANGE_MARKS } from "../protocol/limits.js";
 import { MigrationDriftError, PulseError } from "../protocol/errors.js";
 import {
 	migrationVersion,
@@ -19,6 +23,7 @@ import {
 	type PulseLayout,
 } from "./schema.js";
 import {
+	attributeEntries,
 	CorePatch,
 	type CoreField,
 	type CoreOperation,
@@ -48,6 +53,28 @@ export type CoreEntry = {
 	deleted: boolean;
 	children: CoreEntry[];
 	marks: Map<string, { stamp: Stamp; value: unknown }>;
+};
+/**
+ * What a root is built from when a document is restored: the stored value of
+ * a past root, and the attributes of the characters of its texts, which the
+ * value does not hold.
+ */
+export type RestoreSource = {
+	/** Keys in one order on every replica: the IDs of the nodes follow from it. */
+	value: Record<string, unknown>;
+	texts: {
+		path: string[];
+		runs: {
+			start: number;
+			count: number;
+			attributes: Record<string, unknown>;
+		}[];
+		/**
+		 * Characters to delete once they are built: anchors of an editor
+		 * binding that were deleted, and still redirect or remove their node.
+		 */
+		deleted: number[];
+	}[];
 };
 const emptyNodeMap = new Map<string, CoreNode>();
 const emptyStampMap = new Map<string, Stamp>();
@@ -110,6 +137,8 @@ const newer = (a: Stamp, b?: Stamp): boolean =>
 	a[0] > b[0] ||
 	(a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])));
 const keyPath = (path: readonly string[]) => JSON.stringify(path);
+const generationOf = (root: unknown): number =>
+	((root as Record<string, unknown>)["generation"] as number | undefined) ?? 0;
 /**
  * A counter node holds one count per actor. Its value is their sum, which its
  * parent's data holds: reading it does not depend on the number of actors.
@@ -134,6 +163,12 @@ export class CoreModel {
 	readonly schemaId: string;
 	readonly encoding: ValueEncoding;
 	private readonly rootCodec: Codec<unknown> | undefined;
+	/**
+	 * The document at a version of its history, which a model does not hold:
+	 * its runtime replays the journal. `undefined` when there was none yet.
+	 */
+	restoreSource:
+		((version: PulseVersionVector) => RestoreSource | undefined) | undefined;
 	/** `time` is the writer's clock, for registers that record it. */
 	commit!: (ops: CoreOperation[], hint?: number, time?: number) => void;
 	/** `last` makes it a last-value write, which replaces the previous one. */
@@ -685,6 +720,7 @@ export class CoreModel {
 		value: unknown,
 	): PulseLayout | undefined {
 		if (op.kind === 0) return this.compiled?.root;
+		if (op.kind === 10) return;
 		const target = this.index.get(op.target);
 		if (!target) return;
 		if (op.kind === 1)
@@ -773,6 +809,7 @@ export class CoreModel {
 		const versions = new Map<string, { value: number; stamp: Stamp }>();
 		let root = this.root;
 		let rootStamp = this.rootStamp;
+		let rootGeneration = this.rootGeneration;
 		for (const patch of patches) {
 			const patchSchema = this.schemaFor(patch.schema);
 			const deps = new Map(dependencies.get(patch));
@@ -784,6 +821,7 @@ export class CoreModel {
 					throw new PulseError("INVALID_MESSAGE", "Invalid dependency");
 			}
 			let serial = 0;
+			let ranged = 0;
 			const builds: BuiltValue[] = [];
 			const build = (
 				value: PreparedValue,
@@ -844,9 +882,57 @@ export class CoreModel {
 							"INCOMPATIBLE_DOCUMENT",
 							"Document root must be an object",
 						);
-					if (newer(stamp, rootStamp)) {
+					const generation = generationOf(op.value.value);
+					if (
+						generation > rootGeneration ||
+						(generation === rootGeneration && newer(stamp, rootStamp))
+					) {
 						root = created.child;
 						rootStamp = stamp;
+						rootGeneration = generation;
+						versions.set(root.id, {
+							value: root.data.version as number,
+							stamp,
+						});
+					}
+					continue;
+				}
+				if (op.kind === 10) {
+					if (patch.ops.length !== 1)
+						throw new PulseError(
+							"INVALID_MESSAGE",
+							"A restore is alone in its transaction",
+						);
+					validateVector(op.version);
+					if (
+						!Number.isSafeInteger(op.generation) ||
+						op.generation < 1 ||
+						op.version.some(([sid, clock]) => (deps.get(sid) ?? 0) < clock)
+					)
+						throw new PulseError(
+							"INVALID_MESSAGE",
+							"A restore names a version its writer had",
+						);
+					const restored = this.restored(op);
+					if (!restored)
+						throw new PulseError(
+							"INVALID_MESSAGE",
+							"There is no document at the restored version",
+						);
+					this.validateRoot(restored.value.value);
+					const created = build(restored.value, restored.layout, true);
+					if (!created.child || created.child.kind !== "object")
+						throw new PulseError(
+							"INCOMPATIBLE_DOCUMENT",
+							"Document root must be an object",
+						);
+					if (
+						op.generation > rootGeneration ||
+						(op.generation === rootGeneration && newer(stamp, rootStamp))
+					) {
+						root = created.child;
+						rootStamp = stamp;
+						rootGeneration = op.generation;
 						versions.set(root.id, {
 							value: root.data.version as number,
 							stamp,
@@ -1057,7 +1143,13 @@ export class CoreModel {
 								? [op.entry]
 								: op.kind === 6
 									? [...op.entries, ...(op.after ? [op.after] : [])]
-									: op.entries;
+									: attributeEntries(op);
+					if (op.kind === 5 && op.count !== undefined) {
+						// A range is a few bytes: bound the marks it writes instead.
+						ranged += op.count * Math.max(1, Object.keys(op.attributes).length);
+						if (!(ranged <= MAX_RANGE_MARKS))
+							throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
+					}
 					for (const entry of entries) {
 						reference(entry);
 						if (!sequence.has(entry))
@@ -1336,6 +1428,12 @@ export class CoreModel {
 	}
 	private readonly planned = new WeakMap<CorePatch, BuiltValue[]>();
 	private rootStamp: Stamp | undefined;
+	/**
+	 * A restore writes a root of the next generation, which replaces the root
+	 * it was made from whatever their stamps: edits addressed to an older
+	 * generation never reach the document again.
+	 */
+	private rootGeneration = 0;
 	private rootSchemaVersion = 0;
 	validateRoot(value: unknown, schema?: string): void {
 		const data = value as Record<string, unknown>;
@@ -1348,7 +1446,8 @@ export class CoreModel {
 			!Number.isSafeInteger(data["version"]) ||
 			(data["version"] as number) < 1 ||
 			(data["version"] as number) > this.maxVersion ||
-			data["generation"] !== 0
+			!Number.isSafeInteger(data["generation"]) ||
+			(data["generation"] as number) < 0
 		)
 			throw new PulseError(
 				"INCOMPATIBLE_DOCUMENT",
@@ -1437,12 +1536,57 @@ export class CoreModel {
 		for (const op of patch.ops) {
 			if (op.kind === 0) {
 				const built = build(op.value, patchSchema?.root, true);
-				if (newer(stamp, this.rootStamp)) {
+				const generation = generationOf(built.value);
+				if (
+					generation > this.rootGeneration ||
+					(generation === this.rootGeneration && newer(stamp, this.rootStamp))
+				) {
 					this.root = built.child;
 					this.rootStamp = stamp;
+					this.rootGeneration = generation;
 					this.rootSchemaVersion = (built.value as Record<string, unknown>)[
 						"version"
 					] as number;
+				}
+				continue;
+			}
+			if (op.kind === 10) {
+				const restored = this.restored(op);
+				if (!restored) continue;
+				const built = build(restored.value, restored.layout, true);
+				if (
+					op.generation > this.rootGeneration ||
+					(op.generation === this.rootGeneration &&
+						newer(stamp, this.rootStamp))
+				) {
+					this.root = built.child;
+					this.rootStamp = stamp;
+					this.rootGeneration = op.generation;
+					this.rootSchemaVersion = (built.value as Record<string, unknown>)[
+						"version"
+					] as number;
+				}
+				for (const { path, runs, deleted } of restored.texts) {
+					let text = built.child;
+					for (const key of path)
+						text =
+							text?.kind === "object"
+								? text.child(key)
+								: text?.visible[Number(key)]?.child;
+					if (text?.kind !== "text") continue;
+					const entries = [...text.visible];
+					for (const { start, count, attributes } of runs)
+						this.mark(
+							text,
+							entries.slice(start, start + count),
+							attributes,
+							stamp,
+						);
+					this.remove(
+						text,
+						deleted.map((index) => entries[index]!.id),
+					);
+					this.syncText(text);
 				}
 				continue;
 			}
@@ -1556,16 +1700,10 @@ export class CoreModel {
 					after = position.id;
 				}
 			} else {
-				for (const entryId of op.entries) {
-					const entry = node.entries.get(entryId)!;
-					// A text that was plain under another schema version.
-					if (entry.marks === emptyMarks) entry.marks = new Map();
-					for (const [key, value] of Object.entries(op.attributes))
-						if (newer(stamp, entry.marks.get(key)?.stamp))
-							entry.marks.set(key, { stamp, value });
-					if (Object.hasOwn(op.attributes, RT_NODE))
-						trackRichTextAnchor(node, entry);
-				}
+				const entries: CoreEntry[] = [];
+				for (const entryId of attributeEntries(op))
+					entries.push(node.entries.get(entryId)!);
+				this.mark(node, entries, op.attributes, stamp);
 			}
 			if (node.kind === "text") this.syncText(node);
 			else if (node.kind === "array" && node.moves.size) this.syncArray(node);
@@ -1617,6 +1755,105 @@ export class CoreModel {
 						node.layout?.element ??
 							node.layout?.elements?.[node.order.indexOf(entry)],
 					);
+	}
+	/** Give entries of a text their attributes, where this write is the newest. */
+	private mark(
+		node: CoreNode,
+		entries: readonly CoreEntry[],
+		attributes: Record<string, unknown>,
+		stamp: Stamp,
+	): void {
+		for (const entry of entries) {
+			// A text that was plain under another schema version.
+			if (entry.marks === emptyMarks) entry.marks = new Map();
+			for (const [key, value] of Object.entries(attributes))
+				if (newer(stamp, entry.marks.get(key)?.stamp))
+					entry.marks.set(key, { stamp, value });
+			if (Object.hasOwn(attributes, RT_NODE)) trackRichTextAnchor(node, entry);
+		}
+	}
+	/**
+	 * The root a restore builds: the one its version had, at the schema
+	 * version it had, so that the document's migrations then run as on any
+	 * old document. The value is a copy: a build may keep what it is given.
+	 */
+	private restored(op: Extract<CoreOperation, { kind: 10 }>):
+		| {
+				value: PreparedValue;
+				layout: PulseLayout | undefined;
+				texts: RestoreSource["texts"];
+		  }
+		| undefined {
+		const source = this.restoreSource?.(op.version);
+		if (!source) return;
+		const layout = this.schemaAtVersion(
+			source.value["version"] as number,
+		)?.root;
+		const value = this.declared(
+			structuredClone(source.value),
+			layout,
+			true,
+		) as Record<string, unknown>;
+		value["generation"] = op.generation;
+		// A text of a field the schema no longer declares went with the field.
+		const texts = source.texts.filter(({ path }) => {
+			let current: unknown = value;
+			for (const key of path)
+				current =
+					current && typeof current === "object" && Object.hasOwn(current, key)
+						? (current as Record<string, unknown>)[key]
+						: undefined;
+			return typeof current === "string";
+		});
+		return {
+			value: { value, constants: [], texts: texts.map(({ path }) => path) },
+			layout,
+			texts,
+		};
+	}
+	/**
+	 * A stored value without what a build leaves out: a stored object keeps
+	 * the fields its schema has retired, and a build only visits those it
+	 * declares. Leaving them in would make a checked build and a plain one
+	 * disagree.
+	 */
+	private declared(
+		value: unknown,
+		layout: PulseLayout | undefined,
+		root = false,
+	): unknown {
+		const current = resolveLayout(layout, value);
+		if (
+			!current ||
+			current.constant ||
+			current.frozen ||
+			current.kind === "literal" ||
+			!value ||
+			typeof value !== "object" ||
+			value instanceof Uint8Array
+		)
+			return value;
+		if (Array.isArray(value))
+			return value.map((item, index) =>
+				this.declared(item, current.element ?? current.elements?.[index]),
+			);
+		const stored = value as Record<string, unknown>;
+		if (current.kind === "object") {
+			const result: Record<string, unknown> = {};
+			for (const field of current.fields)
+				if (Object.hasOwn(stored, field.key))
+					result[field.key] = field.constant
+						? stored[field.key]
+						: this.declared(stored[field.key], field.layout);
+			if (root)
+				for (const key of managedFields)
+					if (Object.hasOwn(stored, key)) result[key] = stored[key];
+			return result;
+		}
+		if (isKeyed(current))
+			for (const key of Object.keys(stored))
+				stored[key] = this.declared(stored[key], current.element);
+		return stored;
 	}
 	private syncText(node: CoreNode) {
 		this.project(node, richTextContent(node));

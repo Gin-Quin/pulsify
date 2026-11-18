@@ -4,7 +4,12 @@ import {
 	type SqliteCompactCursor,
 	type SqliteConnection,
 } from "pulsify-core/storage";
-import { isCloudRole, type CloudGrant, type CloudRole } from "pulsify-cloud";
+import {
+	isCloudRole,
+	type CloudGrant,
+	type CloudRole,
+	type CloudSnapshot,
+} from "pulsify-cloud";
 
 /** A stored subscription of a connection to one document, with the role it was told. */
 export type CloudSubscription = {
@@ -13,6 +18,8 @@ export type CloudSubscription = {
 	readonly role: CloudRole;
 };
 export type CloudUsage = { documents: number; rows: number; bytes: number };
+/** A snapshot as it is stored: its description, and frames a client applies. */
+export type StoredSnapshot = Omit<CloudSnapshot, "docId">;
 
 /**
  * Everything one root persists. Patch rows use the shared Pulsify stores;
@@ -41,6 +48,29 @@ export interface CloudRootStorage {
 	expiry?(): Promise<number | undefined>;
 	setExpiry?(idleMs: number): Promise<void>;
 	/**
+	 * Snapshots of a document: copies of its rows, as frames no larger than a
+	 * row a host stores (a Durable Object stops at 2 MB). Erased with the
+	 * document. A storage without them answers `BAD_REQUEST`.
+	 *
+	 * A snapshot saved without frames is its version alone: the rows below it
+	 * are read from the document. `loadSnapshot` then resolves to an empty
+	 * list, and to undefined for an unknown snapshot.
+	 */
+	saveSnapshot?(
+		docId: string,
+		snapshot: StoredSnapshot,
+		/** Read once, a frame at a time: they need not all be in memory. */
+		frames: Iterable<Uint8Array>,
+	): Promise<void>;
+	listSnapshots?(docId: string, since?: number): Promise<StoredSnapshot[]>;
+	loadSnapshot?(docId: string, id: string): Promise<Uint8Array[] | undefined>;
+	deleteSnapshot?(docId: string, id: string): Promise<boolean>;
+	/**
+	 * Whether no write of the document has replaced another so far: its rows
+	 * are then kept as they are, and a version is enough to find them again.
+	 */
+	keepsEveryRow?(docId: string): Promise<boolean>;
+	/**
 	 * Pack the history of the root's documents so that loading them reads few
 	 * rows, a bounded amount of work per call. Resolves to what to pass to the
 	 * next call, or to undefined once nothing is left. Clients see no
@@ -63,6 +93,16 @@ CREATE TABLE IF NOT EXISTS pulsify_cloud_subscriptions (
 ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS pulsify_cloud_expiry (
  id INTEGER PRIMARY KEY CHECK(id = 1), idle_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pulsify_cloud_snapshots (
+ doc_id TEXT NOT NULL, id TEXT NOT NULL, time INTEGER NOT NULL,
+ label TEXT, subject TEXT, version TEXT NOT NULL,
+ PRIMARY KEY(doc_id, id)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS pulsify_cloud_snapshot_frames (
+ doc_id TEXT NOT NULL, id TEXT NOT NULL, seq INTEGER NOT NULL,
+ frame BLOB NOT NULL,
+ PRIMARY KEY(doc_id, id, seq)
 );
 `;
 
@@ -149,7 +189,98 @@ export class SqliteCloudStorage implements CloudRootStorage {
 				"DELETE FROM pulsify_cloud_grants WHERE prefix = ? OR (prefix >= ? AND prefix < ?)",
 			)
 			.run(docId, `${docId}/`, `${docId}0`);
+		for (const table of ["snapshots", "snapshot_frames"])
+			this.db
+				.query(
+					`DELETE FROM pulsify_cloud_${table} WHERE doc_id = ? OR (doc_id >= ? AND doc_id < ?)`,
+				)
+				.run(docId, `${docId}/`, `${docId}0`);
 		return count;
+	}
+	async saveSnapshot(
+		docId: string,
+		{ id, time, label, subject, version }: StoredSnapshot,
+		frames: Iterable<Uint8Array>,
+	): Promise<void> {
+		this.db.transaction(() => {
+			this.db
+				.query(
+					"INSERT INTO pulsify_cloud_snapshots(doc_id, id, time, label, subject, version) VALUES(?, ?, ?, ?, ?, ?)",
+				)
+				.run(
+					docId,
+					id,
+					time,
+					label ?? null,
+					subject ?? null,
+					JSON.stringify(version),
+				);
+			let seq = 0;
+			for (const frame of frames)
+				this.db
+					.query(
+						"INSERT INTO pulsify_cloud_snapshot_frames(doc_id, id, seq, frame) VALUES(?, ?, ?, ?)",
+					)
+					.run(docId, id, seq++, frame);
+		})();
+	}
+	async listSnapshots(docId: string, since = 0): Promise<StoredSnapshot[]> {
+		return (
+			this.db
+				.query(
+					"SELECT id, time, label, subject, version FROM pulsify_cloud_snapshots WHERE doc_id = ? AND time >= ? ORDER BY time, id",
+				)
+				.all(docId, since) as {
+				id: string;
+				time: number;
+				label: string | null;
+				subject: string | null;
+				version: string;
+			}[]
+		).map(({ id, time, label, subject, version }) => ({
+			id,
+			time: Number(time),
+			...(label === null ? {} : { label }),
+			...(subject === null ? {} : { subject }),
+			version: JSON.parse(version),
+		}));
+	}
+	async loadSnapshot(
+		docId: string,
+		id: string,
+	): Promise<Uint8Array[] | undefined> {
+		const frames = this.db
+			.query(
+				"SELECT frame FROM pulsify_cloud_snapshot_frames WHERE doc_id = ? AND id = ? ORDER BY seq",
+			)
+			.all(docId, id) as { frame: Uint8Array | ArrayBuffer }[];
+		if (frames.length) return frames.map(({ frame }) => new Uint8Array(frame));
+		return this.db
+			.query(
+				"SELECT 1 AS found FROM pulsify_cloud_snapshots WHERE doc_id = ? AND id = ?",
+			)
+			.get(docId, id)
+			? []
+			: undefined;
+	}
+	async keepsEveryRow(docId: string): Promise<boolean> {
+		// A register without history keeps its last write there, and nowhere
+		// else: a document without any has only rows that are never replaced.
+		return !this.db
+			.query("SELECT 1 AS found FROM pulsify_values WHERE doc_id = ? LIMIT 1")
+			.get(docId);
+	}
+	async deleteSnapshot(docId: string, id: string): Promise<boolean> {
+		const found = this.db
+			.query(
+				"SELECT 1 AS found FROM pulsify_cloud_snapshots WHERE doc_id = ? AND id = ?",
+			)
+			.get(docId, id);
+		for (const table of ["snapshots", "snapshot_frames"])
+			this.db
+				.query(`DELETE FROM pulsify_cloud_${table} WHERE doc_id = ? AND id = ?`)
+				.run(docId, id);
+		return !!found;
 	}
 	async expiry(): Promise<number | undefined> {
 		const row = this.db
@@ -174,10 +305,16 @@ export class SqliteCloudStorage implements CloudRootStorage {
 				"SELECT COUNT(DISTINCT doc_id) AS documents, COUNT(*) AS rows, COALESCE(SUM(length(operations)), 0) AS bytes FROM (SELECT doc_id, operations FROM pulsify_op_rows UNION ALL SELECT doc_id, operations FROM pulsify_values)",
 			)
 			.get() as { documents: number; rows: number; bytes: number };
+		const snapshots = this.db
+			.query(
+				"SELECT COALESCE(SUM(length(frame)), 0) AS bytes FROM pulsify_cloud_snapshot_frames",
+			)
+			.get() as { bytes: number };
 		return {
 			documents: Number(row.documents),
 			rows: Number(row.rows),
-			bytes: Number(row.bytes),
+			// Snapshots are stored bytes like any other, and no document's rows.
+			bytes: Number(row.bytes) + Number(snapshots.bytes),
 		};
 	}
 }

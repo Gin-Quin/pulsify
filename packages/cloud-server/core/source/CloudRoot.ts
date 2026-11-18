@@ -1,4 +1,5 @@
 import {
+	chunkRows,
 	createPresenceBudget,
 	decodeMessage,
 	encodeBroadcast,
@@ -35,7 +36,7 @@ import {
 	type CloudRootUsage,
 } from "pulsify-cloud";
 import type { CloudCaller } from "./auth.js";
-import { errorResponse, jsonResponse, readJson } from "./http.js";
+import { CORS_HEADERS, errorResponse, jsonResponse, readJson } from "./http.js";
 import type { CloudRootStorage } from "./storage.js";
 
 /** One authenticated WebSocket, as seen by its root. */
@@ -79,6 +80,9 @@ const FETCH_DOCUMENT_PAGE = 128;
 const FETCH_BATCH_FRAMES = 64;
 const FETCH_BATCH_BYTES = 1024 * 1024;
 const FETCH_ACK_TIMEOUT_MS = 30_000;
+/** A stored frame stays under a host's row size: a Durable Object stops at 2 MB. */
+const SNAPSHOT_FRAME_BYTES = 512 * 1024;
+const MAX_SNAPSHOT_LABEL_LENGTH = 256;
 
 /**
  * A session's presence peer number. Derived from the connection ID, so it
@@ -181,7 +185,7 @@ export class CloudRoot {
 		});
 	}
 
-	/** The management API of this root: `grants`, `usage`, `documents` and `expire`. */
+	/** The management API of this root: `grants`, `usage`, `documents`, `expire` and `snapshots`. */
 	handleRequest(
 		action: Exclude<CloudAction, "connect">,
 		request: Request,
@@ -206,6 +210,11 @@ export class CloudRoot {
 					return jsonResponse({
 						deleted: await this.deleteDocuments(caller, docId),
 					});
+				}
+				if (action === "snapshots") {
+					const docId = url.searchParams.get("docId");
+					assertDocumentOf(this.root, docId);
+					return await this.snapshots(caller, request, docId, url);
 				}
 				switch (request.method) {
 					case "GET":
@@ -700,6 +709,138 @@ export class CloudRoot {
 		return deleted;
 	}
 
+	/**
+	 * Snapshots of a document: copies of the rows the store holds for it, made
+	 * without reading them. An editor makes one, a reader lists and reads
+	 * them, an owner erases one; the API key does all of it.
+	 */
+	// A document none of whose writes replaced another keeps every row it
+	// has: its snapshot is the version alone, and the rows below it are read
+	// when the snapshot is. Any other document is copied.
+	private async snapshots(
+		caller: CloudCaller,
+		request: Request,
+		docId: string,
+		url: URL,
+	): Promise<Response> {
+		const { saveSnapshot, listSnapshots, loadSnapshot, deleteSnapshot } =
+			this.storage;
+		if (!saveSnapshot || !listSnapshots || !loadSnapshot || !deleteSnapshot)
+			throw new CloudError("BAD_REQUEST", "This server keeps no snapshots");
+		const role =
+			caller.kind === "admin" ? "owner" : this.role(caller.subject, docId);
+		const allow = (allowed: boolean, who: string, what: string) => {
+			if (!allowed)
+				throw new CloudError(
+					"FORBIDDEN",
+					`Only ${who} of ${docId} can ${what}`,
+				);
+		};
+		const id = url.searchParams.get("id");
+		switch (request.method) {
+			case "POST": {
+				allow(canWrite(role), "an editor", "snapshot it");
+				const label = ((await readJson(request)) as { label?: unknown } | null)
+					?.label;
+				if (
+					label !== undefined &&
+					(typeof label !== "string" ||
+						!label.length ||
+						label.length > MAX_SNAPSHOT_LABEL_LENGTH ||
+						!label.isWellFormed())
+				)
+					throw new CloudError(
+						"BAD_REQUEST",
+						`A label is a string of 1 to ${MAX_SNAPSHOT_LABEL_LENGTH} characters`,
+					);
+				if (await this.storage.isDeleted(docId))
+					throw new CloudError("NOT_FOUND", "Document was permanently deleted");
+				const rows = await this.storage.patches.missing(docId, []);
+				if (!rows.length)
+					throw new CloudError("NOT_FOUND", `${docId} holds no data yet`);
+				const snapshot = {
+					id: crypto.randomUUID(),
+					time: Date.now(),
+					...(label === undefined ? {} : { label }),
+					...(caller.kind === "user" ? { subject: caller.subject } : {}),
+					version: await this.storage.patches.vector(docId),
+				};
+				await saveSnapshot.call(
+					this.storage,
+					docId,
+					snapshot,
+					(await this.storage.keepsEveryRow?.(docId))
+						? []
+						: snapshotFrames(docId, rows),
+				);
+				return jsonResponse({ snapshot: { ...snapshot, docId } });
+			}
+			case "GET": {
+				allow(role !== undefined, "a reader", "read its snapshots");
+				if (id === null) {
+					const since = Number(url.searchParams.get("since") ?? 0);
+					if (!Number.isSafeInteger(since) || since < 0)
+						throw new CloudError("BAD_REQUEST", "since is a time in ms");
+					return jsonResponse({
+						snapshots: (
+							await listSnapshots.call(this.storage, docId, since)
+						).map((snapshot) => ({ ...snapshot, docId })),
+					});
+				}
+				let frames: Iterable<Uint8Array> | undefined = await loadSnapshot.call(
+					this.storage,
+					docId,
+					id,
+				);
+				if (!frames) throw new CloudError("NOT_FOUND", "Unknown snapshot");
+				if (!(frames as Uint8Array[]).length) {
+					const clocks = new Map(
+						(await listSnapshots.call(this.storage, docId)).find(
+							(snapshot) => snapshot.id === id,
+						)?.version,
+					);
+					frames = snapshotFrames(
+						docId,
+						(await this.storage.patches.missing(docId, [])).filter(
+							(row) => row.clock < (clocks.get(row.sid) ?? 0),
+						),
+					);
+				}
+				// Frames one after the other, each after its length on four
+				// bytes, sent as they are made: a long history is not held
+				// once more as frames, then once more as a body.
+				const next = frames[Symbol.iterator]();
+				return new Response(
+					new ReadableStream<Uint8Array>({
+						pull(controller) {
+							const { done, value } = next.next();
+							if (done) return controller.close();
+							const framed = new Uint8Array(4 + value.length);
+							new DataView(framed.buffer).setUint32(0, value.length);
+							framed.set(value, 4);
+							controller.enqueue(framed);
+						},
+					}),
+					{
+						headers: {
+							"Content-Type": "application/octet-stream",
+							...CORS_HEADERS,
+						},
+					},
+				);
+			}
+			case "DELETE":
+				allow(canManage(role), "an owner", "erase its snapshots");
+				if (id === null)
+					throw new CloudError("BAD_REQUEST", "Name the snapshot with id");
+				return jsonResponse({
+					removed: await deleteSnapshot.call(this.storage, docId, id),
+				});
+			default:
+				throw new CloudError("METHOD_NOT_ALLOWED", "Use GET, POST or DELETE");
+		}
+	}
+
 	/** `cloud.expire`: store how long the root may stay idle before it is erased. */
 	private async expire(caller: CloudCaller, body: unknown): Promise<number> {
 		this.assertManager(caller, this.root, "make it expire");
@@ -804,6 +945,28 @@ export class CloudRoot {
 			connections: Array.from(this.peers.all()).length,
 		};
 	}
+}
+
+/**
+ * Rows as update frames a client applies, each small enough to be stored,
+ * and made when it is asked for. The rows are checked here: a response that
+ * has started cannot report an error any more.
+ */
+function snapshotFrames(
+	docId: string,
+	rows: Parameters<typeof chunkRows>[0],
+): Iterable<Uint8Array> {
+	const chunks = chunkRows(rows, SNAPSHOT_FRAME_BYTES);
+	return (function* () {
+		for (const chunk of chunks)
+			yield encodeMessage({
+				kind: 4,
+				docId,
+				requestId: 0,
+				vv: [],
+				rows: chunk,
+			});
+	})();
 }
 
 function sendRole(peer: CloudPeer, docId: string, role: CloudRole | null) {

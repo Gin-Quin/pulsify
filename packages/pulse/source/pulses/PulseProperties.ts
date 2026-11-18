@@ -9,7 +9,8 @@ export type PulseProperties<Kind extends string> = {
 	readonly version: number;
 
 	/**
-	 * Increments when a document is restored/forked and older generations must be ignored.
+	 * Starts at 0 and grows by one each time the document is restored
+	 * (`restorePulse`): edits made to an earlier generation are discarded.
 	 */
 	readonly generation?: number;
 };

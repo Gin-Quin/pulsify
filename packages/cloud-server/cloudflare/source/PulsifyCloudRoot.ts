@@ -102,7 +102,7 @@ export class PulsifyCloudRoot {
 				throw new CloudError("BAD_REQUEST", "Missing gateway headers");
 			const engine = this.root(root);
 			const action = request.headers.get(ROOT_HEADERS.action);
-			if (action === "grants" || action === "usage")
+			if (action === "grants" || action === "usage" || action === "snapshots")
 				return await engine.handleRequest(action, request, caller);
 			if (action === "expire") {
 				const response = await engine.handleRequest(action, request, caller);

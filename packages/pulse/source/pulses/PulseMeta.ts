@@ -3,6 +3,7 @@ import type { CoreOperation } from "../core/operations.js";
 import type { Connection } from "../connection/Connection.js";
 import type { ConnectPulseResolvers } from "../connection/connectPulse.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
+import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
 import type { SynchronizationStatus } from "../connection/SynchronizationStatus.js";
 import type { PatchLog } from "../protocol/PatchLog.js";
 import type { PresenceHub } from "../presence/presence.js";
@@ -33,6 +34,10 @@ export type PulseMeta = {
 	/** The presence channels of this pulse, once `joinPresence` was called. */
 	presence: PresenceHub | undefined;
 	mutate(ops: CoreOperation[]): void;
+	/** Bring the document to the definition's latest version, if it is behind. */
+	migrate(): void;
+	/** Drop what was computed for a restore that is not written after all. */
+	forgetRestore(version: PulseVersionVector): void;
 	applyRows(rows: PulsePatchRow[]): void;
 	report(error: Error): void;
 };

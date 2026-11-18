@@ -6,7 +6,7 @@ import { CloudError } from "pulsify-cloud";
  */
 export const CORS_HEADERS: Readonly<Record<string, string>> = {
 	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
+	"Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
 	"Access-Control-Allow-Headers": "Authorization, Content-Type",
 	"Access-Control-Max-Age": "86400",
 };

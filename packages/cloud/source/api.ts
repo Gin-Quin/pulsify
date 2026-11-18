@@ -1,3 +1,10 @@
+import {
+	openPulseSnapshot,
+	type AnyPulseDefinition,
+	type ModelFromDefinition,
+	type Pulse,
+	type PulseVersionVector,
+} from "pulsify-core";
 import type { CloudCredential } from "./client.js";
 import { CloudError, isCloudErrorCode } from "./errors.js";
 import { rootOf } from "./ids.js";
@@ -11,6 +18,19 @@ export type CloudRootUsage = {
 	rows: number;
 	bytes: number;
 	connections: number;
+};
+
+/** A copy of a document that the server keeps as it was at `time`. */
+export type CloudSnapshot = {
+	id: string;
+	docId: string;
+	/** The server's clock when it made the copy, in milliseconds. */
+	time: number;
+	label?: string;
+	/** The subject of the token that asked for it; absent with the API key. */
+	subject?: string;
+	/** The document's version vector at that moment. */
+	version: PulseVersionVector;
 };
 
 export type CloudClientOptions = {
@@ -50,12 +70,33 @@ export type CloudClient = {
 		root: string,
 		options: { idleMs: number },
 	): Promise<{ idleMs: number }>;
+	/**
+	 * Keep a copy of a document as the server holds it now (the API key, or an
+	 * editor of `docId`). The copy is made by the server, which never reads
+	 * the document: a client only has to have sent its edits.
+	 */
+	snapshot(docId: string, options?: { label?: string }): Promise<CloudSnapshot>;
+	/** The snapshots of a document, oldest first (the API key, or a reader of `docId`). */
+	snapshots(docId: string, filter?: { since?: Date }): Promise<CloudSnapshot[]>;
+	/**
+	 * Open a snapshot as a read-only pulse, detached from the live document
+	 * and migrated to the definition's latest version (the API key, or a
+	 * reader of `docId`). Read it, render it, or pass it to `restorePulse`;
+	 * destroy it when done.
+	 */
+	loadSnapshot<Definition extends AnyPulseDefinition>(
+		definition: Definition,
+		docId: string,
+		id: string,
+	): Promise<Pulse<ModelFromDefinition<Definition>>>;
+	/** Erase one snapshot (the API key, or an owner of `docId`). */
+	deleteSnapshot(docId: string, id: string): Promise<boolean>;
 };
 
 /** The management API of a deployment, identical on every backend. */
 export function createCloudClient(options: CloudClientOptions): CloudClient {
 	const base = options.url.replace(/^ws(s?):/, "http$1:").replace(/\/+$/, "");
-	const request = async <T>(
+	const send = async (
 		root: string,
 		action: Exclude<CloudAction, "connect">,
 		init: {
@@ -63,7 +104,7 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 			query?: Record<string, string | undefined>;
 			body?: unknown;
 		},
-	): Promise<T> => {
+	): Promise<Response> => {
 		const credential =
 			typeof options.credential === "function"
 				? await options.credential()
@@ -81,9 +122,9 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 			},
 			...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
 		});
-		const body = (await response.json().catch(() => undefined)) as
-			{ error?: { code?: unknown; message?: unknown } } | undefined;
 		if (!response.ok) {
+			const body = (await response.json().catch(() => undefined)) as
+				{ error?: { code?: unknown; message?: unknown } } | undefined;
 			const code = body?.error?.code;
 			throw new CloudError(
 				isCloudErrorCode(code) ? code : "UNAVAILABLE",
@@ -92,8 +133,10 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 					: `HTTP ${response.status}`,
 			);
 		}
-		return body as T;
+		return response;
 	};
+	const request = async <T>(...input: Parameters<typeof send>): Promise<T> =>
+		(await (await send(...input)).json().catch(() => undefined)) as T;
 	return {
 		grants: async (root, filter = {}) =>
 			(
@@ -122,6 +165,50 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 				method: "PUT",
 				body: { idleMs },
 			}),
+		snapshot: async (docId, { label } = {}) =>
+			(
+				await request<{ snapshot: CloudSnapshot }>(rootOf(docId), "snapshots", {
+					method: "POST",
+					query: { docId },
+					body: { label },
+				})
+			).snapshot,
+		snapshots: async (docId, { since } = {}) =>
+			(
+				await request<{ snapshots: CloudSnapshot[] }>(
+					rootOf(docId),
+					"snapshots",
+					{
+						method: "GET",
+						query: { docId, since: since && String(since.getTime()) },
+					},
+				)
+			).snapshots,
+		loadSnapshot: async (definition, docId, id) => {
+			const response = await send(rootOf(docId), "snapshots", {
+				method: "GET",
+				query: { docId, id },
+			});
+			// Frames one after the other, each after its length on four bytes.
+			const bytes = new Uint8Array(await response.arrayBuffer());
+			const view = new DataView(bytes.buffer);
+			const frames: Uint8Array[] = [];
+			for (let at = 0; at < bytes.length;) {
+				const end = at + 4 + (at + 4 <= bytes.length ? view.getUint32(at) : 0);
+				if (end > bytes.length)
+					throw new CloudError("UNAVAILABLE", "Truncated snapshot");
+				frames.push(bytes.subarray(at + 4, end));
+				at = end;
+			}
+			return openPulseSnapshot(definition, docId, frames);
+		},
+		deleteSnapshot: async (docId, id) =>
+			(
+				await request<{ removed: boolean }>(rootOf(docId), "snapshots", {
+					method: "DELETE",
+					query: { docId, id },
+				})
+			).removed,
 		deleteDocument: async (docId) =>
 			(
 				await request<{ deleted: number }>(rootOf(docId), "documents", {

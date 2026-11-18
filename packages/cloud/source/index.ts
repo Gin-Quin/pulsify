@@ -16,7 +16,12 @@ export type {
 export { createUserActivity, userActivity } from "./userActivity.js";
 export type { UserActivity, UserActivityOptions } from "./userActivity.js";
 export { createCloudClient } from "./api.js";
-export type { CloudClient, CloudClientOptions, CloudRootUsage } from "./api.js";
+export type {
+	CloudClient,
+	CloudClientOptions,
+	CloudRootUsage,
+	CloudSnapshot,
+} from "./api.js";
 export {
 	signCloudToken,
 	verifyCloudToken,

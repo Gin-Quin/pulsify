@@ -106,6 +106,10 @@ answers 204 with the allowed methods and headers. Bodies are JSON. Errors are
 | `GET /v1/roots/{root}/usage` | admin | `{"root","documents","rows","bytes","connections"}` |
 | `DELETE /v1/roots/{root}/documents?docId=` | admin, or an owner of `docId` | `{"deleted":number}` |
 | `PUT /v1/roots/{root}/expire` `{"idleMs":number}` | admin, or an owner of `root` | `{"idleMs":number}` |
+| `POST /v1/roots/{root}/snapshots?docId=` body `{label?}` | admin, or an editor of `docId` | `{"snapshot":snapshot}` |
+| `GET /v1/roots/{root}/snapshots?docId=[&since=]` | admin, or a reader of `docId` | `{"snapshots":[snapshot…]}` sorted by time |
+| `GET /v1/roots/{root}/snapshots?docId=&id=` | admin, or a reader of `docId` | the frames of the snapshot, as bytes |
+| `DELETE /v1/roots/{root}/snapshots?docId=&id=` | admin, or an owner of `docId` | `{"removed":boolean}` |
 
 The `prefix` filter keeps grants whose prefix it covers. Bodies are limited to
 64 KiB.
@@ -141,6 +145,46 @@ Copy recovered content into a new ID to publish it again. A normally absent
 document, or a failure from an arbitrary peer, is not proof of permanent deletion.
 Offline devices learn deletion when they next contact the authority; a server
 cannot invalidate an unreachable device immediately.
+
+### Snapshots
+
+A snapshot is a document as the root holds it when asked: the rows of its
+store, which the root never decodes. It is the way to keep past states of a
+document whose fields are not `versioned()`: the copy has the size of the
+document, not of its edits.
+
+A document none of whose writes has replaced another keeps every row it has,
+so its snapshot is its version alone and stores no row: reading it serves the
+document's rows below that version. That is every document that was always
+`versioned()`, and the store tells by holding no last-value row for it.
+
+```text
+snapshot: {"id":string,"docId":string,"time":number,"label"?:string,"subject"?:string,"version":vector}
+```
+
+`time` is the server's clock in milliseconds, `subject` the subject of the
+token that asked (absent with the API key), `version` the document's vector
+at that moment, and `label` a string of 1 to 256 characters. `since` is a
+time in milliseconds: the list keeps the snapshots made at or after it.
+`POST` answers `NOT_FOUND` for a document without rows or one that was
+deleted. Only what the root has received is copied: a client snapshots after
+its edits are acknowledged (`synced`).
+
+Reading one snapshot answers `application/octet-stream`: update frames (kind
+4, envelope 1, request ID 0, empty vector) one after the other, each after
+its length as a big-endian `uint32`, streamed as they are made. A client
+applies them to a pulse of its
+own (`openPulseSnapshot`, which `loadSnapshot` of the management client
+calls): the migrations added since are applied there, and restoring is a
+write that client makes (`restorePulse`), sent like any edit. The server
+never restores anything.
+
+Snapshots live in the root's database. A copy is kept in frames of about
+512 KiB, so that each fits a row of any host, and counts in `usage` bytes. Deleting a document
+erases its snapshots and those of its sub-documents; an expired root takes
+them with it. `CloudRootStorage.saveSnapshot`, `listSnapshots`,
+`loadSnapshot` and `deleteSnapshot` are optional: a backend without them
+answers `BAD_REQUEST`. Without `keepsEveryRow`, every snapshot is a copy.
 
 ## WebSocket sessions
 

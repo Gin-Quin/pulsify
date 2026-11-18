@@ -12,6 +12,8 @@ import type { Pulsify } from "../utilities/pulsify.js";
 import { type PulseMeta, PulseMetaSymbol } from "./PulseMeta.js";
 import { defaultPulseScope } from "./PulseOptions.js";
 import type { PulseProperties } from "./PulseProperties.js";
+import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
+import { pulseAt } from "./PulseHistory.js";
 
 export const pulses = defaultPulseScope.pulses;
 export type Pulse<
@@ -124,9 +126,24 @@ function snapshotFieldCount(layout: PulseLayout): number {
 	}
 	return count;
 }
+/**
+ * A detached plain copy of the pulse. With `at`, the copy is the document at a
+ * version of its history (see `getPulseHistory`) or at a date, with the
+ * migrations added since applied to it; the document's schema must then be
+ * `versioned()`, with `timestamps` for a date.
+ */
 export function snapshotPulse<P extends Pulse<any>>(
 	pulse: P,
+	options: { at?: Date | PulseVersionVector } = {},
 ): PulseSnapshot<P> {
+	if (options.at !== undefined) {
+		const past = pulseAt(pulse[PulseMetaSymbol], options.at) as P;
+		try {
+			return snapshotPulse(past);
+		} finally {
+			destroyPulse(past);
+		}
+	}
 	const meta = pulse[PulseMetaSymbol];
 	if (!meta.definition.materializer) {
 		const data = meta.loaded ? meta.model.view() : {};

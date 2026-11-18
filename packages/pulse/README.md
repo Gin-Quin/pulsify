@@ -52,7 +52,8 @@ the proxies.
 Row-count and metadata capacity limits are checked before local commits. Binary patch and encoded-history size limits are checked when bytes are requested. An oversized local patch can therefore remain usable locally while its export fails with `LIMIT_EXCEEDED`; connection failures are reported through synchronization promises and `onError`.
 
 `id`, `kind`, `version` and `generation` are managed by Pulsify. Supply `id`
-only at creation. The supported generation is zero. Values include finite
+only at creation. `generation` starts at zero and grows by one each time the
+document is [restored](#restoring). Values include finite
 numbers, bigint, well-formed Unicode strings, booleans, null, undefined, dense arrays,
 plain objects and copied `Uint8Array` leaves. Schemas describe that supported
 value vocabulary; arbitrary class instances, cycles and reserved prototype
@@ -496,7 +497,8 @@ const Audited = definePulse("Audited", versioned(object({ title: "string" })));
 - **`versioned(schema)`** applies to the value and to everything inside it.
 - **`timestamps`** records the writer's clock (`Date.now()`) with each write.
   It is the time of the edit, kept offline too, and it is not verified: a
-  client can send any time.
+  client can send any time. On a whole document, every transaction has a
+  time: its creation, text and array edits and migrations too.
 - **What a store holds.** One row per field and per peer that wrote it: each
   peer's last write. A store overwrites it in place, at the cost of a row
   that keeps its history.
@@ -510,9 +512,128 @@ const Audited = definePulse("Audited", versioned(object({ title: "string" })));
 
 A document created before version 13 keeps the history it has, and its
 fields stop adding to it. To keep the previous behaviour, add a version that
-wraps the schema in `versioned()`. There is no API yet to read the past
-values of a versioned field: they are stored, synchronized and exported with
-the document. Versions before 13 cannot read what version 13 writes.
+wraps the schema in `versioned()`. Versions before 13 cannot read what
+version 13 writes.
+
+### Reading the past
+
+A pulse holds the history of its document, so reading it needs no server:
+
+```ts
+import { getPulseHistory, snapshotPulse } from "pulsify-core";
+
+// The writes of a versioned field, oldest first.
+getPulseHistory(invoice, "total");
+// [{ value: 10, version, actor, time }, { value: 12, version, actor, time }]
+getPulseHistory(invoice, ["customer", "name"]);          // a path of keys
+getPulseHistory(invoice, "total", { since: lastMonth }); // a Date, or a version
+
+// Every transaction of the document.
+const versions = getPulseHistory(invoice); // [{ version, actor, time? }]
+
+// The document as it was.
+const first = snapshotPulse(invoice, { at: versions[0].version });
+const monday = snapshotPulse(invoice, { at: new Date("2026-11-16T09:00") });
+```
+
+- **A version** is a version vector, the one `getPulseVersions` returns:
+  plain data, to store or send. Versions are ordered the same way on every
+  replica, and each one is the document after one more transaction.
+- **`since` and `until`** are a `Date`, compared with the `time` of each
+  write, or a version: `since` keeps what that version does not include,
+  `until` what it includes.
+- **A field** must be `versioned()`, or a text: any other field has no past,
+  and asking for it throws. Its entries are the transactions that wrote it,
+  or anything inside it when it is an object, an array or a text, the one at
+  creation included; a deleted field has the value `undefined`.
+- **`snapshotPulse(pulse, { at })`** needs a document whose whole schema is
+  `versioned()`, so that the copy is exact, and `timestamps` to take a date:
+  the copy is then the transactions written up to that date. The migrations
+  added since that version are applied to the copy.
+- **Cost.** Each call replays the history. A pulse that received a
+  [condensed state](#hybrid-state-exchange) calls `recoverPulseHistory` first.
+
+### Restoring
+
+```ts
+import { restorePulse } from "pulsify-core";
+
+restorePulse(invoice, versions[3].version); // a version of its history
+restorePulse(invoice, new Date("2026-11-16T09:00"));
+restorePulse(invoice, saved);               // a snapshot, see below
+```
+
+A restore is a write like another. It travels to every replica and stays in
+the history, so restoring the version before it undoes it. It does not rewind
+anything: it replaces the whole document by a new **generation** of it, with
+the content of the version, texts with their formatting.
+
+- **`pulse.generation`** starts at 0 and grows by one with each restore.
+- **Edits made to an earlier generation are discarded**, on every replica and
+  whatever the order of arrival: someone who kept typing without having
+  received the restore loses those edits when it arrives.
+- **Two restores made apart.** When two people restore while offline and keep
+  editing, one restore wins on every replica, with the edits that followed
+  it; the other one and its edits are discarded. The later generation wins,
+  then the later write.
+- **Objects, arrays and texts read before the restore are replaced**, and
+  using them throws. Read them from the pulse again, and bind an editor
+  again when `pulse.generation` changes (a `key` in most frameworks).
+- **Sub-pulses** are documents of their own: restoring a parent restores its
+  references, not the documents they point to.
+- **Fields a migration retired** stay in storage but are not restored.
+- **Nothing is written unless every replica will accept it**: a restore is
+  checked as a receiver checks it first, and throws otherwise.
+- **What travels.** Where the document keeps every write up to that version,
+  the restore only names it: a few bytes, and every replica rebuilds the
+  version from its own history, whatever its size. That is any version of a
+  document that was always `versioned()`. Where a write replaced another
+  one, the restore carries the content, which must fit one transaction: a
+  document over 1 MiB is refused with `LIMIT_EXCEEDED` before anything is
+  written.
+
+- **Cost.** A restore is meant to be occasional. The generation it replaces
+  stays in memory, since edits still on their way to it are valid, and a
+  restore that names a version is rebuilt from the history each time the
+  document loads.
+
+Versions before 15 cannot read a document that was restored.
+
+### Snapshots
+
+For a document that keeps every write, a snapshot is its version: plain
+data, to store anywhere and give back to `snapshotPulse` or `restorePulse`.
+
+```ts
+import { getPulseVersions } from "pulsify-core";
+
+const version = getPulseVersions(invoice).state; // [[actor, clock], …]
+restorePulse(invoice, version);
+```
+
+A document that is not `versioned()` keeps no past: keep copies of it at the
+moments that matter instead. A copy is the frames of the document, which hold
+what it has now and nothing of what it dropped:
+
+```ts
+import { exportPulseUpdates, openPulseSnapshot, restorePulse } from "pulsify-core";
+
+const frames = exportPulseUpdates(note, []); // Uint8Array[]: store them anywhere
+
+const saved = openPulseSnapshot(Note, note.id, frames);
+saved.title;               // read it, render it with the same components
+restorePulse(note, saved); // or bring it back
+destroyPulse(saved);
+```
+
+`openPulseSnapshot` takes exact update frames, the ones `exportPulseUpdates`
+gives by default, and returns a read-only pulse that belongs to no scope and has
+no connector. The migrations added since the copy was made are applied to it,
+so an old snapshot opens, and restores, with today's schema. Restoring one
+names its version when the document still holds every row of it, and carries
+its content otherwise.
+[Pulsify Cloud](../cloud/README.md) keeps snapshots on the server, with their
+time and author.
 
 ## Editor bindings
 

@@ -43,7 +43,20 @@ await access.revoke({ subject: "bob", prefix: "alice/notes/n1" });
 await access.usage("alice");             // { root, documents, rows, bytes, connections }
 await access.deleteDocument("alice/notes/n1"); // erases it, its sub-documents and their grants
 await access.expire("room-42", { idleMs: 10 * 60_000 }); // erases the root ten minutes after its last socket
+
+// Snapshots: copies of a document kept by the server, with their time and author.
+const saved = await access.snapshot("alice/notes/n1", { label: "Sent" }); // an editor
+await access.snapshots("alice/notes/n1", { since: lastWeek }); // a reader: [{ id, time, label, subject, version }]
+const old = await access.loadSnapshot(Note, "alice/notes/n1", saved.id); // a read-only pulse
+restorePulse(note, old);                       // from pulsify-core: the client writes the restore
+destroyPulse(old);
+await access.deleteSnapshot("alice/notes/n1", saved.id); // an owner
 ```
+
+A snapshot is made by the server from the rows it holds, so take it once the
+pulse is `synced`. In a browser, give `createCloudClient` the user's token as
+its credential: an editor creates snapshots, a reader lists and opens them, an
+owner erases them. Opening one applies the migrations added since it was made.
 
 ## Backend
 

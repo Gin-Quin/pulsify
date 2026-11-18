@@ -285,7 +285,7 @@ export function peekFrameHeader(bytes: Uint8Array): FrameHeader {
 }
 
 export type CloudAction =
-	"connect" | "grants" | "usage" | "documents" | "expire";
+	"connect" | "grants" | "usage" | "documents" | "expire" | "snapshots";
 export const CLOUD_HEALTH_PATH = "/v1/health";
 /** `/v1/roots/{root}/{action}`, with the root percent-encoded as one segment. */
 export function cloudPath(root: string, action: CloudAction): string {
@@ -295,7 +295,7 @@ export function parseCloudPath(
 	pathname: string,
 ): { root: string; action: CloudAction } | undefined {
 	const match =
-		/^\/v1\/roots\/([^/]+)\/(connect|grants|usage|documents|expire)\/?$/.exec(
+		/^\/v1\/roots\/([^/]+)\/(connect|grants|usage|documents|expire|snapshots)\/?$/.exec(
 			pathname,
 		);
 	if (!match) return undefined;

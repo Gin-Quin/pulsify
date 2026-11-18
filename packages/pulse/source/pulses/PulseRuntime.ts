@@ -9,7 +9,7 @@ import {
 	type PulsePatchRow,
 } from "../connection/PulsePatch.js";
 import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
-import { CoreModel, managedFields } from "../core/model.js";
+import { CoreModel, managedFields, type RestoreSource } from "../core/model.js";
 import {
 	CorePatch,
 	ScalarPatch,
@@ -29,6 +29,7 @@ import { createObjectProxy } from "./PulseObject.js";
 import type { PulseOptions } from "./PulseOptions.js";
 import type { ProxyContext } from "./ProxyContext.js";
 import { warnMigrationDrift } from "./warnMigrationDrift.js";
+import { replayTo } from "./PulseReplay.js";
 
 export function createRuntime(
 	definition: AnyPulseDefinition,
@@ -72,6 +73,50 @@ export function createRuntime(
 		definition.migrationChain,
 	);
 	const log = new PatchLog(id);
+	// A restore names a version: the root it builds is the document at that
+	// version, replayed from the journal. Rows being appended are validated
+	// before the journal has them, so they are counted in while they are.
+	// ponytail: one stored value per restored version, kept for the life of
+	// the pulse, since the versions below it replay through the same ones;
+	// evict the oldest if documents come to be restored hundreds of times.
+	let staged: readonly PulsePatchRow[] = [];
+	const sources = new Map<string, RestoreSource | undefined>();
+	// What was computed since rows were last committed: should they be
+	// refused, by the model or by the journal, they may come back different.
+	let fresh: string[] = [];
+	const refused = () => {
+		for (const key of fresh.splice(0)) sources.delete(key);
+	};
+	const staging = <T>(rows: readonly PulsePatchRow[], work: () => T): T => {
+		staged = rows;
+		try {
+			return work();
+		} finally {
+			staged = [];
+		}
+	};
+	model.restoreSource = (version) => {
+		const key = JSON.stringify(version);
+		if (!sources.has(key)) {
+			fresh.push(key);
+			const replay = new CoreModel(
+				0,
+				id,
+				kind,
+				definition.migrations.length + 1,
+				definition.compiledSchema,
+				definition.schemas,
+				definition.migrationChain,
+			);
+			replay.restoreSource = model.restoreSource;
+			// A row that waited in the journal is also among those just promoted.
+			const rows = new Map<string, PulsePatchRow>();
+			for (const row of [...log.missing([]), ...staged])
+				rows.set(`${row.sid}:${row.clock}`, row);
+			sources.set(key, replayTo([...rows.values()], version, replay));
+		}
+		return sources.get(key);
+	};
 	if (explicit === undefined && leased !== undefined)
 		model.chooseActor = () => {
 			// The leased actor may have written this document from an earlier
@@ -144,11 +189,17 @@ export function createRuntime(
 		patch: CorePatch,
 		dependencies: PulseVersionVector,
 	) => patchToRow(docId, patch, dependencies, model.encoding);
+	// Under a root that records times, every transaction has one: the
+	// creation, text and array edits and migrations too, not only field
+	// writes. The document at a date is then the transactions up to it.
+	const timed = definition.compiledSchema?.root.timestamps === true;
 	model.commit = (ops, hint, wallTime) => {
 		if (meta.deleted)
 			throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 		context.assertActive();
 		if (!ops.length) return;
+		if (timed) wallTime ??= Date.now();
+		fresh = [];
 		const time = model.lamport + 1;
 		if (!Number.isSafeInteger(time))
 			throw new PulseError("LIMIT_EXCEEDED", "Lamport clock exhausted");
@@ -174,9 +225,11 @@ export function createRuntime(
 								? patch
 								: decode(row),
 						);
-						model.validate(
-							patches,
-							new Map(rows.map((row, i) => [patches[i]!, row.dependencies])),
+						staging(all, () =>
+							model.validate(
+								patches,
+								new Map(rows.map((row, i) => [patches[i]!, row.dependencies])),
+							),
 						);
 					}
 				});
@@ -184,6 +237,7 @@ export function createRuntime(
 					model.apply(item, item === patch ? hint : undefined);
 				if (ready.length > 1) migrate();
 			} catch (error) {
+				refused();
 				warnMigrationDrift(meta, error);
 				throw error;
 			}
@@ -504,6 +558,8 @@ export function createRuntime(
 		rowListeners: new Set(),
 		presence: undefined,
 		mutate: (ops) => model.commit(ops),
+		migrate: () => migrate(),
+		forgetRestore: (version) => void sources.delete(JSON.stringify(version)),
 		report(error) {
 			meta.lastError = error;
 			try {
@@ -515,6 +571,7 @@ export function createRuntime(
 		applyRows(rows) {
 			if (meta.deleted)
 				throw new PulseError("NOT_FOUND", "Document was permanently deleted");
+			fresh = [];
 			try {
 				context.assertActive();
 				const delta = stateDeltaOf(rows);
@@ -554,9 +611,13 @@ export function createRuntime(
 						const ready = alive(all);
 						pending = ready.map(decode);
 						if (pending.length)
-							model.validate(
-								pending,
-								new Map(ready.map((row, i) => [pending[i]!, row.dependencies])),
+							staging(all, () =>
+								model.validate(
+									pending,
+									new Map(
+										ready.map((row, i) => [pending[i]!, row.dependencies]),
+									),
+								),
 							);
 					});
 					if (result.changed) {
@@ -609,7 +670,9 @@ export function createRuntime(
 					// A known row comes back as a gap when its span covers more.
 					const ready = log.appendRemoteRows(rows, (available) => {
 						if (alive(available).length)
-							model.validateSingle(patch, available[0]!.dependencies);
+							staging(available, () =>
+								model.validateSingle(patch, available[0]!.dependencies),
+							);
 					});
 					if (alive(ready).length) {
 						model.apply(patch);
@@ -628,9 +691,13 @@ export function createRuntime(
 					patches = available.map(
 						(row) => decoded.get(`${row.sid}:${row.clock}`) ?? decode(row),
 					);
-					model.validate(
-						patches,
-						new Map(available.map((row, i) => [patches[i]!, row.dependencies])),
+					staging(all, () =>
+						model.validate(
+							patches,
+							new Map(
+								available.map((row, i) => [patches[i]!, row.dependencies]),
+							),
+						),
 					);
 				});
 				for (const patch of patches) model.apply(patch);
@@ -640,6 +707,7 @@ export function createRuntime(
 					notify();
 				}
 			} catch (error) {
+				refused();
 				warnMigrationDrift(meta, error);
 				throw error;
 			}

@@ -2,6 +2,7 @@ import {
 	array,
 	createCodec,
 	object,
+	tuple,
 	union,
 	createDecoder,
 	createEncoder,
@@ -57,7 +58,40 @@ export type CoreOperation =
 			target: string;
 			entries: string[];
 			attributes: Record<string, unknown>;
-	  };
+			/**
+			 * A range: `entries` holds its first entry, and the operation covers
+			 * the `count` entries one transaction created from it on, whose IDs
+			 * follow each other. It travels as kind 11.
+			 */
+			count?: number;
+	  }
+	/**
+	 * The document becomes what it was at `version`, as a new generation.
+	 * Every replica builds that root from its own journal: nothing else travels.
+	 */
+	| { kind: 10; version: [sid: number, clock: number][]; generation: number };
+
+/** The IDs an attribute operation covers: its list, or its range. */
+export function* attributeEntries(
+	op: Extract<CoreOperation, { kind: 5 }>,
+): Generator<string> {
+	if (op.count === undefined) return yield* op.entries;
+	const first = op.entries[0] ?? "",
+		at = first.lastIndexOf(":"),
+		serial = Number(first.slice(at + 1));
+	if (
+		op.entries.length !== 1 ||
+		at < 0 ||
+		!Number.isSafeInteger(serial) ||
+		serial < 0 ||
+		!Number.isSafeInteger(op.count) ||
+		op.count < 1 ||
+		!Number.isSafeInteger(serial + op.count)
+	)
+		throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
+	const prefix = first.slice(0, at + 1);
+	for (let i = 0; i < op.count; i++) yield prefix + (serial + i);
+}
 export class CorePatch {
 	constructor(
 		public readonly sid: number,
@@ -135,6 +169,14 @@ const operationSchema = union({
 		7: { target: "string", field: fieldSchema, value: valueSchema },
 		8: { target: "string", field: fieldSchema },
 		9: { time: "uint" },
+		10: { version: array(tuple("uint", "uint")), generation: "uint" },
+		// Kind 5 for the entries one transaction created in a row.
+		11: {
+			target: "string",
+			first: "string",
+			count: "uint",
+			attributes: "unknown",
+		},
 	},
 });
 /**
@@ -421,6 +463,14 @@ export function encodeCorePatch(
 			return { ...op, value: value(op.value, op) };
 		if (op.kind === 3)
 			return { ...op, values: op.values.map((v) => value(v, op)) };
+		if (op.kind === 5 && op.count !== undefined)
+			return {
+				kind: 11,
+				target: op.target,
+				first: op.entries[0]!,
+				count: op.count,
+				attributes: op.attributes,
+			};
 		return op;
 	});
 	if (patch.time !== undefined) ops.push({ kind: 9, time: patch.time });
@@ -503,6 +553,17 @@ export function decodeCorePatch(
 			if (op.kind === 0 || op.kind === 4)
 				return { ...op, value: value(op.value) };
 			if (op.kind === 3) return { ...op, values: op.values.map(value) };
+			if (op.kind === 11)
+				return {
+					kind: 5,
+					target: op.target,
+					entries: [op.first],
+					count: op.count,
+					attributes: prepareValue(op.attributes).value as Record<
+						string,
+						unknown
+					>,
+				};
 			if (op.kind === 5)
 				return {
 					...op,

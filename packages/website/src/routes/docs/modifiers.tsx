@@ -79,6 +79,33 @@ const Invoice = definePulse("Invoice", v1)
   .migrateTo(v2, () => ({})) // the value stays; history starts here
   .materialize();`;
 
+const past = `import { getPulseHistory, snapshotPulse } from "pulsify-core";
+
+// The writes of a versioned field, oldest first.
+getPulseHistory(invoice, "total");
+// [{ value: 10, version, actor, time }, { value: 12, version, actor, time }]
+getPulseHistory(invoice, "total", { since: lastMonth }); // a Date, or a version
+
+// Every transaction of the document, then the document as it was.
+const versions = getPulseHistory(audited); // [{ version, actor, time? }]
+const first = snapshotPulse(audited, { at: versions[0].version });
+const monday = snapshotPulse(audited, { at: new Date("2026-11-16T09:00") });`;
+
+const restore = `import { restorePulse } from "pulsify-core";
+
+restorePulse(audited, versions[3].version);
+restorePulse(audited, new Date("2026-11-16T09:00"));
+
+audited.generation; // 0 at creation, one more after each restore`;
+
+const snapshots = `import { exportPulseUpdates, openPulseSnapshot, restorePulse } from "pulsify-core";
+
+const frames = exportPulseUpdates(note, []); // Uint8Array[]: store them anywhere
+
+const saved = openPulseSnapshot(Note, note.id, frames); // a read-only pulse
+restorePulse(note, saved);
+destroyPulse(saved);`;
+
 const combined = `object({
   label: optional(constant("string")), // may be absent, never changes once created
   snapshot: optional(frozen(object({ x: "float64", y: "float64" }))),
@@ -203,9 +230,73 @@ export default function Modifiers() {
 			<CodeBlock title="invoice.ts" code={versionsMigration} />
 			<Note>
 				A document created before version 13 keeps the history it has, and its
-				fields stop adding to it. There is no API yet to read the past values of
-				a versioned field.
+				fields stop adding to it.
 			</Note>
+
+			<h3 id="history">Read the past</h3>
+			<p>
+				A pulse holds the history of its document, so reading it needs no
+				server. <code>getPulseHistory</code> lists the writes of a versioned
+				field with the value each one gave it, or every transaction of the
+				document. A version is a version vector: plain data, ordered the same
+				way on every replica.
+			</p>
+			<CodeBlock title="history.ts" code={past} />
+			<p>
+				A field must be <code>versioned()</code>, or a text: any other field has
+				no past, and asking for it throws.{" "}
+				<code>snapshotPulse(pulse, {"{ at }"})</code> needs a document whose
+				whole schema is <code>versioned()</code>, so that the copy is exact, and{" "}
+				<code>timestamps</code> to take a date. The migrations added since that
+				version are applied to the copy.
+			</p>
+
+			<h3 id="restore">Restore a version</h3>
+			<p>
+				A restore is a write like another: it travels to every replica and stays
+				in the history, so restoring the version before it undoes it. It
+				replaces the whole document by a new <strong>generation</strong> of it,
+				with the content of the version, texts with their formatting.
+			</p>
+			<CodeBlock title="restore.ts" code={restore} />
+			<ul>
+				<li>
+					Edits made to an earlier generation are discarded on every replica,
+					whatever the order of arrival: someone who kept typing without having
+					received the restore loses those edits when it arrives.
+				</li>
+				<li>
+					When two people restore while offline and keep editing, one restore
+					wins on every replica, with the edits that followed it. The other one
+					and its edits are discarded.
+				</li>
+				<li>
+					Objects, arrays and texts read before the restore are replaced. Read
+					them from the pulse again, and bind an editor again when{" "}
+					<code>pulse.generation</code> changes.
+				</li>
+				<li>
+					Where the document keeps every write up to that version, the restore
+					only names it: a few bytes, and every replica rebuilds the version
+					from its own history. Otherwise it carries the content, which must fit
+					one transaction of 1 MiB.
+				</li>
+				<li>Versions before 15 cannot read a document that was restored.</li>
+			</ul>
+
+			<h3 id="snapshots">Snapshots</h3>
+			<p>
+				For a document that keeps every write, a snapshot is its version:{" "}
+				<code>getPulseVersions(pulse).state</code>, plain data to store and give
+				back to <code>restorePulse</code>. A document that is not{" "}
+				<code>versioned()</code> keeps no past: keep copies of it at the moments
+				that matter instead. A copy is the frames of the document, which hold
+				what it has now and nothing of what it dropped. Opening one gives a
+				read-only pulse, to which the migrations added since are applied.{" "}
+				<a href="/docs/cloud#snapshots">Pulsify Cloud</a> keeps snapshots on the
+				server, with their time and author.
+			</p>
+			<CodeBlock title="snapshot.ts" code={snapshots} />
 
 			<h2>Combining modifiers</h2>
 			<p>

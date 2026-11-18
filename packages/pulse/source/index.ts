@@ -136,4 +136,14 @@ export {
 	SUPPORTED_PROTOCOL_VERSIONS,
 } from "./pulses/PulseExchange.js";
 export type { PulseExchangeOptions } from "./pulses/PulseExchange.js";
+export {
+	getPulseHistory,
+	openPulseSnapshot,
+	restorePulse,
+} from "./pulses/PulseHistory.js";
+export type {
+	PulseHistoryOptions,
+	PulseVersion,
+} from "./pulses/PulseHistory.js";
+export type { PulseVersionVector } from "./connection/PulseVersionVector.js";
 export * from "@gin-quin/codec";

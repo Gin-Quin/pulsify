@@ -386,7 +386,8 @@ describe("migrating whether a field keeps its history", () => {
 			a.title = `t${i}`;
 		}
 		expect(kinds(a).kept).toBe(base + 12);
-		expect(times(a)).toHaveLength(12);
+		// Under a timed root every transaction has a time: the migration too.
+		expect(times(a)).toHaveLength(13);
 		const b = replica(Latest, old.id, 65538);
 		sync(a, b);
 		const kept = kinds(b).kept;

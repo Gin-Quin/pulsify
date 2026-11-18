@@ -7,3 +7,8 @@ export const MAX_SCHEMA_NODES = 300_000;
 // The largest sync envelope has a vector plus eleven fixed schema nodes.
 export const MAX_ROW_BATCH_NODES =
 	MAX_SCHEMA_NODES - (3 * MAX_VECTOR_ENTRIES + 16);
+/**
+ * What the ranges of one transaction may write: entries times attributes.
+ * A range is a few bytes whatever it covers, so its size bounds nothing.
+ */
+export const MAX_RANGE_MARKS = 4 * 1024 * 1024;
