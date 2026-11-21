@@ -37,13 +37,15 @@ export function createPulseViews(
 		};
 		// One per child ID, so lists keyed by identity keep their rows.
 		const handles = new Map<string, object>();
-		// ponytail: `handle.pulse` turning from undefined to loaded notifies nobody; load children with the parent (`subPulses`).
 		const handle = (value: any): object => {
 			const existing = handles.get(value.id);
 			if (existing) return existing;
 			const proxy = new Proxy(value, {
 				get(target, key) {
-					if (key === "pulse") return target.pulse && wrap(target.pulse);
+					if (key === "pulse") {
+						track();
+						return target.pulse && wrap(target.pulse);
+					}
 					if (key === "load")
 						return (options?: unknown) => target.load(options).then(wrap);
 					return Reflect.get(target, key);

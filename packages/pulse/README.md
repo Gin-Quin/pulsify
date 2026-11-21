@@ -529,7 +529,7 @@ getPulseHistory(invoice, ["customer", "name"]);          // a path of keys
 getPulseHistory(invoice, "total", { since: lastMonth }); // a Date, or a version
 
 // Every transaction of the document.
-const versions = getPulseHistory(invoice); // [{ version, actor, time? }]
+const versions = getPulseHistory(invoice); // [{ version, actor, clock, time?, migration? }]
 
 // The document as it was.
 const first = snapshotPulse(invoice, { at: versions[0].version });
@@ -550,6 +550,16 @@ const monday = snapshotPulse(invoice, { at: new Date("2026-11-16T09:00") });
   `versioned()`, so that the copy is exact, and `timestamps` to take a date:
   the copy is then the transactions written up to that date. The migrations
   added since that version are applied to the copy.
+- **`actor` and `clock`** name the transaction: the [actor](#actor-ids)
+  that wrote it, and its sequence number among those of that actor. An actor
+  is a number a page or a device writes under, not a user. A server that
+  authenticates its connections can tell whose it is: with Pulsify Cloud,
+  `cloud.actorSubject(pulse.id, version.actor)` resolves to the user's ID,
+  and `cloud.authors(pulse.id)` to who sent each transaction (see
+  [pulsify-cloud](../cloud/README.md#who-wrote-a-document)).
+- **`migration: true`** marks a transaction Pulsify wrote itself, when a
+  client loaded the document with a newer definition. Its actor is that
+  client's, which ran the migration: nobody edited the document.
 - **Cost.** Each call replays the history. A pulse that received a
   [condensed state](#hybrid-state-exchange) calls `recoverPulseHistory` first.
 
@@ -753,14 +763,18 @@ await loadPulse(Project, "1234/xyz", { connectors }); // A child without its par
 ID. Reads return a reference; writes accept a reference, a pulse or an ID string at
 runtime, and `pulseRef(pulse)` produces the typed reference. `{ parent }` prefixes
 the generated ID, rejects an explicit ID outside the parent, and inherits the
-parent's scope, connectors and other options. `loadPulse` loads every
-sub-pulse recursively, `ref.load()` included, through arrays, maps and
-optionals; `subPulses: false` loads none, and you load the ones you need with
-`ref.load()`. `setDefaultPulseOptions({ subPulses: false })` makes every load
-lazy. Sub-pulse loads use the same `waitFor`. Creating a child and linking it
-from its parent are two documents and two writes; a dangling ID is tolerated:
-it does not fail the load of its parent and resolves to `pulse === undefined`
-until the child exists. Any other error of a child rejects the whole load.
+parent's scope, connectors and other options. `loadPulse` loads every sub-pulse recursively, `ref.load()` included, through
+arrays, maps and optionals; `subPulses: false` loads none, and you load the ones
+you need with `ref.load()`. `setDefaultPulseOptions({ subPulses: false })` makes
+every load lazy. Sub-pulse loads use the same `waitFor`. While connected with
+`subPulses: true`, newly referenced sub-pulses added by other peers are also
+loaded automatically (and on Pulsify Cloud their initial data is pushed ahead of
+the parent update so `ref.pulse` is ready immediately). Whenever a referenced
+sub-pulse enters or leaves the scope, the parent's subscribers and reactive
+views are notified. Creating a child and linking it from its parent are two
+documents and two writes; a dangling ID is tolerated: it does not fail the load
+of its parent and resolves to `pulse === undefined` until the child exists. Any
+other error of a child rejects the whole load.
 
 ## Presence
 
@@ -917,6 +931,25 @@ A pulse that writes earlier, while offline or before a slow remote answers, uses
 - **Back/forward cache.** Chromium and Firefox currently reload a page that holds a Web Lock instead of restoring it from the back/forward cache.
 - **`sessionId`** sets the actor yourself and skips the lease: a safe integer >= 65536, unique among the writers of a document.
 
+### Actors and accounts
+
+An actor says nothing of the user, and a browser profile may serve several accounts in turn. Give each account its own scope:
+
+```ts
+import { createPulseScope, setDefaultPulseOptions } from "pulsify-core";
+
+// On sign-in, with an ID your application knows while offline too.
+setDefaultPulseOptions({
+  scope: createPulseScope({ identity: user.id }),
+  connectors: [remote, local],
+});
+```
+
+- **One list per identity.** A scope with an `identity` leases from lists of its own, so two accounts never write under one actor, even on one profile and one local store. Use a new scope, and new remote connectors, when the user changes, and never load the pulses of an account into the scope of another. Do not erase the local store on sign-out: it may hold writes that were not uploaded yet.
+- **`identity` proves nothing.** It keeps actors apart on the device. A server decides who a connection is from its credential: Pulsify Cloud binds an actor to the subject of the token, and refuses a scope whose `identity` is not that subject. Use the same string for both.
+- **Own actors.** A pulse that has connectors records the actor it writes with: in memory, and for a scope with an `identity` in `localStorage` too (the last 4096). A connector is told which actors are the scope's own (`declareActors`): the leased one when it connects, and before an upload those of its rows. An endpoint can then bind them to the account of the session; rows of any other actor are relayed, and never declared. The stored record is what lets a later page upload a write made offline as its own. Without an `identity` or without `localStorage`, a page or a process that restarts with writes not uploaded yet relays them like anyone's.
+- **Refused actors.** An endpoint may answer that a declared actor belongs to another account (`onActorsRefused`), as happens when two accounts share actors for want of an `identity`. The pulse then reports a `FORBIDDEN` error to `onError` and writes under another actor from its next write on; a leased actor that was refused is not chosen at all.
+
 ## Migrations and materialization
 
 ```ts
@@ -1024,7 +1057,7 @@ history use string field keys in new patches to preserve old layout identities.
 
 `setDefaultPulseOptions` changes defaults; individual calls can override `createId`, `connect`, `connectors`, `scope`, `timeoutMs`, `onError` and an optional numeric `sessionId`. Usually leave it unset, so that [actor IDs](#actor-ids) are leased and reused; explicit IDs must be safe integers >= 65536 and unique among writers of a document.
 
-A `Connector` supplies `kind: "local" | "remote"`, for a local store an optional `actorPool` name (see [Actor IDs](#actor-ids)), and `open({ docId, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
+A `Connector` supplies `kind: "local" | "remote"`, for a local store an optional `actorPool` name (see [Actor IDs](#actor-ids)), and `open({ docId, identity, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. `identity` is the one of the pulse's scope, for a connector that authenticates as an account; a session may also implement `declareActors(actors)`, called with actors the scope created itself, and answer through `onActorsRefused(actors)` of `open` (see [Actors and accounts](#actors-and-accounts)). Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
 
 Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `pulsify-cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
 

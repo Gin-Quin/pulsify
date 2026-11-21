@@ -135,6 +135,8 @@ answers 204 with the allowed methods and headers. Bodies are JSON. Errors are
 | `GET /v1/roots/{root}/snapshots?docId=[&since=]` | admin, or a reader of `docId` | `{"snapshots":[snapshot…]}` sorted by time |
 | `GET /v1/roots/{root}/snapshots?docId=&id=` | admin, or a reader of `docId` | the frames of the snapshot, as bytes |
 | `DELETE /v1/roots/{root}/snapshots?docId=&id=` | admin, or an owner of `docId` | `{"removed":boolean}` |
+| `GET /v1/roots/{root}/actors?docId=&actor=` | admin, or a reader of `docId` | `{"subject":string\|null}` |
+| `GET /v1/roots/{root}/authors?docId=` | admin, or a reader of `docId` | `{"actors":[[actor,subject]…],"received":[range…]}` |
 
 The `prefix` filter keeps grants whose prefix it covers. Bodies are limited to
 64 KiB.
@@ -211,6 +213,94 @@ them with it. `CloudRootStorage.saveSnapshot`, `listSnapshots`,
 `loadSnapshot` and `deleteSnapshot` are optional: a backend without them
 answers `BAD_REQUEST`. Without `keepsEveryRow`, every snapshot is a copy.
 
+### Authors
+
+Every write of a document is recorded under an actor: a number a client
+writes under, which says nothing of the user. A root knows two more things,
+both from the token of a connection and never from what a client sends about
+itself.
+
+**Whose actor it is.** Before a client uploads rows of an actor it created
+itself, it declares the actor (the [`actors` text frame](#text-frames)). The
+root binds the actor to the subject of the socket's token, in
+`pulsify_cloud_actors(sid, subject)`. The binding is the root's, shared by
+all its documents, and permanent: a later declaration by another account is
+refused and changes nothing, and so is one from a session that cannot write
+the document it names. One actor has one account; an account has as many
+actors as its devices and pages needed.
+
+`GET …/actors?docId=&actor=` answers the subject an actor is bound to, or
+`null`: `cloud.actorSubject(docId, actor)`. A user asks about the actors that
+wrote a document they can read, and gets `null` for any other actor of the
+root, bound or not; a deleted document answers them `NOT_FOUND`. The API key
+asks about any actor of the root, whatever the document. `actor` is an
+integer from 65536, or the request fails with `BAD_REQUEST`.
+
+**Which account sent each write.** A client also uploads rows it did not
+write: those another replica gave it offline or through another connector.
+So the root notes, for every row it stores, the subject of the socket that
+delivered it, in the transaction that stores the row: a refused upload notes
+nothing, and a row sent again keeps its first sender.
+`pulsify_cloud_received(doc_id, sid, clock, clock_end, subject)` holds one
+range of sequence numbers per run of an actor's rows that one account sent,
+so a client that uploads as it writes costs one row per actor and document.
+
+`GET …/authors?docId=` answers both for one document:
+
+```text
+actors:   [[actor, subject]…]    the actors that wrote the document and have an account
+received: [{"actor","clock","end","subject"}…]   sorted by actor, then clock; `end` is exclusive
+```
+
+A transaction `(actor, clock)` was received from the subject of the last
+range of its actor with `clock <= its clock < end`. It is *verified* when
+that subject is the one its actor is bound to: the account that claimed the
+actor sent the write itself. Anything else is unverified: a write relayed by
+another account, a write whose actor nobody claimed, or a row stored before
+the root kept authors. `cloud.authors(docId)` returns `of(version)`, which
+answers `{subject?, receivedFrom?, verified}`.
+
+What this proves, and what it does not:
+
+- A verified write was sent under the token of its actor's account. No other
+  account can make a write verified for that account: it can neither take
+  the actor nor have its own uploads counted as sent by the actor's account.
+- An actor nobody has claimed yet belongs to the first account that declares
+  it. That is a statement by an authenticated account, not a proof that it
+  created the actor: an editor who learns of an unclaimed actor can claim
+  it, and thereby take credit for what it then uploads, never give it away.
+  The binding is the root's, so an editor of one document can claim an
+  unclaimed actor seen in another document of the root that it only reads.
+  The actor's real account is then refused, and its client stops using it.
+- An editor can still write rows under another account's actor. They are
+  stored, as the protocol accepts them, and are unverified: `receivedFrom`
+  names the editor. The actor still answers its account to
+  `actorSubject`, which says whose the actor is, not who sent each write.
+- Clients must not share actors between accounts. The reference client
+  keeps them apart when each account has its own scope
+  (`createPulseScope({ identity })`); without one, the accounts of a browser
+  profile lease the same actors, the second account's declaration is
+  refused, and its client writes under another actor from then on.
+- Writes are not signed. A write relayed by another account stays
+  unverified, even after its actor is claimed. What a hostile editor can do,
+  and what closing it would cost, is in
+  [AUTHOR-VERIFICATION.md](AUTHOR-VERIFICATION.md).
+- A [migration](../packages/pulse/README.md#migrations-and-materialization)
+  is written by the first client that loads the document with a newer
+  definition: its author is that client's account, which edited nothing.
+  `getPulseHistory` marks these versions with `migration: true`.
+- A restore is a write of the account that restores. The versions before it
+  keep their authors.
+
+Both tables live in the root's database and survive hibernation and
+compaction, which changes no sequence number. Deleting a document erases
+what was received for it and its sub-documents; deleting the root document
+erases the actors too, and an expired root takes everything with it. A
+[snapshot](#snapshots) holds rows of its document, so their authors are
+those of the document for as long as it exists; frames exported from a
+pulse and applied elsewhere carry no author, and are received from whoever
+uploads them.
+
 ## WebSocket sessions
 
 `GET /v1/roots/{root}/connect` with a WebSocket upgrade. Checks, in order:
@@ -247,18 +337,23 @@ Each frame is processed as follows:
 4. Any other kind on a document the socket is not subscribed to:
    `INVALID_MESSAGE` ("Connect to the document before uploading").
 5. `syncBack`/`update` with a role below `editor`: `FORBIDDEN`. Otherwise
-   append in one storage transaction, acknowledge with the stored vector, and
-   when rows were inserted broadcast an `update` (request ID 0) to every other
-   socket subscribed to the document.
+   append in one storage transaction, which also notes the socket's subject
+   as the sender of the rows it adds ([authors](#authors)), acknowledge with
+   the stored vector, and when rows were inserted broadcast an `update`
+   (request ID 0) to every other socket subscribed to the document.
 
 Storage conflicts answer `CONFLICT`, actor overflow `LIMIT_EXCEEDED`.
 
 ### Text frames
 
 ```text
-server → client  {"type":"welcome","server":{"backend":string,"id":string,"location"?:string},"presence"?:true}
+server → client  {"type":"welcome","server":{"backend":string,"id":string,"location"?:string},"presence"?:true,"subtrees"?:true,"watch"?:true,"authors"?:true,"subject"?:string}
 server → client  {"type":"role","docId":string,"role":"reader"|"editor"|"owner"|null}
 client → server  {"type":"unsubscribe","docId":string}
+client → server  {"type":"watch","docId":string}
+client → server  {"type":"unwatch","docId":string}
+client → server  {"type":"actors","docId":string,"actors":[actor…]}
+server → client  {"type":"actors","docId":string,"refused":[actor…]}
 client → server  {"type":"ping"}      exactly these bytes
 server → client  {"type":"pong"}      exactly these bytes
 ```
@@ -269,7 +364,31 @@ debugging only: clients never route on it. `backend` names the host
 Cloudflare), so a new value means a new instance; `location` is where the
 socket was accepted (the Cloudflare colo). `presence: true` says the server
 relays [presence frames](#presence); a client never sends them otherwise.
+`subject` is the subject of the socket's token, and `authors: true` says the
+server binds actors to accounts; a client never sends `actors` otherwise.
 Clients ignore unknown fields.
+
+`actors` declares up to 1,024 actors (integers from 65536) that the client
+created itself, before it uploads rows of them to `docId`; it never names
+the actors of rows it relays. The server binds each to the socket's subject
+unless another subject has it ([authors](#authors)), and answers only with
+those another subject has. From a session that cannot write `docId` the
+message is ignored, without an answer. Rows of a refused actor are stored
+all the same. The message is processed in order with the frames of its
+socket, so it needs no answer before the upload, and a refusal sent before
+a `connect` precedes its sync response.
+
+The reference client declares the actor its page leased before each
+`connect`, so that it knows of a refusal before it writes, and every actor
+of its own once per session of a document, when it first uploads its rows.
+A refused actor is not written under again: the pulse takes another actor
+for its next write, and reports a `FORBIDDEN` error.
+
+The reference client keeps one account per connector: once a welcome has
+named a subject, a socket whose welcome names another is closed with a
+`FORBIDDEN` error that is not retried. It also refuses to open a document,
+or to prefetch one, for a pulse whose scope has an `identity` other than the
+welcome's subject.
 
 The role message precedes the sync of every `connect`. After a grant change,
 the root recomputes the role of every subscription of the affected subject (all
@@ -300,6 +419,17 @@ it closes the socket and its pulses reconnect.
 A subscription ends with `unsubscribe`, a revocation, or the socket. The
 reference client sends `unsubscribe` when a pulse's connection closes and
 closes an idle socket after `lingerMs`.
+
+`watch` and `unwatch` subscribe a socket to live broadcast frames (`update`,
+request ID 0) for newly created or edited descendants (`docId/…`) beneath
+`docId` that the socket is not yet subscribed to, provided the server advertised
+`watch: true` in its welcome and the socket has access to both `docId` and the
+descendant. Watches survive hibernation in the socket attachment (overflowing to
+`pulsify_cloud_watches`) and are removed on `unwatch`, deletion, grant
+revocation, or socket close. The reference client sends `watch` for open parent
+pulses loaded with `subPulses: true` and buffers pushed descendant rows so that
+when the parent update carrying the new child ID arrives, the child is already
+hydrated with its initial data before parent subscribers run.
 
 ## Presence
 
@@ -364,8 +494,11 @@ a backend without them answers `BAD_REQUEST`, and one that stores the lifetime
 schedules the erasure itself, as it does compaction.
 
 One SQLite database per root (Durable Object storage) holds the SQLite patch
-schema, `pulsify_cloud_grants(subject, prefix, role)` and
-`pulsify_cloud_subscriptions(connection, doc_id, role)`.
+schema, `pulsify_cloud_grants(subject, prefix, role)`,
+`pulsify_cloud_subscriptions(connection, doc_id, role)` and the two tables of
+[authors](#authors). `CloudRootStorage.receivedFrom(subject)` is the patch
+store as one account writes it: `SqlitePatchStore.append(rows, added)` calls
+`added` inside its transaction with the rows that were not held before.
 
 A hibernated object loses its memory while its sockets stay open, so
 subscriptions are kept with their socket: its attachment holds the connection
@@ -387,6 +520,11 @@ Objects are reachable only through the binding and trust these headers.
 A breaking change to routes, subprotocols, control messages or grant semantics
 increments the session protocol (`pulsify-cloud.2.*`) and Pulsify's major
 version. Changes to the frames themselves follow [PROTOCOL.md](PROTOCOL.md).
+Pulsify 16 added authors (the `actors` and `authors` routes, the `actors`
+text frames and the `authors` and `subject` fields of the welcome) and live
+descendant watches (the `watch` and `unwatch` text frames and the `watch` field
+of the welcome). Both are announced by the welcome, so the session protocol is
+unchanged.
 
 ### Initial subtree prefetch
 

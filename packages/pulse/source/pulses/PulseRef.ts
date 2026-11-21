@@ -36,10 +36,14 @@ export function createPulseRef(
 		definition,
 		get pulse() {
 			const pulse = parentOptions.scope.pulses.get(id);
-			return pulse && !getPulseMeta(pulse).deleted ? pulse : undefined;
+			if (!pulse) return undefined;
+			const meta = getPulseMeta(pulse);
+			return meta.loaded && !meta.deleted ? pulse : undefined;
 		},
-		load: (options = {}) =>
-			loadPulse(definition, id, { ...parentOptions, ...options }),
+		load: (options = {}) => {
+			const { subPulses: _, ...inherited } = parentOptions;
+			return loadPulse(definition, id, { ...inherited, ...options });
+		},
 	};
 }
 

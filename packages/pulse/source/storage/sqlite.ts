@@ -257,12 +257,22 @@ export class SqlitePatchStore implements DocumentStore {
 	async appendEncoded(frame: Uint8Array): Promise<AppendResult> {
 		return this.append(rowsFromFrame(frame));
 	}
-	async append(rows: readonly StoredPatchRow[]): Promise<AppendResult> {
-		return this.appendRows(rows);
+	/**
+	 * `added` is called inside the transaction, with the rows that were not
+	 * held before, neither applied nor waiting: what it writes to the same
+	 * database commits with them, and what it throws rolls them back. A row
+	 * sent again is never among them.
+	 */
+	async append(
+		rows: readonly StoredPatchRow[],
+		added?: (rows: readonly StoredPatchRow[]) => void,
+	): Promise<AppendResult> {
+		return this.appendRows(rows, false, added);
 	}
 	private appendRows(
 		rows: readonly StoredPatchRow[],
 		recovery = false,
+		added?: (rows: readonly StoredPatchRow[]) => void,
 	): AppendResult {
 		const docId = validateRows(rows);
 		if (docId === undefined) return { inserted: 0, ready: 0, pending: 0 };
@@ -293,6 +303,7 @@ export class SqlitePatchStore implements DocumentStore {
 				const changedActors = new Set<number>();
 				let inserted = 0,
 					ready = 0;
+				const fresh: StoredPatchRow[] = [];
 				const before = this.db.query(
 					"SELECT * FROM pulsify_op_rows WHERE doc_id=? AND sid=? AND time_start<? ORDER BY time_start DESC LIMIT 1",
 				);
@@ -475,6 +486,7 @@ export class SqlitePatchStore implements DocumentStore {
 					}
 					const dependencies = JSON.stringify(row.dependencies);
 					inserted++;
+					fresh.push(row);
 					if (readyNow) {
 						if (keep(row.sid, row.clock, dependencies, row.operations))
 							insert.run(
@@ -563,6 +575,7 @@ export class SqlitePatchStore implements DocumentStore {
 				for (const sid of changedActors)
 					clock.run(docId, sid, frontier.get(sid)!);
 				const vector = [...frontier].sort((a, b) => a[0] - b[0]);
+				if (fresh.length) added?.(fresh);
 				return { inserted, ready, pending: pending.length, vector };
 			})
 			.immediate();

@@ -51,12 +51,105 @@ const old = await access.loadSnapshot(Note, "alice/notes/n1", saved.id); // a re
 restorePulse(note, old);                       // from pulsify-core: the client writes the restore
 destroyPulse(old);
 await access.deleteSnapshot("alice/notes/n1", saved.id); // an owner
+
+// Who wrote: the user behind an actor of a document's history.
+await access.actorSubject("alice/notes/n1", actor);       // "bob", or undefined
 ```
 
 A snapshot is made by the server from the rows it holds, so take it once the
 pulse is `synced`. In a browser, give `createCloudClient` the user's token as
 its credential: an editor creates snapshots, a reader lists and opens them, an
 owner erases them. Opening one applies the migrations added since it was made.
+
+## Who wrote a document
+
+A document's history names the *actor* of every transaction: a number a page
+or a device writes under. Pulsify Cloud knows which user is behind it. When
+a client first uploads writes of an actor it created, the root binds that
+actor to the subject of the connection's token, for good: one actor has one
+user. `actorSubject` asks the root.
+
+```ts
+import { getPulseHistory } from "pulsify-core";
+import { createCloudClient } from "pulsify-cloud";
+
+const cloud = createCloudClient({ url, credential: token }); // a reader of the document, or the API key
+
+for (const version of getPulseHistory(invoice, "total")) {
+  // The user the actor belongs to: the `subject` you signed, or undefined.
+  const userId = await cloud.actorSubject(invoice.id, version.actor);
+  console.log(version.value, userId ?? "unknown");
+}
+```
+
+`actorSubject(docId, actor)` resolves to the subject of your token for that
+user, or to `undefined` for an actor no account has claimed: nothing is
+guessed. A reader of `docId` can ask about the actors that wrote `docId`; the
+API key about any actor of the root.
+
+It answers whose the actor is. That is the author of a write as long as
+only that user wrote under the actor, which holds for your own clients when
+each account has [its own scope](#one-scope-per-account), and which a
+dishonest editor can break: nothing stops it from writing under someone
+else's actor. `authors` tells such writes apart.
+
+That is who owns the actor. A client also uploads writes it did not make,
+those another replica gave it offline or through another connector, so the
+root also keeps which account sent each write. `authors` reads everything
+for one document, in one request:
+
+```ts
+const authors = await cloud.authors(invoice.id);
+for (const version of getPulseHistory(invoice, "total")) {
+  const { subject, receivedFrom, verified } = authors.of(version);
+  // subject:      the user of the actor, as actorSubject answers
+  // receivedFrom: the user whose connection sent this write to the server
+  // verified:     both are one user, who claimed the actor and sent the write itself
+}
+authors.actors; // Map of actor → subject, for the document
+```
+
+Show `subject` as the author when `verified` is true. When it is false the
+server cannot tell: the write was relayed by `receivedFrom`, or its actor was
+never claimed, or it was stored before version 16. A version with
+`migration: true` was written by Pulsify on the device of that user, who
+edited nothing. Writes are not signed, so this is as strong as your tokens:
+nobody can make a write appear as *verified* for another user, and an editor
+can take credit only for an actor that no one has claimed yet, in any
+document of the root.
+
+### One scope per account
+
+Where the account can change on a device (a shared browser profile, a
+sign-out followed by another sign-in), give each account its own scope and
+connector. It is what keeps two accounts from writing under one actor, and
+what lets a page upload, as its own, what an earlier page of the same
+account wrote offline:
+
+```ts
+import { createPulseScope, setDefaultPulseOptions } from "pulsify-core";
+
+// On sign-in. `identity` is the subject you sign into that user's tokens.
+const cloud = createCloudConnector({ url, token: fetchToken });
+setDefaultPulseOptions({
+  scope: createPulseScope({ identity: user.id }),
+  connectors: [cloud, local],
+});
+// On sign-out: cloud.close(), and a new scope and connector for the next user.
+// Never erase the local store: writes not uploaded yet are still in it.
+```
+
+A connector serves one account: it refuses a socket whose token belongs to
+another subject than its first one, and a pulse whose scope has another
+`identity` than the token.
+
+Without an `identity`, the accounts of a profile share its actors. The
+server then refuses the second account an actor that the first one has, and
+the client stops writing under it and reports a `FORBIDDEN` error to
+`onError`; what a page wrote under it before it knew, a transaction or two,
+reads as the first account's actor, unverified. And a write made offline is
+uploaded by a later page as a relayed one, unverified, since nothing says it
+was this account's.
 
 ## Backend
 
@@ -83,7 +176,11 @@ Apache-2.0
 
 `loadPulse` eagerly prefetches an ID subtree in one data request when the server
 advertises support, then subscribes to the referenced documents individually.
-Use `subPulses:false` to load only the requested document, without ancestors.
+While a parent pulse stays open with `subPulses: true` and the server advertises
+`watch: true`, the connector also watches its prefix so newly created
+descendants arrive with their initial data ahead of the parent update.
+Use `subPulses:false` to load only the requested document, without ancestors or
+live descendant pushes.
 The lower-level `cloud.prefetch(docId,{descendants:true,vectors:[]})` returns
 `{documents,complete:true}` after streaming the whole result, with no total
 document or byte cutoff. Internal transport acknowledgements pace the same

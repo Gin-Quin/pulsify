@@ -10,6 +10,7 @@ import type { PresenceHub } from "../presence/presence.js";
 import type { Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
 import type { PulseOptions } from "./PulseOptions.js";
+import type { SubPulseTracker } from "./subPulses.js";
 
 export const PulseMetaSymbol: unique symbol = Symbol("PulseMeta");
 export type PulseMeta = {
@@ -33,12 +34,19 @@ export type PulseMeta = {
 	rowListeners: Set<() => void>;
 	/** The presence channels of this pulse, once `joinPresence` was called. */
 	presence: PresenceHub | undefined;
+	/** Tracks referenced sub-pulses for live loading and `ref.pulse` reactivity. */
+	subPulses?: SubPulseTracker;
 	mutate(ops: CoreOperation[]): void;
 	/** Bring the document to the definition's latest version, if it is behind. */
 	migrate(): void;
 	/** Drop what was computed for a restore that is not written after all. */
 	forgetRestore(version: PulseVersionVector): void;
 	applyRows(rows: PulsePatchRow[]): void;
+	/**
+	 * An endpoint said these actors belong to another account: stop writing
+	 * under the pulse's actor if it is one of them.
+	 */
+	disownActors(actors: readonly number[]): void;
 	report(error: Error): void;
 };
 export function getPulseMeta(pulse: Pulse<any>): PulseMeta {

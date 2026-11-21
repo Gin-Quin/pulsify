@@ -613,3 +613,129 @@ test("a root left with no document, grant or tombstone wipes itself once idle", 
 		{ subject: "ada" },
 	]);
 });
+
+test("the account of an actor and of its writes survives hibernation, through the object's own requests", async () => {
+	const { state, sockets, db } = durableState();
+	let root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "*", prefix: "r", role: "editor" });
+	const ask = async (
+		object: PulsifyCloudRoot,
+		action: "actors" | "authors",
+		subject: string,
+		actor?: number,
+	) =>
+		(
+			await object.fetch(
+				new Request(
+					`https://root/${action}?docId=r/doc${actor ? `&actor=${actor}` : ""}`,
+					{
+						headers: {
+							[ROOT_HEADERS.root]: "r",
+							[ROOT_HEADERS.action]: action,
+							...callerToHeaders({ kind: "user", subject }),
+						},
+					},
+				),
+			)
+		).json();
+	const write = (sid: number, clock: number) =>
+		encodeMessage({
+			kind: 3,
+			docId: "r/doc",
+			requestId: clock + 1,
+			vv: [],
+			rows: [
+				{
+					docId: "r/doc",
+					sid,
+					clock,
+					span: 1,
+					dependencies: clock > 1 ? [[sid, clock]] : [],
+					operations: new Uint8Array([clock]),
+				},
+			],
+		});
+	const a = socket("a", "ada"),
+		b = socket("b", "grace");
+	sockets.push(a, b);
+	for (const each of sockets) await send(root, each, connect("r/doc"));
+	await root.webSocketMessage(
+		a as never,
+		JSON.stringify({ type: "actors", docId: "r/doc", actors: [70001] }),
+	);
+	await send(root, a, write(70001, 1));
+	expect(await ask(root, "actors", "grace", 70001)).toEqual({ subject: "ada" });
+
+	// The object hibernates: a new instance, the same storage and sockets.
+	// Ada writes on without declaring her actor again, and Grace cannot take
+	// it: all of it is in storage.
+	root = new PulsifyCloudRoot(state);
+	await send(root, a, write(70001, 2));
+	b.sent.length = 0;
+	await root.webSocketMessage(
+		b as never,
+		JSON.stringify({ type: "actors", docId: "r/doc", actors: [70001] }),
+	);
+	expect(b.sent.filter((data) => typeof data === "string")).toEqual([
+		JSON.stringify({ type: "actors", docId: "r/doc", refused: [70001] }),
+	]);
+	await send(root, b, write(70001, 3));
+	root = new PulsifyCloudRoot(state);
+	expect(await ask(root, "actors", "grace", 70001)).toEqual({ subject: "ada" });
+	expect(await ask(root, "actors", "grace", 70002)).toEqual({ subject: null });
+	expect(await ask(root, "authors", "grace")).toEqual({
+		actors: [[70001, "ada"]],
+		received: [
+			{ actor: 70001, clock: 1, end: 3, subject: "ada" },
+			{ actor: 70001, clock: 3, end: 4, subject: "grace" },
+		],
+	});
+	expect(rowCount(db, "doc_id='r/doc'")).toBe(3);
+});
+
+test("descendant watches survive hibernation and push newly created sub-documents", async () => {
+	const { state, sockets } = durableState();
+	let root = new PulsifyCloudRoot(state);
+	await admin(root, "PUT", { subject: "ada", prefix: "r", role: "owner" });
+	await admin(root, "PUT", { subject: "grace", prefix: "r", role: "reader" });
+
+	const a = socket("a", "ada");
+	const b = socket("b", "grace");
+	sockets.push(a, b);
+	await root.webSocketMessage(
+		b as never,
+		JSON.stringify({ type: "watch", docId: "r" }),
+	);
+	expect(b.attachment["watches"]).toEqual(new Set(["r"]));
+
+	// The Durable Object hibernates and wakes up as a fresh instance.
+	root = new PulsifyCloudRoot(state);
+	await send(root, a, connect("r/new-note"));
+	b.sent.length = 0;
+	await send(
+		root,
+		a,
+		encodeMessage({
+			kind: 3,
+			docId: "r/new-note",
+			requestId: 2,
+			vv: [],
+			rows: [
+				{
+					docId: "r/new-note",
+					sid: 70001,
+					clock: 1,
+					span: 1,
+					dependencies: [],
+					operations: new Uint8Array([1, 2, 3]),
+				},
+			],
+		}),
+	);
+	const pushed = b.sent
+		.filter((data): data is Uint8Array => data instanceof Uint8Array)
+		.map((bytes) => decodeMessage(bytes));
+	expect(pushed).toMatchObject([
+		{ kind: 4, docId: "r/new-note", requestId: 0, rows: [{ clock: 1 }] },
+	]);
+});

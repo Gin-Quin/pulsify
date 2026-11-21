@@ -9,6 +9,13 @@ export type ConnectorSession = {
 	 * known to understand them: an older relay rejects the frames.
 	 */
 	presence?: boolean;
+	/**
+	 * Called before rows are uploaded, with the actors among their writers
+	 * that this client created itself: an endpoint that authenticates its
+	 * sessions can then bind these actors to the session's account. Rows of
+	 * other actors, which this client only relays, are never declared.
+	 */
+	declareActors?(actors: readonly number[]): void;
 	send(bytes: Uint8Array): Promise<void>;
 	close(): void;
 };
@@ -25,6 +32,8 @@ export type Connector = {
 			timeoutMs?: number;
 			vectors: [string, PulseVersionVector][];
 			signal?: AbortSignal | undefined;
+			/** As in `open`: the `identity` of the scope that asks. */
+			identity?: string | undefined;
 		},
 	): Promise<
 		{ documents: Map<string, PulsePatchRow[]>; complete: boolean } | undefined
@@ -37,6 +46,17 @@ export type Connector = {
 		recovery: readonly PulsePatchRow[],
 	): Promise<void>;
 	/**
+	 * Consume rows proactively pushed by this endpoint for a descendant
+	 * (`parent/…`) that has not been opened yet.
+	 */
+	takePushed?(docId: string): PulsePatchRow[] | undefined;
+	/**
+	 * Notify when the endpoint pushes rows for a descendant with no open
+	 * session yet (for example, when a child finishes uploading right after
+	 * its parent linked its ID).
+	 */
+	onPushed?(listener: (docId: string) => void): () => void;
+	/**
 	 * Local connectors: a name for the store behind this connector. Pulses reuse
 	 * actor IDs among the pages that share the store. A local connector without
 	 * it gives its pulses a random actor.
@@ -44,7 +64,22 @@ export type Connector = {
 	actorPool?: string;
 	open(input: {
 		docId: string;
+		/**
+		 * Subscribe to live broadcasts of newly created descendants (`docId/…`)
+		 * while this session is open, so sub-pulses arrive with their initial data.
+		 */
+		watchDescendants?: boolean;
+		/**
+		 * The `identity` of the pulse's scope, when it has one. A connector that
+		 * authenticates as an account refuses a session for another identity.
+		 */
+		identity?: string | undefined;
 		signal: AbortSignal;
+		/**
+		 * The endpoint did not accept these declared actors as the session's:
+		 * another account has them. The pulse stops writing under them.
+		 */
+		onActorsRefused?(actors: readonly number[]): void;
 		onMessage(bytes: Uint8Array): void;
 		onClose(error?: Error): void;
 	}): Promise<ConnectorSession>;

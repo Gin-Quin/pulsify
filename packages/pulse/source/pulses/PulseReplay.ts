@@ -24,6 +24,8 @@ export type ReplayStep = {
 	version: PulseVersionVector;
 	actor: number;
 	time?: number;
+	/** Set by a history that replays its steps: see `PulseVersion.migration`. */
+	migration?: true;
 };
 
 /**

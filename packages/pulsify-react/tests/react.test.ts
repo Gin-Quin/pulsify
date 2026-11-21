@@ -13,7 +13,9 @@ import {
 	joinPresence,
 	loadPulse,
 	PulseRelay,
+	pulseRef,
 	richText,
+	sub,
 	tree,
 	type Pulse,
 	type RichText,
@@ -739,4 +741,59 @@ test("usePulsePresence refuses to render on the server", () => {
 		return String(usePulsePresence(doc, Viewer).others.length);
 	}
 	expect(() => renderToString(h(Viewers))).toThrow("client only");
+});
+
+test("usePulse re-renders when a sub-pulse loads live or via ref.load()", async () => {
+	const Card = definePulse("Card", object({ title: "string" })).materialize();
+	const Board = definePulse(
+		"Board",
+		object({ cards: array(sub(Card)) }),
+	).materialize();
+	const connector = createMemoryConnector(new PulseRelay());
+	const aBoard = track(
+		createPulse(
+			Board,
+			{ id: "board-react", cards: [] },
+			{ scope: createPulseScope(), connectors: [connector] },
+		),
+	);
+	await connectPulse(aBoard).synced;
+
+	const bBoard = track(
+		await loadPulse(Board, "board-react", {
+			scope: createPulseScope(),
+			connectors: [connector],
+			waitFor: "all",
+		}),
+	);
+	const lazyBoard = track(
+		await loadPulse(Board, "board-react", {
+			scope: createPulseScope(),
+			connectors: [connector],
+			waitFor: "all",
+			subPulses: false,
+		}),
+	);
+
+	function View({ board }: { board: typeof bBoard }) {
+		return usePulse(board)
+			.cards.map((ref) => ref.pulse?.title ?? "...")
+			.join(",");
+	}
+	const eager = render(h(View, { board: bBoard }));
+	const lazy = render(h(View, { board: lazyBoard }));
+	expect(eager.container.textContent).toBe("");
+	expect(lazy.container.textContent).toBe("");
+
+	const card = track(createPulse(Card, { title: "Hello" }, { parent: aBoard }));
+	await connectPulse(card).synced;
+	aBoard.cards.push(pulseRef(card));
+
+	await settle(() => expect(eager.container.textContent).toBe("Hello"));
+	await settle(() => expect(lazy.container.textContent).toBe("..."));
+
+	await act(async () => {
+		await lazyBoard.cards[0]!.load({ waitFor: "all" });
+	});
+	expect(lazy.container.textContent).toBe("Hello");
 });

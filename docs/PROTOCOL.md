@@ -187,6 +187,13 @@ continues at the next sequence number: writing an older clock again forks the
 actor's history. `pulsify-core` leases and reuses IDs this way; see
 [Actor IDs](../packages/pulse/README.md#actor-ids).
 
+An actor ID names no user, and nothing in a row says who wrote it: frames
+are unchanged by authentication. An endpoint that authenticates its sessions
+may record which account an actor belongs to and which account sent each
+row, as [Pulsify Cloud](CLOUD.md#authors) does since Pulsify 16. A relay
+uploads rows of other actors too, so the sender of a row is not always its
+writer.
+
 Dependencies capture the complete applied frontier observed before the
 transaction. A later transaction by the same actor declares its predecessor
 end. Rows stay pending until their actor prefix is contiguous and every

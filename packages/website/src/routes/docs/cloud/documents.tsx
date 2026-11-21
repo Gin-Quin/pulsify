@@ -22,6 +22,36 @@ destroyPulse(old);
 
 await cloud.deleteSnapshot(note.id, saved.id); // an owner`;
 
+const authors = `import { getPulseHistory } from "pulsify-core";
+import { createCloudClient } from "pulsify-cloud";
+
+// With the token of a reader of the document, or the API key.
+const cloud = createCloudClient({ url, credential: () => fetchToken() });
+
+// The user an actor of the history belongs to: the subject of their token.
+for (const version of getPulseHistory(invoice, "total")) {
+  const userId = await cloud.actorSubject(invoice.id, version.actor);
+  console.log(version.value, userId ?? "unknown");
+}
+
+// Everything for one document in one request, write by write.
+const who = await cloud.authors(invoice.id);
+for (const version of getPulseHistory(invoice, "total")) {
+  const { subject, receivedFrom, verified } = who.of(version);
+  // verified: \`subject\` claimed the actor and sent this write itself
+}`;
+
+const accounts = `import { createPulseScope, setDefaultPulseOptions } from "pulsify-core";
+import { createCloudConnector } from "pulsify-cloud";
+
+// On sign-in: \`identity\` is the subject you sign into that user's tokens.
+const cloud = createCloudConnector({ url, token: fetchToken });
+setDefaultPulseOptions({
+  scope: createPulseScope({ identity: user.id }),
+  connectors: [cloud, local],
+});
+// On sign-out: cloud.close(), then a new scope and connector for the next user.`;
+
 const expiry = `import { createCloudClient } from "pulsify-cloud";
 
 const cloud = createCloudClient({ url, credential: process.env.PULSIFY_API_KEY! });
@@ -36,7 +66,7 @@ export default function CloudDocuments() {
 		<>
 			<Seo
 				title="Managing cloud documents · Pulsify Docs"
-				description="Delete documents and roots on Pulsify Cloud, take and restore snapshots, and let a root erase itself once nobody uses it."
+				description="Delete documents and roots on Pulsify Cloud, take and restore snapshots, find which user wrote what, and let a root erase itself once nobody uses it."
 			/>
 			<h1>Managing documents</h1>
 			<p>
@@ -83,6 +113,50 @@ export default function CloudDocuments() {
 				applied to it. <code>restorePulse</code> then replaces the live document
 				by a new <a href="/docs/modifiers#restore">generation</a> of it.
 			</p>
+
+			<h2 id="authors">Who wrote a document</h2>
+			<p>
+				The <a href="/docs/modifiers#history">history</a> of a document names
+				the <em>actor</em> of every write: a number a page or a device writes
+				under, not a user. Pulsify Cloud knows who is behind it. When a client
+				first uploads writes of an actor it created, the root binds that actor
+				to the subject of the connection's token, for good: one actor has one
+				user. <code>actorSubject</code> asks the root, and resolves to{" "}
+				<code>undefined</code> for an actor that no account has claimed.
+			</p>
+			<CodeBlock title="authors.ts" code={authors} />
+			<p>
+				A reader of the document can ask about the actors that wrote it, and the
+				API key about any actor of the root. That is who owns the actor. A
+				client also uploads writes it did not make, those another replica gave
+				it offline or through another connector, so the root also keeps which
+				account sent each write: <code>authors</code> returns both. Show{" "}
+				<code>subject</code> as the author when <code>verified</code> is true.
+				When it is false the server cannot tell: the write was relayed by{" "}
+				<code>receivedFrom</code>, or its actor was never claimed. Writes are
+				not signed, so this is as strong as your tokens: nobody can make a write
+				appear as verified for another user, and an editor can take credit only
+				for an actor that no one has claimed yet. <code>actorSubject</code> says
+				whose the actor is, which is the author as long as only that user wrote
+				under it: a dishonest editor can write under someone else's actor, and{" "}
+				<code>verified</code> is what tells. A version with{" "}
+				<code>migration: true</code> is a{" "}
+				<a href="/docs/migrations">migration</a> that ran on that user's device:
+				they edited nothing.
+			</p>
+			<p>
+				Where the account can change on a device, give each account its own
+				scope and connector: it is what keeps two accounts from writing under
+				one actor, and what lets a page upload as its own what an earlier page
+				of the same account wrote offline. A connector serves one account, and
+				refuses a scope whose <code>identity</code> is not the subject of its
+				token. Without an <code>identity</code>, the accounts of a profile share
+				its actors: the server refuses the second account an actor of the first,
+				and its client reports a <code>FORBIDDEN</code> error and writes under
+				another actor from then on. Keep the local store on sign-out: it may
+				hold writes that were not uploaded yet.
+			</p>
+			<CodeBlock title="accounts.ts" code={accounts} />
 
 			<h2>Expire roots</h2>
 			<p>

@@ -50,9 +50,43 @@ export type CloudWelcomeMessage = {
 	server: CloudServerInfo;
 	presence?: boolean;
 	subtrees?: boolean;
+	/** The server pushes live updates for watched descendant subtrees (`watch`/`unwatch`). */
+	watch?: boolean;
+	/** The server binds actors to accounts: it accepts `actors` messages. */
+	authors?: boolean;
+	/** The account the server authenticated this socket as, from its token. */
+	subject?: string;
+};
+/** The most actors one `actors` message names: as many as a document has. */
+export const MAX_DECLARED_ACTORS = 1024;
+/**
+ * Client → server, when it connects to `docId` and before it uploads rows of
+ * these actors: they are actors this client created, not ones whose rows it
+ * relays. The server binds each one to the socket's account, for good,
+ * unless another account has it; it ignores the message, without an answer,
+ * from a session that cannot write `docId`.
+ */
+export type CloudActorsMessage = {
+	type: "actors";
+	docId: string;
+	actors: number[];
+};
+/**
+ * Server → client: the actors of an `actors` message that another account
+ * has. Their rows are still stored, unverified: the client stops writing
+ * under them.
+ */
+export type CloudActorsRefusedMessage = {
+	type: "actors";
+	docId: string;
+	refused: number[];
 };
 /** Client → server: stop receiving a document's updates without closing the socket. */
 export type CloudUnsubscribeMessage = { type: "unsubscribe"; docId: string };
+/** Client → server: receive live broadcasts for newly created descendants (`docId/…`). */
+export type CloudWatchMessage = { type: "watch"; docId: string };
+/** Client → server: stop receiving live broadcasts for descendants of `docId`. */
+export type CloudUnwatchMessage = { type: "unwatch"; docId: string };
 export type CloudFetchMessage = {
 	type: "fetch";
 	docId: string;
@@ -84,25 +118,49 @@ export type CloudServerMessage =
 	| CloudRoleMessage
 	| CloudWelcomeMessage
 	| CloudFetchedMessage
-	| CloudFetchBatchMessage;
+	| CloudFetchBatchMessage
+	| CloudActorsRefusedMessage;
 
 export function welcomeMessage(
 	server: CloudServerInfo,
-	capabilities: { presence?: boolean; subtrees?: boolean } = {},
+	capabilities: {
+		presence?: boolean;
+		subtrees?: boolean;
+		watch?: boolean;
+		authors?: boolean;
+		subject?: string;
+	} = {},
 ): string {
 	const message: CloudWelcomeMessage = {
 		type: "welcome",
 		server,
 		...(capabilities.presence ? { presence: true } : {}),
 		...(capabilities.subtrees ? { subtrees: true } : {}),
+		...(capabilities.watch ? { watch: true } : {}),
+		...(capabilities.authors ? { authors: true } : {}),
+		...(capabilities.subject === undefined
+			? {}
+			: { subject: capabilities.subject }),
 	};
 	return JSON.stringify(message);
 }
 export type CloudClientMessage =
 	| CloudUnsubscribeMessage
+	| CloudWatchMessage
+	| CloudUnwatchMessage
 	| CloudFetchMessage
 	| CloudFetchAckMessage
-	| CloudCancelFetchMessage;
+	| CloudCancelFetchMessage
+	| CloudActorsMessage;
+
+/** Actor IDs as documents hold them: safe integers from 65536. */
+function actorList(value: unknown): value is number[] {
+	return (
+		Array.isArray(value) &&
+		value.length <= MAX_DECLARED_ACTORS &&
+		value.every((actor) => Number.isSafeInteger(actor) && actor >= 65536)
+	);
+}
 
 function fetchRequestId(value: unknown): value is number {
 	return Number.isSafeInteger(value) && (value as number) >= 2 ** 52;
@@ -115,6 +173,15 @@ export function parseClientMessage(text: string): CloudClientMessage {
 	if (text.length > 64 * 1024)
 		throw new CloudError("LIMIT_EXCEEDED", "Control message is too large");
 	const message = parseObject(text);
+	if (message["type"] === "actors") {
+		if (typeof message["docId"] !== "string" || !actorList(message["actors"]))
+			throw new CloudError("BAD_REQUEST", "Invalid actor declaration");
+		return {
+			type: "actors",
+			docId: message["docId"],
+			actors: message["actors"],
+		};
+	}
 	if (message["type"] === "cancel-fetch") {
 		if (!fetchRequestId(message["requestId"]))
 			throw new CloudError("BAD_REQUEST", "Invalid fetch cancellation");
@@ -156,12 +223,26 @@ export function parseClientMessage(text: string): CloudClientMessage {
 			vectors,
 		};
 	}
+	if (message["type"] === "watch" || message["type"] === "unwatch") {
+		if (typeof message["docId"] !== "string")
+			throw new CloudError("BAD_REQUEST", "Invalid watch message");
+		return { type: message["type"], docId: message["docId"] };
+	}
 	if (message["type"] !== "unsubscribe" || typeof message["docId"] !== "string")
 		throw new CloudError("BAD_REQUEST", "Unknown control message");
 	return { type: "unsubscribe", docId: message["docId"] };
 }
 export function parseServerMessage(text: string): CloudServerMessage {
 	const message = parseObject(text);
+	if (message["type"] === "actors") {
+		if (typeof message["docId"] !== "string" || !actorList(message["refused"]))
+			throw new CloudError("BAD_REQUEST", "Invalid actor refusal");
+		return {
+			type: "actors",
+			docId: message["docId"],
+			refused: message["refused"],
+		};
+	}
 	if (message["type"] === "fetch-batch") {
 		if (!fetchRequestId(message["requestId"]) || !batchNumber(message["batch"]))
 			throw new CloudError("BAD_REQUEST", "Invalid fetch batch");
@@ -205,6 +286,11 @@ export function parseServerMessage(text: string): CloudServerMessage {
 			},
 			...(message["presence"] === true ? { presence: true } : {}),
 			...(message["subtrees"] === true ? { subtrees: true } : {}),
+			...(message["watch"] === true ? { watch: true } : {}),
+			...(message["authors"] === true ? { authors: true } : {}),
+			...(typeof message["subject"] === "string"
+				? { subject: message["subject"] }
+				: {}),
 		};
 	}
 	const { docId, role } = message;
@@ -285,7 +371,14 @@ export function peekFrameHeader(bytes: Uint8Array): FrameHeader {
 }
 
 export type CloudAction =
-	"connect" | "grants" | "usage" | "documents" | "expire" | "snapshots";
+	| "connect"
+	| "grants"
+	| "usage"
+	| "documents"
+	| "expire"
+	| "snapshots"
+	| "actors"
+	| "authors";
 export const CLOUD_HEALTH_PATH = "/v1/health";
 /** `/v1/roots/{root}/{action}`, with the root percent-encoded as one segment. */
 export function cloudPath(root: string, action: CloudAction): string {
@@ -295,7 +388,7 @@ export function parseCloudPath(
 	pathname: string,
 ): { root: string; action: CloudAction } | undefined {
 	const match =
-		/^\/v1\/roots\/([^/]+)\/(connect|grants|usage|documents|expire|snapshots)\/?$/.exec(
+		/^\/v1\/roots\/([^/]+)\/(connect|grants|usage|documents|expire|snapshots|actors|authors)\/?$/.exec(
 			pathname,
 		);
 	if (!match) return undefined;

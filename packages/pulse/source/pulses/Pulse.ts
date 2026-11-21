@@ -14,6 +14,7 @@ import { defaultPulseScope } from "./PulseOptions.js";
 import type { PulseProperties } from "./PulseProperties.js";
 import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
 import { pulseAt } from "./PulseHistory.js";
+import { notifyScope } from "./scopeEvents.js";
 
 export const pulses = defaultPulseScope.pulses;
 export type Pulse<
@@ -36,6 +37,7 @@ export function destroyPulse(pulse: Pulse<any>): void {
 	const meta = pulse[PulseMetaSymbol];
 	if (meta.destroyed) return;
 	meta.destroyed = true;
+	meta.subPulses?.dispose();
 	meta.presence?.dispose();
 	disconnectPulse(pulse);
 	for (const connection of meta.connections) connection.dispose();
@@ -43,6 +45,7 @@ export function destroyPulse(pulse: Pulse<any>): void {
 	meta.rowListeners.clear();
 	meta.statusListeners.clear();
 	meta.options.scope.pulses.delete(meta.id);
+	if (meta.loaded && !meta.deleted) notifyScope(meta.options.scope, meta.id);
 }
 /**
  * Follow the synchronization status (`syncing`, `ready`, `synced`, `offline`,

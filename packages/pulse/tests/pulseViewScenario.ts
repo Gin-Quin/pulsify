@@ -103,4 +103,38 @@ export async function checkPulseViews(
 	await new Promise((resolve) => setTimeout(resolve, 20));
 	flush();
 	expect(seen.at(-1)).toBe("Remote|Grace|a,b|B|Done");
+
+	// A sub-pulse created live on another client loads and re-runs readers.
+	const second = createPulse(Task, { label: "Second" }, { parent: other });
+	await connectPulse(second).synced;
+	other.tasks.push(pulseRef(second));
+	for (
+		let i = 0;
+		i < 50 && seen.at(-1) !== "Remote|Grace|a,b|B|Done,Second";
+		i++
+	) {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		flush();
+	}
+	expect(seen.at(-1)).toBe("Remote|Grace|a,b|B|Done,Second");
+
+	// A lazy handle's `.pulse` turning from undefined to loaded also re-runs readers.
+	const lazy = await loadPulse(Note, pulse.id, {
+		scope: createPulseScope(),
+		connectors: [connector],
+		waitFor: "all",
+		subPulses: false,
+	});
+	const lazyView = wrap(lazy);
+	const lazySeen: string[] = [];
+	effect(() => {
+		lazySeen.push(
+			lazyView.tasks.map((handle) => handle.pulse?.label ?? "...").join(),
+		);
+	});
+	flush();
+	expect(lazySeen.at(-1)).toBe("...,...");
+	await lazyView.tasks[0]!.load({ waitFor: "all" });
+	flush();
+	expect(lazySeen.at(-1)).toBe("Done,...");
 }

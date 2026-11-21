@@ -39,6 +39,8 @@ type Attachment = {
 	 * attachment holds 16,384 serialized bytes: the root stores what is over.
 	 */
 	subscriptions?: ReadonlyMap<string, CloudRole>;
+	/** Watched descendant prefixes (`prefix/…`), kept here so they survive hibernation. */
+	watches?: ReadonlySet<string>;
 	/** Closed because its root was deleted: its close event has nothing left to do. */
 	erased?: true;
 };
@@ -102,7 +104,13 @@ export class PulsifyCloudRoot {
 				throw new CloudError("BAD_REQUEST", "Missing gateway headers");
 			const engine = this.root(root);
 			const action = request.headers.get(ROOT_HEADERS.action);
-			if (action === "grants" || action === "usage" || action === "snapshots")
+			if (
+				action === "grants" ||
+				action === "usage" ||
+				action === "snapshots" ||
+				action === "actors" ||
+				action === "authors"
+			)
 				return await engine.handleRequest(action, request, caller);
 			if (action === "expire") {
 				const response = await engine.handleRequest(action, request, caller);
@@ -145,7 +153,13 @@ export class PulsifyCloudRoot {
 						id: this.state.id?.toString() ?? root,
 						...(location ? { location } : {}),
 					},
-					{ presence: true, subtrees: true },
+					{
+						presence: true,
+						subtrees: true,
+						watch: true,
+						authors: true,
+						subject: caller.subject,
+					},
 				),
 			);
 			return new Response(null, {
@@ -307,6 +321,7 @@ export class PulsifyCloudRoot {
 			...attachment,
 			presence: attachment.presence === true,
 			subscriptions: attachment.subscriptions ?? new Map(),
+			watches: attachment.watches ?? new Set(),
 			usePresence: () => keep({ presence: true }),
 			keepSubscriptions: (subscriptions) => {
 				try {
@@ -314,6 +329,14 @@ export class PulsifyCloudRoot {
 					return true;
 				} catch {
 					// Over the size limit: the runtime keeps the previous attachment.
+					return false;
+				}
+			},
+			keepWatches: (watches) => {
+				try {
+					keep({ watches });
+					return true;
+				} catch {
 					return false;
 				}
 			},

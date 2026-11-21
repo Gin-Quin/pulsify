@@ -3,6 +3,7 @@ import { coversDocument } from "../storage/documents.js";
 import type { Pulse } from "./Pulse.js";
 import { getPulseMeta } from "./PulseMeta.js";
 import type { PulseScope } from "./PulseOptions.js";
+import { notifyScope } from "./scopeEvents.js";
 
 export function assertScopeLive(scope: PulseScope, id: string): void {
 	if ([...(scope.deleted ?? [])].some((prefix) => coversDocument(prefix, id)))
@@ -37,10 +38,12 @@ export function markPulseDeleted(pulse: Pulse<any>): Promise<void> {
 	);
 	for (const meta of affected) {
 		meta.deleted = true;
+		meta.subPulses?.dispose();
 		meta.cancelConnection?.(error);
 		for (const connection of meta.connections) connection.close();
 		meta.status = "error";
 		meta.lastError = error;
+		if (meta.loaded) notifyScope(scope, meta.id);
 	}
 	const saved = Promise.all(
 		[...locals].map((local) =>

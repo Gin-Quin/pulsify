@@ -390,3 +390,162 @@ test("a failed storage deletion does not notify clients that live data was delet
 		f.db.close();
 	}
 });
+
+test("watch pushes live descendant updates to another peer, enforces grants and stops on unwatch", async () => {
+	const db = new Database(":memory:");
+	const storage = new SqliteCloudStorage(db);
+	try {
+		await storage.putGrant({ subject: "alice", prefix: "r", role: "owner" });
+		await storage.putGrant({ subject: "bob", prefix: "r", role: "reader" });
+		const makePeer = (id: string, subject: string) => {
+			const frames: PulseMessage[] = [];
+			const peer: CloudPeer = {
+				id,
+				subject,
+				envelope: 2,
+				presence: false,
+				subscriptions: new Map(),
+				keepSubscriptions: () => true,
+				watches: new Set(),
+				keepWatches: () => true,
+				usePresence() {},
+				close() {},
+				send(data) {
+					if (typeof data !== "string") frames.push(decodeMessage(data));
+				},
+			};
+			return { peer, frames };
+		};
+		const a = makePeer("a", "alice");
+		const b = makePeer("b", "bob");
+		const peers = new Map([
+			[a.peer.id, a.peer],
+			[b.peer.id, b.peer],
+		]);
+		const root = new CloudRoot("r", storage, {
+			get: (id) => peers.get(id),
+			all: () => peers.values(),
+		});
+
+		await root.receive(b.peer, JSON.stringify({ type: "watch", docId: "r" }));
+		await root.receive(
+			a.peer,
+			encodeMessage({ kind: 1, docId: "r/child-1", requestId: 1, vv: [] }),
+		);
+		await root.receive(
+			a.peer,
+			encodeMessage({
+				kind: 3,
+				docId: "r/child-1",
+				requestId: 2,
+				vv: [],
+				rows: [
+					{
+						docId: "r/child-1",
+						sid: 70001,
+						clock: 1,
+						span: 1,
+						dependencies: [],
+						operations: Uint8Array.of(42),
+					},
+				],
+			}),
+		);
+		expect(b.frames).toMatchObject([
+			{ kind: 4, docId: "r/child-1", requestId: 0, rows: [{ clock: 1 }] },
+		]);
+
+		// Subscribing to r/child-1 as well must not produce duplicate broadcasts.
+		b.frames.length = 0;
+		await root.receive(
+			b.peer,
+			encodeMessage({ kind: 1, docId: "r/child-1", requestId: 1, vv: [] }),
+		);
+		b.frames.length = 0;
+		await root.receive(
+			a.peer,
+			encodeMessage({
+				kind: 3,
+				docId: "r/child-1",
+				requestId: 3,
+				vv: [],
+				rows: [
+					{
+						docId: "r/child-1",
+						sid: 70001,
+						clock: 2,
+						span: 1,
+						dependencies: [[70001, 2]],
+						operations: Uint8Array.of(43),
+					},
+				],
+			}),
+		);
+		expect(b.frames).toHaveLength(1);
+
+		// Unwatching stops pushes for new descendants.
+		b.frames.length = 0;
+		await root.receive(b.peer, JSON.stringify({ type: "unwatch", docId: "r" }));
+		await root.receive(
+			a.peer,
+			encodeMessage({ kind: 1, docId: "r/child-2", requestId: 4, vv: [] }),
+		);
+		await root.receive(
+			a.peer,
+			encodeMessage({
+				kind: 3,
+				docId: "r/child-2",
+				requestId: 5,
+				vv: [],
+				rows: [
+					{
+						docId: "r/child-2",
+						sid: 70001,
+						clock: 1,
+						span: 1,
+						dependencies: [],
+						operations: Uint8Array.of(44),
+					},
+				],
+			}),
+		);
+		expect(b.frames).toEqual([]);
+
+		// Revoking access removes active watches and stops pushes.
+		await root.receive(b.peer, JSON.stringify({ type: "watch", docId: "r" }));
+		await root.handleRequest(
+			"grants",
+			new Request("https://test/grants?subject=bob&prefix=r", {
+				method: "DELETE",
+			}),
+			{ kind: "admin" },
+		);
+		b.frames.length = 0;
+		await root.receive(
+			a.peer,
+			encodeMessage({ kind: 1, docId: "r/child-3", requestId: 6, vv: [] }),
+		);
+		await root.receive(
+			a.peer,
+			encodeMessage({
+				kind: 3,
+				docId: "r/child-3",
+				requestId: 7,
+				vv: [],
+				rows: [
+					{
+						docId: "r/child-3",
+						sid: 70001,
+						clock: 1,
+						span: 1,
+						dependencies: [],
+						operations: Uint8Array.of(45),
+					},
+				],
+			}),
+		);
+		expect(b.frames).toEqual([]);
+	} finally {
+		db.close();
+	}
+});

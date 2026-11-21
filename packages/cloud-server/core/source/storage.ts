@@ -1,12 +1,17 @@
 import {
+	rowsFromFrame,
 	SqlitePatchStore,
 	type DocumentStore,
+	type PatchStore,
 	type SqliteCompactCursor,
 	type SqliteConnection,
+	type StoredPatchRow,
 } from "pulsify-core/storage";
 import {
 	isCloudRole,
+	rootOf,
 	type CloudGrant,
+	type CloudReceivedRange,
 	type CloudRole,
 	type CloudSnapshot,
 } from "pulsify-cloud";
@@ -16,6 +21,11 @@ export type CloudSubscription = {
 	readonly connection: string;
 	readonly docId: string;
 	readonly role: CloudRole;
+};
+/** A stored descendant watch of a connection on a prefix (`prefix/…`). */
+export type CloudWatch = {
+	readonly connection: string;
+	readonly prefix: string;
 };
 export type CloudUsage = { documents: number; rows: number; bytes: number };
 /** A snapshot as it is stored: its description, and frames a client applies. */
@@ -37,6 +47,9 @@ export interface CloudRootStorage {
 	loadSubscriptions(): Promise<CloudSubscription[]>;
 	saveSubscription(subscription: CloudSubscription): Promise<void>;
 	deleteSubscription(connection: string, docId: string): Promise<void>;
+	loadWatches?(): Promise<CloudWatch[]>;
+	saveWatch?(watch: CloudWatch): Promise<void>;
+	deleteWatch?(connection: string, prefix: string): Promise<void>;
 	deleteConnection(connection: string): Promise<void>;
 	/**
 	 * Erase a document and its sub-documents (`docId/…`): their rows and the
@@ -44,6 +57,22 @@ export interface CloudRootStorage {
 	 */
 	deleteDocuments(docId: string): Promise<number>;
 	usage(): Promise<CloudUsage>;
+	/**
+	 * Bind each actor to `subject`, for good, unless an account has it
+	 * already. Resolves to the actors that another account has.
+	 */
+	claimActors(subject: string, actors: readonly number[]): Promise<number[]>;
+	/** The account each of these actors is bound to; unbound ones are absent. */
+	actorSubjects(actors: readonly number[]): Promise<Map<number, string>>;
+	/**
+	 * The patch store as one account writes it: the rows an append adds are
+	 * recorded as received from `subject` in the same commit, and a refused
+	 * append records nothing. Rows the store already holds keep the account
+	 * they were first received from.
+	 */
+	receivedFrom(subject: string): PatchStore;
+	/** Which account each run of a document's writes was received from. */
+	received(docId: string): Promise<CloudReceivedRange[]>;
 	/** Since `cloud.expire`: how long the root may stay without sockets before it is erased. */
 	expiry?(): Promise<number | undefined>;
 	setExpiry?(idleMs: number): Promise<void>;
@@ -91,6 +120,10 @@ CREATE TABLE IF NOT EXISTS pulsify_cloud_subscriptions (
  role TEXT NOT NULL CHECK(role IN ('reader','editor','owner')),
  PRIMARY KEY(connection, doc_id)
 ) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS pulsify_cloud_watches (
+ connection TEXT NOT NULL, prefix TEXT NOT NULL,
+ PRIMARY KEY(connection, prefix)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS pulsify_cloud_expiry (
  id INTEGER PRIMARY KEY CHECK(id = 1), idle_ms INTEGER NOT NULL
 );
@@ -98,6 +131,14 @@ CREATE TABLE IF NOT EXISTS pulsify_cloud_snapshots (
  doc_id TEXT NOT NULL, id TEXT NOT NULL, time INTEGER NOT NULL,
  label TEXT, subject TEXT, version TEXT NOT NULL,
  PRIMARY KEY(doc_id, id)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS pulsify_cloud_actors (
+ sid INTEGER PRIMARY KEY, subject TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pulsify_cloud_received (
+ doc_id TEXT NOT NULL, sid INTEGER NOT NULL, clock INTEGER NOT NULL,
+ clock_end INTEGER NOT NULL, subject TEXT NOT NULL,
+ PRIMARY KEY(doc_id, sid, clock)
 ) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS pulsify_cloud_snapshot_frames (
  doc_id TEXT NOT NULL, id TEXT NOT NULL, seq INTEGER NOT NULL,
@@ -176,9 +217,31 @@ export class SqliteCloudStorage implements CloudRootStorage {
 			)
 			.run(connection, docId);
 	}
+	async loadWatches(): Promise<CloudWatch[]> {
+		return this.db
+			.query("SELECT connection, prefix FROM pulsify_cloud_watches")
+			.all() as CloudWatch[];
+	}
+	async saveWatch({ connection, prefix }: CloudWatch): Promise<void> {
+		this.db
+			.query(
+				"INSERT OR IGNORE INTO pulsify_cloud_watches(connection, prefix) VALUES(?, ?)",
+			)
+			.run(connection, prefix);
+	}
+	async deleteWatch(connection: string, prefix: string): Promise<void> {
+		this.db
+			.query(
+				"DELETE FROM pulsify_cloud_watches WHERE connection = ? AND prefix = ?",
+			)
+			.run(connection, prefix);
+	}
 	async deleteConnection(connection: string): Promise<void> {
 		this.db
 			.query("DELETE FROM pulsify_cloud_subscriptions WHERE connection = ?")
+			.run(connection);
+		this.db
+			.query("DELETE FROM pulsify_cloud_watches WHERE connection = ?")
 			.run(connection);
 	}
 	async deleteDocuments(docId: string): Promise<number> {
@@ -189,13 +252,109 @@ export class SqliteCloudStorage implements CloudRootStorage {
 				"DELETE FROM pulsify_cloud_grants WHERE prefix = ? OR (prefix >= ? AND prefix < ?)",
 			)
 			.run(docId, `${docId}/`, `${docId}0`);
-		for (const table of ["snapshots", "snapshot_frames"])
+		for (const table of ["snapshots", "snapshot_frames", "received"])
 			this.db
 				.query(
 					`DELETE FROM pulsify_cloud_${table} WHERE doc_id = ? OR (doc_id >= ? AND doc_id < ?)`,
 				)
 				.run(docId, `${docId}/`, `${docId}0`);
+		// Actors belong to the root: they go with its last document.
+		if (rootOf(docId) === docId)
+			this.db.query("DELETE FROM pulsify_cloud_actors").run();
 		return count;
+	}
+	async claimActors(
+		subject: string,
+		actors: readonly number[],
+	): Promise<number[]> {
+		const claim = this.db.query(
+			"INSERT OR IGNORE INTO pulsify_cloud_actors(sid, subject) VALUES(?, ?)",
+		);
+		const owner = this.db.query(
+			"SELECT subject FROM pulsify_cloud_actors WHERE sid = ?",
+		);
+		return this.db.transaction(() =>
+			actors.filter((sid) => {
+				claim.run(sid, subject);
+				return (owner.get(sid) as { subject: string }).subject !== subject;
+			}),
+		)();
+	}
+	async actorSubjects(actors: readonly number[]): Promise<Map<number, string>> {
+		// One JSON parameter: a Durable Object binds at most 100 values.
+		return new Map(
+			(
+				this.db
+					.query(
+						"SELECT sid, subject FROM pulsify_cloud_actors WHERE sid IN (SELECT value FROM json_each(?)) ORDER BY sid",
+					)
+					.all(JSON.stringify(actors)) as { sid: number; subject: string }[]
+			).map(({ sid, subject }) => [Number(sid), subject]),
+		);
+	}
+	receivedFrom(subject: string): PatchStore {
+		const { patches } = this;
+		const append = (rows: readonly StoredPatchRow[]) =>
+			patches.append(rows, (added) => this.record(subject, added));
+		return {
+			append,
+			appendEncoded: async (frame) => append(rowsFromFrame(frame)),
+			vector: (docId) => patches.vector(docId),
+			missing: (docId, remote) => patches.missing(docId, remote),
+		};
+	}
+	/**
+	 * Inside an append: note that these rows, new to one document, came from
+	 * `subject`. Runs that follow each other are one range, so a client that
+	 * uploads as it writes costs one row per actor and document.
+	 */
+	private record(subject: string, rows: readonly StoredPatchRow[]): void {
+		const docId = rows[0]!.docId;
+		const before = this.db.query(
+			"SELECT clock FROM pulsify_cloud_received WHERE doc_id = ? AND sid = ? AND clock_end = ? AND subject = ?",
+		);
+		const extend = this.db.query(
+			"UPDATE pulsify_cloud_received SET clock_end = ? WHERE doc_id = ? AND sid = ? AND clock = ?",
+		);
+		// Never over a range that is there: a write keeps its first sender.
+		const insert = this.db.query(
+			"INSERT OR IGNORE INTO pulsify_cloud_received(doc_id, sid, clock, clock_end, subject) VALUES(?, ?, ?, ?, ?)",
+		);
+		const sorted = [...rows].sort((a, b) => a.sid - b.sid || a.clock - b.clock);
+		for (let index = 0; index < sorted.length;) {
+			const { sid, clock } = sorted[index]!;
+			let end = clock;
+			for (
+				let row = sorted[index];
+				row && row.sid === sid && row.clock <= end;
+				row = sorted[++index]
+			)
+				end = Math.max(end, row.clock + row.span);
+			const held = before.get(docId, sid, clock, subject) as {
+				clock: number;
+			} | null;
+			if (held) extend.run(end, docId, sid, held.clock);
+			else insert.run(docId, sid, clock, end, subject);
+		}
+	}
+	async received(docId: string): Promise<CloudReceivedRange[]> {
+		return (
+			this.db
+				.query(
+					"SELECT sid, clock, clock_end, subject FROM pulsify_cloud_received WHERE doc_id = ? ORDER BY sid, clock",
+				)
+				.all(docId) as {
+				sid: number;
+				clock: number;
+				clock_end: number;
+				subject: string;
+			}[]
+		).map(({ sid, clock, clock_end, subject }) => ({
+			actor: Number(sid),
+			clock: Number(clock),
+			end: Number(clock_end),
+			subject,
+		}));
 	}
 	async saveSnapshot(
 		docId: string,

@@ -87,7 +87,7 @@ getPulseHistory(invoice, "total");
 getPulseHistory(invoice, "total", { since: lastMonth }); // a Date, or a version
 
 // Every transaction of the document, then the document as it was.
-const versions = getPulseHistory(audited); // [{ version, actor, time? }]
+const versions = getPulseHistory(audited); // [{ version, actor, clock, time?, migration? }]
 const first = snapshotPulse(audited, { at: versions[0].version });
 const monday = snapshotPulse(audited, { at: new Date("2026-11-16T09:00") });`;
 
@@ -249,6 +249,14 @@ export default function Modifiers() {
 				whole schema is <code>versioned()</code>, so that the copy is exact, and{" "}
 				<code>timestamps</code> to take a date. The migrations added since that
 				version are applied to the copy.
+			</p>
+			<p>
+				The <code>actor</code> of a version is a number a page or a device
+				writes under, not a user. On Pulsify Cloud,{" "}
+				<code>cloud.actorSubject(pulse.id, version.actor)</code> resolves to{" "}
+				<a href="/docs/cloud/documents#authors">the user behind it</a>. A
+				version with <code>migration: true</code> was written by Pulsify when a
+				client loaded the document with a newer definition: nobody edited it.
 			</p>
 
 			<h3 id="restore">Restore a version</h3>

@@ -139,7 +139,7 @@ function render() {
 
 async function open(noteId: string) {
   const ref = notebook.notes.find((note) => note.id === noteId)!;
-  // Loaded with the notebook; a note added on another device loads here.
+  // Already loaded with the notebook (including notes added live on other devices).
   const note = ref.pulse ?? (await ref.load());
   closeEditor?.();
   closeEditor = openEditor(note, editor);

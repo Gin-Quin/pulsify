@@ -33,6 +33,44 @@ export type CloudSnapshot = {
 	version: PulseVersionVector;
 };
 
+/** A run of an actor's writes in a document, and the account whose connection sent them. */
+export type CloudReceivedRange = {
+	actor: number;
+	/** The first sequence number of the run, and the one after its last. */
+	clock: number;
+	end: number;
+	subject: string;
+};
+/** What a root recorded about who wrote a document, as `authors` receives it. */
+export type CloudAuthorRecords = {
+	/** The account each actor that wrote the document is bound to, if any. */
+	actors: [actor: number, subject: string][];
+	received: CloudReceivedRange[];
+};
+/** What the server knows of who wrote one transaction. */
+export type CloudWriteAuthor = {
+	/** The account the transaction's actor is bound to: what `actorSubject` answers. */
+	subject?: string;
+	/**
+	 * The account whose connection sent the transaction to the server. It
+	 * wrote it, or relayed it: a client also uploads what it received from
+	 * others, offline or through another connector.
+	 */
+	receivedFrom?: string;
+	/**
+	 * Both are one account: it claimed the actor and sent the transaction
+	 * itself. Otherwise the server cannot tell who wrote it.
+	 */
+	verified: boolean;
+};
+/** Who wrote a document, as the server knew it when `authors` was called. */
+export type CloudAuthors = {
+	/** The account each actor that wrote the document is bound to. */
+	readonly actors: ReadonlyMap<number, string>;
+	/** Who wrote a transaction: pass a version of `getPulseHistory`. */
+	of(version: { actor: number; clock: number }): CloudWriteAuthor;
+};
+
 export type CloudClientOptions = {
 	/** Base URL of the deployment, `https://…`. */
 	url: string;
@@ -91,6 +129,26 @@ export type CloudClient = {
 	): Promise<Pulse<ModelFromDefinition<Definition>>>;
 	/** Erase one snapshot (the API key, or an owner of `docId`). */
 	deleteSnapshot(docId: string, id: string): Promise<boolean>;
+	/**
+	 * The user behind an actor: the subject of the token under which a client
+	 * first declared the actor as its own, kept by the root for good.
+	 * `undefined` for an actor no account has claimed. Pass the `actor` of a
+	 * version of `getPulseHistory(pulse)` and the pulse's ID.
+	 *
+	 * A reader of `docId` asks about the actors that wrote `docId`, and gets
+	 * `undefined` for any other; the API key asks about any actor of the root.
+	 * This is who owns the actor, not a proof of who wrote each of its
+	 * transactions: `authors` tells which of them that user sent. Where the
+	 * account can change on a device, give each account its own scope
+	 * (`createPulseScope({ identity })`), or they share actors.
+	 */
+	actorSubject(docId: string, actor: number): Promise<string | undefined>;
+	/**
+	 * Who wrote a document, transaction by transaction (the API key, or a
+	 * reader of `docId`): the account of every actor, and whether each
+	 * transaction was sent by that account or relayed by another.
+	 */
+	authors(docId: string): Promise<CloudAuthors>;
 };
 
 /** The management API of a deployment, identical on every backend. */
@@ -209,6 +267,38 @@ export function createCloudClient(options: CloudClientOptions): CloudClient {
 					query: { docId, id },
 				})
 			).removed,
+		actorSubject: async (docId, actor) =>
+			(
+				await request<{ subject: string | null }>(rootOf(docId), "actors", {
+					method: "GET",
+					query: { docId, actor: String(actor) },
+				})
+			).subject ?? undefined,
+		authors: async (docId) => {
+			const { actors, received } = await request<CloudAuthorRecords>(
+				rootOf(docId),
+				"authors",
+				{ method: "GET", query: { docId } },
+			);
+			const subjects = new Map(actors);
+			return {
+				actors: subjects,
+				of({ actor, clock }) {
+					const subject = subjects.get(actor);
+					// Ranges of one actor are sorted: the last one that starts at
+					// or before the clock is the one that was stored with it.
+					const range = received.findLast(
+						(each) =>
+							each.actor === actor && each.clock <= clock && clock < each.end,
+					);
+					return {
+						...(subject === undefined ? {} : { subject }),
+						...(range ? { receivedFrom: range.subject } : {}),
+						verified: subject !== undefined && range?.subject === subject,
+					};
+				},
+			};
+		},
 		deleteDocument: async (docId) =>
 			(
 				await request<{ deleted: number }>(rootOf(docId), "documents", {

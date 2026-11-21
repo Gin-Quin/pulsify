@@ -28,6 +28,8 @@ import {
 import { refreshPulseStatus } from "./refreshPulseStatus.js";
 import type { PulsePatchRow } from "./PulsePatch.js";
 import type { ReconnectOptions } from "../pulses/PulseOptions.js";
+import { actorPoolOf, leasedActor, ownActors } from "../pulses/actors.js";
+import { hasSubLayout } from "../pulses/subPulses.js";
 
 type ConnectionEventMap = {
 	connecting: [];
@@ -68,6 +70,10 @@ export class Connection {
 	/** The connector has answered a complete download at least once. */
 	downloaded = false;
 	private session: ConnectorSession | undefined;
+	/** Actors whose rows this session has uploaded, declared as its own or not. */
+	private uploaded = new Set<number>();
+	/** Actors the endpoint holds for another account: never written under again. */
+	readonly refused = new Set<number>();
 	private controller: AbortController | undefined;
 	private readonly listeners = new Map<
 		ConnectionEvent,
@@ -282,6 +288,7 @@ export class Connection {
 			this.status = "connecting";
 			// The connector's state is unknown: the session starts from scratch.
 			this.clockVector = [];
+			this.uploaded = new Set();
 			this.outbound = Promise.resolve();
 			this.emit("connecting");
 			assertCurrent();
@@ -289,7 +296,14 @@ export class Connection {
 			try {
 				opened = this.connector.open({
 					docId: meta.id,
+					watchDescendants:
+						meta.options.subPulses &&
+						hasSubLayout(meta.definition.compiledSchema),
+					identity: meta.options.scope.identity,
 					signal: controller.signal,
+					onActorsRefused: (actors) => {
+						if (this.controller === controller) this.refuse(actors);
+					},
 					onMessage: (bytes) => {
 						if (this.controller === controller) this.receive(bytes);
 					},
@@ -326,6 +340,17 @@ export class Connection {
 			}
 			this.session = session;
 			controller.signal.removeEventListener("abort", abort);
+			// Before the download: the scope's leased actor is declared, so that
+			// a refusal is known before a write chooses that actor.
+			const leased =
+				meta.options.sessionId === undefined
+					? leasedActor(
+							meta.options.scope,
+							actorPoolOf(meta.options.connectors),
+						)
+					: undefined;
+			if (leased !== undefined && !this.refused.has(leased))
+				session.declareActors?.([leased]);
 			const response = await this.request({
 				kind: 1,
 				docId: meta.id,
@@ -432,6 +457,7 @@ export class Connection {
 			const meta = getPulseMeta(this.pulse);
 			this.status = "syncing";
 			const target = meta.log.vector;
+			this.declare(target);
 			const requestId = this.nextRequestId++;
 			const frames = encodePulseUpdates(meta, this.clockVector, {
 				kind: 3,
@@ -465,6 +491,51 @@ export class Connection {
 			if (epoch === this.epoch) this.fail(asPulseError(error));
 		});
 		return run;
+	}
+
+	/**
+	 * Before an upload: tell the endpoint which of the actors it is about to
+	 * receive rows of are this client's own, once per session and actor. The
+	 * others are rows it relays, written by someone else.
+	 */
+	private declare(target: PulseVersionVector): void {
+		const session = this.session!;
+		if (!session.declareActors) return;
+		const held = new Map(this.clockVector);
+		const actors = target
+			.filter(
+				([sid, clock]) =>
+					clock > (held.get(sid) ?? 0) && !this.uploaded.has(sid),
+			)
+			.map(([sid]) => sid);
+		if (!actors.length) return;
+		for (const sid of actors) this.uploaded.add(sid);
+		const own = ownActors(getPulseMeta(this.pulse).options.scope);
+		const declared = actors.filter(
+			(sid) => own.has(sid) && !this.refused.has(sid),
+		);
+		if (declared.length) session.declareActors(declared);
+	}
+
+	/**
+	 * The endpoint holds these actors for another account. What was written
+	 * under them stays written; the pulse writes under another actor from now
+	 * on, and the application is told, since the usual cause is two accounts
+	 * that share actors.
+	 */
+	private refuse(actors: readonly number[]): void {
+		const fresh = actors.filter((sid) => !this.refused.has(sid));
+		if (!fresh.length) return;
+		for (const sid of fresh) this.refused.add(sid);
+		const meta = getPulseMeta(this.pulse);
+		meta.disownActors(fresh);
+		meta.report(
+			new PulseError(
+				"FORBIDDEN",
+				`Actor ${fresh.join(", ")} belongs to another account on this endpoint: give each account its own scope, createPulseScope({ identity })`,
+				{ retryable: false },
+			),
+		);
 	}
 
 	private scheduleSync(): void {

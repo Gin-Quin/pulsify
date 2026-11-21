@@ -17,10 +17,14 @@ export { createUserActivity, userActivity } from "./userActivity.js";
 export type { UserActivity, UserActivityOptions } from "./userActivity.js";
 export { createCloudClient } from "./api.js";
 export type {
+	CloudAuthorRecords,
+	CloudAuthors,
 	CloudClient,
 	CloudClientOptions,
+	CloudReceivedRange,
 	CloudRootUsage,
 	CloudSnapshot,
+	CloudWriteAuthor,
 } from "./api.js";
 export {
 	signCloudToken,
@@ -51,6 +55,7 @@ export {
 	CLOUD_PONG,
 	CLOUD_SUBPROTOCOLS,
 	CLOUD_TOKEN_SUBPROTOCOL,
+	MAX_DECLARED_ACTORS,
 	cloudPath,
 	parseClientMessage,
 	parseCloudPath,
@@ -61,6 +66,8 @@ export {
 } from "./wire.js";
 export type {
 	CloudAction,
+	CloudActorsMessage,
+	CloudActorsRefusedMessage,
 	CloudClientMessage,
 	CloudFetchMessage,
 	CloudFetchedMessage,
@@ -73,5 +80,7 @@ export type {
 	CloudServerMessage,
 	CloudWelcomeMessage,
 	CloudUnsubscribeMessage,
+	CloudWatchMessage,
+	CloudUnwatchMessage,
 	FrameHeader,
 } from "./wire.js";

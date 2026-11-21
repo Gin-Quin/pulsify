@@ -6,6 +6,7 @@ import {
 	createPulse,
 	createPulseScope,
 	definePulse,
+	getPulseHistory,
 	getPulseMeta,
 	schemaFingerprint,
 	compilePulseSchema,
@@ -522,5 +523,54 @@ describe("migrating whether a field keeps its history", () => {
 		await pull(fresh);
 		expect(snapshotPulse(fresh)).toEqual(snapshotPulse(b));
 		expect(fresh.status).toBe("v3 19");
+	});
+});
+
+describe("who a version is from", () => {
+	test("a version names its actor and clock, and a migration says it is one", () => {
+		const info = object({ version: "string" });
+		const v1 = versioned(object({ title: "string", info }));
+		const Before = definePulse("AttributedDoc", v1).materialize();
+		const After = definePulse("AttributedDoc", v1)
+			.migrateTo(
+				versioned(object({ title: "string", info, done: "boolean" })),
+				() => ({ done: false }),
+			)
+			.materialize();
+		const written = createPulse(
+			Before,
+			{ id: "attributed", title: "Draft", info: { version: "a" } },
+			options(70_001),
+		);
+		// A field of the application named like the root's schema version.
+		written.info.version = "b";
+
+		// Another client loads it with the newer definition, then edits it.
+		const loaded = replica(After, "attributed", 70_002);
+		sync(written, loaded);
+		loaded.done = true;
+		loaded.info.version = "c";
+		expect(
+			getPulseHistory(loaded).map(
+				({ actor, clock, migration }) =>
+					`${actor}:${clock}${migration ? " migration" : ""}`,
+			),
+		).toEqual([
+			"70001:1",
+			"70001:2",
+			"70002:1 migration",
+			"70002:2",
+			"70002:3",
+		]);
+		// The same flag on the writes of one field.
+		expect(
+			getPulseHistory(loaded, "done").map(({ value, migration }) => [
+				value,
+				migration ?? false,
+			]),
+		).toEqual([
+			[false, true],
+			[true, false],
+		]);
 	});
 });

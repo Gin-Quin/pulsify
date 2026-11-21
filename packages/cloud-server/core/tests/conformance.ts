@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+	applyPulseUpdates,
 	array,
 	connectPulse,
 	createPulse,
@@ -8,8 +9,10 @@ import {
 	definePresence,
 	definePulse,
 	destroyPulse,
+	disconnectPulse,
 	encodeMessage,
 	exportPulseUpdates,
+	getPulseHistory,
 	getPulseMeta,
 	joinPresence,
 	loadPulse,
@@ -91,6 +94,8 @@ export function describeCloudBackend(
 	const device = (
 		subject: string,
 		options: Partial<CloudConnectorOptions> = {},
+		/** What the scope says its account is; a token decides what it is. */
+		identity?: string,
 	) => {
 		const connector = createCloudConnector({
 			url: backend().url,
@@ -100,7 +105,7 @@ export function describeCloudBackend(
 		});
 		opened.push(connector);
 		const errors: Error[] = [];
-		const scope = createPulseScope();
+		const scope = createPulseScope(identity === undefined ? {} : { identity });
 		return {
 			connector,
 			errors,
@@ -663,6 +668,284 @@ export function describeCloudBackend(
 				expect((await admin().usage(root)).rows).toBe(packed + 1),
 			);
 		}, 30_000);
+
+		test("says which user is behind each actor of a document's history", async () => {
+			const root = unique("authors");
+			const api = admin();
+			await api.grant({ subject: "alice", prefix: root, role: "owner" });
+			await api.grant({ subject: "bob", prefix: root, role: "editor" });
+			await api.grant({ subject: "rita", prefix: root, role: "reader" });
+			const a = device("alice", {}, "alice");
+			const note = createPulse(
+				Note,
+				{ id: root, title: "Draft", body: "Hello" },
+				a.options,
+			);
+			await connectPulse(note).synced;
+			expect(a.connector.connections[0]!.subject).toBe("alice");
+			const b = device("bob", {}, "bob");
+			const theirs = await loadPulse(Note, root, b.options);
+			theirs.title = "Edited by Bob";
+			await eventually(() => expect(note.title).toBe("Edited by Bob"));
+
+			// A reader asks the root who is behind the actors of the history.
+			const rita = userApi("rita");
+			const subjects = async (pulse: typeof note) => {
+				const result: (string | undefined)[] = [];
+				for (const version of getPulseHistory(pulse))
+					result.push(await rita.actorSubject(pulse.id, version.actor));
+				return result;
+			};
+			const mine = getPulseMeta(note).model.sid,
+				bobs = getPulseMeta(theirs).model.sid;
+			expect(mine).not.toBe(bobs);
+			await eventually(async () =>
+				expect(await subjects(note)).toEqual(["alice", "bob"]),
+			);
+			expect(await rita.actorSubject(root, mine)).toBe("alice");
+			expect(await rita.actorSubject(root, bobs)).toBe("bob");
+			// An actor nobody declared has no user: nothing is made up.
+			expect(await rita.actorSubject(root, 123_456_789)).toBeUndefined();
+			expect(await api.actorSubject(root, 123_456_789)).toBeUndefined();
+			const authors = await rita.authors(root);
+			expect(
+				getPulseHistory(note).map((version) => authors.of(version)),
+			).toEqual([
+				{ subject: "alice", receivedFrom: "alice", verified: true },
+				{ subject: "bob", receivedFrom: "bob", verified: true },
+			]);
+
+			// Who can read the document can ask, and nobody else.
+			await expect(
+				userApi("mallory").actorSubject(root, mine),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+			await expect(userApi("mallory").authors(root)).rejects.toMatchObject({
+				code: "FORBIDDEN",
+			});
+			const anonymous = await fetch(
+				`${backend().url}${cloudPath(root, "actors")}?docId=${root}&actor=${mine}`,
+			);
+			expect(anonymous.status).toBe(401);
+
+			// The binding is the root's: it outlives the sockets, an idle root
+			// and a reconnection, and a new write of the actor is still its
+			// user's.
+			disconnectPulse(theirs);
+			await eventually(() => expect(b.connector.connections).toHaveLength(0));
+			await Bun.sleep(backend().hibernatesAfterMs ?? 0);
+			theirs.title = "Bob, again";
+			await connectPulse(theirs).synced;
+			await eventually(() => expect(note.title).toBe("Bob, again"));
+			// A title keeps its last write only: Bob's new one took the place
+			// of his first.
+			expect(await subjects(note)).toEqual(["alice", "bob"]);
+			expect(getPulseHistory(note).at(-1)!.clock).toBeGreaterThan(1);
+			const later = await rita.authors(root);
+			expect(later.of(getPulseHistory(note).at(-1)!)).toEqual({
+				subject: "bob",
+				receivedFrom: "bob",
+				verified: true,
+			});
+
+			// Mallory, now an editor, claims Alice's actor and writes under
+			// Bob's: neither becomes hers, and neither write is theirs.
+			await api.grant({ subject: "mallory", prefix: root, role: "editor" });
+			const m = await raw(root, "mallory");
+			m.socket.send(
+				encodeMessage({ kind: 1, docId: root, requestId: 1, vv: [] }),
+			);
+			await eventually(() => expect(m.frames).toHaveLength(1));
+			m.socket.send(
+				JSON.stringify({ type: "actors", docId: root, actors: [mine, bobs] }),
+			);
+			await eventually(() =>
+				expect(m.texts).toContainEqual({
+					type: "actors",
+					docId: root,
+					refused: [mine, bobs],
+				}),
+			);
+			expect(await rita.actorSubject(root, mine)).toBe("alice");
+			expect(await rita.actorSubject(root, bobs)).toBe("bob");
+		}, 60_000);
+
+		test("never gives relayed writes to the account that relays them", async () => {
+			const root = unique("relayed");
+			const api = admin();
+			await api.grant({ subject: "alice", prefix: root, role: "owner" });
+			await api.grant({ subject: "bob", prefix: root, role: "editor" });
+			const a = device("alice");
+			const note = createPulse(
+				Note,
+				{ id: root, title: "Draft", body: "Hello" },
+				a.options,
+			);
+			await connectPulse(note).synced;
+			const creator = getPulseMeta(note).model.sid;
+
+			// Alice's other device writes offline: its actor has never met the
+			// server. Bob gets these rows another way, and uploads them.
+			const a2 = device("alice");
+			const offline = await loadPulse(Note, root, a2.options);
+			disconnectPulse(offline);
+			offline.title = "Written offline";
+			const actor = getPulseMeta(offline).model.sid;
+			expect(actor).not.toBe(creator);
+			const b = device("bob");
+			const theirs = await loadPulse(Note, root, b.options);
+			applyPulseUpdates(
+				theirs,
+				exportPulseUpdates(offline, getPulseMeta(theirs).log.vector),
+			);
+			await eventually(() => expect(note.title).toBe("Written offline"));
+			const last = () => getPulseHistory(note).at(-1)!;
+			expect(last().actor).toBe(actor);
+			expect(await api.actorSubject(root, actor)).toBeUndefined();
+			expect((await api.authors(root)).of(last())).toEqual({
+				receivedFrom: "bob",
+				verified: false,
+			});
+
+			// Alice's device comes back with one more write. Its actor is hers
+			// from now on; what Bob relayed stays what it was.
+			const relayed = last();
+			offline.title = "Online again";
+			await connectPulse(offline).synced;
+			await eventually(() => expect(note.title).toBe("Online again"));
+			expect(await api.actorSubject(root, actor)).toBe("alice");
+			const authors = await api.authors(root);
+			expect(authors.of(relayed)).toEqual({
+				subject: "alice",
+				receivedFrom: "bob",
+				verified: false,
+			});
+			expect(authors.of(last())).toEqual({
+				subject: "alice",
+				receivedFrom: "alice",
+				verified: true,
+			});
+		});
+
+		test("a client stops writing under an actor that another account holds", async () => {
+			const root = unique("taken");
+			const api = admin();
+			await api.grant({ subject: "alice", prefix: root, role: "owner" });
+			await api.grant({ subject: "*", prefix: root, role: "editor" });
+			const a = device("alice");
+			const note = createPulse(
+				Note,
+				{ id: root, title: "Draft", body: "Hello" },
+				a.options,
+			);
+			await connectPulse(note).synced;
+			const b = device("bob");
+			const theirs = await loadPulse(Note, root, b.options);
+			// Mallory takes the actor Bob's device is about to write under.
+			const taken = getPulseMeta(theirs).model.sid;
+			const m = await raw(root, "mallory");
+			m.socket.send(
+				encodeMessage({ kind: 1, docId: root, requestId: 1, vv: [] }),
+			);
+			await eventually(() => expect(m.frames).toHaveLength(1));
+			m.socket.send(
+				JSON.stringify({ type: "actors", docId: root, actors: [taken] }),
+			);
+			await eventually(async () =>
+				expect(await api.actorSubject(root, taken)).toBe("mallory"),
+			);
+
+			// Bob's first write was made under it: the server stores it,
+			// unverified, and tells his device, which says so and moves on.
+			theirs.title = "Bob's first";
+			await eventually(() =>
+				expect(
+					b.errors.map((error) => (error as { code?: string }).code),
+				).toContain("FORBIDDEN"),
+			);
+			theirs.body.insert(0, "Bob: ");
+			const next = getPulseMeta(theirs).model.sid;
+			expect(next).not.toBe(taken);
+			await eventually(() => expect(String(note.body)).toBe("Bob: Hello"));
+			expect(note.title).toBe("Bob's first");
+			expect(await api.actorSubject(root, next)).toBe("bob");
+			const authors = await api.authors(root);
+			const of = (actor: number) =>
+				authors.of(
+					getPulseHistory(note).find((version) => version.actor === actor)!,
+				);
+			expect(of(taken)).toEqual({
+				subject: "mallory",
+				receivedFrom: "bob",
+				verified: false,
+			});
+			expect(of(next)).toEqual({
+				subject: "bob",
+				receivedFrom: "bob",
+				verified: true,
+			});
+		});
+
+		test("refuses a scope whose identity is not the account of the token, and a connector that changes account", async () => {
+			const root = unique("identity");
+			await admin().grant({ subject: "*", prefix: root, role: "editor" });
+			const a = device("alice", {}, "alice");
+			const note = createPulse(
+				Note,
+				{ id: root, title: "Draft", body: "Hello" },
+				a.options,
+			);
+			await connectPulse(note).synced;
+
+			// A token of Bob under a scope that says Alice.
+			const stale = device("bob", { lingerMs: 0 }, "alice");
+			await expect(
+				loadPulse(Note, root, { ...stale.options, reconnect: false }),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+			// A stale token once, at sign-in: the session it opens fails, and
+			// the connector is not that account's for it.
+			const tokens = ["bob", "alice"];
+			const fresh = createCloudConnector({
+				url: backend().url,
+				token: () => sign(tokens.shift() ?? "alice"),
+				lingerMs: 0,
+			});
+			opened.push(fresh);
+			const mine = {
+				connectors: [fresh],
+				scope: createPulseScope({ identity: "alice" }),
+				reconnect: false as const,
+			};
+			await expect(loadPulse(Note, root, mine)).rejects.toMatchObject({
+				code: "FORBIDDEN",
+			});
+			await eventually(() => expect(fresh.connections).toHaveLength(0));
+			expect((await loadPulse(Note, root, mine)).title).toBe("Draft");
+			expect(fresh.connections[0]!.subject).toBe("alice");
+
+			// One connector, two accounts in turn.
+			let subject = "carol";
+			const connector = createCloudConnector({
+				url: backend().url,
+				token: () => sign(subject),
+				lingerMs: 0,
+			});
+			opened.push(connector);
+			const first = await loadPulse(Note, root, {
+				connectors: [connector],
+				scope: createPulseScope(),
+			});
+			destroyPulse(first);
+			await eventually(() => expect(connector.connections).toHaveLength(0));
+			subject = "dave";
+			await expect(
+				loadPulse(Note, root, {
+					connectors: [connector],
+					scope: createPulseScope(),
+					reconnect: false,
+				}),
+			).rejects.toMatchObject({ code: "FORBIDDEN" });
+		});
 
 		test("relays presence between the sessions of a document and announces departures", async () => {
 			const { root, first, second, workspace } = await seed("presence");

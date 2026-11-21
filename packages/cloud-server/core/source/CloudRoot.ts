@@ -27,6 +27,9 @@ import {
 	peekFrameHeader,
 	roleFor,
 	rootOf,
+	type CloudActorsMessage,
+	type CloudActorsRefusedMessage,
+	type CloudAuthorRecords,
 	type CloudFetchMessage,
 	type CloudAction,
 	type CloudEnvelope,
@@ -55,6 +58,13 @@ export type CloudPeer = {
 	 * do not fit: the previous ones stay, and the root stores the rest.
 	 */
 	keepSubscriptions(subscriptions: ReadonlyMap<string, CloudRole>): boolean;
+	/** The watched descendant prefixes last kept with the socket. */
+	readonly watches?: ReadonlySet<string>;
+	/**
+	 * Keep watched descendant prefixes with the socket, hibernation included.
+	 * False when they do not fit: the root stores the rest.
+	 */
+	keepWatches?(watches: ReadonlySet<string>): boolean;
 	send(data: Uint8Array | string): void;
 	close(code: number, reason: string): void;
 };
@@ -113,6 +123,10 @@ export class CloudRoot {
 	private readonly subscriptions = new Map<string, Map<string, CloudRole>>();
 	/** connection → documents whose subscription did not fit with the socket and is in storage. */
 	private readonly stored = new Map<string, Set<string>>();
+	/** connection → watched prefixes (`prefix/…`) for live descendant pushes. */
+	private readonly watches = new Map<string, Set<string>>();
+	/** connection → watched prefixes that overflowed the socket attachment into storage. */
+	private readonly storedWatches = new Map<string, Set<string>>();
 	/** What each connection may still send this second; lost on hibernation. */
 	private readonly presenceBudgets = new Map<string, () => boolean>();
 	private readonly fetches = new Map<string, Map<number, FetchState>>();
@@ -149,6 +163,11 @@ export class CloudRoot {
 				await this.run(async () => {
 					if (message.type === "unsubscribe")
 						await this.unsubscribe(peer, message.docId);
+					else if (message.type === "watch")
+						await this.watch(peer, message.docId);
+					else if (message.type === "unwatch")
+						await this.unwatch(peer, message.docId);
+					else if (message.type === "actors") await this.claim(peer, message);
 					else {
 						const fetch = this.fetches.get(peer.id)?.get(message.requestId);
 						if (!fetch) return; // Late acknowledgement/cancellation.
@@ -185,7 +204,10 @@ export class CloudRoot {
 		});
 	}
 
-	/** The management API of this root: `grants`, `usage`, `documents`, `expire` and `snapshots`. */
+	/**
+	 * The management API of this root: `grants`, `usage`, `documents`,
+	 * `expire`, `snapshots`, `actors` and `authors`.
+	 */
 	handleRequest(
 		action: Exclude<CloudAction, "connect">,
 		request: Request,
@@ -215,6 +237,24 @@ export class CloudRoot {
 					const docId = url.searchParams.get("docId");
 					assertDocumentOf(this.root, docId);
 					return await this.snapshots(caller, request, docId, url);
+				}
+				if (action === "actors" || action === "authors") {
+					if (request.method !== "GET")
+						throw new CloudError("METHOD_NOT_ALLOWED", "Use GET");
+					const docId = url.searchParams.get("docId");
+					assertDocumentOf(this.root, docId);
+					return jsonResponse(
+						action === "authors"
+							? await this.authors(caller, docId)
+							: {
+									subject:
+										(await this.actorSubject(
+											caller,
+											docId,
+											url.searchParams.get("actor"),
+										)) ?? null,
+								},
+					);
 				}
 				switch (request.method) {
 					case "GET":
@@ -258,9 +298,10 @@ export class CloudRoot {
 
 	private async load(): Promise<void> {
 		if (this.grants) return;
-		const [grants, stored] = await Promise.all([
+		const [grants, stored, storedWatches] = await Promise.all([
 			this.storage.loadGrants(),
 			this.storage.loadSubscriptions(),
+			this.storage.loadWatches?.() ?? Promise.resolve([]),
 		]);
 		this.setGrants(grants);
 		const live = new Set<string>();
@@ -284,6 +325,18 @@ export class CloudRoot {
 			if (overflow) overflow.add(docId);
 			else this.stored.set(connection, new Set([docId]));
 		}
+		for (const { connection, prefix } of storedWatches) {
+			if (!live.has(connection)) {
+				stale.add(connection);
+				continue;
+			}
+			let prefixes = this.watches.get(connection);
+			if (!prefixes) this.watches.set(connection, (prefixes = new Set()));
+			prefixes.add(prefix);
+			const overflow = this.storedWatches.get(connection);
+			if (overflow) overflow.add(prefix);
+			else this.storedWatches.set(connection, new Set([prefix]));
+		}
 		for (const connection of stale)
 			await this.storage.deleteConnection(connection);
 		// Sockets that closed while the root slept left without a goodbye.
@@ -294,6 +347,8 @@ export class CloudRoot {
 	private adopt(peer: CloudPeer): void {
 		if (peer.subscriptions.size && !this.subscriptions.has(peer.id))
 			this.subscriptions.set(peer.id, new Map(peer.subscriptions));
+		if (peer.watches?.size && !this.watches.has(peer.id))
+			this.watches.set(peer.id, new Set(peer.watches));
 	}
 
 	/** Keep with the socket every subscription of it that is not in storage. */
@@ -303,6 +358,17 @@ export class CloudRoot {
 			stored
 				? new Map([...documents].filter(([docId]) => !stored.has(docId)))
 				: documents,
+		);
+	}
+
+	/** Keep with the socket every watched prefix of it that is not in storage. */
+	private keepWatches(peer: CloudPeer, prefixes: Set<string>): boolean {
+		if (!peer.keepWatches) return true;
+		const stored = this.storedWatches.get(peer.id);
+		return peer.keepWatches(
+			stored
+				? new Set([...prefixes].filter((prefix) => !stored.has(prefix)))
+				: prefixes,
 		);
 	}
 
@@ -568,21 +634,117 @@ export class CloudRoot {
 				"Connect to the document before uploading",
 			);
 		else if (!role) return fail("FORBIDDEN", `No access to ${docId}`);
-		const result = await relayStoreMessage(this.storage.patches, bytes, {
-			docId,
-			readOnly: !canWrite(role),
-			protocolVersion: peer.envelope,
-		});
+		// What this adds is noted as received from the socket's account, which
+		// is not always who wrote it: a client also uploads rows it relays.
+		const result = await relayStoreMessage(
+			this.storage.receivedFrom(peer.subject),
+			bytes,
+			{ docId, readOnly: !canWrite(role), protocolVersion: peer.envelope },
+		);
 		for (const frame of result.responses) safely(() => peer.send(frame));
 		if (!result.broadcast) return;
+		const delivered = new Set<string>([peer.id]);
 		for (const [connection, documents] of this.subscriptions) {
 			if (connection === peer.id || !documents.has(docId)) continue;
+			delivered.add(connection);
 			const other = this.peers.get(connection);
 			if (other)
 				safely(() =>
 					other.send(encodeBroadcast(docId, result.broadcast!, other.envelope)),
 				);
 		}
+		for (const [connection, prefixes] of this.watches) {
+			if (delivered.has(connection)) continue;
+			let matched = false;
+			for (const prefix of prefixes) {
+				if (docId.startsWith(`${prefix}/`)) {
+					matched = true;
+					break;
+				}
+			}
+			if (!matched) continue;
+			const other = this.peers.get(connection);
+			if (!other || !this.role(other.subject, docId)) continue;
+			delivered.add(connection);
+			safely(() =>
+				other.send(encodeBroadcast(docId, result.broadcast!, other.envelope)),
+			);
+		}
+	}
+
+	/**
+	 * A client says which actors it created. Each is bound to the account of
+	 * its token, for good, unless another account has it: what a client says
+	 * never moves an actor, and never names an account. Only a session that
+	 * can write the document it names is heard, and any other learns nothing.
+	 * The binding is the root's: an editor of one document can take an actor
+	 * nobody has claimed, wherever in the root it wrote.
+	 */
+	// ponytail: an editor can claim any number of actors, a few bytes each,
+	// in text frames that a host's meter does not count; cap the actors of a
+	// root, and meter these frames, if that is abused.
+	private async claim(
+		peer: CloudPeer,
+		{ docId, actors }: CloudActorsMessage,
+	): Promise<void> {
+		if (
+			rootOf(docId) !== this.root ||
+			!canWrite(this.role(peer.subject, docId))
+		)
+			return;
+		const refused = await this.storage.claimActors(peer.subject, actors);
+		if (!refused.length) return;
+		const message: CloudActorsRefusedMessage = {
+			type: "actors",
+			docId,
+			refused,
+		};
+		safely(() => peer.send(JSON.stringify(message)));
+	}
+
+	/** The actors that wrote a document, for the API key or a reader of it. */
+	private async writers(caller: CloudCaller, docId: string): Promise<number[]> {
+		if (caller.kind === "user" && !this.role(caller.subject, docId))
+			throw new CloudError(
+				"FORBIDDEN",
+				`Only a reader of ${docId} can read who wrote it`,
+			);
+		if (await this.storage.isDeleted(docId))
+			throw new CloudError("NOT_FOUND", "Document was permanently deleted");
+		return (await this.storage.patches.vector(docId)).map(([sid]) => sid);
+	}
+
+	/**
+	 * The account an actor is bound to. A user asks about an actor of a
+	 * document they can read: any other actor of the root has no account, as
+	 * far as they are told. The API key asks about any actor of the root.
+	 */
+	private async actorSubject(
+		caller: CloudCaller,
+		docId: string,
+		input: string | null,
+	): Promise<string | undefined> {
+		const actor = Number(input);
+		if (!input || !Number.isSafeInteger(actor) || actor < 65536)
+			throw new CloudError("BAD_REQUEST", "actor is an actor ID");
+		if (
+			caller.kind === "user" &&
+			!(await this.writers(caller, docId)).includes(actor)
+		)
+			return undefined;
+		return (await this.storage.actorSubjects([actor])).get(actor);
+	}
+
+	/** What the root recorded about who wrote a document. */
+	private async authors(
+		caller: CloudCaller,
+		docId: string,
+	): Promise<CloudAuthorRecords> {
+		const writers = await this.writers(caller, docId);
+		return {
+			actors: [...(await this.storage.actorSubjects(writers))],
+			received: await this.storage.received(docId),
+		};
 	}
 
 	/**
@@ -622,6 +784,39 @@ export class CloudRoot {
 		await this.storage.deleteSubscription(connection, docId);
 	}
 
+	private async watch(peer: CloudPeer, prefix: string): Promise<void> {
+		assertDocumentOf(this.root, prefix);
+		if (
+			!this.role(peer.subject, prefix) ||
+			(await this.storage.isDeleted(prefix))
+		)
+			return;
+		const connection = peer.id;
+		let prefixes = this.watches.get(connection);
+		if (!prefixes) this.watches.set(connection, (prefixes = new Set()));
+		if (prefixes.has(prefix)) return;
+		prefixes.add(prefix);
+		let stored = this.storedWatches.get(connection);
+		if (!stored?.has(prefix)) {
+			if (this.keepWatches(peer, prefixes)) return;
+			if (!stored) this.storedWatches.set(connection, (stored = new Set()));
+			stored.add(prefix);
+		}
+		await this.storage.saveWatch?.({ connection, prefix });
+	}
+
+	private async unwatch(peer: CloudPeer, prefix: string): Promise<void> {
+		const connection = peer.id;
+		const prefixes = this.watches.get(connection);
+		if (!prefixes?.delete(prefix)) return;
+		if (!prefixes.size) this.watches.delete(connection);
+		this.keepWatches(peer, prefixes);
+		const stored = this.storedWatches.get(connection);
+		if (!stored?.delete(prefix)) return;
+		if (!stored.size) this.storedWatches.delete(connection);
+		await this.storage.deleteWatch?.(connection, prefix);
+	}
+
 	private async forget(peer: CloudPeer): Promise<void> {
 		const connection = peer.id;
 		for (const fetch of this.fetches.get(connection)?.values() ?? []) {
@@ -629,13 +824,18 @@ export class CloudRoot {
 			fetch.resume?.();
 		}
 		this.presenceBudgets.delete(connection);
+		const hadWatches = this.watches.delete(connection);
+		if (hadWatches) safely(() => peer.keepWatches?.(new Set()));
 		const documents = this.subscriptions.get(connection);
-		if (!documents) return;
-		this.subscriptions.delete(connection);
-		for (const docId of documents.keys()) this.leave(connection, docId);
-		// A socket closed for a violation is still there until its close event.
-		safely(() => peer.keepSubscriptions(new Map()));
-		if (this.stored.delete(connection))
+		if (documents) {
+			this.subscriptions.delete(connection);
+			for (const docId of documents.keys()) this.leave(connection, docId);
+			// A socket closed for a violation is still there until its close event.
+			safely(() => peer.keepSubscriptions(new Map()));
+		}
+		const storedSubs = this.stored.delete(connection);
+		const storedWatches = this.storedWatches.delete(connection);
+		if (storedSubs || storedWatches)
 			await this.storage.deleteConnection(connection);
 	}
 
@@ -685,7 +885,9 @@ export class CloudRoot {
 					);
 					fetch.resume?.();
 				}
-		for (const peer of this.peers.all())
+		for (const peer of this.peers.all()) {
+			for (const prefix of [...(this.watches.get(peer.id) ?? [])])
+				if (covers(docId, prefix)) await this.unwatch(peer, prefix);
 			for (const subscribed of [
 				...(this.subscriptions.get(peer.id)?.keys() ?? []),
 			]) {
@@ -703,6 +905,7 @@ export class CloudRoot {
 					),
 				);
 			}
+		}
 		this.setGrants(
 			this.grants!.filter((grant) => !covers(docId, grant.prefix)),
 		);
@@ -910,6 +1113,8 @@ export class CloudRoot {
 					);
 					fetch.resume?.();
 				}
+			for (const prefix of [...(this.watches.get(peer.id) ?? [])])
+				if (!this.role(peer.subject, prefix)) await this.unwatch(peer, prefix);
 			const documents = this.subscriptions.get(peer.id);
 			if (!documents) continue;
 			for (const [docId, previous] of [...documents]) {

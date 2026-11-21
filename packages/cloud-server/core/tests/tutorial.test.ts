@@ -18,6 +18,7 @@ import {
 	PulseError,
 	richText,
 	sub,
+	subscribePulse,
 	pulseRef,
 	type ModelFromDefinition,
 	type Pulse,
@@ -219,4 +220,84 @@ test("the notes tutorial: one root per user, rich-text sub-documents, sharing", 
 
 	for (const item of [editor, bobEditor]) item.close();
 	for (const app of [laptop, phone, desktop]) app.cloud.close();
+});
+
+test("live sub-document creation delivers initial data to connected peers without a broken intermediate state", async () => {
+	const alice = { id: `alice-live-${crypto.randomUUID().slice(0, 8)}` };
+	await backend.onSignUp(alice);
+
+	const laptop = createApp(alice);
+	const phone = createApp(alice);
+	const lazyClient = createApp(alice);
+	try {
+		const notebookA = await laptop.openNotebook();
+		const notebookB = await phone.openNotebook();
+		const notebookLazy = await loadPulse(Notebook, alice.id, {
+			connectors: [lazyClient.cloud],
+			scope: createPulseScope(),
+			subPulses: false,
+		});
+
+		const firstSightings = new Map<
+			string,
+			{ title: string | undefined; body: string | undefined }
+		>();
+		const stopB = subscribePulse(notebookB, () => {
+			for (const ref of notebookB.notes) {
+				if (!firstSightings.has(ref.id)) {
+					firstSightings.set(ref.id, {
+						title: ref.pulse?.title,
+						body: ref.pulse ? String(ref.pulse.body) : undefined,
+					});
+				}
+			}
+		});
+
+		// 1. Ordered creation: A syncs the sub-document, then links it in the parent.
+		const note1 = createPulse(
+			Note,
+			{ title: "Meeting", body: "Agenda items" },
+			{ parent: notebookA },
+		);
+		await connectPulse(note1).synced;
+		notebookA.notes.push(pulseRef(note1));
+
+		await eventually(() => expect(notebookB.notes).toHaveLength(1));
+		// On the VERY FIRST notification where B saw note1's ID, its initial data was already present!
+		expect(firstSightings.get(note1.id)).toEqual({
+			title: "Meeting",
+			body: "Agenda items",
+		});
+		expect(notebookB.notes[0]!.pulse?.title).toBe("Meeting");
+		expect(String(notebookB.notes[0]!.pulse?.body)).toBe("Agenda items");
+
+		// Subsequent edits on note1 continue syncing live to B.
+		note1.title = "Meeting (updated)";
+		await eventually(() =>
+			expect(notebookB.notes[0]!.pulse?.title).toBe("Meeting (updated)"),
+		);
+
+		// 2. Lazy client (subPulses: false) only received the ID and did not auto-load.
+		await eventually(() => expect(notebookLazy.notes).toHaveLength(1));
+		expect(notebookLazy.notes[0]!.pulse).toBeUndefined();
+
+		// 3. Out-of-order creation: A links the ID before uploading the child.
+		// B still receives the child as soon as its upload lands via the prefix watch.
+		const note2 = createPulse(
+			Note,
+			{ title: "Delayed", body: "Arrived after link" },
+			{ parent: notebookA },
+		);
+		notebookA.notes.push(pulseRef(note2));
+		await eventually(() => expect(notebookB.notes).toHaveLength(2));
+		await connectPulse(note2).synced;
+		await eventually(() =>
+			expect(notebookB.notes[1]!.pulse?.title).toBe("Delayed"),
+		);
+		expect(String(notebookB.notes[1]!.pulse?.body)).toBe("Arrived after link");
+
+		stopB();
+	} finally {
+		for (const app of [laptop, phone, lazyClient]) app.cloud.close();
+	}
 });

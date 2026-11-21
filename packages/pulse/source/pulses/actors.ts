@@ -6,6 +6,9 @@ import type { PulseScope } from "./PulseOptions.js";
  * A pool's IDs are listed in localStorage, and the holder of an ID keeps a Web
  * Lock, which the browser releases when the page goes away, crashes included.
  * Without Web Locks or localStorage there is no lease and actors stay random.
+ *
+ * A scope with an `identity` has pools of its own: two accounts that use one
+ * browser profile never write under one actor.
  */
 type Lease = { id?: number; pending?: Promise<void> };
 type Environment = { locks: LockManager; storage: Storage };
@@ -13,6 +16,58 @@ type Environment = { locks: LockManager; storage: Storage };
 /** A stuck page holding the list must not keep documents from loading. */
 const LEASE_TIMEOUT_MS = 1000;
 const leases = new WeakMap<PulseScope, Map<string, Lease>>();
+/** How many actors the list of an identity keeps, newest last. */
+const MAX_OWN_ACTORS = 4096;
+const created = new WeakMap<PulseScope, Set<number>>();
+
+const validActors = (stored: unknown): number[] =>
+	Array.isArray(stored)
+		? stored.filter((id) => Number.isSafeInteger(id) && id >= 65536)
+		: [];
+
+/**
+ * The actors this scope wrote with. With an `identity`, also those of its
+ * earlier pages, kept in localStorage where there is one: a write made
+ * offline is uploaded by a later page, which must still know that the actor
+ * is its own, and not one whose rows it only relays. Without an identity
+ * nothing says whose a stored actor was, so only this page's are known.
+ */
+const ownKey = (scope: PulseScope) => `pulsify:own:${scope.identity}`;
+export function ownActors(scope: PulseScope): Set<number> {
+	const own = new Set(created.get(scope));
+	if (scope.identity === undefined) return own;
+	try {
+		const stored = globalThis.localStorage?.getItem(ownKey(scope));
+		if (stored) for (const id of validActors(JSON.parse(stored))) own.add(id);
+	} catch {
+		/* Blocked or unreadable storage: what this page created is all it knows. */
+	}
+	return own;
+}
+/** Record an actor a pulse of the scope writes with. */
+export function rememberActor(scope: PulseScope, id: number): void {
+	let ids = created.get(scope);
+	if (!ids) created.set(scope, (ids = new Set()));
+	if (ids.has(id)) return;
+	ids.add(id);
+	if (scope.identity === undefined) return;
+	try {
+		const storage = globalThis.localStorage;
+		if (!storage) return;
+		// ponytail: read and written without a lock; two pages that add an
+		// actor at the same instant can lose one, whose rows not yet uploaded
+		// then stay unattributed. Write under a Web Lock if that shows up.
+		const key = ownKey(scope);
+		const stored = validActors(JSON.parse(storage.getItem(key) ?? "[]"));
+		if (!stored.includes(id))
+			storage.setItem(
+				key,
+				JSON.stringify([...stored, id].slice(-MAX_OWN_ACTORS)),
+			);
+	} catch {
+		/* Full or blocked storage: the actor is known until the page closes. */
+	}
+}
 
 export function randomActor(): number {
 	const bytes = crypto.getRandomValues(new Uint32Array(2));
@@ -72,9 +127,7 @@ async function acquire(
 			clearTimeout(timer);
 			let ids: number[] = [];
 			try {
-				const stored: unknown = JSON.parse(storage.getItem(key) ?? "[]");
-				if (Array.isArray(stored))
-					ids = stored.filter((id) => Number.isSafeInteger(id) && id >= 65536);
+				ids = validActors(JSON.parse(storage.getItem(key) ?? "[]"));
 			} catch {
 				/* An unreadable list starts over: its IDs are simply never reused. */
 			}
@@ -104,15 +157,20 @@ export function leaseActor(
 	if (!lease) {
 		const available = environment();
 		if (!available) return undefined;
-		const created: Lease = {};
-		created.pending = acquire(pool, available).then((id) => {
-			if (id !== undefined) created.id = id;
-			delete created.pending;
+		const taken: Lease = {};
+		// The list and the locks of an identity are its own.
+		const name =
+			scope.identity === undefined
+				? pool
+				: JSON.stringify([scope.identity, pool]);
+		taken.pending = acquire(name, available).then((id) => {
+			if (id !== undefined) taken.id = id;
+			delete taken.pending;
 		});
 		if (!pools) leases.set(scope, (pools = new Map()));
 		// ponytail: a discarded scope keeps its lock until the page closes;
 		// release it from a FinalizationRegistry if scopes become short-lived.
-		pools.set(pool, (lease = created));
+		pools.set(pool, (lease = taken));
 	}
 	return lease.pending;
 }

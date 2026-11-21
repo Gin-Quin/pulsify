@@ -91,8 +91,8 @@ const groups: { title: string; items: [string, string][] }[] = [
 				"Local connector over an in-process relay.",
 			],
 			[
-				"createPulseScope()",
-				"Isolated identity map, one instance per document ID.",
+				"createPulseScope({ identity? })",
+				"Isolated identity map, one instance per document ID; one per signed-in account, with its identity.",
 			],
 			["getPulseMeta(pulse)", "Status and last connection error."],
 			["setDefaultPulseOptions(options)", "Process-wide defaults."],

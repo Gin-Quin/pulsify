@@ -5,7 +5,6 @@ import {
 	type ConnectPulseOptions,
 } from "../connection/connectPulse.js";
 import type { Connector } from "../connection/Connector.js";
-import type { PulseLayout } from "../core/schema.js";
 import { PulseError } from "../protocol/errors.js";
 import { destroyPulse, type Pulse } from "./Pulse.js";
 import type {
@@ -16,6 +15,11 @@ import { getPulseMeta } from "./PulseMeta.js";
 import { actorPoolOf, leaseActor } from "./actors.js";
 import { defaultPulseOptions, type PulseOptions } from "./PulseOptions.js";
 import { createRuntime } from "./PulseRuntime.js";
+import {
+	collectSubRefs,
+	consumePushedRows,
+	registerSubPulseLoader,
+} from "./subPulses.js";
 
 export type LoadPulseOptions = Partial<PulseOptions> &
 	ConnectPulseOptions & {
@@ -71,6 +75,7 @@ export async function loadPulse<Definition extends AnyPulseDefinition>(
 					descendants: true,
 					timeoutMs: options.timeoutMs,
 					signal: input.signal,
+					identity: options.scope.identity,
 					vectors: [...options.scope.pulses]
 						.filter(([name]) => name === id || name.startsWith(`${id}/`))
 						.map(([name, pulse]) => [
@@ -91,16 +96,20 @@ export async function loadPulse<Definition extends AnyPulseDefinition>(
 			if (input.signal?.aborted) throw new PulseError("CLOSED", "Load aborted");
 		}
 	}
-	const pulse = await loadOne(definition, id, connectInput, prefetched);
-	if (subPulses)
-		await loadSubPulses(pulse, connectInput, new Set(), prefetched);
+	const loadInput = { ...connectInput, subPulses };
+	const pulse = await loadOne(definition, id, loadInput, prefetched);
+	if (subPulses) {
+		const tried = new Set<string>();
+		await loadSubPulses(pulse, loadInput, new Set(), prefetched, tried);
+		getPulseMeta(pulse).subPulses?.enable(tried);
+	}
 	return pulse;
 }
 
 async function loadOne<Definition extends AnyPulseDefinition>(
 	definition: Definition,
 	id: string,
-	input: Omit<LoadPulseOptions, "subPulses">,
+	input: LoadPulseOptions,
 	prefetched?: Map<string, PulsePatchRow[]>,
 ): Promise<Pulse<ModelFromDefinition<Definition>>> {
 	const options = { ...defaultPulseOptions, ...input };
@@ -124,6 +133,9 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 		if (prefetched?.has(id)) {
 			getPulseMeta(pulse).applyRows(prefetched.get(id)!);
 			prefetched.delete(id);
+		} else {
+			const pushed = consumePushedRows(options.connectors, id);
+			if (pushed?.length) getPulseMeta(pulse).applyRows(pushed);
 		}
 		const task = connectPulse(pulse, input);
 		if (Array.isArray(input.waitFor)) {
@@ -160,62 +172,41 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 /** Walk the stored data with its compiled layouts and load every sub-pulse, recursively. */
 async function loadSubPulses(
 	pulse: Pulse<any>,
-	input: Omit<LoadPulseOptions, "subPulses">,
+	input: LoadPulseOptions,
 	visited: Set<string>,
 	prefetched?: Map<string, PulsePatchRow[]>,
+	tried?: Set<string>,
 ): Promise<void> {
 	const meta = getPulseMeta(pulse);
 	if (visited.has(meta.id)) return;
 	visited.add(meta.id);
-	const root = meta.definition.compiledSchema?.root;
-	if (!root) return;
+	const refs = collectSubRefs(pulse);
+	if (!refs.size) return;
 	const tasks: Promise<void>[] = [];
-	const visit = (layout: PulseLayout | undefined, value: unknown): void => {
-		if (!layout || value === undefined || value === null) return;
-		if (layout.sub) {
-			if (typeof value !== "string") return;
-			tasks.push(
-				loadOne(layout.sub, value, input, prefetched).then(
-					(loaded) => loadSubPulses(loaded, input, visited, prefetched),
-					// A dangling ID is tolerated: its reference keeps `pulse === undefined`.
-					(error) => {
-						if (!(error instanceof PulseError && error.code === "NOT_FOUND"))
-							throw error;
-					},
-				),
-			);
-			return;
-		}
-		switch (layout.kind) {
-			case "optional":
-				return visit(layout.value, value);
-			case "object":
-				for (const field of layout.fields)
-					visit(field.layout, (value as Record<string, unknown>)[field.key]);
-				return;
-			case "array":
-			case "tuple":
-				if (Array.isArray(value))
-					value.forEach((item, i) =>
-						visit(
-							layout.kind === "tuple" ? layout.elements?.[i] : layout.element,
-							item,
-						),
-					);
-				return;
-			case "record":
-			case "map":
-				if (typeof value === "object")
-					for (const item of Object.values(value)) visit(layout.element, item);
-				return;
-			case "union": {
-				if (typeof value !== "object" || !layout.tagName) return;
-				const tag = (value as Record<string, unknown>)[layout.tagName];
-				return visit(layout.variants?.get(String(tag)), value);
-			}
-			// ponytail: untagged unions are not walked; add a layout match if needed.
-		}
-	};
-	visit(root, meta.model.view());
+	for (const [childId, definition] of refs) {
+		tried?.add(childId);
+		tasks.push(
+			loadOne(definition, childId, input, prefetched).then(
+				async (loaded) => {
+					const childTried = new Set<string>();
+					await loadSubPulses(loaded, input, visited, prefetched, childTried);
+					getPulseMeta(loaded).subPulses?.enable(childTried);
+				},
+				// A dangling ID is tolerated: its reference keeps `pulse === undefined`.
+				(error) => {
+					if (!(error instanceof PulseError && error.code === "NOT_FOUND"))
+						throw error;
+				},
+			),
+		);
+	}
 	await Promise.all(tasks);
 }
+
+registerSubPulseLoader({
+	createRuntime: (definition, id, options) =>
+		createRuntime(definition, id, options),
+	loadOne: (definition, id, input) => loadOne(definition, id, input),
+	loadSubPulses: (pulse, input, visited) =>
+		loadSubPulses(pulse, input, visited),
+});

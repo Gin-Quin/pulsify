@@ -324,6 +324,15 @@ export class CoreModel {
 	set nextClock(value: number) {
 		this.localClock = value;
 	}
+	/** The local actor if one was chosen, without choosing one. */
+	get chosenActor(): number {
+		return this.actor;
+	}
+	/** Stop writing under the local actor: the next write chooses another. */
+	retireActor(): void {
+		this.actor = 0;
+		this.localClock = 1;
+	}
 	get clock(): { sid: number; time: number } {
 		return { sid: this.sid, time: this.nextClock };
 	}

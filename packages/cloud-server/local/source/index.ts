@@ -331,7 +331,13 @@ export function createLocalCloud(options: LocalCloudOptions): LocalCloud {
 				socket.send(
 					welcomeMessage(
 						{ backend: "local", id: instance, location: "local" },
-						{ presence: true, subtrees: true },
+						{
+							presence: true,
+							subtrees: true,
+							watch: true,
+							authors: true,
+							subject,
+						},
 					),
 				);
 				let presence = false;
@@ -346,6 +352,8 @@ export function createLocalCloud(options: LocalCloudOptions): LocalCloud {
 					// A root stays in memory while it has sockets: it keeps them itself.
 					subscriptions: new Map(),
 					keepSubscriptions: () => true,
+					watches: new Set(),
+					keepWatches: () => true,
 					send: (data) => void socket.send(data),
 					close: (code, reason) => socket.close(code, reason),
 				});

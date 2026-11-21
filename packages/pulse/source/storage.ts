@@ -22,6 +22,7 @@ export {
 	encodePackedRow,
 	decodePackedRows,
 	MAX_PACKED_BYTES,
+	rowsFromFrame,
 	type PatchStore,
 	type DocumentStore,
 	type StoredPatchRow,

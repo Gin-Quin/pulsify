@@ -3,11 +3,28 @@ import type { Pulse } from "./Pulse.js";
 
 export type PulseScope = {
 	readonly pulses: Map<string, Pulse<any>>;
+	/**
+	 * The account that writes through this scope, as your application knows it
+	 * while offline too: the subject you sign into its tokens. It keeps the
+	 * actor IDs of two accounts of one browser profile apart. It proves
+	 * nothing: a server trusts the token of a connection, never this.
+	 */
+	readonly identity?: string;
 	deleted?: Set<string>;
 };
-/** A separate identity map per application/client; useful for SSR and replicas. */
-export function createPulseScope(): PulseScope {
-	return { pulses: new Map() };
+/**
+ * A separate identity map per application/client; useful for replicas, and
+ * for accounts: make one scope per signed-in account, with its `identity`,
+ * and never load the pulses of an account into the scope of another.
+ */
+export function createPulseScope(
+	options: { identity?: string } = {},
+): PulseScope {
+	const { identity } = options;
+	if (identity === undefined) return { pulses: new Map() };
+	if (typeof identity !== "string" || !identity.length)
+		throw new TypeError("A scope identity is a non-empty string");
+	return { pulses: new Map(), identity };
 }
 export const defaultPulseScope = createPulseScope();
 /** Backoff between attempts of a failing connector: `initialDelayMs × factor^n`, capped. */

@@ -6,10 +6,12 @@ import {
 	createPulse,
 	createPulseScope,
 	definePulse,
+	destroyPulse,
 	loadPulse,
 	PulseRelay,
 	snapshotPulse,
 	sub,
+	subscribePulse,
 	pulseRef,
 	type PulseRef,
 } from "../source/index";
@@ -154,5 +156,109 @@ describe("sub-pulses", () => {
 		await expect(loaded.projects[1]!.load()).rejects.toMatchObject({
 			code: "NOT_FOUND",
 		});
+	});
+
+	test("a sub-pulse created live by another client loads automatically and notifies parent subscribers", async () => {
+		const relay = new PulseRelay();
+		const connector = createMemoryConnector(relay);
+		const aScope = createPulseScope();
+		const aUser = createPulse(
+			User,
+			{ id: "live", name: "Ada", projects: [] },
+			{ scope: aScope, connectors: [connector] },
+		);
+		await connectPulse(aUser).synced;
+
+		const bScope = createPulseScope();
+		const bUser = await loadPulse(User, "live", {
+			scope: bScope,
+			connectors: [connector],
+			waitFor: "all",
+		});
+		const observed: (string | undefined)[][] = [];
+		const stop = subscribePulse(bUser, () => {
+			observed.push(bUser.projects.map((ref) => ref.pulse?.name));
+		});
+
+		const project = createPulse(
+			Project,
+			{ name: "Engine", documents: [] },
+			{ parent: aUser },
+		);
+		const doc = createPulse(Document, { title: "Spec" }, { parent: project });
+		project.documents.push(pulseRef(doc));
+		await Promise.all([connectPulse(doc).synced, connectPulse(project).synced]);
+		aUser.projects.push(pulseRef(project));
+
+		for (
+			let i = 0;
+			i < 50 && bUser.projects[0]?.pulse?.documents[0]?.pulse?.title !== "Spec";
+			i++
+		)
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+		expect(bUser.projects[0]!.pulse?.name).toBe("Engine");
+		expect(bUser.projects[0]!.pulse?.documents[0]!.pulse?.title).toBe("Spec");
+		expect(observed.at(-1)).toEqual(["Engine"]);
+
+		// Subsequent edits on A sync to the live-loaded sub-pulse on B.
+		project.name = "Engine v2";
+		for (
+			let i = 0;
+			i < 50 && bUser.projects[0]?.pulse?.name !== "Engine v2";
+			i++
+		)
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(bUser.projects[0]!.pulse?.name).toBe("Engine v2");
+
+		// Destroying the child pulse notifies parent subscribers that ref.pulse became undefined.
+		destroyPulse(bUser.projects[0]!.pulse!);
+		expect(bUser.projects[0]!.pulse).toBeUndefined();
+		expect(observed.at(-1)).toEqual([undefined]);
+		stop();
+	});
+
+	test("lazy parents do not auto-load live sub-pulses, and manual ref.load() notifies parent subscribers", async () => {
+		const relay = new PulseRelay();
+		const connector = createMemoryConnector(relay);
+		const aUser = createPulse(
+			User,
+			{ id: "lazy-live", name: "Ada", projects: [] },
+			{ scope: createPulseScope(), connectors: [connector] },
+		);
+		await connectPulse(aUser).synced;
+
+		const bScope = createPulseScope();
+		const bUser = await loadPulse(User, "lazy-live", {
+			scope: bScope,
+			connectors: [connector],
+			waitFor: "all",
+			subPulses: false,
+		});
+		const seen: (string | undefined)[][] = [];
+		const stop = subscribePulse(bUser, () => {
+			seen.push(bUser.projects.map((ref) => ref.pulse?.name));
+		});
+
+		const project = createPulse(
+			Project,
+			{ name: "Lazy", documents: [] },
+			{ parent: aUser },
+		);
+		await connectPulse(project).synced;
+		aUser.projects.push(pulseRef(project));
+
+		for (let i = 0; i < 50 && bUser.projects.length === 0; i++)
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		await new Promise((resolve) => setTimeout(resolve, 25));
+
+		expect(bUser.projects[0]!.id).toBe(project.id);
+		expect(bUser.projects[0]!.pulse).toBeUndefined();
+		expect(seen.at(-1)).toEqual([undefined]);
+
+		await bUser.projects[0]!.load({ waitFor: "all" });
+		expect(bUser.projects[0]!.pulse?.name).toBe("Lazy");
+		expect(seen.at(-1)).toEqual(["Lazy"]);
+		stop();
 	});
 });

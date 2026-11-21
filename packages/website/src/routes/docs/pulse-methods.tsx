@@ -198,7 +198,7 @@ export default function PulseMethods() {
 					],
 					[
 						"subPulses",
-						"Sub-pulses loaded with the pulse: true (default) for all of them, recursively; false for none, then ref.load() loads the ones you need. A child that does not exist yet is skipped: its ref.pulse stays undefined. setDefaultPulseOptions({ subPulses: false }) makes every load lazy.",
+						"Sub-pulses loaded with the pulse: true (default) loads all of them recursively and keeps loading newly linked sub-pulses live as other peers add them; false loads none, then ref.load() loads the ones you need. A child that does not exist yet is skipped: its ref.pulse stays undefined until it loads. setDefaultPulseOptions({ subPulses: false }) makes every load lazy.",
 					],
 					["signal", "An AbortSignal that cancels the load."],
 					["timeoutMs", "Deadline of this load. Default 10 000."],
@@ -329,7 +329,11 @@ export default function PulseMethods() {
 			<p>
 				A <code>sub(Definition)</code> field holds the ID of a child pulse: a
 				separate document that loads and synchronizes on its own. Reading the
-				field returns a reference.
+				field returns a reference. With <code>subPulses: true</code> (the
+				default), new sub-pulses linked by other peers also load live (on
+				Pulsify Cloud, their initial data is pushed ahead of the parent update
+				so <code>ref.pulse</code> is ready immediately), and subscribers and
+				framework views re-run whenever <code>ref.pulse</code> changes.
 			</p>
 			<CodeBlock title="children.ts" code={children} />
 			<Rows

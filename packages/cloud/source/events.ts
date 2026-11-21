@@ -61,6 +61,12 @@ export type CloudConnectionEvents = {
 	suspended: [gapMs: number];
 	/** The server reported a role for a subscribed document. */
 	role: [docId: string, role: CloudRole | null];
+	/**
+	 * The server did not bind these actors to this account: another account
+	 * has them. What was written under them is stored, unverified, and reads
+	 * as that account's actor; the pulse writes under another actor from now on.
+	 */
+	actorsRefused: [docId: string, actors: readonly number[]];
 };
 export type CloudConnection = {
 	/** The root this socket serves; all its documents share the socket. */
@@ -68,6 +74,8 @@ export type CloudConnection = {
 	readonly state: CloudConnectionState;
 	/** Who answers: backend, instance and location, once the server said so. */
 	readonly server: CloudServerInfo | undefined;
+	/** The account the server authenticated this socket as, once it said so. */
+	readonly subject: string | undefined;
 	readonly envelope: CloudEnvelope | undefined;
 	readonly documents: readonly string[];
 	/** Round trip of the last answered ping. */

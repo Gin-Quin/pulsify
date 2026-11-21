@@ -20,6 +20,7 @@ export type {
 	CloudRootStorage,
 	CloudSubscription,
 	CloudUsage,
+	CloudWatch,
 } from "./storage.js";
 export {
 	CORS_HEADERS,

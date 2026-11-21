@@ -26,6 +26,7 @@ import {
 } from "react";
 
 const Raw = Symbol("Raw");
+const RefRead = Symbol("RefRead");
 
 /**
  * What one component read below one pulse object, array, rich text or tree.
@@ -67,7 +68,19 @@ class Track implements ProxyHandler<object> {
 		const read = this.reads.get(key);
 		if (!trackable(value)) {
 			// The first read stays the baseline, so a change mid-render is seen.
-			if (!this.reads.has(key)) this.reads.set(key, value);
+			if (!this.reads.has(key))
+				this.reads.set(
+					key,
+					value &&
+						typeof value === "object" &&
+						(value as { [PulseRefSymbol]?: unknown })[PulseRefSymbol] === true
+						? {
+								[RefRead]: true,
+								id: (value as { id: string }).id,
+								pulse: (value as { pulse: unknown }).pulse,
+							}
+						: value,
+				);
 			return value;
 		}
 		if (read instanceof Track && read.target === value) return read.proxy;
@@ -202,8 +215,12 @@ function changed(track: Track): boolean {
 function same(read: any, value: any): boolean {
 	if (typeof read !== "object" || read === null) return Object.is(read, value);
 	// Sub-pulse handles and bytes are fresh objects on every read.
-	if (read[PulseRefSymbol])
-		return value?.[PulseRefSymbol] === true && read.id === value.id;
+	if (read[RefRead])
+		return (
+			value?.[PulseRefSymbol] === true &&
+			read.id === value.id &&
+			read.pulse === value.pulse
+		);
 	if (read instanceof Uint8Array)
 		return (
 			value instanceof Uint8Array &&

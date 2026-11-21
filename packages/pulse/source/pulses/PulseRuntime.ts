@@ -20,7 +20,13 @@ import { prepareValue, type PreparedValue } from "../core/values.js";
 import { containsMap } from "../core/schema.js";
 import { PulseError, asPulseError } from "../protocol/errors.js";
 import { isGapRow, PatchLog } from "../protocol/PatchLog.js";
-import { actorPoolOf, leaseActor, leasedActor, randomActor } from "./actors.js";
+import {
+	actorPoolOf,
+	leaseActor,
+	leasedActor,
+	randomActor,
+	rememberActor,
+} from "./actors.js";
 import { bind as bindPulse, type Binding } from "./Bindings.js";
 import type { Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
@@ -30,6 +36,8 @@ import type { PulseOptions } from "./PulseOptions.js";
 import type { ProxyContext } from "./ProxyContext.js";
 import { warnMigrationDrift } from "./warnMigrationDrift.js";
 import { replayTo } from "./PulseReplay.js";
+import { notifyScope } from "./scopeEvents.js";
+import { createSubPulseTracker, hasSubLayout } from "./subPulses.js";
 
 export function createRuntime(
 	definition: AnyPulseDefinition,
@@ -130,25 +138,27 @@ export function createRuntime(
 			// reach a store after this check; the write that collides with it is
 			// refused with CONFLICT. Have servers drop the older session of an
 			// actor if that ever shows up.
+			// Nor under an actor that an endpoint holds for another account:
+			// its writes would be read as that account's.
 			const next = new Map(log.vector).get(leased) ?? 1;
 			const reuse =
-				generated ||
-				(meta.connections.length > 0 &&
-					!log.pendingCount &&
-					meta.connections.every(
-						(connection) =>
-							connection.downloaded &&
-							(new Map(connection.clockVector).get(leased) ?? 0) <= next,
-					));
+				!meta.connections.some((connection) =>
+					connection.refused.has(leased),
+				) &&
+				(generated ||
+					(meta.connections.length > 0 &&
+						!log.pendingCount &&
+						meta.connections.every(
+							(connection) =>
+								connection.downloaded &&
+								(new Map(connection.clockVector).get(leased) ?? 0) <= next,
+						)));
 			if (!reuse) return randomActor();
 			model.nextClock = next;
 			return leased;
 		};
-	const notify = () => {
-		if (meta.loaded && meta.connections.length && meta.status === "synced")
-			meta.status = "ready";
-		const listeners = [...meta.listeners],
-			rowListeners = [...meta.rowListeners];
+	const notifyListeners = () => {
+		const listeners = [...meta.listeners];
 		for (const listener of listeners) {
 			try {
 				listener();
@@ -156,6 +166,12 @@ export function createRuntime(
 				meta.report(asPulseError(error));
 			}
 		}
+	};
+	const notify = () => {
+		if (meta.loaded && meta.connections.length && meta.status === "synced")
+			meta.status = "ready";
+		notifyListeners();
+		const rowListeners = [...meta.rowListeners];
 		for (const listener of rowListeners) {
 			try {
 				listener();
@@ -163,6 +179,12 @@ export function createRuntime(
 				meta.report(asPulseError(error));
 			}
 		}
+	};
+	const markLoaded = () => {
+		const wasLoaded = meta.loaded;
+		meta.loaded = !!model.root;
+		if (!wasLoaded && meta.loaded && options.scope.pulses.get(id) === pulse)
+			notifyScope(options.scope, id);
 	};
 	const context: ProxyContext = {
 		get meta() {
@@ -193,11 +215,20 @@ export function createRuntime(
 	// creation, text and array edits and migrations too, not only field
 	// writes. The document at a date is then the transactions up to it.
 	const timed = definition.compiledSchema?.root.timestamps === true;
+	// The actor of a pulse that synchronizes is one its scope wrote with: a
+	// connector may say so to its endpoint, on this page or a later one.
+	let remembered = false;
+	const remember = () => {
+		if (remembered || !meta.connections.length) return;
+		remembered = true;
+		rememberActor(options.scope, model.sid);
+	};
 	model.commit = (ops, hint, wallTime) => {
 		if (meta.deleted)
 			throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 		context.assertActive();
 		if (!ops.length) return;
+		remember();
 		if (timed) wallTime ??= Date.now();
 		fresh = [];
 		const time = model.lamport + 1;
@@ -242,13 +273,15 @@ export function createRuntime(
 				throw error;
 			}
 		}
-		meta.loaded = !!model.root;
+		markLoaded();
+		meta.subPulses?.sync(false);
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
 	model.commitScalar = (node, key, field, value, last) => {
 		if (meta.deleted)
 			throw new PulseError("NOT_FOUND", "Document was permanently deleted");
 		context.assertActive();
+		remember();
 		if (log.pendingCount) {
 			model.commit([
 				{
@@ -284,7 +317,8 @@ export function createRuntime(
 		if (node.layout?.counter)
 			model.addToCounter(node, (value as number) - (node.data[key] ?? 0));
 		node.data[key] = value;
-		meta.loaded = !!model.root;
+		markLoaded();
+		meta.subPulses?.sync(false);
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
 	let migrating = false;
@@ -560,6 +594,13 @@ export function createRuntime(
 		mutate: (ops) => model.commit(ops),
 		migrate: () => migrate(),
 		forgetRestore: (version) => void sources.delete(JSON.stringify(version)),
+		disownActors(actors) {
+			// An explicit actor is the application's choice, and stays.
+			if (explicit !== undefined || !actors.includes(model.chosenActor)) return;
+			model.retireActor();
+			model.chooseActor ??= randomActor;
+			remembered = false;
+		},
 		report(error) {
 			meta.lastError = error;
 			try {
@@ -623,8 +664,9 @@ export function createRuntime(
 					if (result.changed) {
 						model.apply(patch);
 						for (const item of pending) model.apply(item);
-						meta.loaded = !!model.root;
+						markLoaded();
 						migrate();
+						meta.subPulses?.sync(true);
 						notify();
 					}
 					return;
@@ -656,7 +698,8 @@ export function createRuntime(
 								values![run.count - 1]!,
 							),
 						);
-						meta.loaded = !!model.root;
+						markLoaded();
+						meta.subPulses?.sync(true);
 						notify();
 						return;
 					}
@@ -676,8 +719,9 @@ export function createRuntime(
 					});
 					if (alive(ready).length) {
 						model.apply(patch);
-						meta.loaded = !!model.root;
+						markLoaded();
 						migrate();
+						meta.subPulses?.sync(true);
 						notify();
 					}
 					return;
@@ -702,8 +746,9 @@ export function createRuntime(
 				});
 				for (const patch of patches) model.apply(patch);
 				if (ready.length) {
-					meta.loaded = !!model.root;
+					markLoaded();
 					migrate();
+					meta.subPulses?.sync(true);
 					notify();
 				}
 			} catch (error) {
@@ -733,11 +778,15 @@ export function createRuntime(
 	meta.connections = options.connectors.map(
 		(connector) => new Connection(pulse, connector),
 	);
+	if (hasSubLayout(definition.compiledSchema))
+		meta.subPulses = createSubPulseTracker(meta, notifyListeners);
 	if (data) {
 		model.validateRoot(data, model.schemaId);
 		const prepared = model.prepareRootInput(data);
 		model.commit([{ kind: 0, value: prepared }]);
+		meta.subPulses?.enable();
 	}
 	options.scope.pulses.set(id, pulse);
+	if (meta.loaded) notifyScope(options.scope, id);
 	return pulse;
 }

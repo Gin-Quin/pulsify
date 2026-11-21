@@ -33,10 +33,22 @@ import { createRuntime } from "./PulseRuntime.js";
 export type PulseVersion = {
 	/** The version: pass it to `snapshotPulse(pulse, { at })` or `restorePulse`. */
 	version: PulseVersionVector;
-	/** The actor that wrote the transaction. */
+	/**
+	 * The actor that wrote the transaction: a number a client writes under,
+	 * not a user. A server that authenticates its connections can say which
+	 * account an actor belongs to, as Pulsify Cloud does (`actorSubject`).
+	 */
 	actor: number;
+	/** The transaction's sequence number among those of its actor. */
+	clock: number;
 	/** The writer's clock in milliseconds, under `versioned(…, { timestamps: true })`. */
 	time?: number;
+	/**
+	 * The transaction is a migration: Pulsify wrote it when a client loaded
+	 * the document with a newer definition. Its actor is that client's, which
+	 * ran the migration; nobody edited the document.
+	 */
+	migration?: true;
 };
 /** A bound is a date, compared with `time`, or a version. */
 export type PulseHistoryOptions = {
@@ -102,11 +114,38 @@ function bounded(options: PulseHistoryOptions): (step: Step) => boolean {
 				: included(step, until)));
 }
 
-const published = ({ version, actor, time }: Step): PulseVersion => ({
+const published = ({
 	version,
 	actor,
+	row,
+	time,
+	migration,
+}: Step): PulseVersion => ({
+	version,
+	actor,
+	clock: row.clock,
 	...(time === undefined ? {} : { time }),
+	...(migration ? { migration } : {}),
 });
+
+/**
+ * Apply a step to the replica, and say first whether it is a migration:
+ * only one writes the schema version of the root.
+ */
+function replay(model: CoreModel, step: Step): void {
+	const root = model.root;
+	if (
+		root &&
+		step.patch.ops.some(
+			(op) =>
+				op.kind === 1 &&
+				op.target === root.id &&
+				model.fieldKey(root, op.field) === "version",
+		)
+	)
+		step.migration = true;
+	model.apply(step.patch);
+}
 
 /**
  * The versions of a document, oldest first: one per transaction its history
@@ -146,7 +185,13 @@ export function getPulseHistory(
 		(path ? options : (target as PulseHistoryOptions | undefined)) ?? {},
 	);
 	const model = replica(meta);
-	if (!path) return timeline(meta, model).filter(keep).map(published);
+	if (!path) {
+		const steps = timeline(meta, model);
+		// Only a definition that has migrations can have written one.
+		if (meta.definition.migrations.length)
+			for (const step of steps) replay(model, step);
+		return steps.filter(keep).map(published);
+	}
 	if (!path.length) throw new TypeError("A field path cannot be empty");
 	const compiled = meta.definition.compiledSchema;
 	const layout =
@@ -162,7 +207,7 @@ export function getPulseHistory(
 		last: unknown,
 		written = false;
 	for (const step of timeline(meta, model)) {
-		model.apply(step.patch);
+		replay(model, step);
 		let node: CoreNode | undefined = model.root;
 		for (let i = 0; node && i < path.length - 1; i++)
 			node = node.child(path[i]!);
