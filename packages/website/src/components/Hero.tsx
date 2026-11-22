@@ -10,13 +10,14 @@ export function Hero() {
 			<div class={styles.inner}>
 				<div class={styles.copy}>
 					<h1 class={styles.title}>
-						Distributed sync,
+						The sync engine
 						<br />
-						<span class={styles.gradient}>beautifully composed.</span>
+						<span class={styles.gradient}>for local-first apps.</span>
 					</h1>
 					<p class={styles.lead}>
-						The typed CRDT framework. Collaborative documents that look like
-						plain objects, migrate themselves and live in your database.
+						Pulsify turns plain TypeScript objects into typed, collaborative
+						CRDTs. Self-host sync on your own database, or run it serverless on
+						Pulsify Cloud.
 					</p>
 					<div class={styles.actions}>
 						<Button

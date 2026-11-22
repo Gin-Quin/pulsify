@@ -24,6 +24,10 @@
 	justify-self: start;
 }
 
+.panel {
+	display: contents;
+}
+
 .nav {
 	display: flex;
 	align-items: center;
@@ -84,7 +88,8 @@
 	color: var(--color-text);
 }
 
-.theme {
+.theme,
+.menuToggle {
 	display: grid;
 	place-items: center;
 	padding: var(--space-2);
@@ -98,9 +103,15 @@
 		background var(--duration-fast) var(--easing);
 }
 
-.theme:hover {
+.theme:hover,
+.menuToggle:hover,
+.menuToggle[aria-expanded="true"] {
 	color: var(--color-accent);
 	background: rgb(61 245 224 / 0.06);
+}
+
+.menuToggle {
+	display: none;
 }
 
 /* The icon shows the theme a click switches to. CSS picks it, so the prerendered page needs no theme state. */
@@ -109,53 +120,78 @@
 	display: none;
 }
 
-@media (max-width: 760px) {
-	.nav,
-	.github span {
-		display: none;
-	}
-
-	.nav {
-		display: flex;
-		gap: var(--space-4);
-	}
-
-	.nav a:not([href="/benchmarks"]) {
-		display: none;
-	}
-
+@media (max-width: 60rem) {
 	.inner {
 		display: flex;
 		justify-content: space-between;
-		gap: var(--space-3);
+		padding-inline: var(--space-4);
 	}
 
-	.actions .github {
+	.menuToggle {
+		display: grid;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-md);
+	}
+
+	.panel {
+		display: none;
+		position: absolute;
+		inset: 100% 0 auto;
+		max-height: calc(100dvh - var(--header-height));
+		overflow-y: auto;
+		padding: var(--space-3) var(--space-4) var(--space-4);
+		border-block: var(--border-width) solid var(--color-divider);
+		background: var(--color-bg);
+		box-shadow: var(--shadow-card);
+	}
+
+	.panel[data-open="true"] {
+		display: block;
+	}
+
+	.nav {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--space-1);
+	}
+
+	.nav a {
+		display: flex;
+		align-items: center;
+		min-height: 2.75rem;
+		border-radius: var(--radius-sm);
+	}
+
+	.nav a[aria-current="page"] {
+		background: var(--color-nav-hover);
+	}
+
+	.nav a[aria-current="page"]::after {
 		display: none;
 	}
 
-	/* Where the theme toggle shows, tighter spacing makes room for it on a phone. */
-	.inner:has(.theme) {
-		gap: var(--space-2);
-		padding: 0 var(--space-4);
+	.actions {
+		flex-wrap: wrap;
+		justify-self: stretch;
+		gap: var(--space-2) var(--space-4);
+		margin-top: var(--space-3);
+		padding-top: var(--space-3);
+		border-top: var(--border-width) solid var(--color-divider);
 	}
 
-	.inner:has(.theme) .nav a {
-		padding-inline: var(--space-2);
+	.actions > a:last-child {
+		margin-inline-start: auto;
 	}
 
-	.inner:has(.theme) .actions {
-		gap: var(--space-2);
+	.github,
+	.theme {
+		min-height: 2.75rem;
 	}
 
 	.theme {
-		padding: var(--space-1);
-	}
-}
-
-/* Narrower than this, the wordmark would run into the nav: keep the mark only. */
-@media (max-width: 440px) {
-	.inner:has(.theme) > a span {
-		display: none;
+		min-width: 2.75rem;
 	}
 }

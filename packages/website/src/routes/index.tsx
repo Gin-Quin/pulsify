@@ -14,8 +14,8 @@ export default function Home() {
 	return (
 		<main>
 			<Seo
-				title="Pulsify: distributed sync, beautifully composed"
-				description="The typed CRDT framework for TypeScript. Collaborative documents that look like plain objects, migrate themselves and live in your database."
+				title="Pulsify: the sync engine for local-first apps"
+				description="Pulsify turns plain TypeScript objects into typed, collaborative CRDTs. Self-host sync on your own database, or run it serverless on Pulsify Cloud."
 			/>
 			<Hero />
 			<Sky>

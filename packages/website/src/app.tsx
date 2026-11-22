@@ -12,7 +12,7 @@ export default function App() {
 				const location = useLocation();
 				return (
 					<MetaProvider>
-						<Title>Pulsify: distributed sync, beautifully composed</Title>
+						<Title>Pulsify: the sync engine for local-first apps</Title>
 						{/* A demo app fills its window with a header of its own. */}
 						<Show when={!location.pathname.startsWith("/demos/")}>
 							<Header />

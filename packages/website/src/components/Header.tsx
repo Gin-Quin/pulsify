@@ -1,5 +1,13 @@
 import { useLocation } from "@solidjs/router";
-import { createSignal, For, onMount, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	For,
+	on,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -37,8 +45,29 @@ export function setSignedIn(value: boolean) {
 
 export function Header() {
 	const location = useLocation();
+	const [menuOpen, setMenuOpen] = createSignal(false);
+	let header!: HTMLElement;
+	let menuToggle!: HTMLButtonElement;
+
+	createEffect(
+		on(
+			() => location.pathname,
+			() => setMenuOpen(false),
+		),
+	);
+
 	// After hydration, so the server and client markup match.
 	onMount(() => {
+		const dismissOutside = (event: PointerEvent) => {
+			if (menuOpen() && !header.contains(event.target as Node)) {
+				setMenuOpen(false);
+			}
+		};
+		document.addEventListener("pointerdown", dismissOutside);
+		onCleanup(() =>
+			document.removeEventListener("pointerdown", dismissOutside),
+		);
+
 		try {
 			storeSignedIn(localStorage.getItem("signedIn") === "1");
 		} catch {
@@ -46,68 +75,109 @@ export function Header() {
 		}
 	});
 	return (
-		<header class={styles.header}>
+		<header
+			ref={header}
+			class={styles.header}
+			onKeyDown={(event) => {
+				if (event.key === "Escape" && menuOpen()) {
+					setMenuOpen(false);
+					menuToggle.focus();
+				}
+			}}
+			onFocusOut={(event) => {
+				const next = event.relatedTarget;
+				if (next instanceof Node && !event.currentTarget.contains(next)) {
+					setMenuOpen(false);
+				}
+			}}
+			onClick={(event) => {
+				if (
+					menuOpen() &&
+					event.target instanceof Element &&
+					event.target.closest("a")
+				) {
+					setMenuOpen(false);
+					menuToggle.focus();
+				}
+			}}
+		>
 			<div class={styles.inner}>
 				<Logo />
-				<nav class={styles.nav} aria-label="Main">
-					<For
-						each={[
-							["/benchmarks", "Benchmarks"],
-							["/cloud", "Cloud"],
-							["/pricing", "Pricing"],
-							["/docs", "Docs"],
-							["/demos", "Demos"],
-						]}
-					>
-						{([href, label]) => (
-							<a
-								href={href}
-								aria-current={
-									location.pathname === href ||
-									location.pathname.startsWith(`${href}/`)
-										? "page"
-										: undefined
-								}
-							>
-								<span>{label}</span>
-							</a>
-						)}
-					</For>
-				</nav>
-				<div class={styles.actions}>
-					<Show when={location.pathname.startsWith("/docs")}>
-						<button
-							class={styles.theme}
-							type="button"
-							aria-label="Switch between light and dark theme"
-							data-theme-toggle
-							onClick={toggleTheme}
+				<button
+					ref={menuToggle}
+					class={styles.menuToggle}
+					type="button"
+					aria-label="Navigation menu"
+					aria-expanded={menuOpen()}
+					aria-controls="header-menu"
+					onClick={(event) => {
+						setMenuOpen(!menuOpen());
+						event.currentTarget.focus();
+					}}
+				>
+					<Icon name={menuOpen() ? "cross" : "menu"} />
+				</button>
+				<div id="header-menu" class={styles.panel} data-open={menuOpen()}>
+					<nav class={styles.nav} aria-label="Main">
+						<For
+							each={[
+								["/cloud", "Cloud"],
+								["/demos", "Demos"],
+								["/pricing", "Pricing"],
+								["/docs", "Docs"],
+								["/benchmarks", "Benchmarks"],
+							]}
 						>
-							<Icon name="sun" class={styles.sun} />
-							<Icon name="moon" class={styles.moon} />
-						</button>
-					</Show>
-					<a
-						class={styles.github}
-						href={GITHUB_URL}
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<Icon name="github" />
-						<span>GitHub</span>
-					</a>
-					<Show
-						when={signedIn()}
-						fallback={
-							<Button href="/sign-in" size="sm" icon="arrow">
-								Get Started
+							{([href, label]) => (
+								<a
+									href={href}
+									aria-current={
+										location.pathname === href ||
+										location.pathname.startsWith(`${href}/`)
+											? "page"
+											: undefined
+									}
+								>
+									<span>{label}</span>
+								</a>
+							)}
+						</For>
+					</nav>
+					<div class={styles.actions}>
+						<Show when={location.pathname.startsWith("/docs")}>
+							<button
+								class={styles.theme}
+								type="button"
+								aria-label="Switch between light and dark theme"
+								data-theme-toggle
+								onClick={toggleTheme}
+							>
+								<Icon name="sun" class={styles.sun} />
+								<Icon name="moon" class={styles.moon} />
+							</button>
+						</Show>
+						<a
+							class={styles.github}
+							href={GITHUB_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							<Icon name="github" />
+							<span>GitHub</span>
+						</a>
+						<Show
+							when={signedIn()}
+							fallback={
+								<Button href="/sign-in" size="sm" icon="arrow">
+									Get Started
+								</Button>
+							}
+						>
+							<Button href="/dashboard" size="sm" variant="outline">
+								Dashboard
 							</Button>
-						}
-					>
-						<Button href="/dashboard" size="sm" variant="outline">
-							Dashboard
-						</Button>
-					</Show>
+						</Show>
+					</div>
 				</div>
 			</div>
 		</header>

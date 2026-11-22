@@ -9,6 +9,7 @@ const paths = {
 	external: "M7 17 17 7M8 7h9v9",
 	check: "m5 12 5 5L20 7",
 	copy: "M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2ZM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+	menu: "M4 6h16M4 12h16M4 18h16",
 	cross: "M6 6l12 12M18 6 6 18",
 	shield: "M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3Z",
 	branch:
