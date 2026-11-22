@@ -336,6 +336,12 @@ export async function handleServiceRequest(
 		// Secrets, tokens and documents travel with every request: never in clear.
 		if (url.protocol === "http:" && env.API_URL.startsWith("https:"))
 			return new Response("Use https://", { status: 403 });
+		if (
+			url.pathname === "/" &&
+			(request.method === "GET" || request.method === "HEAD") &&
+			env.API_URL.startsWith("http://")
+		)
+			return Response.redirect(new URL("/", env.DASHBOARD_URL), 302);
 		if (url.pathname === "/health") return jsonResponse({ ok: true });
 		if (first === "account")
 			return await account(request, env, rest.join("/")).catch((error) => {
@@ -349,7 +355,7 @@ export async function handleServiceRequest(
 			return await webhook(request, env);
 		if (PROJECT_ID.test(first))
 			return await tenant(request, env, first, `/${rest.join("/")}`);
-		throw new CloudError("NOT_FOUND", "Unknown route");
+		return errorResponse(new CloudError("NOT_FOUND", "Unknown route"));
 	} catch (error) {
 		console.error(error);
 		return errorResponse(error);

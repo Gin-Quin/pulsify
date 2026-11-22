@@ -9,7 +9,7 @@ export async function localCloudProject(
 ): Promise<{ url: string; apiKey: string; tokenSecret: string }> {
 	const headers = {
 		"Content-Type": "application/json",
-		Origin: "http://localhost:3000",
+		Origin: `http://localhost:${process.env["PULSIFY_WEBSITE_PORT"] ?? 3000}`,
 	};
 	await fetch(`${service}/account/login`, {
 		method: "POST",

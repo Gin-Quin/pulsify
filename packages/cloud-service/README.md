@@ -52,8 +52,10 @@ secrets and plan), `report` (a `RootReport`, answered by a `RootStatus`) and
 
 ## Develop
 
-`bun run dev:website` starts the website on `http://localhost:3000` and this
-service on `http://localhost:8787` (`bun run dev:service` alone), in miniflare:
+`bun run dev:website` starts the website on the first free port from 3000 and
+the service on `http://localhost:8787` in Miniflare. Vite prints the website URL,
+and visiting the API root in a browser redirects there. `bun run dev:service`
+alone expects the website on port 3000 by default.
 Durable Objects persist in `packages/cloud-service/.wrangler/`, and login emails
 are not sent. Their codes and links print in the terminal, and the code
 `444444` signs in any address that asked for a code.

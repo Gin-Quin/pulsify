@@ -293,6 +293,27 @@ test("plain HTTP is refused, so no secret travels in clear", async () => {
 	expect(secure.status).toBe(200);
 });
 
+test("the API root points browsers to the website in local development", async () => {
+	const { env } = environment();
+	const hosted = await handleServiceRequest(new Request(`${API}/`), env);
+	expect(hosted.status).toBe(404);
+
+	env.API_URL = "http://localhost:8787";
+	env.DASHBOARD_URL = "http://localhost:3002/dashboard";
+	const local = await handleServiceRequest(new Request(env.API_URL), env);
+	expect(local.status).toBe(302);
+	expect(local.headers.get("Location")).toBe("http://localhost:3002/");
+
+	const missing = await handleServiceRequest(
+		new Request(`${env.API_URL}/favicon.ico`),
+		env,
+	);
+	expect(missing.status).toBe(404);
+	expect(await missing.json()).toEqual({
+		error: { code: "NOT_FOUND", message: "Unknown route" },
+	});
+});
+
 test("each project serves its own roots with its own secrets", async () => {
 	const { env } = environment();
 	const { dashboard: ada } = await signUp(env, "ada@example.com");
