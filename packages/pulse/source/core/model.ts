@@ -80,11 +80,9 @@ const emptyNodeMap = new Map<string, CoreNode>();
 const emptyStampMap = new Map<string, Stamp>();
 const emptyEntryMap = new Map<string, CoreEntry>();
 const emptyEntryArray: CoreEntry[] = [];
+/** Unformatted characters share one empty map until `mark` writes to them. */
 const emptyMarks = new Map<string, { stamp: Stamp; value: unknown }>();
 const emptyPathSet: ReadonlySet<string> = new Set();
-/** Plain text has no attributes, so its characters share one empty map. */
-const holdsMarks = (node: CoreNode) =>
-	node.kind === "text" && !node.layout?.plainText;
 export class CoreNode {
 	private moveMap: Map<string, CoreEntry> | undefined;
 	get moves(): ReadonlyMap<string, CoreEntry> {
@@ -645,15 +643,18 @@ export class CoreModel {
 		chars: readonly string[],
 	): void {
 		if (start === end && !chars.length) return;
-		this.commit([
-			{
-				kind: 3,
-				target: node.id,
-				after: start ? node.visible[start - 1]!.id : "",
-				deletes: node.visible.slice(start, end).map((entry) => entry.id),
-				values: chars.map((value) => ({ value, constants: [], texts: [] })),
-			},
-		]);
+		this.commit(
+			[
+				{
+					kind: 3,
+					target: node.id,
+					after: start ? node.visible[start - 1]!.id : "",
+					deletes: node.visible.slice(start, end).map((entry) => entry.id),
+					values: chars.map((value) => ({ value, constants: [], texts: [] })),
+				},
+			],
+			start,
+		);
 	}
 	/** Edit only the differing middle, so concurrent edits elsewhere survive. */
 	setText(node: CoreNode, text: string): void {
@@ -1170,31 +1171,31 @@ export class CoreModel {
 				} else {
 					if (target.kind === "object")
 						throw new PulseError("INVALID_MESSAGE", "Expected sequence target");
-					let sequence = sequences.get(target.id);
-					if (!sequence) {
-						sequence = new Set(target.entries.keys());
-						sequences.set(target.id, sequence);
-						for (const entry of target.order)
-							if (entry.origin) positions.add(entry.id);
-					}
-					const entries =
-						op.kind === 3
-							? [...(op.after ? [op.after] : []), ...op.deletes]
-							: op.kind === 4
-								? [op.entry]
-								: op.kind === 6
-									? [...op.entries, ...(op.after ? [op.after] : [])]
-									: attributeEntries(op);
-					if (op.kind === 5 && op.count !== undefined) {
-						// A range is a few bytes: bound the marks it writes instead.
-						ranged += op.count * Math.max(1, Object.keys(op.attributes).length);
-						if (!(ranged <= MAX_RANGE_MARKS))
-							throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
-					}
-					for (const entry of entries) {
+					let added = sequences.get(target.id);
+					const checkEntry = (entry: string) => {
 						reference(entry);
-						if (!sequence.has(entry))
+						if (!target.entries.has(entry) && !added?.has(entry))
 							throw new PulseError("INVALID_MESSAGE", "Unknown sequence entry");
+					};
+					const isPosition = (entry: string) =>
+						Boolean(target.entries.get(entry)?.origin) || positions.has(entry);
+					if (op.kind === 3) {
+						if (op.after) checkEntry(op.after);
+						for (const entry of op.deletes) checkEntry(entry);
+					} else if (op.kind === 4) {
+						checkEntry(op.entry);
+					} else if (op.kind === 6) {
+						for (const entry of op.entries) checkEntry(entry);
+						if (op.after) checkEntry(op.after);
+					} else {
+						if (op.count !== undefined) {
+							// A range is a few bytes: bound the marks it writes instead.
+							ranged +=
+								op.count * Math.max(1, Object.keys(op.attributes).length);
+							if (!(ranged <= MAX_RANGE_MARKS))
+								throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
+						}
+						for (const entry of attributeEntries(op)) checkEntry(entry);
 					}
 					if (op.kind === 3 && target.layout?.kind === "tuple")
 						throw new PulseError(
@@ -1207,23 +1208,25 @@ export class CoreModel {
 							target.layout?.kind === "tuple" ||
 							!op.entries.length ||
 							new Set(op.entries).size !== op.entries.length ||
-							op.entries.some((entry) => positions.has(entry))
+							op.entries.some(isPosition)
 						)
 							throw new PulseError("INVALID_MESSAGE", "Invalid array move");
+						if (!added) sequences.set(target.id, (added = new Set()));
 						for (const _entry of op.entries) {
 							const position = id();
-							sequence.add(position);
+							added.add(position);
 							positions.add(position);
 						}
 					} else if (
-						(op.kind === 4 && positions.has(op.entry)) ||
-						(op.kind === 3 && op.deletes.some((entry) => positions.has(entry)))
+						(op.kind === 4 && isPosition(op.entry)) ||
+						(op.kind === 3 && op.deletes.some(isPosition))
 					)
 						throw new PulseError(
 							"INVALID_MESSAGE",
 							"Cannot mutate a relocation token",
 						);
-					if (op.kind === 3)
+					if (op.kind === 3 && op.values.length) {
+						if (!added) sequences.set(target.id, (added = new Set()));
 						for (const value of op.values) {
 							if (
 								target.kind === "text" &&
@@ -1234,12 +1237,13 @@ export class CoreModel {
 									"INVALID_MESSAGE",
 									"Text entries must be single Unicode characters",
 								);
-							sequence.add(id());
+							added.add(id());
 							build(
 								value,
 								target.kind === "text" ? undefined : target.layout?.element,
 							);
 						}
+					}
 					if (op.kind === 4) {
 						if (target.kind === "text")
 							throw new PulseError(
@@ -1574,6 +1578,29 @@ export class CoreModel {
 			for (const [key, node] of staged.nodes) this.index.set(key, node);
 			return staged;
 		};
+		let dirtyText: CoreNode | undefined;
+		let dirtyTexts: Set<CoreNode> | undefined;
+		let dirtyArray: CoreNode | undefined;
+		let dirtyArrays: Set<CoreNode> | undefined;
+		const markDirtyText = (target: CoreNode) => {
+			if (dirtyTexts) dirtyTexts.add(target);
+			else if (!dirtyText) dirtyText = target;
+			else if (dirtyText !== target) dirtyTexts = new Set([dirtyText, target]);
+		};
+		const markDirtyArray = (target: CoreNode) => {
+			if (dirtyArrays) dirtyArrays.add(target);
+			else if (!dirtyArray) dirtyArray = target;
+			else if (dirtyArray !== target)
+				dirtyArrays = new Set([dirtyArray, target]);
+		};
+		const flushDirtyArray = (target: CoreNode) => {
+			if (dirtyArrays) {
+				if (dirtyArrays.delete(target)) this.syncArray(target);
+			} else if (dirtyArray === target) {
+				dirtyArray = undefined;
+				this.syncArray(target);
+			}
+		};
 		for (const op of patch.ops) {
 			if (op.kind === 0) {
 				const built = build(op.value, patchSchema?.root, true);
@@ -1665,11 +1692,13 @@ export class CoreModel {
 				if (write) {
 					node.stamps.set(key, stamp);
 					node.removeChild(key);
-					if (op.kind === 1 && node.layout?.counter)
+					if (op.kind === 1 && node.layout?.counter) {
+						if (node.parent) flushDirtyArray(node.parent);
 						this.addToCounter(
 							node,
 							(built.value as number) - (node.data[key] ?? 0),
 						);
+					}
 					if (op.kind === 2) delete node.data[key];
 					else {
 						node.data[key] = built.value;
@@ -1677,31 +1706,34 @@ export class CoreModel {
 					}
 				}
 			} else if (op.kind === 3) {
+				flushDirtyArray(node);
 				this.remove(node, op.deletes);
-				let after = op.after;
-				let offset = hint;
-				for (const value of op.values) {
-					const entryId = id();
-					const built = build(
-						value,
-						node.kind === "text" ? undefined : node.layout?.element,
-					);
-					const entry: CoreEntry = {
-						id: entryId,
-						after,
-						stamp,
-						write: stamp,
-						value: built.value,
-						child: built.child,
-						deleted: false,
-						children: [],
-						marks: holdsMarks(node) ? new Map() : emptyMarks,
-					};
-					this.insert(node, entry, offset);
-					after = entryId;
-					if (offset !== undefined) offset++;
+				const count = op.values.length;
+				if (count) {
+					const elementLayout =
+						node.kind === "text" ? undefined : node.layout?.element;
+					const entries: CoreEntry[] = new Array(count);
+					let after = op.after;
+					for (let i = 0; i < count; i++) {
+						const entryId = id();
+						const built = build(op.values[i]!, elementLayout);
+						entries[i] = {
+							id: entryId,
+							after,
+							stamp,
+							write: stamp,
+							value: built.value,
+							child: built.child,
+							deleted: false,
+							children: [],
+							marks: emptyMarks,
+						};
+						after = entryId;
+					}
+					this.insertRun(node, entries, hint);
 				}
 			} else if (op.kind === 4) {
+				flushDirtyArray(node);
 				const entry = node.entries.get(op.entry)!;
 				const built = build(
 					op.value,
@@ -1720,25 +1752,32 @@ export class CoreModel {
 						node.data[node.visible.indexOf(entry)] = built.value;
 				}
 			} else if (op.kind === 6) {
-				let after = op.after;
-				for (const entryId of op.entries) {
-					const position: CoreEntry = {
-						id: id(),
-						origin: entryId,
-						after,
-						stamp,
-						write: stamp,
-						value: undefined,
-						child: undefined,
-						deleted: false,
-						children: [],
-						marks: emptyMarks,
-					};
-					const prior = node.moves.get(entryId);
-					if (!prior || newer(stamp, prior.stamp) || stamp === prior.stamp)
-						node.setMove(entryId, position);
-					this.insert(node, position, undefined, true);
-					after = position.id;
+				const count = op.entries.length;
+				if (count) {
+					const positions: CoreEntry[] = new Array(count);
+					let after = op.after;
+					for (let i = 0; i < count; i++) {
+						const entryId = op.entries[i]!;
+						const position: CoreEntry = {
+							id: id(),
+							origin: entryId,
+							after,
+							stamp,
+							write: stamp,
+							value: undefined,
+							child: undefined,
+							deleted: false,
+							children: [],
+							marks: emptyMarks,
+						};
+						const prior = node.moves.get(entryId);
+						if (!prior || newer(stamp, prior.stamp) || stamp === prior.stamp)
+							node.setMove(entryId, position);
+						positions[i] = position;
+						after = position.id;
+					}
+					this.insertRun(node, positions, undefined, true);
+					markDirtyArray(node);
 				}
 			} else {
 				const entries: CoreEntry[] = [];
@@ -1746,8 +1785,17 @@ export class CoreModel {
 					entries.push(node.entries.get(entryId)!);
 				this.mark(node, entries, op.attributes, stamp);
 			}
-			if (node.kind === "text") this.syncText(node);
-			else if (node.kind === "array" && node.moves.size) this.syncArray(node);
+			if (node.kind === "text") markDirtyText(node);
+		}
+		if (dirtyArrays) {
+			for (const array of dirtyArrays) this.syncArray(array);
+		} else if (dirtyArray) {
+			this.syncArray(dirtyArray);
+		}
+		if (dirtyTexts) {
+			for (const text of dirtyTexts) this.syncText(text);
+		} else if (dirtyText) {
+			this.syncText(dirtyText);
 		}
 		this.planned.delete(patch);
 		if (this.maxVersion > 1 && this.root) {
@@ -1804,13 +1852,15 @@ export class CoreModel {
 		attributes: Record<string, unknown>,
 		stamp: Stamp,
 	): void {
+		const pairs = Object.entries(attributes);
+		if (!pairs.length) return;
+		const hasNode = Object.hasOwn(attributes, RT_NODE);
 		for (const entry of entries) {
-			// A text that was plain under another schema version.
 			if (entry.marks === emptyMarks) entry.marks = new Map();
-			for (const [key, value] of Object.entries(attributes))
+			for (const [key, value] of pairs)
 				if (newer(stamp, entry.marks.get(key)?.stamp))
 					entry.marks.set(key, { stamp, value });
-			if (Object.hasOwn(attributes, RT_NODE)) trackRichTextAnchor(node, entry);
+			if (hasNode) trackRichTextAnchor(node, entry);
 		}
 	}
 	/**
@@ -2122,7 +2172,7 @@ export class CoreModel {
 						child: built.child,
 						deleted: false,
 						children: [],
-						marks: holdsMarks(node) ? new Map() : emptyMarks,
+						marks: emptyMarks,
 					};
 					node.entries.set(entryId, entry);
 					if (after) node.entries.get(after)!.children.push(entry);
@@ -2176,68 +2226,169 @@ export class CoreModel {
 			});
 		return built;
 	}
-	private insert(
+	private isActivePosition(node: CoreNode, pos: CoreEntry): boolean {
+		if (pos.origin) {
+			const origin = node.entries.get(pos.origin)!;
+			return !origin.deleted && node.moves.get(pos.origin) === pos;
+		}
+		return !pos.deleted && !node.moves.has(pos.id);
+	}
+	private insertRun(
 		node: CoreNode,
-		entry: CoreEntry,
+		entries: readonly CoreEntry[],
 		hint?: number,
 		deferView = false,
 	): void {
-		const parent = entry.after ? node.entries.get(entry.after)! : undefined;
+		const count = entries.length;
+		if (!count) return;
+		const first = entries[0]!;
+		const parent = first.after ? node.entries.get(first.after)! : undefined;
 		const siblings = parent?.children ?? node.heads;
 		let sibling = 0;
 		while (
 			sibling < siblings.length &&
-			newer(siblings[sibling]!.stamp, entry.stamp)
+			newer(siblings[sibling]!.stamp, first.stamp)
 		)
 			sibling++;
+		const fromEnd = hint !== undefined && hint * 2 >= node.visible.length;
 		let orderIndex: number;
 		if (sibling === 0)
-			orderIndex = parent
-				? node.order[node.order.length - 1] === parent
-					? node.order.length
-					: node.order.indexOf(parent) + 1
-				: 0;
+			orderIndex = parent ? findOrderIndex(node.order, parent, fromEnd) + 1 : 0;
 		else {
 			let tail = siblings[sibling - 1]!;
 			while (tail.children.length)
 				tail = tail.children[tail.children.length - 1]!;
-			orderIndex =
-				node.order[node.order.length - 1] === tail
-					? node.order.length
-					: node.order.indexOf(tail) + 1;
+			orderIndex = findOrderIndex(node.order, tail, fromEnd) + 1;
 		}
-		siblings.splice(sibling, 0, entry);
-		node.entries.set(entry.id, entry);
-		node.order.splice(orderIndex, 0, entry);
-		if (node.kind === "array" && node.moves.size) {
-			if (!entry.origin) this.adopt(node, entry.id, entry.child);
-			if (!deferView) this.syncArray(node);
+		siblings.splice(sibling, 0, first);
+		node.entries.set(first.id, first);
+		for (let i = 1; i < count; i++) {
+			const entry = entries[i]!;
+			entries[i - 1]!.children.push(entry);
+			node.entries.set(entry.id, entry);
+		}
+		const oldOrderLength = node.order.length;
+		insertSlice(node.order, orderIndex, entries);
+		if (deferView) {
+			for (let i = 0; i < count; i++) {
+				const entry = entries[i]!;
+				if (!entry.origin) this.adopt(node, entry.id, entry.child);
+			}
 			return;
 		}
-		let visibleIndex = hint;
-		if (visibleIndex === undefined) {
-			if (orderIndex === node.order.length - 1)
-				visibleIndex = node.visible.length;
-			else {
+		const hasMoves = node.kind === "array" && node.moves.size > 0;
+		let visibleIndex: number;
+		if (
+			hint !== undefined &&
+			sibling === 0 &&
+			(hint === 0
+				? !parent
+				: hint <= node.visible.length &&
+					parent !== undefined &&
+					this.position(node, node.visible[hint - 1]!) === parent)
+		) {
+			visibleIndex = hint;
+		} else if (orderIndex === oldOrderLength) {
+			visibleIndex = node.visible.length;
+		} else if (!hasMoves && node.visible.length === oldOrderLength) {
+			visibleIndex = orderIndex;
+		} else if (!hasMoves) {
+			if (orderIndex * 2 <= oldOrderLength) {
 				visibleIndex = 0;
 				for (let i = 0; i < orderIndex; i++)
 					if (!node.order[i]!.deleted) visibleIndex++;
+			} else {
+				visibleIndex = node.visible.length;
+				for (let i = orderIndex + count; i < node.order.length; i++)
+					if (!node.order[i]!.deleted) visibleIndex--;
 			}
+		} else if (orderIndex * 2 <= oldOrderLength) {
+			visibleIndex = 0;
+			for (let i = 0; i < orderIndex; i++)
+				if (this.isActivePosition(node, node.order[i]!)) visibleIndex++;
+		} else {
+			visibleIndex = node.visible.length;
+			for (let i = orderIndex + count; i < node.order.length; i++)
+				if (this.isActivePosition(node, node.order[i]!)) visibleIndex--;
 		}
-		node.visible.splice(visibleIndex, 0, entry);
-		node.data.splice(visibleIndex, 0, entry.value);
-		this.adopt(node, entry.id, entry.child);
+		insertSlice(node.visible, visibleIndex, entries);
+		if (count === 1) {
+			const value = first.value;
+			if (visibleIndex === node.data.length) node.data.push(value);
+			else node.data.splice(visibleIndex, 0, value);
+			this.adopt(node, first.id, first.child);
+		} else {
+			const values = new Array<unknown>(count);
+			for (let i = 0; i < count; i++) {
+				const entry = entries[i]!;
+				values[i] = entry.value;
+				this.adopt(node, entry.id, entry.child);
+			}
+			insertSlice(node.data, visibleIndex, values);
+		}
 	}
 	private remove(node: CoreNode, ids: readonly string[]) {
-		for (const id of ids) {
-			const entry = node.entries.get(id)!;
-			if (entry.deleted) continue;
+		const count = ids.length;
+		if (!count) return;
+		if (count === 1) {
+			const entry = node.entries.get(ids[0]!)!;
+			if (entry.deleted) return;
 			entry.deleted = true;
 			const position = node.visible.indexOf(entry);
 			node.visible.splice(position, 1);
 			node.data.splice(position, 1);
+			return;
 		}
+		let removed = 0;
+		for (let i = 0; i < count; i++) {
+			const entry = node.entries.get(ids[i]!)!;
+			if (!entry.deleted) {
+				entry.deleted = true;
+				removed++;
+			}
+		}
+		if (!removed) return;
+		const visible = node.visible;
+		const data = node.data;
+		let write = 0;
+		for (let read = 0; read < visible.length; read++) {
+			const entry = visible[read]!;
+			if (!entry.deleted) {
+				if (write !== read) {
+					visible[write] = entry;
+					data[write] = data[read];
+				}
+				write++;
+			}
+		}
+		visible.length = write;
+		data.length = write;
 	}
+}
+function findOrderIndex(
+	order: readonly CoreEntry[],
+	entry: CoreEntry,
+	fromEnd: boolean,
+): number {
+	const last = order.length - 1;
+	if (last >= 0 && order[last] === entry) return last;
+	return fromEnd ? order.lastIndexOf(entry) : order.indexOf(entry);
+}
+function insertSlice<T>(target: T[], index: number, items: readonly T[]): void {
+	const count = items.length;
+	if (!count) return;
+	const length = target.length;
+	if (index === length) {
+		for (let i = 0; i < count; i++) target.push(items[i]!);
+		return;
+	}
+	if (count === 1) {
+		target.splice(index, 0, items[0]!);
+		return;
+	}
+	target.length = length + count;
+	target.copyWithin(index + count, index, length);
+	for (let i = 0; i < count; i++) target[index + i] = items[i]!;
 }
 /** The string assigned over an existing plain text: an edit, not a replacement. */
 function plainTextEdit(
