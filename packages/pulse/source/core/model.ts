@@ -102,6 +102,8 @@ export class CoreNode {
 	parent: CoreNode | undefined;
 	parentKey: string | undefined;
 	proxy: unknown;
+	treeVersion = 0;
+	private treePositionSet: Set<string> | undefined;
 	constructor(
 		public readonly id: string,
 		public readonly kind: "object" | "array" | "text",
@@ -125,9 +127,47 @@ export class CoreNode {
 	}
 	setChild(key: string, node: CoreNode): void {
 		(this.childMap ??= new Map()).set(key, node);
+		if (this.layout?.tree) {
+			const position = node.data?.location?.position;
+			if (typeof position === "string") this.treePositionSet?.add(position);
+		} else if (this.layout?.treeRole === "node" && key === "location") {
+			const position = node.data?.position;
+			if (typeof position === "string")
+				this.parent?.treePositionSet?.add(position);
+		}
 	}
 	removeChild(key: string): void {
 		this.childMap?.delete(key);
+		if (this.layout?.tree) {
+			this.treeVersion++;
+			const position = this.data[key]?.location?.position;
+			if (typeof position === "string") this.treePositionSet?.delete(position);
+		} else if (
+			this.layout?.treeRole === "node" &&
+			(key === "location" || key === "deleted")
+		) {
+			const tree = this.parent;
+			if (tree) {
+				tree.treeVersion++;
+				if (key === "location") {
+					const position = this.data.location?.position;
+					if (typeof position === "string")
+						tree.treePositionSet?.delete(position);
+				}
+			}
+		}
+	}
+	hasTreePosition(position: string): boolean {
+		let set = this.treePositionSet;
+		if (!set) {
+			set = new Set();
+			for (const value of Object.values(
+				this.data as Record<string, { location: { position: string } }>,
+			))
+				set.add(value.location.position);
+			this.treePositionSet = set;
+		}
+		return set.has(position);
 	}
 	readonly wireLayout: PulseLayout | undefined;
 }
@@ -971,12 +1011,8 @@ export class CoreModel {
 					);
 					if (target.layout?.tree) {
 						let keys = treeKeys.get(target.id);
-						if (!keys)
-							treeKeys.set(
-								target.id,
-								(keys = new Set(Object.keys(target.data))),
-							);
-						if (keys.has(key))
+						if (!keys) treeKeys.set(target.id, (keys = new Set()));
+						if (keys.has(key) || Object.hasOwn(target.data, key))
 							throw new PulseError(
 								"INVALID_MESSAGE",
 								"Tree node IDs cannot be replaced",
@@ -1014,11 +1050,7 @@ export class CoreModel {
 							typeof position !== "string" ||
 							!position.endsWith(suffix) ||
 							treePositions.has(position) ||
-							Object.values(tree?.data ?? {}).some(
-								(value) =>
-									(value as { location: { position: string } }).location
-										.position === position,
-							)
+							tree?.hasTreePosition(position)
 						)
 							throw new PulseError(
 								"INVALID_MESSAGE",

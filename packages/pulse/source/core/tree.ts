@@ -39,6 +39,14 @@ export interface TreeNode<Item> {
 	delete(): void;
 }
 
+type TreeStructure = {
+	parents: Map<string, string>;
+	visible: Set<string>;
+	children: Map<string, string[]>;
+	missingParents: Set<string>;
+};
+const emptyIds: readonly string[] = [];
+
 /** Tree structure is a projection of independent, atomic LWW location registers. */
 export function createTreeProxy(
 	node: CoreNode,
@@ -47,19 +55,29 @@ export function createTreeProxy(
 	const model = context.meta.model;
 	const cached = new Map<string, TreeNode<unknown>>();
 	const owners = new WeakMap<TreeNode<unknown>, string>();
+	let cachedStructure: TreeStructure | undefined;
+	let cachedVersion = -1;
 	const attached = () => {
 		context.assertActive();
 		if (!model.isAttached(node))
 			throw new TypeError("This pulse tree has been replaced or removed");
 	};
 	const records = () => node.data as TreeData<unknown>;
-	const structure = () => {
+	const structure = (): TreeStructure => {
 		attached();
+		const version = node.treeVersion;
+		if (cachedStructure && cachedVersion === version) return cachedStructure;
 		const data = records();
 		const parents = new Map<string, string>();
+		const missingParents = new Set<string>();
 		for (const id of Object.keys(data).sort()) {
 			const parent = data[id]!.location.parent;
-			parents.set(id, Object.hasOwn(data, parent) ? parent : "");
+			if (parent && !Object.hasOwn(data, parent)) {
+				missingParents.add(parent);
+				parents.set(id, "");
+			} else {
+				parents.set(id, parent);
+			}
 		}
 		// A concurrent cycle is broken at its lexicographically smallest node ID.
 		// Compute from raw registers every time, so delivery order cannot affect it.
@@ -109,7 +127,9 @@ export function createTreeProxy(
 					y = data[b]!.location.position;
 				return x < y ? -1 : x > y ? 1 : a < b ? -1 : a > b ? 1 : 0;
 			});
-		return { parents, visible, children };
+		cachedStructure = { parents, visible, children, missingParents };
+		cachedVersion = version;
+		return cachedStructure;
 	};
 	const active = (id: string) => {
 		if (!structure().visible.has(id))
@@ -124,36 +144,42 @@ export function createTreeProxy(
 		return id;
 	};
 	const location = (
+		state: TreeStructure,
 		parent: string,
 		index: number | undefined,
 		exclude?: string,
 	) => {
-		const siblings = (structure().children.get(parent) ?? []).filter(
-			(id) => id !== exclude,
-		);
-		const at = index ?? siblings.length;
-		if (!Number.isSafeInteger(at) || at < 0 || at > siblings.length)
+		const raw = state.children.get(parent) ?? emptyIds;
+		const skip =
+			exclude !== undefined && state.parents.get(exclude) === parent
+				? raw.indexOf(exclude)
+				: -1;
+		const count = skip >= 0 ? raw.length - 1 : raw.length;
+		const at = index ?? count;
+		if (!Number.isSafeInteger(at) || at < 0 || at > count)
 			throw new RangeError("Invalid tree index");
 		const data = records();
 		const unique =
 			model.sid.toString(16).padStart(14, "0") +
 			model.nextClock.toString(16).padStart(14, "0");
-		const left = at ? data[siblings[at - 1]!]!.location.position : undefined;
+		const leftId =
+			at > 0 ? raw[skip >= 0 && at - 1 >= skip ? at : at - 1] : undefined;
+		const rightId =
+			at < count ? raw[skip >= 0 && at >= skip ? at + 1 : at] : undefined;
+		const left =
+			leftId !== undefined ? data[leftId]!.location.position : undefined;
 		const right =
-			at < siblings.length ? data[siblings[at]!]!.location.position : undefined;
-		const used = new Set(
-			Object.values(data).map((record) => record.location.position),
-		);
+			rightId !== undefined ? data[rightId]!.location.position : undefined;
 		let position = positionBetween(left, right, unique),
 			nonce = 0;
 		// Restored snapshots can contain ranks minted with this new document's clocks.
-		while (used.has(position))
+		while (node.hasTreePosition(position))
 			position = positionBetween(
 				left,
 				right,
 				(++nonce).toString(16).padStart(8, "0") + unique,
 			);
-		return { parent, position };
+		return { parent, position, at };
 	};
 	const create = (
 		data: unknown,
@@ -162,15 +188,33 @@ export function createTreeProxy(
 	) => {
 		attached();
 		const parentId = owner(parent);
+		const state = structure();
+		const beforeVersion = node.treeVersion;
 		const base = `n${model.sid}:${model.nextClock}`;
 		let id = base,
 			suffix = 0;
 		while (Object.hasOwn(records(), id)) id = `${base}:${++suffix}`;
+		const next = location(state, parentId, index);
 		model.set(node, id, {
 			data,
-			location: location(parentId, index),
+			location: { parent: next.parent, position: next.position },
 			deleted: false,
 		});
+		if (
+			cachedStructure === state &&
+			cachedVersion === beforeVersion &&
+			node.treeVersion === beforeVersion + 1 &&
+			Object.hasOwn(records(), id) &&
+			!state.missingParents.has(id)
+		) {
+			state.parents.set(id, parentId);
+			state.visible.add(id);
+			let siblings = state.children.get(parentId);
+			if (!siblings) state.children.set(parentId, (siblings = []));
+			if (next.at === siblings.length) siblings.push(id);
+			else siblings.splice(next.at, 0, id);
+			cachedVersion = node.treeVersion;
+		}
 		return get(id);
 	};
 	const get = (id: string): TreeNode<unknown> => {
@@ -187,17 +231,19 @@ export function createTreeProxy(
 			)
 				if (ancestor === id)
 					throw new TypeError("A tree node cannot move into its own subtree");
-			const next = location(parentId, index, id);
-			const siblings = state.children.get(parentId) ?? [];
+			const next = location(state, parentId, index, id);
+			const siblings = state.children.get(parentId) ?? emptyIds;
 			const current = siblings.indexOf(id);
-			const final = index ?? siblings.filter((key) => key !== id).length;
 			if (
 				records()[id]!.location.parent === parentId &&
 				state.parents.get(id) === parentId &&
-				current === final
+				current === next.at
 			)
 				return;
-			model.set(record, "location", next);
+			model.set(record, "location", {
+				parent: next.parent,
+				position: next.position,
+			});
 		};
 		const moveRelative = (sibling: TreeNode<unknown>, offset: number) => {
 			active(id);

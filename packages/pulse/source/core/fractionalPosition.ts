@@ -8,6 +8,8 @@ export function isFractionalPosition(key: unknown): key is string {
 	);
 }
 
+const STEP = 8;
+
 export function positionBetween(
 	left: string | undefined,
 	right: string | undefined,
@@ -18,6 +20,8 @@ export function positionBetween(
 			throw new TypeError("Invalid fractional position");
 	if (left !== undefined && right !== undefined && left >= right)
 		throw new RangeError("Positions must be ordered");
+	const appending = left !== undefined && right === undefined;
+	const prepending = left === undefined && right !== undefined;
 	let prefix = "";
 	for (let offset = 0; ; offset += 4) {
 		const low =
@@ -29,10 +33,16 @@ export function positionBetween(
 				? Number.parseInt(right.slice(offset, offset + 4), 16)
 				: 65536;
 		if (high - low > 1) {
-			const middle = Math.floor((low + high) / 2)
-				.toString(16)
-				.padStart(4, "0");
-			return prefix + middle + unique + "0001";
+			let digit: number;
+			if (left === undefined && right === undefined && offset === 0)
+				digit = 0x8000;
+			else {
+				const step = Math.min(STEP, (high - low) >>> 1);
+				const fromHigh =
+					prepending || (!appending && ((offset >>> 2) & 1) === 1);
+				digit = fromHigh ? high - step : low + step;
+			}
+			return prefix + digit.toString(16).padStart(4, "0") + unique + "0001";
 		}
 		prefix += low.toString(16).padStart(4, "0");
 		if (low < high) right = undefined;
