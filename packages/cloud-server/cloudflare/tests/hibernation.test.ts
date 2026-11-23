@@ -739,3 +739,38 @@ test("descendant watches survive hibernation and push newly created sub-document
 		{ kind: 4, docId: "r/new-note", requestId: 0, rows: [{ clock: 1 }] },
 	]);
 });
+
+test("S10 & S11: waking root skips DDL and idle alarm checks emptiness with EXISTS once per idle period", async () => {
+	const { state, db, alarm } = durableState();
+	// Initialize schema and seed enough rows for multiple compaction steps.
+	const initial = new PulsifyCloudRoot(state);
+	await admin(initial, "PUT", { subject: "*", prefix: "r", role: "editor" });
+	await seedHistory(db, "r/doc", 3000);
+
+	const queries: string[] = [];
+	const origExec = state.storage.sql.exec;
+	state.storage.sql.exec = (query: string, ...bindings: unknown[]) => {
+		queries.push(query);
+		return origExec(query, ...bindings);
+	};
+
+	// Waking an already-initialized root runs no DDL statements.
+	const woken = new PulsifyCloudRoot(state);
+	alarm.at = Date.now();
+	let steps = 0;
+	while (alarm.at !== undefined) {
+		delete alarm.at;
+		await woken.alarm();
+		steps++;
+	}
+	expect(steps).toBeGreaterThanOrEqual(2);
+	expect(queries.filter((q) => /\b(CREATE|DROP)\b/i.test(q))).toEqual([]);
+	expect(queries.filter((q) => q.includes("COUNT(DISTINCT doc_id)"))).toEqual(
+		[],
+	);
+	expect(
+		queries.filter((q) =>
+			q.includes("EXISTS(SELECT 1 FROM pulsify_op_rows LIMIT 1)"),
+		),
+	).toHaveLength(1);
+});

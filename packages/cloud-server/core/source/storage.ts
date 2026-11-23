@@ -57,6 +57,8 @@ export interface CloudRootStorage {
 	 */
 	deleteDocuments(docId: string): Promise<number>;
 	usage(): Promise<CloudUsage>;
+	/** Whether the root holds no document rows, values, grants or tombstones. */
+	isEmpty?(): Promise<boolean>;
 	/**
 	 * Bind each actor to `subject`, for good, unless an account has it
 	 * already. Resolves to the actors that another account has.
@@ -153,7 +155,12 @@ export class SqliteCloudStorage implements CloudRootStorage {
 	constructor(private readonly db: SqliteConnection) {
 		// A root is the only writer of its database: vectors can stay in memory.
 		this.patches = new SqlitePatchStore(db, { vectorCacheSize: 128 });
-		db.exec(CLOUD_SQLITE_SCHEMA);
+		const existing = db
+			.query(
+				"SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('pulsify_cloud_grants','pulsify_cloud_subscriptions','pulsify_cloud_watches','pulsify_cloud_expiry','pulsify_cloud_snapshots','pulsify_cloud_actors','pulsify_cloud_received','pulsify_cloud_snapshot_frames')",
+			)
+			.get() as { n: number };
+		if (Number(existing.n) !== 8) db.exec(CLOUD_SQLITE_SCHEMA);
 	}
 	async isDeleted(docId: string): Promise<boolean> {
 		return this.patches.isDeleted(docId);
@@ -301,6 +308,8 @@ export class SqliteCloudStorage implements CloudRootStorage {
 			appendEncoded: async (frame) => append(rowsFromFrame(frame)),
 			vector: (docId) => patches.vector(docId),
 			missing: (docId, remote) => patches.missing(docId, remote),
+			missingPage: (docId, remote, options) =>
+				patches.missingPage(docId, remote, options),
 		};
 	}
 	/**
@@ -457,6 +466,18 @@ export class SqliteCloudStorage implements CloudRootStorage {
 			after: resume as SqliteCompactCursor | undefined,
 		});
 		return next;
+	}
+	async isEmpty(): Promise<boolean> {
+		const row = this.db
+			.query(
+				`SELECT
+ EXISTS(SELECT 1 FROM pulsify_op_rows LIMIT 1)
+ OR EXISTS(SELECT 1 FROM pulsify_values LIMIT 1)
+ OR EXISTS(SELECT 1 FROM pulsify_cloud_grants LIMIT 1)
+ OR EXISTS(SELECT 1 FROM pulsify_tombstones LIMIT 1) AS used`,
+			)
+			.get() as { used: number };
+		return !row.used;
 	}
 	async usage(): Promise<CloudUsage> {
 		const row = this.db

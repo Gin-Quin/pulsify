@@ -3,10 +3,13 @@ import { validateVector } from "../connection/PulseVersionVector.js";
 import { PulseError } from "../protocol/errors.js";
 import { validateDocId } from "../protocol/validateDocId.js";
 import { MAX_VECTOR_ENTRIES } from "../protocol/limits.js";
+import { rowDependencies, rowOperations } from "../protocol/scalarRuns.js";
 import {
 	rowsFromFrame,
 	validateRows,
 	type AppendResult,
+	type MissingPage,
+	type MissingPageOptions,
 	type PatchStore,
 	type StoredPatchRow,
 } from "./rows.js";
@@ -30,7 +33,7 @@ CREATE TABLE IF NOT EXISTS pulsify_op_rows (
  ready boolean NOT NULL DEFAULT false, PRIMARY KEY(doc_id,sid,time_start),
  CHECK(time_start + span <= 9007199254740991)
 );
-CREATE INDEX IF NOT EXISTS pulsify_rows_frontier ON pulsify_op_rows(doc_id,sid,time_end);
+DROP INDEX IF EXISTS pulsify_rows_frontier;
 CREATE INDEX IF NOT EXISTS pulsify_rows_pending ON pulsify_op_rows(doc_id) WHERE NOT ready;
 CREATE TABLE IF NOT EXISTS pulsify_doc_clocks (
  doc_id text NOT NULL, sid bigint NOT NULL, clock bigint NOT NULL, PRIMARY KEY(doc_id,sid)
@@ -39,6 +42,7 @@ CREATE TABLE IF NOT EXISTS pulsify_values (
  doc_id text NOT NULL, sid bigint NOT NULL, register bytea NOT NULL, clock bigint NOT NULL,
  dependencies jsonb NOT NULL, operations bytea NOT NULL, PRIMARY KEY(doc_id,sid,register)
 );
+CREATE INDEX IF NOT EXISTS pulsify_values_clock ON pulsify_values(doc_id,sid,clock);
 -- An unreleased layout indexed last-value rows by register in pulsify_op_rows:
 -- its rows move to pulsify_values, and its gap rows are holes now.
 DO $migrate$
@@ -254,26 +258,32 @@ LANGUAGE sql STABLE AS $$
   SELECT c.sid,c.clock AS frontier,GREATEST(COALESCE(r.clock,0),1) AS since
   FROM pulsify_doc_clocks c LEFT JOIN remote r ON r.sid=c.sid
   WHERE c.doc_id=p_doc_id AND c.clock>COALESCE(r.clock,0)),
+ bounds AS MATERIALIZED (
+  SELECT a.sid,a.frontier,a.since,
+   COALESCE((SELECT p.time_start FROM pulsify_op_rows p
+    WHERE p.doc_id=p_doc_id AND p.sid=a.sid AND p.time_start<=a.since
+    ORDER BY p.time_start DESC LIMIT 1),0) AS op_from,
+   COALESCE((SELECT w.clock FROM pulsify_values w
+    WHERE w.doc_id=p_doc_id AND w.sid=a.sid AND w.clock<=a.since
+    ORDER BY w.clock DESC LIMIT 1),0) AS val_from
+  FROM actors a),
  held AS (
-  SELECT o.sid,o.time_start,o.dependencies,o.operations FROM actors a
-   JOIN pulsify_op_rows o ON o.doc_id=p_doc_id AND o.sid=a.sid
-   WHERE o.ready AND o.operations<>'\\x03010000'::bytea AND o.time_start>=COALESCE((SELECT MAX(p.time_start)
-    FROM pulsify_op_rows p WHERE p.doc_id=p_doc_id AND p.sid=a.sid AND p.time_start<=a.since),0)
+  SELECT o.sid,o.time_start,o.dependencies,o.operations FROM bounds a
+   JOIN pulsify_op_rows o ON o.doc_id=p_doc_id AND o.sid=a.sid AND o.time_start>=a.op_from
+   WHERE o.ready AND o.operations<>'\\x03010000'::bytea
   UNION ALL
-  SELECT v.sid,v.clock,v.dependencies,v.operations FROM actors a
-   JOIN pulsify_values v ON v.doc_id=p_doc_id AND v.sid=a.sid
-   WHERE v.clock>=COALESCE((SELECT MAX(w.clock)
-    FROM pulsify_values w WHERE w.doc_id=p_doc_id AND w.sid=a.sid AND w.clock<=a.since),0)),
+  SELECT v.sid,v.clock,v.dependencies,v.operations FROM bounds a
+   JOIN pulsify_values v ON v.doc_id=p_doc_id AND v.sid=a.sid AND v.clock>=a.val_from),
  spans AS (
   SELECT h.sid,h.time_start,COALESCE(LEAD(h.time_start) OVER (PARTITION BY h.sid ORDER BY h.time_start),a.frontier)
    -h.time_start AS span,h.dependencies,h.operations,a.since
-  FROM held h JOIN actors a ON a.sid=h.sid)
+  FROM held h JOIN bounds a ON a.sid=h.sid)
  SELECT s.sid,s.time_start,s.span,s.dependencies,s.operations FROM spans s WHERE s.time_start+s.span>s.since
  UNION ALL
  SELECT a.sid,a.since,COALESCE((SELECT MIN(h.time_start) FROM held h WHERE h.sid=a.sid),a.frontier)-a.since,
   CASE WHEN a.since>1 THEN jsonb_build_array(jsonb_build_array(a.sid,a.since)) ELSE '[]'::jsonb END,
   '\\x03010000'::bytea
- FROM actors a WHERE NOT EXISTS (SELECT 1 FROM held h WHERE h.sid=a.sid AND h.time_start<=a.since)
+ FROM bounds a WHERE NOT EXISTS (SELECT 1 FROM held h WHERE h.sid=a.sid AND h.time_start<=a.since)
  ORDER BY 1,2
 $$;
 `;
@@ -305,11 +315,11 @@ export class PostgresPatchStore implements PatchStore {
 			row.sid,
 			row.clock,
 			row.span,
-			row.dependencies,
+			rowDependencies(row),
 		]);
 		const result = await this.query(
 			"SELECT * FROM pulsify_append($1::text,$2::text::jsonb,$3::bytea[])",
-			[docId, JSON.stringify(metadata), rows.map((row) => row.operations)],
+			[docId, JSON.stringify(metadata), rows.map((row) => rowOperations(row))],
 		).catch((error: unknown) => {
 			// What the function raises, as the errors every other store throws.
 			const message = error instanceof Error ? error.message : String(error);
@@ -351,5 +361,34 @@ export class PostgresPatchStore implements PatchStore {
 				[docId, remote.map(([sid]) => sid), remote.map(([, clock]) => clock)],
 			)
 		).map((row) => unpack({ ...row, doc_id: docId }));
+	}
+	async missingPage(
+		docId: string,
+		remote: PulseVersionVector,
+		_options?: MissingPageOptions,
+	): Promise<MissingPage> {
+		validateDocId(docId);
+		validateVector(remote);
+		const result = await this.query(
+			`SELECT
+ CASE WHEN row_number() OVER () = 1 THEN (
+  SELECT COALESCE(jsonb_agg(jsonb_build_array(sid, clock) ORDER BY sid), '[]'::jsonb)
+  FROM pulsify_doc_clocks WHERE doc_id=$1::text
+ ) END AS vv,
+ m.sid, m.time_start, m.span, m.dependencies, m.operations
+FROM (SELECT 1) AS anchor
+LEFT JOIN pulsify_missing($1::text,$2::bigint[],$3::bigint[]) m ON true`,
+			[docId, remote.map(([sid]) => sid), remote.map(([, clock]) => clock)],
+		);
+		const rawVv = (result[0]?.["vv"] as [number, number][] | undefined) ?? [];
+		const vv: PulseVersionVector = rawVv.map(([sid, clock]) => [
+			Number(sid),
+			Number(clock),
+		]);
+		const rows: StoredPatchRow[] = [];
+		for (const row of result)
+			if (row["sid"] !== null && row["sid"] !== undefined)
+				rows.push(unpack({ ...row, doc_id: docId }));
+		return { rows, vv, next: undefined };
 	}
 }

@@ -249,13 +249,26 @@ export function runOperation(
 class RunRow implements PulsePatchRow {
 	#run: ScalarRun;
 	#offset: number;
-	#cached: Uint8Array | undefined;
+	#cachedDeps: PulseVersionVector | undefined;
+	#cachedOps: Uint8Array | undefined;
 	static entry(
 		row: PulsePatchRow,
 	): { run: ScalarRun; offset: number } | undefined {
 		return row instanceof RunRow
 			? { run: row.#run, offset: row.#offset }
 			: undefined;
+	}
+	/** Internal read-only view of `operations` without allocating a defensive copy. */
+	static operationsView(row: PulsePatchRow): Uint8Array {
+		return row instanceof RunRow
+			? (row.#cachedOps ??= runOperation(row.#run, row.#offset))
+			: row.operations;
+	}
+	/** Internal read-only view of `dependencies` without allocating a defensive copy. */
+	static dependenciesView(row: PulsePatchRow): PulseVersionVector {
+		return row instanceof RunRow
+			? (row.#cachedDeps ??= runDependencies(row.#run, row.#offset))
+			: row.dependencies;
 	}
 	constructor(run: ScalarRun, offset: number) {
 		this.#run = run;
@@ -275,14 +288,22 @@ class RunRow implements PulsePatchRow {
 		return 1;
 	}
 	get dependencies() {
-		return runDependencies(this.#run, this.#offset);
+		return (this.#cachedDeps ??= runDependencies(this.#run, this.#offset)).map(
+			([sid, clock]): [number, number] => [sid, clock],
+		);
 	}
 	get operations() {
 		return new Uint8Array(
-			(this.#cached ??= runOperation(this.#run, this.#offset)),
+			(this.#cachedOps ??= runOperation(this.#run, this.#offset)),
 		);
 	}
 }
+/** Read-only access to a row's operations without copying a memoized `RunRow`. */
+export const rowOperations = (row: PulsePatchRow): Uint8Array =>
+	RunRow.operationsView(row);
+/** Read-only access to a row's dependencies without copying a memoized `RunRow`. */
+export const rowDependencies = (row: PulsePatchRow): PulseVersionVector =>
+	RunRow.dependenciesView(row);
 Object.freeze(RunRow.prototype);
 /** Immutable rows that rebuild their exact original bytes from the run on demand. */
 export function runRows(run: ScalarRun): PulsePatchRow[] {

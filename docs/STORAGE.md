@@ -63,8 +63,9 @@ clock, like a history row: no row is read, deleted or rewritten. Six counters
 uploaded together cost seven.
 
 The SQLite stores keep the values in `pulsify_values(doc_id, sid, register,
-clock, dependencies, operations)`, keyed by `(doc_id, sid, register)`, so one
-actor's values are stored together. The table is created on opening, and an
+clock, dependencies, operations)`, keyed by `(doc_id, sid, register)`, with a
+secondary index `pulsify_values_clock(doc_id, sid, clock)` for clock-ordered
+range scans and point lookups. The table and index are created on opening, and an
 older database needs no migration: its rows are history rows. **Pulsify
 versions before 13 cannot read a database that version 13 wrote to.**
 New core transactions use one sequence number each, starting at 1; their
@@ -115,11 +116,14 @@ write round trip is required. The advisory lock also serializes causal updates;
 hash collisions can serialize unrelated documents without changing correctness.
 All writers must use the append function rather than insert directly.
 
-The primary key is `(doc_id,sid,time_start)`, and a partial document index
-serves pending repair. `missing` calls `pulsify_missing(doc_id, sids, clocks)`,
-which joins the remote vector given as two numeric arrays, reads each behind
-actor's rows from the one that holds the remote clock, and its values, and
-computes the spans; operation bytes remain `bytea`. Clock and ready-state updates commit
+The primary key is `(doc_id,sid,time_start)`, a partial document index
+serves pending repair, and `pulsify_values_clock(doc_id,sid,clock)` indexes
+last-value reads by clock; `initialize()` drops any legacy
+`pulsify_rows_frontier` index. `missing` calls `pulsify_missing(doc_id, sids, clocks)`,
+which joins the remote vector given as two numeric arrays, computes each behind
+actor's lower bound once, reads its rows and values from those bounds, and
+computes the spans; operation bytes remain `bytea`. `missingPage` reads the
+document vector and missing rows in one snapshot. Clock and ready-state updates commit
 atomically. Ordinary logged tables retain PostgreSQL durability guarantees.
 
 `PostgresQuery` is a small driver boundary. Drivers must bind the third append
@@ -131,14 +135,16 @@ drivers do not encode a JSON string a second time.
 ## SQLite
 
 Pass a compatible connection (for example `new Database(path)` from
-`bun:sqlite`) to `SqlitePatchStore`. Tables use `WITHOUT ROWID` and a partial
-pending index; there is no `time_end` index. `missing` seeks the primary key once
-per actor behind the remote vector, starting at the last row that begins at or
-before the remote clock, and reads that actor's values, so each write updates
-only the row or the value, the pending index and the actor clock. Opening an older database drops its
-`pulsify_rows_frontier` index. The append uses an immediate
+`bun:sqlite`) to `SqlitePatchStore`. Tables use `WITHOUT ROWID`, a partial
+pending index, and `pulsify_values_clock(doc_id, sid, clock)`; there is no
+`time_end` index. `missing` and paged `missingPage` run in a single read
+transaction, seeking each behind actor's rows and values from its remote clock
+and merging them incrementally. Opening an older database drops its
+`pulsify_rows_frontier` index and adds `pulsify_values_clock`; opening an
+already-current database skips DDL. The append uses an immediate
 transaction so competing writers cannot race between duplicate checks and
-inserts. Each append reads the pending rows once, through the partial index.
+inserts. Each append checks the covering pending index without scanning or
+parsing unrelated pending rows.
 A ready actor's rows all start below its clock, so a row that starts at
 that clock, has its dependencies covered and whose actor has no pending row
 cannot be a duplicate or overlap: it is stored without reading any row, and

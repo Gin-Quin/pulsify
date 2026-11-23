@@ -102,7 +102,11 @@ export {
 } from "./protocol/errors.js";
 export type { MigrationDriftDetails } from "./protocol/errors.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
-export { relayStoreMessage, encodeBroadcast } from "./protocol/StoreRelay.js";
+export {
+	relayStoreMessage,
+	streamStoreMessage,
+	encodeBroadcast,
+} from "./protocol/StoreRelay.js";
 export { encodePresenceLeave } from "./protocol/presenceFrames.js";
 export {
 	definePresence,
@@ -117,6 +121,7 @@ export type {
 export type {
 	StoreRelaySession,
 	StoreRelayResult,
+	StoreRelayStreamResult,
 	StoreRelayBroadcast,
 } from "./protocol/StoreRelay.js";
 export {

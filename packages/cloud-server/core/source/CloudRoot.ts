@@ -8,7 +8,7 @@ import {
 	PRESENCE_KIND,
 	PulseError,
 	relayPresenceFrame,
-	relayStoreMessage,
+	streamStoreMessage,
 } from "pulsify-core/protocol";
 import {
 	ANY_SUBJECT,
@@ -498,7 +498,7 @@ export class CloudRoot {
 						await check();
 						if (id !== docId && (await this.storage.isDeleted(id))) return;
 						sendRole(peer, id, this.role(peer.subject, id)!);
-						return relayStoreMessage(
+						return streamStoreMessage(
 							this.storage.patches,
 							encodeMessage({
 								kind: 1,
@@ -510,45 +510,77 @@ export class CloudRoot {
 						);
 					});
 					if (!result) continue;
-					for (const frame of result.responses) {
-						if (
-							frames &&
-							(frames >= FETCH_BATCH_FRAMES ||
-								bytes + frame.byteLength > FETCH_BATCH_BYTES)
-						)
-							await flush();
-						const sent = await this.run(async () => {
-							await check();
-							if (id !== docId && (await this.storage.isDeleted(id))) {
-								// A partially sent child was deleted while the batch was
-								// in flight. Discard that child, never retire its parent.
-								peer.send(
-									encodeMessage({
-										kind: 6,
-										docId: id,
-										requestId,
-										code: "NOT_FOUND",
-										message: "Document was permanently deleted",
-									}),
-								);
-								return false;
+					const iterator = result.responses[Symbol.asyncIterator]();
+					try {
+						for (;;) {
+							const step = await this.run(async () => {
+								await check();
+								if (id !== docId && (await this.storage.isDeleted(id))) {
+									// A partially sent child was deleted while the batch was
+									// in flight. Discard that child, never retire its parent.
+									peer.send(
+										encodeMessage({
+											kind: 6,
+											docId: id,
+											requestId,
+											code: "NOT_FOUND",
+											message: "Document was permanently deleted",
+										}),
+									);
+									return { kind: "stop" as const };
+								}
+								const next = await iterator.next();
+								if (next.done) return { kind: "stop" as const };
+								const frame = next.value;
+								if (
+									frames &&
+									(frames >= FETCH_BATCH_FRAMES ||
+										bytes + frame.byteLength > FETCH_BATCH_BYTES)
+								)
+									return { kind: "flush" as const, frame };
+								peer.send(frame);
+								return { kind: "sent" as const, frame };
+							});
+							if (step.kind === "stop") break;
+							const { frame } = step;
+							if (step.kind === "flush") {
+								await flush();
+								const sent = await this.run(async () => {
+									await check();
+									if (id !== docId && (await this.storage.isDeleted(id))) {
+										// A partially sent child was deleted while the batch was
+										// in flight. Discard that child, never retire its parent.
+										peer.send(
+											encodeMessage({
+												kind: 6,
+												docId: id,
+												requestId,
+												code: "NOT_FOUND",
+												message: "Document was permanently deleted",
+											}),
+										);
+										return false;
+									}
+									peer.send(frame);
+									return true;
+								});
+								if (!sent) break;
 							}
-							peer.send(frame);
-							return true;
-						});
-						if (!sent) break;
-						frames++;
-						bytes += frame.byteLength;
-						if (peekFrameHeader(frame).kind === 6) {
-							const failure = decodeMessage(frame);
-							if (
-								failure.kind === 6 &&
-								failure.code === "NOT_FOUND" &&
-								id !== docId
-							)
-								break;
-							return;
+							frames++;
+							bytes += frame.byteLength;
+							if (peekFrameHeader(frame).kind === 6) {
+								const failure = decodeMessage(frame);
+								if (
+									failure.kind === 6 &&
+									failure.code === "NOT_FOUND" &&
+									id !== docId
+								)
+									break;
+								return;
+							}
 						}
+					} finally {
+						await iterator.return?.();
 					}
 				}
 				if (!input.descendants) break;
@@ -636,12 +668,12 @@ export class CloudRoot {
 		else if (!role) return fail("FORBIDDEN", `No access to ${docId}`);
 		// What this adds is noted as received from the socket's account, which
 		// is not always who wrote it: a client also uploads rows it relays.
-		const result = await relayStoreMessage(
+		const result = await streamStoreMessage(
 			this.storage.receivedFrom(peer.subject),
 			bytes,
 			{ docId, readOnly: !canWrite(role), protocolVersion: peer.envelope },
 		);
-		for (const frame of result.responses) safely(() => peer.send(frame));
+		for await (const frame of result.responses) safely(() => peer.send(frame));
 		if (!result.broadcast) return;
 		const delivered = new Set<string>([peer.id]);
 		for (const [connection, documents] of this.subscriptions) {

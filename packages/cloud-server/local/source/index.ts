@@ -180,12 +180,6 @@ export function createLocalCloud(options: LocalCloudOptions): LocalCloud {
 		await root.meter?.settle({ bytes: 0, connections: 0 });
 	};
 
-	/** Nothing to keep: no document, grant or tombstone. */
-	const isEmpty = async (root: Root) =>
-		(await root.storage.usage()).rows === 0 &&
-		!(await root.storage.loadGrants()).length &&
-		!root.database.query("SELECT 1 FROM pulsify_tombstones LIMIT 1").get();
-
 	// ponytail: timers die with the process, where a Durable Object's alarm
 	// survives. A root that was waiting compacts or expires after its next
 	// socket closes; store `due` in its file if that matters.
@@ -221,7 +215,10 @@ export function createLocalCloud(options: LocalCloudOptions): LocalCloud {
 		// A lifetime longer than a timer, or a request in progress: later.
 		if (Date.now() < root.due) return arm(root, root.due);
 		if (root.busy) return arm(root, Date.now() + COMPACT_STEP_MS);
-		if ((await root.storage.expiry()) !== undefined || (await isEmpty(root)))
+		if (
+			(await root.storage.expiry()) !== undefined ||
+			(root.compaction === undefined && (await root.storage.isEmpty()))
+		)
 			return wipe(root);
 		root.compaction = await root.storage.compact(root.compaction);
 		if (root.compaction !== undefined) arm(root, Date.now() + COMPACT_STEP_MS);

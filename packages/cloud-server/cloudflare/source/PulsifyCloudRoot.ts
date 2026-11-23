@@ -115,8 +115,10 @@ export class PulsifyCloudRoot {
 			if (action === "expire") {
 				const response = await engine.handleRequest(action, request, caller);
 				// A root nobody connects to expires too: count from now.
-				if (response.ok && !this.state.getWebSockets().length)
+				if (response.ok && !this.state.getWebSockets().length) {
+					this.compaction = undefined;
 					await this.state.storage.setAlarm(Date.now() + (await this.idleMs()));
+				}
 				return response;
 			}
 			if (action === "documents") {
@@ -214,12 +216,13 @@ export class PulsifyCloudRoot {
 			this.compaction = undefined;
 			return;
 		}
+		const storage = this.rootStorage();
 		if (
-			(await this.rootStorage().expiry()) !== undefined ||
-			(await this.isEmpty())
+			(await storage.expiry()) !== undefined ||
+			(this.compaction === undefined && (await storage.isEmpty()))
 		)
 			return this.wipe();
-		this.compaction = await this.rootStorage().compact(this.compaction);
+		this.compaction = await storage.compact(this.compaction);
 		if (this.compaction !== undefined)
 			await this.state.storage.setAlarm(Date.now() + COMPACT_STEP_MS);
 	}
@@ -241,21 +244,6 @@ export class PulsifyCloudRoot {
 			}
 		}
 		await this.state.storage.deleteAlarm();
-	}
-
-	/**
-	 * Nothing to keep: no document, grant or tombstone. A request to an expired
-	 * root, a link opened after the room was erased, leaves such a database.
-	 */
-	private async isEmpty(): Promise<boolean> {
-		const storage = this.rootStorage();
-		return (
-			(await storage.usage()).rows === 0 &&
-			!(await storage.loadGrants()).length &&
-			!this.state.storage.sql
-				.exec("SELECT 1 FROM pulsify_tombstones LIMIT 1")
-				.toArray().length
-		);
 	}
 
 	/**

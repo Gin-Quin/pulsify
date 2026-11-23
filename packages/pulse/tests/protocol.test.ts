@@ -6,7 +6,17 @@ import {
 	OPERATIONS_VERSION,
 	type PulseMessage,
 } from "../source/connection/PulseMessage";
-import { createCodec } from "@gin-quin/codec";
+import {
+	createCodec,
+	createEncoder,
+	toUint8Array,
+	writeVarString,
+	writeVarUint,
+} from "@gin-quin/codec";
+import {
+	MAX_MESSAGE_ROWS,
+	MAX_VECTOR_ENTRIES,
+} from "../source/protocol/limits";
 import {
 	decodeOperations,
 	encodeOperations,
@@ -176,6 +186,40 @@ describe("binary protocol", () => {
 				expect(error).toBeInstanceOf(Error);
 			}
 		}
+	});
+	test("S7: envelope 1 rejects over-limit row and vector counts before allocating", () => {
+		const buildBadRows = (count: number) => {
+			const enc = createEncoder();
+			writeVarUint(enc, 1);
+			writeVarUint(enc, OPERATIONS_VERSION);
+			writeVarUint(enc, 4); // update
+			writeVarString(enc, "doc");
+			writeVarUint(enc, 1);
+			writeVarUint(enc, 0); // empty vv
+			writeVarUint(enc, count);
+			return toUint8Array(enc);
+		};
+		const buildBadVector = (count: number) => {
+			const enc = createEncoder();
+			writeVarUint(enc, 1);
+			writeVarUint(enc, OPERATIONS_VERSION);
+			writeVarUint(enc, 1); // connect
+			writeVarString(enc, "doc");
+			writeVarUint(enc, 1);
+			writeVarUint(enc, count);
+			return toUint8Array(enc);
+		};
+		const start = performance.now();
+		for (const count of [MAX_MESSAGE_ROWS + 1, 1_300_000])
+			expect(() => decodeMessage(buildBadRows(count))).toThrow(
+				"Too many patch rows",
+			);
+		for (const count of [MAX_VECTOR_ENTRIES + 1, 1_000_000])
+			expect(() => decodeMessage(buildBadVector(count))).toThrow(
+				"Invalid version vector",
+			);
+		// Must reject from the length prefix immediately without allocating.
+		expect(performance.now() - start).toBeLessThan(20);
 	});
 });
 describe("causal patch journal", () => {

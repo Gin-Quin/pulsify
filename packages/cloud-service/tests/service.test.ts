@@ -571,3 +571,75 @@ test("Polar webhooks set the plan; Pro usage is sent to Polar", async () => {
 	});
 	expect(project.config()!.plan).toBe("free");
 });
+
+test("S12: config cache bounds unknown project entries, expires them quickly, and keeps valid projects cached", async () => {
+	const { env, projects } = environment();
+	const { dashboard } = await signUp(env, "cache@example.com");
+	let validConfigCalls = 0;
+	const origGet = projects.get;
+	const unknownConfigCalls = new Map<string, number>();
+	projects.get = (id: unknown) => {
+		const stub = origGet(id);
+		const name = String(id);
+		return {
+			fetch(request: Request) {
+				if (new URL(request.url).pathname === "/config") {
+					if (name === dashboard.project) validConfigCalls++;
+					else
+						unknownConfigCalls.set(
+							name,
+							(unknownConfigCalls.get(name) ?? 0) + 1,
+						);
+				}
+				return stub.fetch(request);
+			},
+		} as typeof stub;
+	};
+	const hit = (project: string, key?: string) =>
+		handleServiceRequest(
+			new Request(`${API}/${project}/v1/roots/alice/grants`, {
+				headers: key ? { Authorization: `Bearer ${key}` } : {},
+			}),
+			env,
+		);
+
+	// Warm the valid project's cache entry.
+	expect((await hit(dashboard.project, dashboard.apiKey)).status).toBe(200);
+	expect(validConfigCalls).toBe(1);
+
+	// Flood more unknown project IDs than MAX_NEGATIVE_CONFIG_CACHE (256).
+	const alphabet = "abcdefghijklmnopqrstuvwxyz234567";
+	const unknownId = (i: number) => {
+		let s = "";
+		let n = i;
+		for (let k = 0; k < 16; k++) {
+			s += alphabet[n % 32];
+			n = Math.floor(n / 32);
+		}
+		return s;
+	};
+	for (let i = 0; i < 300; i++) {
+		expect((await hit(unknownId(i))).status).toBe(404);
+	}
+	// The valid project was NOT evicted by the unknown-ID flood.
+	expect((await hit(dashboard.project, dashboard.apiKey)).status).toBe(200);
+	expect(validConfigCalls).toBe(1);
+
+	// The oldest unknown ID was evicted (re-requesting hits PROJECTS again).
+	expect(unknownConfigCalls.get(unknownId(0))).toBe(1);
+	expect((await hit(unknownId(0))).status).toBe(404);
+	expect(unknownConfigCalls.get(unknownId(0))).toBe(2);
+
+	// A recently missed unknown ID IS served from negative cache immediately...
+	const recent = unknownId(299);
+	expect(unknownConfigCalls.get(recent)).toBe(1);
+	expect((await hit(recent)).status).toBe(404);
+	expect(unknownConfigCalls.get(recent)).toBe(1);
+
+	// ...and expires quickly (after 6s, well before the 60s positive TTL).
+	setSystemTime(new Date(Date.now() + 6_000));
+	expect((await hit(recent)).status).toBe(404);
+	expect(unknownConfigCalls.get(recent)).toBe(2);
+	expect((await hit(dashboard.project, dashboard.apiKey)).status).toBe(200);
+	expect(validConfigCalls).toBe(1);
+});

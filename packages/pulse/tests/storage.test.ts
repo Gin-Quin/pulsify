@@ -1074,3 +1074,364 @@ deletionStoreConformance(
 	async () =>
 		new SqlitePatchStore(new Database(":memory:"), { vectorCacheSize: 128 }),
 );
+
+describe("storage performance and snapshot regressions", () => {
+	// Build a valid varuint-encoded v3 kind-7 last-value write for arbitrary register index.
+	const encodeValueOp = (registerId: number, lamport: number): Uint8Array => {
+		const out: number[] = [];
+		const pushUint = (n: number) => {
+			for (; n >= 128; n = Math.floor(n / 128)) out.push((n % 128) | 128);
+			out.push(n);
+		};
+		pushUint(3);
+		pushUint(lamport);
+		pushUint(0); // schema
+		pushUint(1); // 1 op
+		pushUint(7); // kind 7
+		pushUint(1);
+		out.push(114); // target "r"
+		pushUint(1); // numeric field tag
+		pushUint(registerId);
+		pushUint(0); // layout
+		pushUint(1);
+		out.push(1);
+		return Uint8Array.from(out);
+	};
+
+	test("S1: SQLite missing uses clock index and stays sub-quadratic in an actor's values", async () => {
+		const measure = async (count: number) => {
+			const db = new Database(":memory:");
+			const store = new SqlitePatchStore(db);
+			const docId = `s1-${count}`;
+			const rows: StoredPatchRow[] = Array.from({ length: count }, (_, i) => ({
+				docId,
+				sid: actor,
+				clock: i + 1,
+				span: 1,
+				dependencies: i === 0 ? [] : [[actor, i + 1]],
+				operations: encodeValueOp(i + 1, i + 1),
+			}));
+			for (let i = 0; i < rows.length; i += 500)
+				await store.append(rows.slice(i, i + 500));
+			const start = performance.now();
+			const result = await store.missing(docId, [[actor, count]]);
+			const elapsed = performance.now() - start;
+			expect(result).toHaveLength(1);
+			expect(result[0]!.clock).toBe(count);
+			const plan = db
+				.query(
+					"EXPLAIN QUERY PLAN SELECT clock FROM pulsify_values WHERE doc_id=? AND sid=? AND clock<=? ORDER BY clock DESC LIMIT 1",
+				)
+				.all(docId, actor, count)
+				.map((r) => (r as { detail: string }).detail)
+				.join(" ");
+			expect(plan).toContain("pulsify_values_clock");
+			db.close();
+			return elapsed;
+		};
+		const t1 = await measure(400);
+		const t4 = await measure(1600);
+		// Quadratic scaling would be ~16x; indexed lookup is O(log V).
+		expect(t4).toBeLessThan(Math.max(t1 * 8, 25));
+	});
+
+	test("S2: SQLite missing scales with behind actors, not actors x remote vector", async () => {
+		const measure = async (actorsCount: number) => {
+			const db = new Database(":memory:");
+			const store = new SqlitePatchStore(db);
+			const docId = `s2-${actorsCount}`;
+			const rows: StoredPatchRow[] = [];
+			for (let i = 0; i < actorsCount; i++) {
+				const sid = actor + i;
+				rows.push(row(docId, 1, sid), row(docId, 2, sid));
+			}
+			for (let i = 0; i < rows.length; i += 500)
+				await store.append(rows.slice(i, i + 500));
+			const remote: Array<[number, number]> = Array.from(
+				{ length: actorsCount },
+				(_, i) => [actor + i, i === actorsCount - 1 ? 2 : 3],
+			);
+			const start = performance.now();
+			const result = await store.missing(docId, remote);
+			const elapsed = performance.now() - start;
+			expect(result).toHaveLength(1);
+			expect(result[0]!.sid).toBe(actor + actorsCount - 1);
+			db.close();
+			return elapsed;
+		};
+		const t1 = await measure(200);
+		const t4 = await measure(800);
+		expect(t4).toBeLessThan(Math.max(t1 * 8, 25));
+	});
+
+	test("S3: SQLite missing and missingPage read vector, op rows and values from one WAL snapshot", async () => {
+		const { mkdtempSync, rmSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const dir = mkdtempSync(join(tmpdir(), "pulsify-s3-"));
+		const file = join(dir, "wal.sqlite");
+		const dbA = new Database(file);
+		const dbB = new Database(file);
+		try {
+			dbA.exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;");
+			dbB.exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;");
+			const writer = new SqlitePatchStore(dbA);
+			const docId = "wal-snap";
+			await writer.append([row(docId, 1, actor), row(docId, 2, actor)]);
+			// Inject a committed write on connection A right after connection B reads pulsify_doc_clocks.
+			let injected = false;
+			const reader = new SqlitePatchStore({
+				exec: (sql) => dbB.exec(sql),
+				transaction: (work) => dbB.transaction(work),
+				query: (sql) => {
+					const stmt = dbB.query(sql);
+					return {
+						run: (...args) => stmt.run(...args),
+						get: (...args) => stmt.get(...args),
+						all: (...args) => {
+							const out = stmt.all(...args);
+							if (!injected && sql.includes("FROM pulsify_doc_clocks")) {
+								injected = true;
+								void writer.append([
+									row(docId, 3, actor),
+									row(docId, 4, actor),
+								]);
+							}
+							return out;
+						},
+					};
+				},
+			});
+			const page = await reader.missingPage(docId, [[actor, 2]]);
+			expect(injected).toBe(true);
+			// Because reader holds a single WAL read transaction, it sees the snapshot before the concurrent append.
+			expect(page.vv).toEqual([[actor, 3]]);
+			expect(page.rows.map((r) => [r.clock, r.span])).toEqual([[2, 1]]);
+			// Subsequent read sees the committed rows cleanly.
+			const after = await reader.missingPage(docId, [[actor, 2]]);
+			expect(after.vv).toEqual([[actor, 5]]);
+			expect(after.rows.map((r) => [r.clock, r.span])).toEqual([
+				[2, 1],
+				[3, 1],
+				[4, 1],
+			]);
+		} finally {
+			dbA.close();
+			dbB.close();
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("S4: SQLite resending packed rows decodes each segment once and value lookups stay indexed", async () => {
+		const measurePackedResend = async (count: number) => {
+			const db = new Database(":memory:");
+			const store = new SqlitePatchStore(db);
+			const docId = `s4-${count}`;
+			const rows: StoredPatchRow[] = Array.from({ length: count }, (_, i) => ({
+				...row(docId, i + 1, actor),
+				operations: new Uint8Array(40).fill(i & 255),
+			}));
+			await store.append(rows);
+			await store.compact({ maxRows: count + 10, minRows: 2 });
+			expect(storedRows(db, "packed=1")).toBe(1);
+			const start = performance.now();
+			const res = await store.append(rows);
+			const elapsed = performance.now() - start;
+			expect(res.inserted).toBe(0);
+			db.close();
+			return elapsed;
+		};
+		const t1 = await measurePackedResend(400);
+		const t4 = await measurePackedResend(1600);
+		// Linear in row count (<= ~4x), never quadratic (~16x).
+		expect(t4).toBeLessThan(Math.max(t1 * 8, 30));
+
+		// Resending values mixed with new values must not reload all actor values per write.
+		const db = new Database(":memory:");
+		const store = new SqlitePatchStore(db);
+		const docId = "s4-values";
+		const initial: StoredPatchRow[] = Array.from({ length: 1000 }, (_, i) => ({
+			docId,
+			sid: actor,
+			clock: i + 1,
+			span: 1,
+			dependencies: i === 0 ? [] : [[actor, i + 1]],
+			operations: encodeValueOp(i + 1, i + 1),
+		}));
+		await store.append(initial);
+		const mixed: StoredPatchRow[] = [];
+		for (let i = 1; i <= 100; i++) {
+			mixed.push(initial[i]!);
+			mixed.push({
+				docId,
+				sid: actor,
+				clock: 1000 + i,
+				span: 1,
+				dependencies: [[actor, 1000 + i]],
+				operations: encodeValueOp(1000 + i, 1000 + i),
+			});
+		}
+		const start = performance.now();
+		expect((await store.append(mixed)).inserted).toBe(100);
+		expect(performance.now() - start).toBeLessThan(50);
+		db.close();
+	});
+
+	test("S5: SQLite in-order appends do not read or JSON-parse unrelated pending rows", async () => {
+		const measure = async (pendingCount: number) => {
+			const db = new Database(":memory:");
+			const store = new SqlitePatchStore(db);
+			const docId = `s5-${pendingCount}`;
+			const deps: Array<[number, number]> = Array.from(
+				{ length: 10 },
+				(_, k) => [70100 + k, 1],
+			);
+			const pendingRows = Array.from({ length: pendingCount }, (_, i) =>
+				row(docId, i + 2, other, [[other, i + 2], ...deps]),
+			);
+			await store.append(pendingRows);
+			let fullPendingReads = 0;
+			const wrappedStore = new SqlitePatchStore({
+				exec: (sql) => db.exec(sql),
+				transaction: (work) => db.transaction(work),
+				query: (sql) => {
+					if (sql.includes("SELECT sid,time_start,time_end,dependencies"))
+						fullPendingReads++;
+					return db.query(sql);
+				},
+			});
+			const start = performance.now();
+			for (let i = 1; i <= 50; i++)
+				expect(await wrappedStore.append([row(docId, i, actor)])).toMatchObject(
+					{
+						inserted: 1,
+						ready: 1,
+						pending: pendingCount,
+					},
+				);
+			const elapsed = performance.now() - start;
+			expect(fullPendingReads).toBe(0);
+			db.close();
+			return elapsed;
+		};
+		const t1 = await measure(400);
+		const t4 = await measure(1600);
+		expect(t4).toBeLessThan(Math.max(t1 * 8, 40));
+	});
+
+	test("S8: rowsFromFrame and storage validation avoid re-copying RunRow buffers", async () => {
+		const { rowsFromFrame, validateRows } =
+			await import("../source/storage/rows.js");
+		const { decodeMessage } =
+			await import("../source/connection/PulseMessage.js");
+		const D = definePulse(
+			"RunRowMemo",
+			versioned(object({ value: "string" })),
+		).materialize();
+		const makeFrame = (count: number) => {
+			const p = createPulse(
+				D,
+				{ id: `s8-${count}`, value: "" },
+				{ scope: createPulseScope(), sessionId: actor },
+			);
+			try {
+				const base = getPulseMeta(p).log.vector;
+				for (let i = 1; i <= count; i++) p.value = `v-${i}-${"a".repeat(64)}`;
+				return exportPulseUpdates(p, base, { peerVersion: 2 })[0]!;
+			} finally {
+				destroyPulse(p);
+			}
+		};
+		const frame = makeFrame(500);
+		const materialized = rowsFromFrame(frame);
+		expect(materialized[0]!.operations).toBe(materialized[0]!.operations);
+		expect(materialized[0]!.dependencies).toBe(materialized[0]!.dependencies);
+		const decoded = decodeMessage(frame);
+		if (!("rows" in decoded)) throw new Error("expected rows");
+		// Calling validateRows repeatedly on RunRows reuses internal memoized views.
+		validateRows(decoded.rows);
+		const start = performance.now();
+		for (let i = 0; i < 10; i++) validateRows(decoded.rows);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	test("S10: SqlitePatchStore skips DDL when schema is already current", async () => {
+		const db = new Database(":memory:");
+		new SqlitePatchStore(db);
+		let execCalls = 0;
+		const wrapped = {
+			exec(sql: string) {
+				execCalls++;
+				return db.exec(sql);
+			},
+			query: (sql: string) => db.query(sql),
+			transaction: <T>(work: () => T) => db.transaction(work),
+		};
+		for (let i = 0; i < 10; i++) new SqlitePatchStore(wrapped);
+		expect(execCalls).toBe(0);
+		// Dropping pulsify_values_clock simulates an older database: reopening recreates it.
+		db.exec("DROP INDEX pulsify_values_clock");
+		new SqlitePatchStore(wrapped);
+		expect(execCalls).toBeGreaterThan(0);
+		expect(
+			db
+				.query(
+					"SELECT name FROM sqlite_master WHERE name='pulsify_values_clock'",
+				)
+				.all(),
+		).toHaveLength(1);
+		db.close();
+	});
+
+	if (process.env["PULSIFY_TEST_POSTGRES"]) {
+		test("S1 & S9: PostgreSQL drops pulsify_rows_frontier and indexes pulsify_values by clock", async () => {
+			const sql = new SQL(process.env["PULSIFY_TEST_POSTGRES"]!);
+			try {
+				const pg = new PostgresPatchStore((q, p) =>
+					sql.unsafe(q, p as never[]),
+				);
+				await pg.initialize();
+				// Simulate a legacy DB that still carries pulsify_rows_frontier.
+				await sql.unsafe(
+					"CREATE INDEX IF NOT EXISTS pulsify_rows_frontier ON pulsify_op_rows(doc_id,sid,time_end)",
+				);
+				await pg.initialize();
+				const indexes = (
+					await sql.unsafe(
+						"SELECT indexname FROM pg_indexes WHERE tablename IN ('pulsify_op_rows','pulsify_values')",
+					)
+				).map((r: { indexname: string }) => r.indexname);
+				expect(indexes).not.toContain("pulsify_rows_frontier");
+				expect(indexes).toContain("pulsify_values_clock");
+
+				const measure = async (count: number) => {
+					const docId = `pg-s1-${crypto.randomUUID()}`;
+					const rows: StoredPatchRow[] = Array.from(
+						{ length: count },
+						(_, i) => ({
+							docId,
+							sid: actor,
+							clock: i + 1,
+							span: 1,
+							dependencies: i === 0 ? [] : [[actor, i + 1]],
+							operations: encodeValueOp(i + 1, i + 1),
+						}),
+					);
+					for (let i = 0; i < rows.length; i += 500)
+						await pg.append(rows.slice(i, i + 500));
+					const start = performance.now();
+					const res = await pg.missing(docId, [[actor, count]]);
+					const elapsed = performance.now() - start;
+					expect(res).toHaveLength(1);
+					expect(res[0]!.clock).toBe(count);
+					return elapsed;
+				};
+				const t1 = await measure(250);
+				const t4 = await measure(1000);
+				expect(t4).toBeLessThan(Math.max(t1 * 8, 50));
+			} finally {
+				await sql.close();
+			}
+		});
+	}
+});

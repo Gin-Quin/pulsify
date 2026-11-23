@@ -5,22 +5,41 @@ import {
 	decodeStateMessage,
 	encodeStateMessage,
 } from "../protocol/stateDeltas.js";
-import { decodeRunMessage, encodeOwnedRun } from "../protocol/scalarRuns.js";
+import {
+	decodeRunMessage,
+	encodeOwnedRun,
+	rowDependencies,
+	rowOperations,
+} from "../protocol/scalarRuns.js";
 import {
 	type ArraySchema,
+	type Decoder,
 	type InferType,
 	type ObjectSchema,
 	type TupleSchema,
 	type UnionSchema,
 	array,
+	createDecoder,
 	object,
+	readUint8,
+	readUint8Array,
+	readVarString,
+	readVarUint,
 	tuple,
 	union,
 } from "@gin-quin/codec";
 import { wireCodec } from "../protocol/wireCodec.js";
 import { PulseError } from "../protocol/errors.js";
-import { MAX_MESSAGE_ROWS, MAX_PATCH_BYTES } from "../protocol/limits.js";
-import { validateVector } from "./PulseVersionVector.js";
+import {
+	MAX_FRAME_BYTES,
+	MAX_MESSAGE_ROWS,
+	MAX_PATCH_BYTES,
+	MAX_VECTOR_ENTRIES,
+} from "../protocol/limits.js";
+import {
+	validateVector,
+	type PulseVersionVector,
+} from "./PulseVersionVector.js";
 import { validateDocId } from "../protocol/validateDocId.js";
 import { OPERATIONS_VERSION } from "../protocol/versions.js";
 
@@ -131,19 +150,30 @@ export function validateMessage(message: PulseMessage): void {
 		if (message.rows.length > MAX_MESSAGE_ROWS)
 			throw new PulseError("LIMIT_EXCEEDED", "Too many patch rows");
 		for (const row of message.rows) {
-			if (row.operations.length > MAX_PATCH_BYTES)
+			const operations = rowOperations(row);
+			const dependencies = rowDependencies(row);
+			if (operations.length > MAX_PATCH_BYTES)
 				throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
-			validateVector(row.dependencies);
+			validateVector(dependencies);
 			if (
 				row.docId !== message.docId ||
 				row.sid < 65536 ||
 				!Number.isSafeInteger(row.clock + row.span) ||
 				row.clock < 1 ||
 				row.span < 1 ||
-				!row.operations.length
+				!operations.length
 			)
 				throw new PulseError("INVALID_MESSAGE", "Invalid patch row");
-			if ((new Map(row.dependencies).get(row.sid) ?? 0) > row.clock)
+			let own = 0;
+			for (let i = 0; i < dependencies.length; i++) {
+				const entry = dependencies[i]!;
+				if (entry[0] === row.sid) {
+					own = entry[1];
+					break;
+				}
+				if (entry[0] > row.sid) break;
+			}
+			if (own > row.clock)
 				throw new PulseError(
 					"INVALID_MESSAGE",
 					"Patch precedes its dependencies",
@@ -185,6 +215,121 @@ export function encodeMessage(
 		message,
 	});
 }
+function readBoundedVector(d: Decoder): PulseVersionVector {
+	const count = readVarUint(d);
+	if (count > MAX_VECTOR_ENTRIES)
+		throw new PulseError("INVALID_MESSAGE", "Invalid version vector");
+	const vv: PulseVersionVector = new Array(count);
+	for (let i = 0; i < count; i++) vv[i] = [readVarUint(d), readVarUint(d)];
+	return vv;
+}
+function readBoundedRows(
+	d: Decoder,
+): Array<InferType<typeof PulsePatchRowSchema>> {
+	const count = readVarUint(d);
+	if (count > MAX_MESSAGE_ROWS)
+		throw new PulseError("LIMIT_EXCEEDED", "Too many patch rows");
+	const rows: Array<InferType<typeof PulsePatchRowSchema>> = new Array(count);
+	for (let i = 0; i < count; i++) {
+		const docId = readVarString(d);
+		const sid = readVarUint(d);
+		const clock = readVarUint(d);
+		const span = readVarUint(d);
+		const dependencies = readBoundedVector(d);
+		const opLength = readVarUint(d);
+		if (opLength > MAX_PATCH_BYTES)
+			throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
+		const operations = readUint8Array(d, opLength);
+		rows[i] = { docId, sid, clock, span, dependencies, operations };
+	}
+	return rows;
+}
+function decodeEnvelope1(bytes: Uint8Array): PulseMessage {
+	if (bytes.length > MAX_FRAME_BYTES)
+		throw new PulseError("LIMIT_EXCEEDED", "Message exceeds 8 MiB");
+	let message: PulseMessage;
+	try {
+		const d = createDecoder(bytes);
+		const protocolVersion = readVarUint(d);
+		const operationsVersion = readVarUint(d);
+		if (
+			protocolVersion !== PROTOCOL_VERSION ||
+			operationsVersion !== OPERATIONS_VERSION
+		)
+			throw new PulseError(
+				"UNSUPPORTED_VERSION",
+				"Unsupported protocol or operations version",
+			);
+		const kind = readVarUint(d);
+		switch (kind) {
+			case 1:
+				message = {
+					kind: 1,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					vv: readBoundedVector(d),
+				};
+				break;
+			case 2:
+				message = {
+					kind: 2,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					found: readUint8(d) === 1,
+					complete: readUint8(d) === 1,
+					vv: readBoundedVector(d),
+					rows: readBoundedRows(d),
+				};
+				break;
+			case 3:
+				message = {
+					kind: 3,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					vv: readBoundedVector(d),
+					rows: readBoundedRows(d),
+				};
+				break;
+			case 4:
+				message = {
+					kind: 4,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					vv: readBoundedVector(d),
+					rows: readBoundedRows(d),
+				};
+				break;
+			case 5:
+				message = {
+					kind: 5,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					vv: readBoundedVector(d),
+				};
+				break;
+			case 6:
+				message = {
+					kind: 6,
+					docId: readVarString(d),
+					requestId: readVarUint(d),
+					code: readVarString(d),
+					message: readVarString(d),
+				};
+				break;
+			default:
+				throw new PulseError("INVALID_MESSAGE", "Cannot decode message");
+		}
+		if (d.pos !== bytes.length)
+			throw new PulseError("INVALID_MESSAGE", "Trailing bytes");
+	} catch (error) {
+		if (error instanceof PulseError) throw error;
+		throw new PulseError("INVALID_MESSAGE", "Cannot decode message", {
+			cause: error,
+		});
+	}
+	validateMessage(message);
+	return message;
+}
 export function decodeMessage(bytes: Uint8Array): PulseMessage {
 	if (bytes[0] === 3 && bytes[1] === OPERATIONS_VERSION)
 		return decodeStateMessage(bytes);
@@ -196,7 +341,5 @@ export function decodeMessage(bytes: Uint8Array): PulseMessage {
 			"UNSUPPORTED_VERSION",
 			"Unsupported protocol or operations version",
 		);
-	const { message } = codec.decode(bytes);
-	validateMessage(message);
-	return message;
+	return decodeEnvelope1(bytes);
 }

@@ -35,23 +35,67 @@ const PROJECT_ID = /^[a-z2-7]{16}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SESSION_COOKIE = "pulsify_session";
 const CONFIG_TTL_MS = 60_000;
+const NEGATIVE_CONFIG_TTL_MS = 5_000;
+const MAX_CONFIG_CACHE = 1024;
+const MAX_NEGATIVE_CONFIG_CACHE = 256;
 
 const projectStub = (env: ServiceEnv, project: string): DurableStub =>
 	env.PROJECTS.get(env.PROJECTS.idFromName(project));
 
 // ponytail: per-isolate cache, so a rotated secret takes up to a minute everywhere.
-const configs = new Map<string, { config: ProjectConfig | null; at: number }>();
+const configs = new Map<string, { config: ProjectConfig; at: number }>();
+const missingConfigs = new Map<string, number>();
+function rememberBounded<V>(
+	cache: Map<string, V>,
+	key: string,
+	value: V,
+	max: number,
+): void {
+	cache.delete(key);
+	cache.set(key, value);
+	if (cache.size > max) cache.delete(cache.keys().next().value!);
+}
+function invalidateConfig(project: string): void {
+	configs.delete(project);
+	missingConfigs.delete(project);
+}
 async function projectConfig(
 	env: ServiceEnv,
 	project: string,
 ): Promise<ProjectConfig | null> {
+	const now = Date.now();
 	const cached = configs.get(project);
-	if (cached && Date.now() - cached.at < CONFIG_TTL_MS) return cached.config;
+	if (cached) {
+		if (now - cached.at < CONFIG_TTL_MS) return cached.config;
+		configs.delete(project);
+	}
+	const missedAt = missingConfigs.get(project);
+	if (missedAt !== undefined) {
+		if (now - missedAt < NEGATIVE_CONFIG_TTL_MS) return null;
+		missingConfigs.delete(project);
+	}
 	const config = await call<ProjectConfig | null>(
 		projectStub(env, project),
 		"config",
 	);
-	configs.set(project, { config, at: Date.now() });
+	const fetchedAt = Date.now();
+	if (config) {
+		missingConfigs.delete(project);
+		rememberBounded(
+			configs,
+			project,
+			{ config, at: fetchedAt },
+			MAX_CONFIG_CACHE,
+		);
+	} else {
+		configs.delete(project);
+		rememberBounded(
+			missingConfigs,
+			project,
+			fetchedAt,
+			MAX_NEGATIVE_CONFIG_CACHE,
+		);
+	}
 	return config;
 }
 
@@ -134,6 +178,7 @@ async function sendLoginLink(
 async function signIn(env: ServiceEnv, project: string, email: string) {
 	const stub = projectStub(env, project);
 	await call(stub, "create", project, email);
+	missingConfigs.delete(project);
 	const secret = await call<string>(stub, "startSession");
 	return sessionCookie(`${project}.${secret}`, 30 * 86_400);
 }
@@ -241,7 +286,7 @@ async function account(
 		case "POST rotate": {
 			const secret = body["secret"] === "api" ? "api" : "token";
 			const dashboard = await call<Dashboard>(stub, "rotate", secret);
-			configs.delete(session.project);
+			invalidateConfig(session.project);
 			return view(dashboard);
 		}
 		case "POST checkout": {
@@ -281,7 +326,7 @@ async function account(
 					409,
 				);
 			await call(env.ACCOUNTS.get(env.ACCOUNTS.idFromName(email)), "delete");
-			configs.delete(session.project);
+			invalidateConfig(session.project);
 			return new Response(null, {
 				status: 204,
 				headers: { ...headers, "Set-Cookie": sessionCookie("", 0) },
@@ -321,7 +366,7 @@ async function webhook(request: Request, env: ServiceEnv): Promise<Response> {
 			? "pro"
 			: "free";
 		await call(projectStub(env, project), "setPlan", plan);
-		configs.delete(project);
+		invalidateConfig(project);
 	}
 	return new Response(null, { status: 202 });
 }

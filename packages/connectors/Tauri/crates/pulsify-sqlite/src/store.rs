@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS pulsify_values (
  dependencies TEXT NOT NULL, operations BLOB NOT NULL,
  PRIMARY KEY(doc_id, sid, register)
 ) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS pulsify_values_clock ON pulsify_values(doc_id, sid, clock);
 ";
 
 /// Byte-for-byte `SQLITE_REGISTERS_MIGRATION`: moves the last-value rows of a

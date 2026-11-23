@@ -25,10 +25,15 @@ export type { PulseVersionVector } from "./connection/PulseVersionVector.js";
 export { PatchLog } from "./protocol/PatchLog.js";
 export { chunkRows } from "./protocol/chunkRows.js";
 export { PulseRelay } from "./protocol/PulseRelay.js";
-export { relayStoreMessage, encodeBroadcast } from "./protocol/StoreRelay.js";
+export {
+	relayStoreMessage,
+	streamStoreMessage,
+	encodeBroadcast,
+} from "./protocol/StoreRelay.js";
 export type {
 	StoreRelaySession,
 	StoreRelayResult,
+	StoreRelayStreamResult,
 	StoreRelayBroadcast,
 } from "./protocol/StoreRelay.js";
 export {

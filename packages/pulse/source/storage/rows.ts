@@ -1,4 +1,9 @@
 import { stateDeltaOf } from "../protocol/stateDeltas.js";
+import {
+	rowDependencies,
+	rowOperations,
+	scalarEntryOf,
+} from "../protocol/scalarRuns.js";
 import { wireCodec } from "../protocol/wireCodec.js";
 import {
 	PulsePatchRowSchema,
@@ -22,11 +27,37 @@ export type AppendResult = {
 	/** The document's vector after the commit, when the store has it at hand. */
 	vector?: PulseVersionVector;
 };
+export type MissingPageOptions = {
+	/** Resume after this cursor, as returned by the previous call. */
+	after?: unknown;
+	/** Soft byte budget for the page's rows. */
+	maxBytes?: number;
+	/** Maximum number of rows in the page. */
+	maxRows?: number;
+	/** Maximum schema node budget for the page's rows. */
+	maxNodes?: number;
+};
+export type MissingPage = {
+	rows: StoredPatchRow[];
+	/** Document version vector from the same snapshot as `rows`. */
+	vv: PulseVersionVector;
+	/** Pass as `after` to read the next page; undefined on the last page. */
+	next: unknown;
+};
 export interface PatchStore {
 	append(rows: readonly StoredPatchRow[]): Promise<AppendResult>;
 	appendEncoded(frame: Uint8Array): Promise<AppendResult>;
 	vector(docId: string): Promise<PulseVersionVector>;
 	missing(docId: string, remote: PulseVersionVector): Promise<StoredPatchRow[]>;
+	/**
+	 * Optional atomic, pageable read: returns missing rows and the document's
+	 * version vector from one consistent snapshot.
+	 */
+	missingPage?(
+		docId: string,
+		remote: PulseVersionVector,
+		options?: MissingPageOptions,
+	): Promise<MissingPage>;
 }
 
 /** Durable document lifecycle, separate from opaque operation storage. */
@@ -61,7 +92,29 @@ export function rowsFromFrame(bytes: Uint8Array): StoredPatchRow[] {
 			"HISTORY_UNAVAILABLE",
 			"State deltas are not durable operation history",
 		);
-	return message.rows;
+	const rows = message.rows;
+	if (!rows.length || !scalarEntryOf(rows[0]!)) return rows;
+	// Materialize RunRow getters once into plain rows for storage pipelines.
+	return rows.map((row) => ({
+		docId: row.docId,
+		sid: row.sid,
+		clock: row.clock,
+		span: row.span,
+		dependencies: rowDependencies(row),
+		operations: rowOperations(row),
+	}));
+}
+
+export function ownClock(
+	dependencies: PulseVersionVector,
+	sid: number,
+): number {
+	for (let i = 0; i < dependencies.length; i++) {
+		const entry = dependencies[i]!;
+		if (entry[0] === sid) return entry[1];
+		if (entry[0] > sid) break;
+	}
+	return 0;
 }
 
 export function validateRows(
@@ -72,7 +125,9 @@ export function validateRows(
 	const docId = rows[0]?.docId;
 	if (docId !== undefined) validateDocId(docId);
 	for (const row of rows) {
-		validateVector(row.dependencies);
+		const dependencies = rowDependencies(row);
+		const operations = rowOperations(row);
+		validateVector(dependencies);
 		if (
 			!docId ||
 			docId.length > 1024 ||
@@ -84,10 +139,10 @@ export function validateRows(
 			!Number.isSafeInteger(row.span) ||
 			row.span < 1 ||
 			!Number.isSafeInteger(row.clock + row.span) ||
-			!(row.operations instanceof Uint8Array) ||
-			!row.operations.length ||
-			row.operations.length > MAX_PATCH_BYTES ||
-			(new Map(row.dependencies).get(row.sid) ?? 0) > row.clock
+			!(operations instanceof Uint8Array) ||
+			!operations.length ||
+			operations.length > MAX_PATCH_BYTES ||
+			ownClock(dependencies, row.sid) > row.clock
 		)
 			throw new PulseError("INVALID_MESSAGE", "Invalid storage segment");
 	}
@@ -121,10 +176,7 @@ export function assertCompatible(a: StoredPatchRow, b: StoredPatchRow): void {
 	if (a.clock < b.clock + b.span && b.clock < a.clock + a.span)
 		throw new PulseError("CONFLICT", "Overlapping immutable storage segments");
 	const [previous, next] = a.clock < b.clock ? [a, b] : [b, a];
-	if (
-		(new Map(next.dependencies).get(next.sid) ?? 0) <
-		previous.clock + previous.span
-	)
+	if (ownClock(next.dependencies, next.sid) < previous.clock + previous.span)
 		throw new PulseError("CONFLICT", "Actor history fork");
 }
 

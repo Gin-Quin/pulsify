@@ -25,6 +25,8 @@ export {
 	rowsFromFrame,
 	type PatchStore,
 	type DocumentStore,
+	type MissingPage,
+	type MissingPageOptions,
 	type StoredPatchRow,
 	type AppendResult,
 } from "./storage/rows.js";

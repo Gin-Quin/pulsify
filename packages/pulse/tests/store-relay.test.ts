@@ -9,7 +9,9 @@ import {
 	PulseError,
 	createMemoryConnector,
 	relayStoreMessage,
+	streamStoreMessage,
 	encodeBroadcast,
+	encodeMessage,
 	decodeMessage,
 	type Connector,
 } from "../source/index";
@@ -105,5 +107,67 @@ describe("store relay", () => {
 		const reply = decodeMessage(frames[0]!);
 		expect(reply.kind === 6 && reply.code).toBe("FORBIDDEN");
 		void createMemoryConnector;
+	});
+
+	test("S6: streamStoreMessage pages incrementally and sets complete only on the last frame", async () => {
+		const store = new SqlitePatchStore(new Database(":memory:"));
+		const docId = "streamed";
+		const payload = new Uint8Array(400 * 1024).fill(7);
+		payload[0] = 3;
+		for (let i = 1; i <= 12; i++) {
+			await store.append([
+				{
+					docId,
+					sid: 70001,
+					clock: i,
+					span: 1,
+					dependencies: i === 1 ? [] : [[70001, i]],
+					operations: payload,
+				},
+			]);
+		}
+		let pageCalls = 0;
+		const paged = {
+			append: store.append.bind(store),
+			appendEncoded: store.appendEncoded.bind(store),
+			vector: store.vector.bind(store),
+			missing: store.missing.bind(store),
+			missingPage: async (
+				id: string,
+				remote: [number, number][],
+				options?: Parameters<SqlitePatchStore["missingPage"]>[2],
+			) => {
+				pageCalls++;
+				return store.missingPage(id, remote, options);
+			},
+		};
+		const connect = encodeMessage({ kind: 1, docId, requestId: 9, vv: [] });
+		const streamed = await streamStoreMessage(paged, connect);
+		// Only the first page has been read so far.
+		expect(pageCalls).toBe(1);
+		const iterator = streamed.responses[Symbol.asyncIterator]();
+		const first = await iterator.next();
+		expect(first.done).toBe(false);
+		expect(pageCalls).toBe(1);
+		const frames: Uint8Array[] = [first.value!];
+		for (;;) {
+			const next = await iterator.next();
+			if (next.done) break;
+			frames.push(next.value);
+		}
+		expect(frames.length).toBeGreaterThan(1);
+		expect(pageCalls).toBe(frames.length);
+		const messages = frames.map((f) => decodeMessage(f));
+		for (let i = 0; i < messages.length; i++) {
+			const msg = messages[i]!;
+			expect(msg.kind).toBe(2);
+			if (msg.kind === 2) {
+				expect(msg.found).toBe(true);
+				expect(msg.complete).toBe(i === messages.length - 1);
+				expect(msg.vv).toEqual([[70001, 13]]);
+			}
+		}
+		const allRows = messages.flatMap((m) => (m.kind === 2 ? m.rows : []));
+		expect(allRows).toEqual(await store.missing(docId, []));
 	});
 });
