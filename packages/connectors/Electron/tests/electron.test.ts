@@ -393,25 +393,29 @@ describe("offline first", () => {
 					last = now;
 					ticks++;
 				}, 5);
+				// Measure over the whole time the lock is held, whatever the send
+				// does meanwhile: a store on the main thread freezes it for holdMs.
+				const sending = session.send(
+					encodeMessage({
+						kind: 4,
+						docId: "busy",
+						requestId: clock,
+						vv: [],
+						rows: [
+							{
+								docId: "busy",
+								sid: 70001,
+								clock,
+								span: 1,
+								dependencies: clock === 1 ? [] : [[70001, clock]],
+								operations: new Uint8Array([3, clock]),
+							},
+						],
+					}),
+				);
 				try {
-					await session.send(
-						encodeMessage({
-							kind: 4,
-							docId: "busy",
-							requestId: clock,
-							vv: [],
-							rows: [
-								{
-									docId: "busy",
-									sid: 70001,
-									clock,
-									span: 1,
-									dependencies: clock === 1 ? [] : [[70001, clock]],
-									operations: new Uint8Array([3, clock]),
-								},
-							],
-						}),
-					);
+					await new Promise((resolve) => setTimeout(resolve, holdMs + 40));
+					await sending;
 				} finally {
 					clearInterval(timer);
 					await locker.terminate();
