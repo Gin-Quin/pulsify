@@ -148,6 +148,7 @@ export class Connection {
 		this.stopOnline ??= onOnline(() => this.networkChanged());
 		if (!this.stopRows) {
 			const onRows = () => {
+				if (vectorCovers(this.clockVector, meta.log.vector)) return;
 				if (this.reconnecting) this.demand();
 				else this.scheduleSync();
 			};

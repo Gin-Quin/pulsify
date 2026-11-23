@@ -35,10 +35,10 @@ export function createPulseViews(
 			views.set(value, proxy);
 			return proxy;
 		};
-		// One per child ID, so lists keyed by identity keep their rows.
-		const handles = new Map<string, object>();
+		// Keyed by the cached PulseRef, so lists keyed by identity keep their rows without leaking.
+		const handles = new WeakMap<object, object>();
 		const handle = (value: any): object => {
-			const existing = handles.get(value.id);
+			const existing = handles.get(value);
 			if (existing) return existing;
 			const proxy = new Proxy(value, {
 				get(target, key) {
@@ -51,7 +51,7 @@ export function createPulseViews(
 					return Reflect.get(target, key);
 				},
 			});
-			handles.set(value.id, proxy);
+			handles.set(value, proxy);
 			return proxy;
 		};
 		// ponytail: tree nodes and values returned by methods stay raw; view them if trees need fine tracking.

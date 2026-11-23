@@ -5,8 +5,17 @@ import { getPulseMeta } from "./PulseMeta.js";
 import type { PulseScope } from "./PulseOptions.js";
 import { notifyScope } from "./scopeEvents.js";
 
+export function isScopeDeleted(scope: PulseScope, id: string): boolean {
+	const deleted = scope.deleted;
+	if (!deleted?.size) return false;
+	if (deleted.has(id)) return true;
+	for (let i = id.indexOf("/"); i >= 0; i = id.indexOf("/", i + 1))
+		if (deleted.has(id.slice(0, i))) return true;
+	return false;
+}
+
 export function assertScopeLive(scope: PulseScope, id: string): void {
-	if ([...(scope.deleted ?? [])].some((prefix) => coversDocument(prefix, id)))
+	if (isScopeDeleted(scope, id))
 		throw new PulseError("NOT_FOUND", `Document ${id} was permanently deleted`);
 }
 

@@ -797,3 +797,92 @@ test("usePulse re-renders when a sub-pulse loads live or via ref.load()", async 
 	});
 	expect(lazy.container.textContent).toBe("Hello");
 });
+
+test("R6: rich text and tree change checks are O(1) on unrelated pulse edits", () => {
+	const Article = definePulse(
+		"PerfR6Article",
+		object({
+			title: "string",
+			body: richText(),
+			outline: tree(object({ label: "string" })),
+		}),
+	).materialize();
+
+	const measure = (len: number) => {
+		const doc = track(
+			createPulse(
+				Article,
+				{ title: "0", body: "a".repeat(len), outline: {} },
+				{ scope: createPulseScope() },
+			),
+		);
+		const Body = memo(function Body({ body }: { body: RichText }) {
+			return String(body.length);
+		});
+		function View() {
+			const snap = usePulse(doc);
+			return h(Body, { body: snap.body });
+		}
+		const { root } = render(h(View));
+		const start = performance.now();
+		act(() => {
+			for (let i = 1; i <= 50; i++) doc.title = `t${i}`;
+		});
+		const elapsed = performance.now() - start;
+		act(() => root.unmount());
+		return elapsed;
+	};
+
+	const tSmall = measure(4_000);
+	const tLarge = measure(16_000);
+	expect(tLarge).toBeLessThan(Math.max(tSmall * 2.5, 15));
+
+	// Mutating nested data inside a tree node still triggers re-render.
+	const doc = track(
+		createPulse(
+			Article,
+			{ title: "Draft", body: "Hi", outline: {} },
+			{ scope: createPulseScope() },
+		),
+	);
+	const node = doc.outline.createNode({ label: "First" });
+	function OutlineView() {
+		const snap = usePulse(doc);
+		return snap.outline
+			.roots()
+			.map((n) => n.data.label)
+			.join(",");
+	}
+	const { container } = render(h(OutlineView));
+	expect(container.textContent).toBe("First");
+	act(() => {
+		node.data.label = "Renamed";
+	});
+	expect(container.textContent).toBe("Renamed");
+});
+
+test("a memoized child stays reactive when its parent starts reading a new key of the same object", () => {
+	const doc = track(note());
+	let rows = 0;
+	const Row = memo(function Row({
+		item,
+	}: {
+		item: NotePulse["items"][number];
+	}) {
+		rows++;
+		return item.label;
+	});
+	function List({ showDone }: { showDone: boolean }) {
+		const item = usePulse(doc).items[0]!;
+		// The parent reads a key it never read before; the skipped row read another one.
+		return [showDone ? String(item.done) : "", h(Row, { key: "row", item })];
+	}
+	const { root, container } = render(h(List, { showDone: false }));
+	act(() => root.render(h(List, { showDone: true })));
+	const before = rows;
+	act(() => {
+		doc.items[0]!.label = "Renamed";
+	});
+	expect(rows).toBeGreaterThan(before);
+	expect(container.textContent).toContain("Renamed");
+});

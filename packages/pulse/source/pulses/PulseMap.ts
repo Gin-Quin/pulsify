@@ -1,6 +1,7 @@
 import type { CoreNode } from "../core/model.js";
 import { mapEntries, type MapKey } from "../core/mapKey.js";
 import { pulsify } from "../utilities/pulsify.js";
+import { directNodeRevision } from "./nodeRevisions.js";
 import type { ProxyContext } from "./ProxyContext.js";
 
 /**
@@ -15,6 +16,11 @@ class PulseMap extends Map<unknown, unknown> {
 	// Fields, not constructor parameters: Map's constructor takes the entries.
 	private node!: CoreNode;
 	private context!: ProxyContext;
+	private cachedCount: number | undefined;
+	private countRevision = -1;
+	private cachedKeys: [unknown, string][] | undefined;
+	private cachedOnlyKeys: unknown[] | undefined;
+	private keysRevision = -1;
 	static of(node: CoreNode, context: ProxyContext): PulseMap {
 		const map = new PulseMap();
 		map.node = node;
@@ -46,10 +52,31 @@ class PulseMap extends Map<unknown, unknown> {
 			this.node.child(text),
 			this.context,
 			this.node.layout!.element,
+			this.node,
+			text,
 		);
 	}
+	private sortedKeys(): [unknown, string][] {
+		const data = this.data();
+		const rev = directNodeRevision(this.node);
+		if (this.cachedKeys && this.keysRevision === rev) return this.cachedKeys;
+		const entries = mapEntries(this.key, data);
+		this.cachedKeys = entries;
+		this.cachedOnlyKeys = undefined;
+		this.keysRevision = rev;
+		this.cachedCount = entries.length;
+		this.countRevision = rev;
+		return entries;
+	}
 	override get size(): number {
-		return Object.keys(this.data()).length;
+		const data = this.data();
+		const rev = directNodeRevision(this.node);
+		if (this.cachedCount !== undefined && this.countRevision === rev)
+			return this.cachedCount;
+		const count = Object.keys(data).length;
+		this.cachedCount = count;
+		this.countRevision = rev;
+		return count;
 	}
 	override has(key: unknown): boolean {
 		return this.find(key) !== undefined;
@@ -60,13 +87,35 @@ class PulseMap extends Map<unknown, unknown> {
 	}
 	override set(key: unknown, value: unknown): this {
 		this.context.assertActive();
-		this.context.meta.model.set(this.node, this.key.encode(key), value);
+		const text = this.key.encode(key);
+		const existed = Object.hasOwn(this.node.data, text);
+		const revBefore = directNodeRevision(this.node);
+		this.context.meta.model.set(this.node, text, value);
+		const revAfter = directNodeRevision(this.node);
+		if (revAfter === revBefore + 1) {
+			if (this.cachedCount !== undefined && this.countRevision === revBefore) {
+				if (!existed) this.cachedCount++;
+				this.countRevision = revAfter;
+			}
+			if (existed && this.cachedKeys && this.keysRevision === revBefore)
+				this.keysRevision = revAfter;
+		}
 		return this;
 	}
 	override delete(key: unknown): boolean {
 		const text = this.find(key);
 		if (text === undefined) return false;
+		const revBefore = directNodeRevision(this.node);
 		this.context.meta.model.delete(this.node, text);
+		const revAfter = directNodeRevision(this.node);
+		if (
+			revAfter === revBefore + 1 &&
+			this.cachedCount !== undefined &&
+			this.countRevision === revBefore
+		) {
+			this.cachedCount--;
+			this.countRevision = revAfter;
+		}
 		return true;
 	}
 	override clear(): void {
@@ -75,24 +124,15 @@ class PulseMap extends Map<unknown, unknown> {
 		for (const text of Object.keys(this.data()))
 			this.context.meta.model.delete(this.node, text);
 	}
-	private sorted(): [unknown, unknown][] {
-		return mapEntries(this.key, this.data()).map(([key, text]) => [
-			key,
-			this.at(text),
-		]);
-	}
-	override entries(): MapIterator<[unknown, unknown]> {
-		return this.sorted().values();
+	override *entries(): MapIterator<[unknown, unknown]> {
+		for (const [key, text] of this.sortedKeys()) yield [key, this.at(text)];
 	}
 	override keys(): MapIterator<unknown> {
-		return this.sorted()
-			.map((entry) => entry[0])
-			.values();
+		const entries = this.sortedKeys();
+		return (this.cachedOnlyKeys ??= entries.map(([key]) => key)).values();
 	}
-	override values(): MapIterator<unknown> {
-		return this.sorted()
-			.map((entry) => entry[1])
-			.values();
+	override *values(): MapIterator<unknown> {
+		for (const [, text] of this.sortedKeys()) yield this.at(text);
 	}
 	override [Symbol.iterator](): MapIterator<[unknown, unknown]> {
 		return this.entries();
@@ -105,12 +145,12 @@ class PulseMap extends Map<unknown, unknown> {
 		) => void,
 		thisArg?: unknown,
 	): void {
-		for (const [key, value] of this.sorted())
-			callback.call(thisArg, value, key, this);
+		for (const [key, text] of this.sortedKeys())
+			callback.call(thisArg, this.at(text), key, this);
 	}
 	/** JSON has no Map: entries keep their key type and feed `new Map(json)`. */
 	toJSON(): [unknown, unknown][] {
-		return this.sorted();
+		return this.sortedKeys().map(([key, text]) => [key, this.at(text)]);
 	}
 }
 

@@ -76,6 +76,7 @@ export function createArrayProxy(
 			entry.child,
 			context,
 			layout?.kind === "tuple" ? layout.elements?.[i] : layout?.element,
+			entry,
 		);
 	};
 	let proxy: PulseArray<unknown>;

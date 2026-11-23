@@ -34,6 +34,7 @@ export { fingerprintBytes } from "./utilities/fingerprint.js";
 export { RichTextSymbol, PulseRefSymbol } from "./core/values.js";
 export { TreeSymbol } from "./core/treeSchema.js";
 export { createPulseViews } from "./utilities/pulseViews.js";
+export { nodeRevision } from "./pulses/nodeRevisions.js";
 export { defaultPulseOptions } from "./pulses/PulseOptions.js";
 
 export {

@@ -8,7 +8,10 @@ import {
 	rowToPatch,
 	type PulsePatchRow,
 } from "../connection/PulsePatch.js";
-import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
+import {
+	vectorCovers,
+	type PulseVersionVector,
+} from "../connection/PulseVersionVector.js";
 import { CoreModel, managedFields, type RestoreSource } from "../core/model.js";
 import {
 	CorePatch,
@@ -37,7 +40,18 @@ import type { ProxyContext } from "./ProxyContext.js";
 import { warnMigrationDrift } from "./warnMigrationDrift.js";
 import { replayTo } from "./PulseReplay.js";
 import { notifyScope } from "./scopeEvents.js";
-import { createSubPulseTracker, hasSubLayout } from "./subPulses.js";
+import {
+	containsSub,
+	createSubPulseTracker,
+	fieldLayoutOf,
+	hasSubLayout,
+	patchTouchesSub,
+} from "./subPulses.js";
+import { bumpNodeRevision, bumpPatchRevisions } from "./nodeRevisions.js";
+import {
+	invalidateCachedRef,
+	invalidatePatchRefs,
+} from "../utilities/pulsify.js";
 
 export function createRuntime(
 	definition: AnyPulseDefinition,
@@ -168,7 +182,14 @@ export function createRuntime(
 		}
 	};
 	const notify = () => {
-		if (meta.loaded && meta.connections.length && meta.status === "synced")
+		if (
+			meta.loaded &&
+			meta.connections.length &&
+			meta.status === "synced" &&
+			meta.connections.some(
+				(connection) => !vectorCovers(connection.clockVector, log.vector),
+			)
+		)
 			meta.status = "ready";
 		notifyListeners();
 		const rowListeners = [...meta.rowListeners];
@@ -242,9 +263,12 @@ export function createRuntime(
 			ops,
 			wallTime,
 		);
+		const wasLoaded = meta.loaded;
+		let applied: CorePatch[];
 		if (!log.pendingCount) {
 			log.appendLocalPatch(patch, serialize);
 			model.apply(patch, hint);
+			applied = [patch];
 		} else {
 			try {
 				let patches: CorePatch[] = [patch];
@@ -266,6 +290,7 @@ export function createRuntime(
 				});
 				for (const item of patches)
 					model.apply(item, item === patch ? hint : undefined);
+				applied = patches;
 				if (ready.length > 1) migrate();
 			} catch (error) {
 				refused();
@@ -273,8 +298,16 @@ export function createRuntime(
 				throw error;
 			}
 		}
+		for (const item of applied) bumpPatchRevisions(model, item);
 		markLoaded();
-		meta.subPulses?.sync(false);
+		if (meta.subPulses) {
+			let resync = !wasLoaded && meta.loaded;
+			for (const item of applied) {
+				invalidatePatchRefs(model, item);
+				if (!resync && patchTouchesSub(model, item)) resync = true;
+			}
+			if (resync) meta.subPulses.sync(false);
+		}
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
 	model.commitScalar = (node, key, field, value, last) => {
@@ -317,15 +350,22 @@ export function createRuntime(
 		if (node.layout?.counter)
 			model.addToCounter(node, (value as number) - (node.data[key] ?? 0));
 		node.data[key] = value;
+		bumpNodeRevision(node);
+		const wasLoaded = meta.loaded;
 		markLoaded();
-		meta.subPulses?.sync(false);
+		if (meta.subPulses) {
+			invalidateCachedRef(node, key, value);
+			if ((!wasLoaded && meta.loaded) || containsSub(fieldLayoutOf(node, key)))
+				meta.subPulses.sync(false);
+		}
 		if (meta.listeners.size || meta.rowListeners.size) notify();
 	};
 	let migrating = false;
-	const migrate = () => {
-		if (migrating || !meta.loaded || !definition.migrations.length) return;
+	const migrate = (): boolean => {
+		if (migrating || !meta.loaded || !definition.migrations.length)
+			return false;
 		const initialVersion = model.view().version as number;
-		if (initialVersion > definition.migrations.length) return;
+		if (initialVersion > definition.migrations.length) return false;
 		migrating = true;
 		try {
 			const initial = structuredClone(model.view()) as Record<string, unknown>;
@@ -554,6 +594,7 @@ export function createRuntime(
 				value,
 			}));
 			model.commit(ops);
+			return true;
 		} finally {
 			migrating = false;
 		}
@@ -662,11 +703,27 @@ export function createRuntime(
 							);
 					});
 					if (result.changed) {
+						const wasLoaded = meta.loaded;
 						model.apply(patch);
-						for (const item of pending) model.apply(item);
+						bumpPatchRevisions(model, patch);
+						for (const item of pending) {
+							model.apply(item);
+							bumpPatchRevisions(model, item);
+						}
 						markLoaded();
-						migrate();
-						meta.subPulses?.sync(true);
+						const migrated = migrate();
+						if (meta.subPulses) {
+							invalidatePatchRefs(model, patch);
+							let resync =
+								(!wasLoaded && meta.loaded) ||
+								migrated ||
+								patchTouchesSub(model, patch);
+							for (const item of pending) {
+								invalidatePatchRefs(model, item);
+								if (!resync && patchTouchesSub(model, item)) resync = true;
+							}
+							if (resync) meta.subPulses.sync(true);
+						}
 						notify();
 					}
 					return;
@@ -687,19 +744,24 @@ export function createRuntime(
 							model.validateScalarRun(run, values);
 						})
 					) {
-						model.apply(
-							new ScalarPatch(
-								run.sid,
-								run.clock + run.count - 1,
-								run.lamport + run.count - 1,
-								run.schema,
-								run.target,
-								run.field,
-								values![run.count - 1]!,
-							),
+						const wasLoaded = meta.loaded;
+						const patch = new ScalarPatch(
+							run.sid,
+							run.clock + run.count - 1,
+							run.lamport + run.count - 1,
+							run.schema,
+							run.target,
+							run.field,
+							values![run.count - 1]!,
 						);
+						model.apply(patch);
+						bumpPatchRevisions(model, patch);
 						markLoaded();
-						meta.subPulses?.sync(true);
+						if (meta.subPulses) {
+							invalidatePatchRefs(model, patch);
+							if ((!wasLoaded && meta.loaded) || patchTouchesSub(model, patch))
+								meta.subPulses.sync(true);
+						}
 						notify();
 						return;
 					}
@@ -718,10 +780,20 @@ export function createRuntime(
 							);
 					});
 					if (alive(ready).length) {
+						const wasLoaded = meta.loaded;
 						model.apply(patch);
+						bumpPatchRevisions(model, patch);
 						markLoaded();
-						migrate();
-						meta.subPulses?.sync(true);
+						const migrated = migrate();
+						if (meta.subPulses) {
+							invalidatePatchRefs(model, patch);
+							if (
+								(!wasLoaded && meta.loaded) ||
+								migrated ||
+								patchTouchesSub(model, patch)
+							)
+								meta.subPulses.sync(true);
+						}
 						notify();
 					}
 					return;
@@ -744,11 +816,22 @@ export function createRuntime(
 						),
 					);
 				});
-				for (const patch of patches) model.apply(patch);
+				const wasLoaded = meta.loaded;
+				for (const patch of patches) {
+					model.apply(patch);
+					bumpPatchRevisions(model, patch);
+				}
 				if (ready.length) {
 					markLoaded();
-					migrate();
-					meta.subPulses?.sync(true);
+					const migrated = migrate();
+					if (meta.subPulses) {
+						let resync = (!wasLoaded && meta.loaded) || migrated;
+						for (const patch of patches) {
+							invalidatePatchRefs(model, patch);
+							if (!resync && patchTouchesSub(model, patch)) resync = true;
+						}
+						if (resync) meta.subPulses.sync(true);
+					}
 					notify();
 				}
 			} catch (error) {

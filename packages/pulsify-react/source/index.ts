@@ -13,6 +13,7 @@ import {
 } from "pulsify-core";
 import {
 	defaultPulseOptions,
+	nodeRevision,
 	RichTextSymbol,
 	PulseRefSymbol,
 	TreeSymbol,
@@ -42,15 +43,15 @@ class Track implements ProxyHandler<object> {
 	present: Map<string, boolean> | undefined;
 	own: Map<string, boolean> | undefined;
 	keys: string | undefined;
-	/** Rich text and tree content, compared as a whole. */
-	readonly print: string | undefined;
+	/** Rich text and tree revision, compared in O(1). */
+	readonly rev: number | undefined;
 	stale = false;
 	/** The previous generation, whose unchanged children are reused lazily. */
 	private previous: Track | undefined;
 	private byTarget: Map<object, Track> | undefined;
 	constructor(target: object, previous: Track | undefined) {
 		this.target = target;
-		this.print = print(target);
+		this.rev = revision(target);
 		this.proxy = new Proxy(Array.isArray(target) ? [] : {}, this);
 		this.previous = previous;
 		if (previous) previous.previous = undefined;
@@ -60,7 +61,7 @@ class Track implements ProxyHandler<object> {
 		if (key === Raw) return target;
 		const value: unknown = Reflect.get(target, key);
 		if (
-			this.print !== undefined ||
+			this.rev !== undefined ||
 			typeof key === "symbol" ||
 			typeof value === "function"
 		)
@@ -110,7 +111,7 @@ class Track implements ProxyHandler<object> {
 	}
 	has(_shell: object, key: string | symbol): boolean {
 		const result = Reflect.has(this.target, key);
-		if (this.print === undefined && typeof key === "string") {
+		if (this.rev === undefined && typeof key === "string") {
 			this.present ??= new Map();
 			if (!this.present.has(key)) this.present.set(key, result);
 		}
@@ -122,7 +123,7 @@ class Track implements ProxyHandler<object> {
 	): PropertyDescriptor | undefined {
 		const target = this.target;
 		const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
-		if (this.print === undefined && typeof key === "string") {
+		if (this.rev === undefined && typeof key === "string") {
 			this.own ??= new Map();
 			if (!this.own.has(key)) this.own.set(key, descriptor !== undefined);
 		}
@@ -134,7 +135,7 @@ class Track implements ProxyHandler<object> {
 	}
 	ownKeys(): ArrayLike<string | symbol> {
 		const keys = Reflect.ownKeys(this.target);
-		if (this.print === undefined) this.keys ??= keys.join("\0");
+		if (this.rev === undefined) this.keys ??= keys.join("\0");
 		return keys;
 	}
 	set(_shell: object, key: string | symbol, value: unknown): boolean {
@@ -166,10 +167,9 @@ function trackable(value: unknown): value is object {
 	);
 }
 
-// ponytail: O(content) per check; a per-node revision in the core would make it O(1).
-function print(value: any): string | undefined {
-	if (value[RichTextSymbol]) return JSON.stringify(value.toDelta());
-	if (value[TreeSymbol]) return JSON.stringify(value.toJSON());
+function revision(value: any): number | undefined {
+	if (value[RichTextSymbol] || value[TreeSymbol])
+		return nodeRevision(value) ?? 0;
 	return undefined;
 }
 
@@ -187,8 +187,8 @@ function unwrap(value: unknown): unknown {
 function changed(track: Track): boolean {
 	const target = track.target;
 	let dirty =
-		track.print !== undefined
-			? track.print !== print(target)
+		track.rev !== undefined
+			? track.rev !== revision(target)
 			: track.keys !== undefined &&
 				track.keys !== Reflect.ownKeys(target).join("\0");
 	for (const [key, read] of track.reads) {

@@ -43,7 +43,14 @@ class ObjectHandler implements ProxyHandler<object> {
 		const child = node.child(key);
 		return !child && (value === null || typeof value !== "object")
 			? typeof value === "string"
-				? pulsify(value, undefined, this.context, this.layoutOf(node, key))
+				? pulsify(
+						value,
+						undefined,
+						this.context,
+						this.layoutOf(node, key),
+						node,
+						key,
+					)
 				: value
 			: pulsify(value, child, this.context);
 	}
@@ -88,6 +95,8 @@ class ObjectHandler implements ProxyHandler<object> {
 						node.child(String(key)),
 						this.context,
 						this.layoutOf(node, String(key)),
+						node,
+						String(key),
 					),
 				}
 			: undefined;

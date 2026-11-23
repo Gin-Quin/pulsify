@@ -1,15 +1,18 @@
 import { connectPulse } from "../connection/connectPulse.js";
 import type { Connector } from "../connection/Connector.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
+import type { CoreModel, CoreNode } from "../core/model.js";
+import { ScalarPatch, type CorePatch } from "../core/operations.js";
 import type { CompiledPulseSchema, PulseLayout } from "../core/schema.js";
 import { PulseError } from "../protocol/errors.js";
-import { coversDocument } from "../storage/documents.js";
+import { isScopeDeleted } from "./deletion.js";
 import { destroyPulse, type Pulse } from "./Pulse.js";
 import type { AnyPulseDefinition } from "./PulseDefinition.js";
 import { getPulseMeta, type PulseMeta } from "./PulseMeta.js";
 import { subscribeScope } from "./scopeEvents.js";
 
 const hasSubCache = new WeakMap<CompiledPulseSchema, boolean>();
+const containsSubCache = new WeakMap<PulseLayout, boolean>();
 
 /** Whether a compiled schema contains any `sub()` reference field. */
 export function hasSubLayout(schema: CompiledPulseSchema | undefined): boolean {
@@ -21,6 +24,85 @@ export function hasSubLayout(schema: CompiledPulseSchema | undefined): boolean {
 	return found;
 }
 
+/** Whether `layout` is a `sub()` reference or can contain one at any depth. */
+export function containsSub(layout: PulseLayout | undefined): boolean {
+	if (!layout) return false;
+	const cached = containsSubCache.get(layout);
+	if (cached !== undefined) return cached;
+	let found = false;
+	const seen = new Set<PulseLayout>();
+	const pending: PulseLayout[] = [layout];
+	while (pending.length) {
+		const current = pending.pop()!;
+		if (seen.has(current)) continue;
+		seen.add(current);
+		if (current.sub !== undefined) {
+			found = true;
+			break;
+		}
+		if (current.value) pending.push(current.value);
+		if (current.element) pending.push(current.element);
+		for (const field of current.fields) pending.push(field.layout);
+		if (current.elements) pending.push(...current.elements);
+		if (current.variants) pending.push(...current.variants.values());
+	}
+	containsSubCache.set(layout, found);
+	return found;
+}
+
+/** Resolve the child layout of property `key` on object/record/map `node`. */
+export function fieldLayoutOf(
+	node: CoreNode,
+	key: string,
+): PulseLayout | undefined {
+	const layout = node.layout;
+	if (!layout) return undefined;
+	if (layout.kind === "object") return layout.fieldsByKey.get(key)?.layout;
+	if (layout.kind === "record" || layout.kind === "map") return layout.element;
+	return undefined;
+}
+
+/** Whether applying `patch` could add, replace, or remove any `sub()` reference. */
+export function patchTouchesSub(model: CoreModel, patch: CorePatch): boolean {
+	if (patch instanceof ScalarPatch) {
+		const target = model.index.get(patch.target);
+		if (!target) return true;
+		if (typeof patch.field === "number") {
+			const wf = target.wireLayout?.fields[patch.field];
+			if (!wf) return false;
+			return containsSub(
+				target.layout?.fieldsByKey.get(wf.key)?.layout ?? wf.layout,
+			);
+		}
+		if (target === model.root && patch.field === "version") return true;
+		return containsSub(fieldLayoutOf(target, patch.field));
+	}
+	for (const op of patch.ops) {
+		if (op.kind === 0 || op.kind === 10) return true;
+		if (op.kind === 5 || op.kind === 6) continue;
+		const target = model.index.get(op.target);
+		if (!target) return true;
+		if (op.kind === 1 || op.kind === 2) {
+			if (typeof op.field === "number") {
+				const wf = target.wireLayout?.fields[op.field];
+				if (
+					wf &&
+					containsSub(
+						target.layout?.fieldsByKey.get(wf.key)?.layout ?? wf.layout,
+					)
+				)
+					return true;
+			} else {
+				if (target === model.root && op.field === "version") return true;
+				if (containsSub(fieldLayoutOf(target, op.field))) return true;
+			}
+		} else if (target.kind !== "text" && containsSub(target.layout)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /** Collect all currently referenced sub-pulse IDs and their definitions. */
 export function collectSubRefs(
 	pulse: Pulse<any>,
@@ -28,9 +110,15 @@ export function collectSubRefs(
 	const refs = new Map<string, AnyPulseDefinition>();
 	const meta = getPulseMeta(pulse);
 	const root = meta.definition.compiledSchema?.root;
-	if (!root || !meta.loaded) return refs;
+	if (!root || !meta.loaded || !containsSub(root)) return refs;
 	const visit = (layout: PulseLayout | undefined, value: unknown): void => {
-		if (!layout || value === undefined || value === null) return;
+		if (
+			!layout ||
+			value === undefined ||
+			value === null ||
+			!containsSub(layout)
+		)
+			return;
 		if (layout.sub) {
 			if (typeof value === "string" && !refs.has(value))
 				refs.set(value, layout.sub);
@@ -41,7 +129,8 @@ export function collectSubRefs(
 				return visit(layout.value, value);
 			case "object":
 				for (const field of layout.fields)
-					visit(field.layout, (value as Record<string, unknown>)[field.key]);
+					if (containsSub(field.layout))
+						visit(field.layout, (value as Record<string, unknown>)[field.key]);
 				return;
 			case "array":
 			case "tuple":
@@ -137,12 +226,8 @@ export function createSubPulseTracker(
 	let syncing = false;
 	let disposed = false;
 
-	const isDeletedInScope = (id: string): boolean => {
-		const deleted = meta.options.scope.deleted;
-		if (!deleted?.size) return false;
-		for (const prefix of deleted) if (coversDocument(prefix, id)) return true;
-		return false;
-	};
+	const isDeletedInScope = (id: string): boolean =>
+		isScopeDeleted(meta.options.scope, id);
 
 	const childOptions = () => ({ ...meta.options, connect: false });
 
@@ -278,20 +363,14 @@ export function createSubPulseTracker(
 					meta.connections.some((connection) => connection.active)
 				) {
 					for (const [id, definition] of refs) {
-						if (isDeletedInScope(id)) continue;
+						if (tried.has(id) || isDeletedInScope(id)) continue;
 						const existing = meta.options.scope.pulses.get(id);
 						if (existing && getPulseMeta(existing).loaded) {
 							tried.add(id);
 							continue;
 						}
-						if (hydrateFromPushed(id, definition)) {
-							tried.add(id);
-							continue;
-						}
-						if (!tried.has(id)) {
-							tried.add(id);
-							loadAsync(id, definition);
-						}
+						tried.add(id);
+						if (!hydrateFromPushed(id, definition)) loadAsync(id, definition);
 					}
 				}
 				updateScopeWatchers(refs);
