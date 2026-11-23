@@ -87,6 +87,17 @@ fn frame(request_id: u64, body: Body) -> Vec<u8> {
     .unwrap()
 }
 
+fn pack_recovery(doc_id: &str, frames: &[Vec<u8>]) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&(doc_id.len() as u32).to_be_bytes());
+    out.extend_from_slice(doc_id.as_bytes());
+    for frame in frames {
+        out.extend_from_slice(&(frame.len() as u32).to_be_bytes());
+        out.extend_from_slice(frame);
+    }
+    out
+}
+
 #[test]
 fn commands_open_relay_broadcast_and_close_sessions() {
     let directory =
@@ -278,7 +289,7 @@ fn deletion_command_preserves_recovery_and_notifies_other_windows() {
     invoke(
         &webview,
         "mark_deleted",
-        InvokeBody::Json(json!({"docId":"doc", "frames":[saved]})),
+        InvokeBody::Raw(pack_recovery("doc", &[saved])),
         None,
     )
     .unwrap();
@@ -357,7 +368,7 @@ fn failed_recovery_still_retires_native_sessions_and_preserves_original_data() {
         let error = invoke(
             &webview,
             "mark_deleted",
-            InvokeBody::Json(json!({"docId":"doc", "frames":[recovery]})),
+            InvokeBody::Raw(pack_recovery("doc", &[recovery])),
             None,
         )
         .unwrap_err();
@@ -385,4 +396,63 @@ fn failed_recovery_still_retires_native_sessions_and_preserves_original_data() {
         drop(app);
         std::fs::remove_dir_all(directory).unwrap();
     }
+}
+
+#[test]
+fn k4_mark_deleted_accepts_raw_length_prefixed_and_rejects_malformed_bodies() {
+    let directory = std::env::temp_dir().join(format!("pulsify-k4-raw-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&directory);
+    let (app, webview, _frames) = app(&directory.join("db.sqlite"), &["mark_deleted"]);
+    let doc_id = "notes/🌍";
+    let row = PatchRow {
+        doc_id: doc_id.into(),
+        sid: 65536,
+        clock: 1,
+        span: 1,
+        dependencies: vec![],
+        operations: vec![3, 1, 2, 3],
+    };
+    let saved = encode(&Message {
+        doc_id: doc_id.into(),
+        request_id: 0,
+        body: Body::SyncBack {
+            vv: vec![],
+            rows: vec![row.clone()],
+        },
+    })
+    .unwrap();
+    // Truncated body fails with INVALID_MESSAGE.
+    let err = invoke(
+        &webview,
+        "mark_deleted",
+        InvokeBody::Raw(vec![0, 0, 0, 10, b'a']),
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err["code"], "INVALID_MESSAGE");
+    // Raw binary body with non-ASCII doc ID and recovery frames succeeds.
+    invoke(
+        &webview,
+        "mark_deleted",
+        InvokeBody::Raw(pack_recovery(doc_id, &[saved])),
+        None,
+    )
+    .unwrap();
+    // Empty recovery frames also work, including via JSON byte-array fallback.
+    invoke(
+        &webview,
+        "mark_deleted",
+        InvokeBody::Json(json!(pack_recovery("notes/empty", &[]))),
+        None,
+    )
+    .unwrap();
+    app.state::<Pulsify>()
+        .with_store(|store| {
+            assert!(store.is_deleted(doc_id).unwrap());
+            assert_eq!(store.recover_rows(doc_id).unwrap(), vec![row]);
+            assert!(store.is_deleted("notes/empty").unwrap());
+        })
+        .unwrap();
+    drop(app);
+    std::fs::remove_dir_all(directory).unwrap();
 }

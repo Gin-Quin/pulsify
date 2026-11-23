@@ -1,9 +1,10 @@
+import { Worker } from "node:worker_threads";
 import {
 	decodeMessage,
 	encodeBroadcast,
 	MAX_FRAME_BYTES,
 	PulseError,
-	relayStoreMessage,
+	streamStoreMessage,
 } from "pulsify-core/protocol";
 import {
 	SqlitePatchStore,
@@ -15,6 +16,7 @@ import {
 	DEFAULT_CHANNEL,
 	type PulsifyIpcResult,
 } from "./bridge.js";
+import type { WorkerReply, WorkerRequest } from "./worker.js";
 
 /** The subset of a better-sqlite3 `Database` used by Pulsify. */
 export type BetterSqliteDatabase = {
@@ -92,6 +94,241 @@ function serialize<T>(database: object, task: () => Promise<T>): Promise<T> {
 	return run;
 }
 
+type StoreBackend = {
+	cached(docId: string): Promise<PulsifyIpcResult>;
+	markDeleted(
+		docId: string,
+		frames: Uint8Array[],
+		onDeleted: () => void,
+	): Promise<PulsifyIpcResult>;
+	send(
+		docId: string,
+		frame: Uint8Array,
+		onFrame: (bytes: Uint8Array) => void,
+		onBroadcast: (bytes: Uint8Array) => void,
+	): Promise<PulsifyIpcResult>;
+	close(): Promise<void>;
+};
+
+function createInlineBackend(database: BetterSqliteDatabase): {
+	ready: Promise<StoreBackend>;
+	dispose(): Promise<void>;
+} {
+	const store = new SqlitePatchStore(betterSqliteConnection(database));
+	const backend: StoreBackend = {
+		async cached(docId) {
+			try {
+				return { ok: true, found: (await store.vector(docId)).length > 0 };
+			} catch (error) {
+				return error instanceof PulseError
+					? failure(error.code, error.message)
+					: failure("CONNECTION_FAILED", String(error));
+			}
+		},
+		async markDeleted(docId, frames, onDeleted) {
+			try {
+				await serialize(database, async () => {
+					try {
+						const rows = frames.flatMap((frame) => {
+							const message = decodeMessage(frame);
+							if (message.kind !== 3)
+								throw new PulseError(
+									"INVALID_MESSAGE",
+									"Invalid recovery frame",
+								);
+							return message.rows;
+						});
+						await store.markDeleted(docId, rows);
+					} catch (error) {
+						// Recovery is optional; a malformed frame cannot undo deletion.
+						await store.deleteDocuments(docId, { preserveRows: true });
+						throw error;
+					} finally {
+						if (await store.isDeleted(docId)) onDeleted();
+					}
+				});
+				return { ok: true };
+			} catch (error) {
+				return error instanceof PulseError
+					? failure(error.code, error.message)
+					: failure("CONNECTION_FAILED", String(error));
+			}
+		},
+		send(docId, frame, onFrame, onBroadcast) {
+			return serialize(database, async () => {
+				let streamed: Awaited<ReturnType<typeof streamStoreMessage>>;
+				try {
+					streamed = await streamStoreMessage(store, frame, {
+						docId,
+						protocolVersion: 2,
+					});
+				} catch (error) {
+					return error instanceof PulseError
+						? failure(error.code, error.message)
+						: failure("INVALID_MESSAGE", String(error));
+				}
+				let pages = 0;
+				for await (const response of streamed.responses) {
+					// Yield between pages so multi-page downloads stay responsive.
+					if (pages++ > 0)
+						await new Promise<void>((resolve) => setImmediate(resolve));
+					onFrame(compact(response));
+				}
+				if (streamed.broadcast)
+					onBroadcast(compact(encodeBroadcast(docId, streamed.broadcast, 2)));
+				return { ok: true };
+			});
+		},
+		close() {
+			return serialize(database, async () => {});
+		},
+	};
+	return { ready: Promise.resolve(backend), dispose: () => backend.close() };
+}
+
+function openWorkerBackend(path: string): {
+	ready: Promise<StoreBackend>;
+	dispose(): Promise<void>;
+} {
+	const workerUrl = new URL(
+		import.meta.url.endsWith(".ts") ? "./worker.ts" : "./worker.js",
+		import.meta.url,
+	);
+	const worker = new Worker(workerUrl, { workerData: { path } });
+	type Pending = {
+		resolve(result: PulsifyIpcResult): void;
+		onFrame?: (bytes: Uint8Array) => void;
+		onBroadcast?: (bytes: Uint8Array) => void;
+		onDeleted?: () => void;
+	};
+	const pending = new Map<number, Pending>();
+	let nextId = 1;
+	let exited = false;
+	let opened = false;
+	let resolveReady!: (backend: StoreBackend) => void;
+	let rejectReady!: (error: Error) => void;
+	const ready = new Promise<StoreBackend>((resolve, reject) => {
+		resolveReady = resolve;
+		rejectReady = reject;
+	});
+
+	const failAll = (message: string) => {
+		for (const entry of pending.values())
+			entry.resolve(failure("CLOSED", message));
+		pending.clear();
+	};
+	const post = (request: WorkerRequest) => worker.postMessage(request);
+	let closing: Promise<void> | undefined;
+	const closeWorker = (): Promise<void> => {
+		if (closing) return closing;
+		closing = (async () => {
+			await ready.catch(() => {});
+			if (!exited && opened) {
+				await new Promise<void>((resolve) => {
+					const id = nextId++;
+					const done = () => {
+						pending.delete(id);
+						resolve();
+					};
+					pending.set(id, { resolve: done });
+					worker.once("exit", done);
+					try {
+						post({ id, type: "close" });
+					} catch {
+						done();
+					}
+				});
+			}
+			if (!exited) await worker.terminate().catch(() => {});
+		})();
+		return closing;
+	};
+
+	const backend: StoreBackend = {
+		cached(docId) {
+			if (exited)
+				return Promise.resolve(failure("CLOSED", "Pulsify store closed"));
+			return new Promise((resolve) => {
+				const id = nextId++;
+				pending.set(id, { resolve });
+				post({ id, type: "cached", docId });
+			});
+		},
+		markDeleted(docId, frames, onDeleted) {
+			if (exited)
+				return Promise.resolve(failure("CLOSED", "Pulsify store closed"));
+			return new Promise((resolve) => {
+				const id = nextId++;
+				pending.set(id, { resolve, onDeleted });
+				post({ id, type: "markDeleted", docId, frames });
+			});
+		},
+		send(docId, frame, onFrame, onBroadcast) {
+			if (exited) return Promise.resolve(failure("CLOSED", "Session closed"));
+			return new Promise((resolve) => {
+				const id = nextId++;
+				pending.set(id, { resolve, onFrame, onBroadcast });
+				post({ id, type: "send", docId, frame });
+			});
+		},
+		close: closeWorker,
+	};
+
+	worker.on("message", (reply: WorkerReply) => {
+		if (reply.type === "ready") {
+			if ("error" in reply) {
+				rejectReady(new Error(reply.error));
+			} else {
+				opened = true;
+				resolveReady(backend);
+			}
+			return;
+		}
+		const entry = pending.get(reply.id);
+		if (!entry) return;
+		switch (reply.type) {
+			case "frame":
+				entry.onFrame?.(reply.bytes);
+				return;
+			case "done":
+				pending.delete(reply.id);
+				if (reply.broadcast) entry.onBroadcast?.(reply.broadcast);
+				entry.resolve({ ok: true });
+				return;
+			case "cached":
+				pending.delete(reply.id);
+				entry.resolve({ ok: true, found: reply.found });
+				return;
+			case "deleted":
+				pending.delete(reply.id);
+				if (reply.deleted) entry.onDeleted?.();
+				entry.resolve({ ok: true });
+				return;
+			case "error":
+				pending.delete(reply.id);
+				if (reply.deleted) entry.onDeleted?.();
+				entry.resolve(failure(reply.code, reply.message));
+				return;
+			case "closed":
+				pending.delete(reply.id);
+				entry.resolve({ ok: true });
+				return;
+		}
+	});
+	worker.on("error", (error: unknown) => {
+		const err = error instanceof Error ? error : new Error(String(error));
+		if (!opened) rejectReady(err);
+		failAll(err.message);
+	});
+	worker.on("exit", () => {
+		exited = true;
+		if (!opened) rejectReady(new Error("Pulsify store worker exited"));
+		failAll("Pulsify store closed");
+	});
+
+	return { ready, dispose: closeWorker };
+}
+
 async function openDatabase(path: string): Promise<BetterSqliteDatabase> {
 	const { default: Database } = await import("better-sqlite3");
 	const database = new Database(path, { timeout: 5000 });
@@ -102,6 +339,39 @@ async function openDatabase(path: string): Promise<BetterSqliteDatabase> {
 		throw error;
 	}
 	return database;
+}
+
+/**
+ * A file path: SQLite on a worker thread. A main process bundled without
+ * `worker.js` beside it, or packaged where a worker cannot load, falls back
+ * to SQLite on the main thread, as before the worker existed.
+ */
+function openFileBackend(path: string): {
+	ready: Promise<StoreBackend>;
+	dispose(): Promise<void>;
+} {
+	let dispose: () => Promise<void> = async () => {};
+	const inline = async () => {
+		const database = await openDatabase(path);
+		const runtime = createInlineBackend(database);
+		dispose = async () => {
+			await runtime.dispose();
+			database.close();
+		};
+		return runtime.ready;
+	};
+	let ready: Promise<StoreBackend>;
+	try {
+		const worker = openWorkerBackend(path);
+		dispose = worker.dispose;
+		ready = worker.ready.catch(async () => {
+			await worker.dispose().catch(() => {});
+			return inline();
+		});
+	} catch {
+		ready = inline();
+	}
+	return { ready, dispose: () => dispose() };
 }
 
 function compact(bytes: Uint8Array): Uint8Array {
@@ -123,28 +393,26 @@ type Session = {
 type Client = { sessions: Map<string, Session>; detach(): void };
 
 /**
- * Serve Pulsify documents from SQLite in Electron's main process. Each renderer
- * session relays protocol frames through `relayStoreMessage`; stored rows are
- * pushed to every other session of the document, across windows.
+ * Serve Pulsify documents from SQLite in Electron's main process. When given a
+ * file path, SQLite runs on a dedicated worker thread so writes, large reads,
+ * and busy timeouts never block the main thread. Stored rows are pushed to
+ * every other session of the document, across windows.
  */
 export function servePulsifyStore(
 	options: PulsifyStoreOptions,
 ): PulsifyStoreServer {
 	const { ipcMain } = options;
 	const channels = channelsOf(options.channel ?? DEFAULT_CHANNEL);
-	const owned = typeof options.database === "string";
 	const clients = new Map<ElectronWebContents, Client>();
 	const documents = new Map<string, Set<Session>>();
 	let closed = false;
-	let database: BetterSqliteDatabase | undefined;
-	const opening = (
+	const runtime =
 		typeof options.database === "string"
-			? openDatabase(options.database)
-			: Promise.resolve(options.database)
-	).then((opened) => {
-		database = opened;
+			? openFileBackend(options.database)
+			: createInlineBackend(options.database);
+	const opening = runtime.ready.then((backend) => {
 		if (closed) throw new PulseError("CLOSED", "Pulsify store closed");
-		return new SqlitePatchStore(betterSqliteConnection(opened));
+		return backend;
 	});
 	const ready = opening.then(() => {});
 	ready.catch(() => {});
@@ -213,8 +481,8 @@ export function servePulsifyStore(
 			if (typeof docId !== "string")
 				return failure("INVALID_MESSAGE", "Invalid document ID");
 			try {
-				const store = await opening;
-				return { ok: true, found: (await store.vector(docId)).length > 0 };
+				const backend = await opening;
+				return await backend.cached(docId);
 			} catch (error) {
 				return error instanceof PulseError
 					? failure(error.code, error.message)
@@ -237,38 +505,19 @@ export function servePulsifyStore(
 			)
 				return failure("INVALID_MESSAGE", "Invalid deletion request");
 			try {
-				const store = await opening;
-				await serialize(database!, async () => {
-					try {
-						const rows = frames.flatMap((frame) => {
-							const message = decodeMessage(frame);
-							if (message.kind !== 3)
-								throw new PulseError(
-									"INVALID_MESSAGE",
-									"Invalid recovery frame",
+				const backend = await opening;
+				return await backend.markDeleted(docId, frames, () => {
+					for (const [id, peers] of [...documents])
+						if (coversDocument(docId, id))
+							for (const peer of [...peers])
+								drop(
+									peer,
+									new PulseError(
+										"NOT_FOUND",
+										"Document was permanently deleted",
+									),
 								);
-							return message.rows;
-						});
-						await store.markDeleted(docId, rows);
-					} catch (error) {
-						// Recovery is optional; a malformed frame cannot undo deletion.
-						await store.deleteDocuments(docId, { preserveRows: true });
-						throw error;
-					} finally {
-						if (await store.isDeleted(docId))
-							for (const [id, peers] of [...documents])
-								if (coversDocument(docId, id))
-									for (const peer of [...peers])
-										drop(
-											peer,
-											new PulseError(
-												"NOT_FOUND",
-												"Document was permanently deleted",
-											),
-										);
-					}
 				});
-				return { ok: true };
 			} catch (error) {
 				return error instanceof PulseError
 					? failure(error.code, error.message)
@@ -328,32 +577,26 @@ export function servePulsifyStore(
 				return failure("INVALID_MESSAGE", "Expected a binary frame");
 			if (frame.byteLength > MAX_FRAME_BYTES)
 				return failure("LIMIT_EXCEEDED", "Frame too large");
-			const store = await opening;
-			return serialize(database!, async () => {
-				let result: Awaited<ReturnType<typeof relayStoreMessage>>;
-				try {
-					result = await relayStoreMessage(store, frame, {
-						docId: session.docId,
-						protocolVersion: 2,
-					});
-				} catch (error) {
-					return error instanceof PulseError
-						? failure(error.code, error.message)
-						: failure("INVALID_MESSAGE", String(error));
-				}
-				const peers = documents.get(session.docId);
-				if (peers?.has(session))
-					for (const response of result.responses)
-						push(session, channels.message, compact(response));
-				if (result.broadcast && peers) {
-					const bytes = compact(
-						encodeBroadcast(session.docId, result.broadcast, 2),
-					);
-					for (const peer of peers)
-						if (peer !== session) push(peer, channels.message, bytes);
-				}
-				return { ok: true };
-			});
+			let backend: StoreBackend;
+			try {
+				backend = await opening;
+			} catch {
+				return failure("CLOSED", "Session closed");
+			}
+			return backend.send(
+				session.docId,
+				frame,
+				(bytes) => {
+					if (documents.get(session.docId)?.has(session))
+						push(session, channels.message, bytes);
+				},
+				(bytes) => {
+					const peers = documents.get(session.docId);
+					if (peers)
+						for (const peer of peers)
+							if (peer !== session) push(peer, channels.message, bytes);
+				},
+			);
 		},
 	);
 	ipcMain.handle(channels.close, (event, id: unknown) => {
@@ -377,12 +620,7 @@ export function servePulsifyStore(
 				for (const session of [...client.sessions.values()])
 					drop(session, error);
 			await opening.catch(() => {});
-			if (owned && database) {
-				const opened = database;
-				await serialize(opened, async () => {
-					opened.close();
-				});
-			}
+			await runtime.dispose();
 		},
 	};
 }

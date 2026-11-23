@@ -4,19 +4,24 @@ import {
 	type PulseVersionVector,
 } from "pulsify-core/protocol";
 import {
+	GAP_OPERATIONS,
 	isGap,
 	lastRegisterOf,
 	coversDocument,
 	documentPrefixes,
 	type AppendResult,
 	type DocumentStore,
+	type MissingPage,
+	type MissingPageOptions,
 	type StoredPatchRow,
 } from "pulsify-core/storage";
 import {
 	covered,
+	MAX_MESSAGE_ROWS,
+	MAX_PATCH_BYTES,
+	MAX_ROW_BATCH_NODES,
 	MAX_VECTOR_ENTRIES,
 	rowsFromFrame,
-	serve,
 	validateDocId,
 	validateRows,
 } from "./rows.js";
@@ -57,6 +62,14 @@ type ValueRecord = {
 	dependencies: PulseVersionVector;
 	operations: Uint8Array;
 };
+
+type IndexedDbMissingCursor = {
+	sid: number;
+	from: number;
+	straddle: boolean;
+	vv: PulseVersionVector;
+};
+const MISSING_SCAN_BATCH = 128;
 
 // Version 3 adds the values. Version 2 was never released: its `registers`
 // store is dropped, and its rows stay as history rows.
@@ -194,57 +207,193 @@ export class IndexedDbPatchStore implements DocumentStore {
 			},
 		);
 	}
-	private async readMissing(
+	private async readMissingPage(
 		docId: string,
 		remote: PulseVersionVector,
+		{
+			after,
+			maxBytes = 2 * MAX_PATCH_BYTES,
+			maxRows = MAX_MESSAGE_ROWS,
+			maxNodes = MAX_ROW_BATCH_NODES,
+		}: MissingPageOptions,
 		recovery = false,
-	): Promise<StoredPatchRow[]> {
+	): Promise<MissingPage> {
 		validateDocId(docId);
 		validateVector(remote);
+		const cursor = after as IndexedDbMissingCursor | undefined;
 		const peer = new Map(remote);
 		return this.transaction(
 			"readonly",
-			async (rows, clocks, values, tombstones) => {
+			async (rows, clocks, values, tombstones): Promise<MissingPage> => {
 				if (!recovery) await this.assertLive(tombstones, docId);
+				const liveVv = await this.readVector(clocks, docId);
+				const vv: PulseVersionVector = cursor
+					? [
+							...cursor.vv.filter(([sid]) => sid < cursor.sid),
+							...liveVv.filter(([sid]) => sid >= cursor.sid),
+						]
+					: liveVv;
+				const behind = liveVv.filter(
+					([sid, clock]) =>
+						(!cursor || sid >= cursor.sid) && clock > (peer.get(sid) ?? 0),
+				);
+				if (!behind.length) return { rows: [], vv, next: undefined };
 				const keys = this.keys;
-				const runs = await Promise.all(
-					(await this.readVector(clocks, docId))
-						.filter(([sid, clock]) => clock > (peer.get(sid) ?? 0))
-						.map(async ([sid, frontier]) => {
-							const since = peer.get(sid) ?? 0;
-							// The rows from the last one that starts at or before the
-							// remote clock, and every value of the actor.
-							const anchor = (
-								await request(
+				const page: StoredPatchRow[] = [];
+				let pageBytes = 0;
+				let pageNodes = 0;
+				const tryEmit = (row: StoredPatchRow): boolean => {
+					if (row.operations.length > MAX_PATCH_BYTES)
+						throw new PulseError(
+							"LIMIT_EXCEEDED",
+							"Patch payload exceeds 1 MiB",
+						);
+					const size =
+						row.operations.length +
+						row.dependencies.length * 16 +
+						docId.length * 4 +
+						64;
+					const rowNodes = 7 + 3 * row.dependencies.length;
+					if (
+						page.length &&
+						(pageBytes + size > maxBytes ||
+							page.length >= maxRows ||
+							pageNodes + rowNodes > maxNodes)
+					)
+						return false;
+					page.push(row);
+					pageBytes += size;
+					pageNodes += rowNodes;
+					return true;
+				};
+				for (const [sid, frontier] of behind) {
+					const resuming = cursor !== undefined && sid === cursor.sid;
+					const from = resuming ? cursor.from : Math.max(peer.get(sid) ?? 0, 1);
+					const straddle = resuming ? cursor.straddle : true;
+					if (from >= frontier) continue;
+					const anchorPromise =
+						straddle && from > 1
+							? request(
 									rows.openCursor(
-										keys.bound([docId, sid], [docId, sid, Math.max(since, 1)]),
+										keys.bound([docId, sid], [docId, sid, from]),
 										"prev",
 									),
 								)
-							)?.value as RowRecord | undefined;
-							const [stored, kept] = await Promise.all([
-								request<RowRecord[]>(
-									rows.getAll(
-										keys.bound(
-											[docId, sid, anchor?.clock ?? 0],
-											[docId, sid, []],
-										),
+							: Promise.resolve(null);
+					const valuesPromise = request<ValueRecord[]>(
+						values.getAll(keys.bound([docId, sid], [docId, sid, []])),
+					);
+					const [anchorCursor, keptRecords] = await Promise.all([
+						anchorPromise,
+						valuesPromise,
+					]);
+					const anchor = anchorCursor?.value as RowRecord | undefined;
+					let opCursor = anchor?.clock ?? from;
+					let opDone = false;
+					const opQueue: StoredPatchRow[] = [];
+					let opIndex = 0;
+					const fillOps = async () => {
+						opQueue.length = 0;
+						opIndex = 0;
+						while (!opDone && !opQueue.length) {
+							const batch = await request<RowRecord[]>(
+								rows.getAll(
+									keys.bound(
+										[docId, sid, opCursor],
+										[docId, sid, frontier],
+										false,
+										true,
 									),
+									MISSING_SCAN_BATCH,
 								),
-								request<ValueRecord[]>(
-									values.getAll(keys.bound([docId, sid], [docId, sid, []])),
-								),
-							]);
-							const held = [
-								...stored.filter((row) => row.ready).map(unpack),
-								...kept.map(unpackValue),
-							]
-								.filter((row) => !isGap(row.operations))
-								.sort((a, b) => a.clock - b.clock);
-							return serve(docId, sid, held, since, frontier);
-						}),
-				);
-				return runs.flat();
+							);
+							if (batch.length < MISSING_SCAN_BATCH) opDone = true;
+							if (!batch.length) break;
+							opCursor = batch.at(-1)!.clock + 1;
+							// An empty open range is a DataError in IndexedDB, not an empty result.
+							if (opCursor >= frontier) opDone = true;
+							for (const rec of batch) {
+								if (!rec.ready) continue;
+								if (!straddle && rec.clock < from) continue;
+								if (isGap(rec.operations)) continue;
+								opQueue.push(unpack(rec));
+							}
+						}
+					};
+					const valList = keptRecords
+						.map(unpackValue)
+						.filter(
+							(row) =>
+								row.clock < frontier &&
+								(straddle || row.clock >= from) &&
+								!isGap(row.operations),
+						)
+						.sort((a, b) => a.clock - b.clock);
+					let valIndex = 0;
+					const takeHeld = (): StoredPatchRow | undefined => {
+						const op = opQueue[opIndex];
+						const val = valList[valIndex];
+						if (!op) return val ? valList[valIndex++] : undefined;
+						if (!val) return opQueue[opIndex++];
+						return op.clock <= val.clock
+							? opQueue[opIndex++]
+							: valList[valIndex++];
+					};
+					if (opIndex >= opQueue.length && !opDone) await fillOps();
+					let curr = takeHeld();
+					if (curr && opIndex >= opQueue.length && !opDone) await fillOps();
+					let next = curr ? takeHeld() : undefined;
+					if (straddle) {
+						while (curr && next && next.clock <= from) {
+							curr = next;
+							if (opIndex >= opQueue.length && !opDone) await fillOps();
+							next = takeHeld();
+						}
+					}
+					if (!curr || curr.clock > from) {
+						const gapEnd = curr ? curr.clock : frontier;
+						if (gapEnd > from) {
+							const gap: StoredPatchRow = {
+								docId,
+								sid,
+								clock: from,
+								span: gapEnd - from,
+								dependencies: from > 1 ? [[sid, from]] : [],
+								operations: GAP_OPERATIONS.slice(),
+							};
+							if (!tryEmit(gap))
+								return {
+									rows: page,
+									vv,
+									next: {
+										sid,
+										from,
+										straddle: false,
+										vv,
+									} satisfies IndexedDbMissingCursor,
+								};
+						}
+					}
+					while (curr) {
+						const span = (next ? next.clock : frontier) - curr.clock;
+						const isStraddling = straddle && curr.clock < from;
+						if (!tryEmit({ ...curr, span }))
+							return {
+								rows: page,
+								vv,
+								next: {
+									sid,
+									from: isStraddling ? from : curr.clock,
+									straddle: isStraddling,
+									vv,
+								} satisfies IndexedDbMissingCursor,
+							};
+						curr = next;
+						if (curr && opIndex >= opQueue.length && !opDone) await fillOps();
+						next = curr ? takeHeld() : undefined;
+					}
+				}
+				return { rows: page, vv, next: undefined };
 			},
 		);
 	}
@@ -252,10 +401,31 @@ export class IndexedDbPatchStore implements DocumentStore {
 		docId: string,
 		remote: PulseVersionVector,
 	): Promise<StoredPatchRow[]> {
-		return this.readMissing(docId, remote);
+		return (
+			await this.readMissingPage(
+				docId,
+				remote,
+				{ maxBytes: Infinity, maxRows: Infinity, maxNodes: Infinity },
+				false,
+			)
+		).rows;
+	}
+	async missingPage(
+		docId: string,
+		remote: PulseVersionVector,
+		options: MissingPageOptions = {},
+	): Promise<MissingPage> {
+		return this.readMissingPage(docId, remote, options, false);
 	}
 	async recoverRows(docId: string): Promise<StoredPatchRow[]> {
-		return this.readMissing(docId, [], true);
+		return (
+			await this.readMissingPage(
+				docId,
+				[],
+				{ maxBytes: Infinity, maxRows: Infinity, maxNodes: Infinity },
+				true,
+			)
+		).rows;
 	}
 	private async deleted(
 		store: IDBObjectStore,
@@ -281,14 +451,20 @@ export class IndexedDbPatchStore implements DocumentStore {
 			this.deleted(tombstones, docId),
 		);
 	}
-	/** Permanently block a subtree, retaining local operations for explicit recovery. */
+	/**
+	 * Permanently block a subtree, retaining local operations for explicit recovery.
+	 * Calls `onDeleted(newlyDeleted)` once the deletion marker is committed, even if
+	 * retaining recovery rows fails.
+	 */
 	async markDeleted(
 		docId: string,
 		recovery: readonly StoredPatchRow[] = [],
+		onDeleted?: (newlyDeleted: boolean) => void,
 	): Promise<void> {
 		validateDocId(docId);
-		const groups = new Map<string, StoredPatchRow[]>();
+		let newlyDeleted: boolean | undefined;
 		try {
+			const groups = new Map<string, StoredPatchRow[]>();
 			for (const row of recovery) {
 				if (!coversDocument(docId, row.docId))
 					throw new PulseError(
@@ -302,25 +478,39 @@ export class IndexedDbPatchStore implements DocumentStore {
 			for (const rows of groups.values())
 				for (let i = 0; i < rows.length; i += 4096)
 					validateRows(rows.slice(i, i + 4096));
-			await this.transaction(
+			newlyDeleted = await this.transaction(
 				"readwrite",
 				async (rows, clocks, values, tombstones) => {
 					for (const [id, batch] of groups)
 						await this.write(rows, clocks, values, id, batch);
-					await this.putTombstone(tombstones, docId);
+					return this.putTombstone(tombstones, docId);
 				},
 			);
-		} finally {
-			await this.deleteDocuments(docId, { preserveRows: true });
+			onDeleted?.(newlyDeleted);
+		} catch (error) {
+			if (newlyDeleted === undefined) {
+				try {
+					const created = await this.transaction(
+						"readwrite",
+						async (_rows, _clocks, _values, tombstones) =>
+							this.putTombstone(tombstones, docId),
+					);
+					onDeleted?.(created);
+				} catch {
+					// Database unavailable; rethrow the original error.
+				}
+			}
+			throw error;
 		}
 	}
 	private async putTombstone(
 		tombstones: IDBObjectStore,
 		docId: string,
-	): Promise<void> {
-		if (await this.deleted(tombstones, docId)) return;
+	): Promise<boolean> {
+		if (await this.deleted(tombstones, docId)) return false;
 		tombstones.delete(this.keys.bound(`${docId}/`, `${docId}0`, false, true));
 		tombstones.put(true, docId);
+		return true;
 	}
 	async deleteDocuments(
 		docId: string,
@@ -759,6 +949,9 @@ export class IndexedDbPatchStore implements DocumentStore {
 				sid,
 				clock: frontier.get(sid)!,
 			} satisfies ClockRecord);
-		return { inserted, ready, pending: waiting.length };
+		const vector: PulseVersionVector = [...frontier].sort(
+			(a, b) => a[0] - b[0],
+		);
+		return { inserted, ready, pending: waiting.length, vector };
 	}
 }

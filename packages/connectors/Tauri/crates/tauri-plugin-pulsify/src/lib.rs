@@ -4,6 +4,7 @@
 //! with `createTauriConnector()` from `pulsify-tauri`.
 use pulsify_sqlite::{DocumentStore, Hub, SqliteStore};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use tauri::ipc::{Channel, InvokeBody, Request, Response};
@@ -32,12 +33,14 @@ pub struct Pulsify(Arc<State_>);
 struct State_ {
     path: PathBuf,
     hub: Mutex<Option<Hub<ChannelSink>>>,
+    owners: Mutex<HashMap<String, u64>>,
 }
 impl Pulsify {
     fn new(path: PathBuf) -> Self {
         Self(Arc::new(State_ {
             path,
             hub: Mutex::new(None),
+            owners: Mutex::new(HashMap::new()),
         }))
     }
     /// Runs `work` with exclusive access to the store, e.g. for backups or maintenance.
@@ -76,10 +79,25 @@ impl Pulsify {
             .await
             .map_err(|error| CommandError::new("CONNECTION_FAILED", error.to_string()))?
     }
+    fn owner_key(&self, label: &str) -> String {
+        let owners = self.0.owners.lock().unwrap_or_else(PoisonError::into_inner);
+        let generation = owners.get(label).copied().unwrap_or(0);
+        format!("{label}:{generation}")
+    }
     fn close_owner(&self, owner: &str) {
-        if let Some(hub) = self.lock().as_mut() {
-            hub.close_owner(owner);
-        }
+        let stale_owner = {
+            let mut owners = self.0.owners.lock().unwrap_or_else(PoisonError::into_inner);
+            let generation = owners.entry(owner.to_owned()).or_insert(0);
+            let previous = *generation;
+            *generation = generation.wrapping_add(1);
+            format!("{owner}:{previous}")
+        };
+        let state = self.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Some(hub) = state.lock().as_mut() {
+                hub.close_owner(&stale_owner);
+            }
+        });
     }
 }
 
@@ -103,6 +121,45 @@ impl From<pulsify_sqlite::Error> for CommandError {
     }
 }
 
+fn extract_raw_body(body: &InvokeBody) -> Option<Vec<u8>> {
+    match body {
+        InvokeBody::Raw(bytes) => Some(bytes.clone()),
+        // IPC without a custom protocol serializes bytes as a JSON array.
+        InvokeBody::Json(serde_json::Value::Array(values)) => values
+            .iter()
+            .map(|value| u8::try_from(value.as_u64()?).ok())
+            .collect(),
+        InvokeBody::Json(_) => None,
+    }
+}
+
+fn parse_recovery_body(bytes: &[u8]) -> Result<(String, Vec<Vec<u8>>), CommandError> {
+    let invalid = || CommandError::new("INVALID_MESSAGE", "Malformed recovery payload");
+    let read_u32 = |offset: &mut usize| -> Result<usize, CommandError> {
+        let end = offset.checked_add(4).ok_or_else(invalid)?;
+        let slice = bytes.get(*offset..end).ok_or_else(invalid)?;
+        *offset = end;
+        Ok(u32::from_be_bytes([slice[0], slice[1], slice[2], slice[3]]) as usize)
+    };
+    let mut offset = 0;
+    let doc_len = read_u32(&mut offset)?;
+    let doc_end = offset.checked_add(doc_len).ok_or_else(invalid)?;
+    let doc_bytes = bytes.get(offset..doc_end).ok_or_else(invalid)?;
+    let doc_id = std::str::from_utf8(doc_bytes)
+        .map_err(|_| invalid())?
+        .to_owned();
+    offset = doc_end;
+    let mut frames = Vec::new();
+    while offset < bytes.len() {
+        let frame_len = read_u32(&mut offset)?;
+        let frame_end = offset.checked_add(frame_len).ok_or_else(invalid)?;
+        let frame = bytes.get(offset..frame_end).ok_or_else(invalid)?;
+        offset = frame_end;
+        frames.push(frame.to_vec());
+    }
+    Ok((doc_id, frames))
+}
+
 #[tauri::command]
 async fn open<R: Runtime>(
     webview: Webview<R>,
@@ -110,7 +167,7 @@ async fn open<R: Runtime>(
     doc_id: String,
     channel: Channel<Response>,
 ) -> Result<u64, CommandError> {
-    let owner = webview.label().to_owned();
+    let owner = state.owner_key(webview.label());
     state
         .run(move |hub| hub.open(&doc_id, &owner, ChannelSink(channel)))
         .await
@@ -123,16 +180,8 @@ async fn send(state: State<'_, Pulsify>, request: Request<'_>) -> Result<(), Com
         .get(SESSION_HEADER)
         .and_then(|value| value.to_str().ok()?.parse::<u64>().ok())
         .ok_or_else(|| CommandError::new("INVALID_MESSAGE", "Missing session header"))?;
-    let bytes = match request.body() {
-        InvokeBody::Raw(bytes) => Some(bytes.clone()),
-        // IPC without a custom protocol serializes bytes as a JSON array.
-        InvokeBody::Json(serde_json::Value::Array(values)) => values
-            .iter()
-            .map(|value| u8::try_from(value.as_u64()?).ok())
-            .collect(),
-        InvokeBody::Json(_) => None,
-    }
-    .ok_or_else(|| CommandError::new("INVALID_MESSAGE", "Expected a binary frame"))?;
+    let bytes = extract_raw_body(request.body())
+        .ok_or_else(|| CommandError::new("INVALID_MESSAGE", "Expected a binary frame"))?;
     state.run(move |hub| hub.send(session, &bytes)).await
 }
 
@@ -154,11 +203,11 @@ async fn cached(state: State<'_, Pulsify>, doc_id: String) -> Result<bool, Comma
 }
 
 #[tauri::command]
-async fn mark_deleted(
-    state: State<'_, Pulsify>,
-    doc_id: String,
-    frames: Vec<Vec<u8>>,
-) -> Result<(), CommandError> {
+async fn mark_deleted(state: State<'_, Pulsify>, request: Request<'_>) -> Result<(), CommandError> {
+    let bytes = extract_raw_body(request.body()).ok_or_else(|| {
+        CommandError::new("INVALID_MESSAGE", "Expected a binary recovery payload")
+    })?;
+    let (doc_id, frames) = parse_recovery_body(&bytes)?;
     state
         .run(move |hub| {
             let recovery = hub.store().mark_deleted(&doc_id, &frames);
@@ -230,4 +279,91 @@ impl Builder {
 /// The plugin with its default database, `pulsify.sqlite` in the app data directory.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new().build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Barrier;
+    use std::time::{Duration, Instant};
+    use tauri::test::{mock_builder, mock_context, noop_assets};
+
+    #[test]
+    fn k5_close_owner_does_not_block_calling_thread_or_race_with_new_sessions() {
+        let dir =
+            std::env::temp_dir().join(format!("tauri-plugin-pulsify-k5-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("pulsify.sqlite");
+        let app = mock_builder()
+            .plugin(Builder::new().path(&path).build())
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let state = app.state::<Pulsify>().inner().clone();
+
+        let measure_close = |hold: Duration| -> Duration {
+            // Seed a session under the current generation of "main".
+            let owner = state.owner_key("main");
+            state
+                .with_hub(|hub| {
+                    hub.open("doc", &owner, ChannelSink(Channel::new(|_| Ok(()))))
+                        .map(|_| ())
+                })
+                .unwrap();
+            let entered = Arc::new(Barrier::new(2));
+            let worker_state = state.clone();
+            let worker_entered = entered.clone();
+            let holder = std::thread::spawn(move || {
+                worker_state
+                    .with_store(|_| {
+                        worker_entered.wait();
+                        std::thread::sleep(hold);
+                    })
+                    .unwrap();
+            });
+            entered.wait();
+            let start = Instant::now();
+            state.close_owner("main");
+            let elapsed = start.elapsed();
+
+            // A session opened immediately after reload gets the next generation and survives.
+            let fresh_owner = state.owner_key("main");
+            assert_ne!(fresh_owner, owner);
+            let fresh_id = tauri::async_runtime::block_on(state.run(move |hub| {
+                hub.open("doc", &fresh_owner, ChannelSink(Channel::new(|_| Ok(()))))
+            }))
+            .unwrap();
+            holder.join().unwrap();
+
+            // Wait for the spawned cleanup to complete and verify only the stale session closed.
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                let count = state.with_hub(|hub| Ok(hub.session_count())).unwrap();
+                if count == 1 {
+                    break;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "stale session was not closed (remaining={count})"
+                );
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            // Clean up the fresh session.
+            state
+                .with_hub(|hub| {
+                    assert!(hub.close(fresh_id));
+                    Ok(())
+                })
+                .unwrap();
+            elapsed
+        };
+
+        let short = measure_close(Duration::from_millis(40));
+        let long = measure_close(Duration::from_millis(160));
+        assert!(
+            long < Duration::from_millis(25),
+            "close_owner blocked the UI thread for {long:?} (short={short:?})"
+        );
+        drop(app);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

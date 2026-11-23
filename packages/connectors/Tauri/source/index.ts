@@ -70,6 +70,33 @@ function toBytes(message: unknown): Uint8Array | undefined {
 }
 
 /**
+ * Packs a document ID and recovery frames into one length-prefixed binary body:
+ * `[docIdLen:u32be][docId UTF-8]([frameLen:u32be][frame])*`.
+ */
+function packRecoveryBody(
+	docId: string,
+	frames: readonly Uint8Array[],
+): Uint8Array {
+	const id = new TextEncoder().encode(docId);
+	let total = 4 + id.byteLength;
+	for (const frame of frames) total += 4 + frame.byteLength;
+	const body = new Uint8Array(total);
+	const view = new DataView(body.buffer);
+	let offset = 0;
+	view.setUint32(offset, id.byteLength, false);
+	offset += 4;
+	body.set(id, offset);
+	offset += id.byteLength;
+	for (const frame of frames) {
+		view.setUint32(offset, frame.byteLength, false);
+		offset += 4;
+		body.set(frame, offset);
+		offset += frame.byteLength;
+	}
+	return body;
+}
+
+/**
  * Local persistence through `tauri-plugin-pulsify`: every `open()` starts a
  * session on the app's SQLite database, pinned to one document. Rows stored
  * by one session reach the document's other sessions, in every window.
@@ -98,10 +125,10 @@ export function createTauriConnector(
 		},
 		async markDeleted(docId, rows) {
 			try {
-				await invoke(command("mark_deleted"), {
-					docId,
-					frames: encodeRecoveryFrames(rows).map((frame) => Array.from(frame)),
-				});
+				await invoke(
+					command("mark_deleted"),
+					packRecoveryBody(docId, encodeRecoveryFrames(rows)),
+				);
 			} catch (error) {
 				throw asPulseError(error);
 			}

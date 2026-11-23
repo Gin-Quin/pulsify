@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Worker } from "node:worker_threads";
 import Database from "better-sqlite3";
 import {
 	connectPulse,
@@ -7,6 +8,7 @@ import {
 	createPulseScope,
 	destroyPulse,
 	disconnectPulse,
+	encodeMessage,
 	getPulseMeta,
 	loadPulse,
 	PulseRelay,
@@ -346,5 +348,87 @@ describe("offline first", () => {
 		destroyPulse(copy);
 		destroyAll(scope);
 		await app.server.close();
+	});
+
+	test("K3: file-backed SQLite runs off the main thread so busy locks do not freeze the event loop", async () => {
+		const file = temporaryFile();
+		const app = createApp(file);
+		await app.server.ready;
+		const { connector } = app.openWindow();
+		const messages: Uint8Array[] = [];
+		const session = await connector.open({
+			docId: "busy",
+			signal: new AbortController().signal,
+			onMessage: (bytes) => messages.push(bytes),
+			onClose() {},
+		});
+		try {
+			const measureLockLag = async (holdMs: number, clock: number) => {
+				const lockCode = `
+					import { parentPort, workerData } from "node:worker_threads";
+					import { Database } from "bun:sqlite";
+					const db = new Database(workerData.file);
+					db.exec("BEGIN IMMEDIATE");
+					parentPort.postMessage("locked");
+					Bun.sleepSync(workerData.holdMs);
+					db.exec("COMMIT");
+					db.close();
+				`;
+				const locker = new Worker(
+					new URL(
+						`data:text/javascript;base64,${Buffer.from(lockCode).toString("base64")}`,
+					),
+					{ workerData: { file, holdMs } },
+				);
+				await new Promise<void>((resolve) => {
+					locker.once("message", () => resolve());
+				});
+				let maxLag = 0;
+				let ticks = 0;
+				let last = performance.now();
+				const timer = setInterval(() => {
+					const now = performance.now();
+					const lag = now - last - 5;
+					if (lag > maxLag) maxLag = lag;
+					last = now;
+					ticks++;
+				}, 5);
+				try {
+					await session.send(
+						encodeMessage({
+							kind: 4,
+							docId: "busy",
+							requestId: clock,
+							vv: [],
+							rows: [
+								{
+									docId: "busy",
+									sid: 70001,
+									clock,
+									span: 1,
+									dependencies: clock === 1 ? [] : [[70001, clock]],
+									operations: new Uint8Array([3, clock]),
+								},
+							],
+						}),
+					);
+				} finally {
+					clearInterval(timer);
+					await locker.terminate();
+				}
+				return { maxLag, ticks };
+			};
+
+			const short = await measureLockLag(40, 1);
+			const long = await measureLockLag(160, 2);
+			// On the main thread, a 160ms SQLite lock freezes the event loop for >=160ms with 1 tick.
+			expect(long.maxLag).toBeLessThan(80);
+			expect(long.ticks).toBeGreaterThanOrEqual(5);
+			expect(long.maxLag).toBeLessThan(Math.max(short.maxLag * 4, 50));
+			await eventually(() => expect(messages.length).toBe(2));
+		} finally {
+			session.close();
+			await app.server.close();
+		}
 	});
 });

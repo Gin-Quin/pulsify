@@ -11,6 +11,9 @@ import { GAP_OPERATIONS, type StoredPatchRow } from "pulsify-core/storage";
 export const MAX_MESSAGE_ROWS = 4096;
 export const MAX_PATCH_BYTES = 1024 * 1024;
 export const MAX_VECTOR_ENTRIES = 1024;
+export const MAX_SCHEMA_NODES = 300_000;
+export const MAX_ROW_BATCH_NODES =
+	MAX_SCHEMA_NODES - (3 * MAX_VECTOR_ENTRIES + 16);
 
 export function validateDocId(docId: string): void {
 	if (

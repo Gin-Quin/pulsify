@@ -2,7 +2,7 @@ import { type Connector } from "pulsify-core";
 import {
 	encodeBroadcast,
 	PulseError,
-	relayStoreMessage,
+	streamStoreMessage,
 } from "pulsify-core/protocol";
 import { IndexedDbPatchStore, type IndexedDbOptions } from "./store.js";
 
@@ -34,8 +34,8 @@ export function createIndexedDbConnector(
 	const store = new IndexedDbPatchStore(options);
 	const channelName = `pulsify-indexeddb:${store.name}`;
 	const sessions = new Map<string, Set<Session>>();
+	const queues = new Map<string, Promise<unknown>>();
 	let channel: BroadcastChannel | undefined;
-	let queue: Promise<unknown> = Promise.resolve();
 	let closed = false;
 
 	const listen = () => {
@@ -75,24 +75,16 @@ export function createIndexedDbConnector(
 		authoritativeDeletions: true,
 		cached: async (docId) => (await store.vector(docId)).length > 0,
 		async markDeleted(docId, recovery) {
-			const already = await store.isDeleted(docId);
-			try {
-				await store.markDeleted(docId, recovery);
-			} finally {
-				if (await store.isDeleted(docId)) {
-					const frame = new Uint8Array();
-					for (const [id, peers] of sessions)
-						if (id === docId || id.startsWith(`${docId}/`))
-							for (const peer of [...peers])
-								peer.fail(
-									new PulseError(
-										"NOT_FOUND",
-										"Document was permanently deleted",
-									),
-								);
-					if (!already) post({ docId, frame, deleted: true });
-				}
-			}
+			await store.markDeleted(docId, recovery, (newlyDeleted) => {
+				for (const [id, peers] of sessions)
+					if (id === docId || id.startsWith(`${docId}/`))
+						for (const peer of [...peers])
+							peer.fail(
+								new PulseError("NOT_FOUND", "Document was permanently deleted"),
+							);
+				if (newlyDeleted)
+					post({ docId, frame: new Uint8Array(), deleted: true });
+			});
 		},
 		// One pool of reusable actor IDs per database: see "Actor IDs" in pulsify-core.
 		actorPool: `indexeddb:${store.name}`,
@@ -167,18 +159,30 @@ export function createIndexedDbConnector(
 				close,
 				async send(bytes) {
 					if (!active) throw new PulseError("CLOSED", "Connection closed");
-					// One frame at a time, so acknowledgements and broadcasts keep order.
-					const run = queue.then(() =>
-						relayStoreMessage(store, bytes, { docId, protocolVersion: 2 }),
-					);
-					queue = run.catch(() => {});
-					const result = await run;
-					for (const frame of result.responses) session.deliver(frame);
-					if (!result.broadcast) return;
-					const frame = encodeBroadcast(docId, result.broadcast, 2);
-					for (const peer of [...(sessions.get(docId) ?? [])])
-						if (peer !== session) peer.deliver(frame);
-					post({ docId, frame });
+					// One frame at a time per document, so acknowledgements and
+					// broadcasts keep order without stalling other documents.
+					const previous = queues.get(docId) ?? Promise.resolve();
+					const run = previous.then(async () => {
+						const result = await streamStoreMessage(store, bytes, {
+							docId,
+							protocolVersion: 2,
+						});
+						for await (const frame of result.responses) {
+							if (!active) break;
+							session.deliver(frame);
+						}
+						if (!result.broadcast) return;
+						const frame = encodeBroadcast(docId, result.broadcast, 2);
+						for (const peer of [...(sessions.get(docId) ?? [])])
+							if (peer !== session) peer.deliver(frame);
+						post({ docId, frame });
+					});
+					const tail = run.catch(() => {});
+					queues.set(docId, tail);
+					void tail.then(() => {
+						if (queues.get(docId) === tail) queues.delete(docId);
+					});
+					await run;
 				},
 			};
 		},

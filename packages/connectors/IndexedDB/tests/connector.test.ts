@@ -607,4 +607,114 @@ describe("IndexedDB connector", () => {
 		await connector.clear();
 		expect(await connector.store.vector(second)).toEqual([]);
 	});
+
+	test("K1: uploads and connects use one transaction, and per-document queuing avoids head-of-line blocking", async () => {
+		const open = profile();
+		const connector = open();
+		const db = await connector.store.database();
+		let txCount = 0;
+		const origTx = db.transaction.bind(db);
+		db.transaction = ((...args: Parameters<typeof db.transaction>) => {
+			txCount++;
+			return origTx(...args);
+		}) as typeof db.transaction;
+
+		const makeRow = (docId: string, clock: number, size = 16) => {
+			const operations = new Uint8Array(size).fill(clock & 255 || 1);
+			operations[0] = 3;
+			return {
+				docId,
+				sid: 70001,
+				clock,
+				span: 1,
+				dependencies:
+					clock === 1 ? [] : ([[70001, clock]] as Array<[number, number]>),
+				operations,
+			};
+		};
+
+		const single = await connector.open({
+			docId: "single",
+			signal: signal(),
+			onMessage() {},
+			onClose() {},
+		});
+		txCount = 0;
+		await single.send(
+			encodeMessage({
+				kind: 4,
+				docId: "single",
+				requestId: 1,
+				vv: [],
+				rows: [makeRow("single", 1)],
+			}),
+		);
+		expect(txCount).toBe(1);
+
+		txCount = 0;
+		await single.send(
+			encodeMessage({ kind: 1, docId: "single", requestId: 2, vv: [] }),
+		);
+		expect(txCount).toBe(1);
+		single.close();
+
+		const measureInterleave = async (rowCount: number) => {
+			const docA = `large-${rowCount}`;
+			const docB = `writer-${rowCount}`;
+			for (let i = 1; i <= rowCount; i++) {
+				await connector.store.append([makeRow(docA, i, 512 * 1024)]);
+			}
+			const framesA: Uint8Array[] = [];
+			const framesB: Uint8Array[] = [];
+			const sessionA = await connector.open({
+				docId: docA,
+				signal: signal(),
+				onMessage: (bytes) => framesA.push(bytes),
+				onClose() {},
+			});
+			const sessionB = await connector.open({
+				docId: docB,
+				signal: signal(),
+				onMessage: (bytes) => framesB.push(bytes),
+				onClose() {},
+			});
+			txCount = 0;
+			const dlA = sessionA.send(
+				encodeMessage({ kind: 1, docId: docA, requestId: 1, vv: [] }),
+			);
+			const wrB = sessionB.send(
+				encodeMessage({
+					kind: 4,
+					docId: docB,
+					requestId: 1,
+					vv: [],
+					rows: [makeRow(docB, 1, 32)],
+				}),
+			);
+			await wrB;
+			const txBeforeWriteDone = txCount;
+			const framesABeforeWriteDone = framesA.length;
+			await dlA;
+			const totalFramesA = framesA.length;
+			expect(framesB).toHaveLength(1);
+			const rowsA = framesA.flatMap((frame) => {
+				const msg = decodeMessage(frame);
+				expect(msg.kind).toBe(2);
+				return msg.kind === 2 ? msg.rows : [];
+			});
+			expect(rowsA).toHaveLength(rowCount);
+			sessionA.close();
+			sessionB.close();
+			return { txBeforeWriteDone, framesABeforeWriteDone, totalFramesA };
+		};
+
+		const small = await measureInterleave(8);
+		const large = await measureInterleave(32);
+		expect(large.totalFramesA).toBeGreaterThan(small.totalFramesA);
+		// docB finishes while docA is still streaming pages, independent of docA's size.
+		expect(large.framesABeforeWriteDone).toBeLessThan(large.totalFramesA);
+		expect(large.txBeforeWriteDone).toBeLessThanOrEqual(
+			Math.max(small.txBeforeWriteDone * 2, 4),
+		);
+	});
 });

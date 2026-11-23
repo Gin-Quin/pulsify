@@ -75,9 +75,12 @@ for (const name of [
 		? ["index", "cli"]
 		: subpath
 			? ["index"]
-			: Object.keys(manifest.exports ?? { ".": null }).map((key) =>
-					key === "." ? "index" : key.slice(2),
-				);
+			: [
+					...Object.keys(manifest.exports ?? { ".": null }).map((key) =>
+						key === "." ? "index" : key.slice(2),
+					),
+					...(name === "connectors/Electron" ? ["worker"] : []),
+				];
 	const adapter = await Bun.build({
 		entrypoints: entries.map((entry) => `${directory}/source/${entry}.ts`),
 		outdir,
@@ -89,6 +92,7 @@ for (const name of [
 		external: [
 			...Object.keys(manifest.peerDependencies),
 			...Object.keys(manifest.dependencies ?? {}),
+			...(name === "connectors/Electron" ? ["node:worker_threads"] : []),
 			"pulsify-core/*",
 			"pulsify-cloud",
 			"pulsify-cloud-server",

@@ -287,3 +287,59 @@ test("two IndexedDB handles serialize deletion against appends and retain the ma
 		b.close();
 	}
 });
+
+test("K2: markDeleted commits recovery and tombstone in one transaction", async () => {
+	const connector = createIndexedDbConnector({
+		name: crypto.randomUUID(),
+		indexedDB: new IDBFactory(),
+		IDBKeyRange,
+	});
+	try {
+		const db = await connector.store.database();
+		let txCount = 0;
+		const origTx = db.transaction.bind(db);
+		db.transaction = ((...args: Parameters<typeof db.transaction>) => {
+			txCount++;
+			return origTx(...args);
+		}) as typeof db.transaction;
+
+		const row = (docId: string) => ({
+			docId,
+			sid: 70001,
+			clock: 1,
+			span: 1,
+			dependencies: [],
+			operations: Uint8Array.of(99),
+		});
+
+		const measure = async (count: number, prefix: string) => {
+			txCount = 0;
+			for (let i = 0; i < count; i++) {
+				const id = `${prefix}/${i}`;
+				await connector.markDeleted!(id, [row(id)]);
+			}
+			return txCount;
+		};
+
+		const tx1 = await measure(1, "k2-a");
+		const tx4 = await measure(4, "k2-b");
+		expect(tx1).toBe(1);
+		expect(tx4).toBe(4);
+
+		// Calling markDeleted on an already-deleted document also takes one transaction.
+		txCount = 0;
+		await connector.markDeleted!("k2-a/0", []);
+		expect(txCount).toBe(1);
+
+		// Direct store.markDeleted takes one transaction and preserves recovery rows.
+		txCount = 0;
+		await connector.store.markDeleted("k2-store", [row("k2-store")]);
+		expect(txCount).toBe(1);
+		expect(await connector.store.isDeleted("k2-store")).toBe(true);
+		expect(await connector.store.recoverRows("k2-store")).toEqual([
+			row("k2-store"),
+		]);
+	} finally {
+		connector.close();
+	}
+});

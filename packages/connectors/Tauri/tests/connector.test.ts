@@ -240,6 +240,62 @@ describe("createTauriConnector", () => {
 		expect((closes[0] as PulseError).code).toBe("INVALID_MESSAGE");
 		expect(messages).toEqual([]);
 	});
+
+	test("K4: markDeleted sends one raw length-prefixed binary body instead of JSON number arrays", async () => {
+		const { calls, connector } = mockInvoke();
+		const makeRows = (count: number, docId: string) =>
+			Array.from({ length: count }, (_, i) => {
+				const operations = new Uint8Array(8 * 1024).fill(200 + (i % 50));
+				operations[0] = 3;
+				return {
+					docId,
+					sid: 70001,
+					clock: i + 1,
+					span: 1,
+					dependencies:
+						i === 0 ? [] : ([[70001, i + 1]] as Array<[number, number]>),
+					operations,
+				};
+			});
+
+		const measure = async (count: number, docId: string) => {
+			calls.length = 0;
+			const rows = makeRows(count, docId);
+			await connector.markDeleted!(docId, rows);
+			expect(calls).toHaveLength(1);
+			expect(calls[0]!.command).toBe("plugin:pulsify|mark_deleted");
+			const body = calls[0]!.args;
+			expect(body).toBeInstanceOf(Uint8Array);
+			const bytes = body as Uint8Array;
+			const view = new DataView(
+				bytes.buffer,
+				bytes.byteOffset,
+				bytes.byteLength,
+			);
+			const idLen = view.getUint32(0, false);
+			const decodedId = new TextDecoder().decode(bytes.subarray(4, 4 + idLen));
+			expect(decodedId).toBe(docId);
+			let offset = 4 + idLen;
+			let frameBytes = 0;
+			let frameCount = 0;
+			while (offset < bytes.byteLength) {
+				const len = view.getUint32(offset, false);
+				offset += 4 + len;
+				frameBytes += len;
+				frameCount++;
+			}
+			expect(offset).toBe(bytes.byteLength);
+			expect(frameCount).toBeGreaterThan(0);
+			return { totalBytes: bytes.byteLength, frameBytes };
+		};
+
+		const small = await measure(4, "notes/🌍");
+		const large = await measure(16, "notes/large");
+		// Raw framing adds only 4 bytes per frame + docId header (~1.00x), vs ~3.9x for JSON number arrays.
+		expect(small.totalBytes).toBeLessThan(small.frameBytes * 1.05 + 64);
+		expect(large.totalBytes).toBeLessThan(large.frameBytes * 1.05 + 64);
+		expect(large.totalBytes / small.totalBytes).toBeLessThan(4.1);
+	});
 });
 
 describe("documents through the plugin contract", () => {

@@ -42,6 +42,21 @@ function storeOptions() {
 }
 const create = () => new IndexedDbPatchStore(storeOptions());
 
+test("an actor whose rows fill exactly one scan batch is read to its frontier", async () => {
+	// The scan resumes after a full batch; at the frontier the next range is empty.
+	for (const count of [127, 128, 129, 256]) {
+		const store = create();
+		const docId = `batch-${count}`;
+		const rows = Array.from({ length: count }, (_, i) => row(docId, i + 1));
+		await store.append(rows);
+		expect((await store.missing(docId, [])).length).toBe(count);
+		expect((await store.missing(docId, [[actor, 2]])).length).toBe(count - 1);
+		const page = await store.missingPage(docId, [], { maxRows: count });
+		expect(page.rows.length).toBe(count);
+		expect(page.next).toBeUndefined();
+	}
+});
+
 test("IndexedDB pagination seeks forward without rescanning earlier pages or neighboring subtrees", async () => {
 	const store = create();
 	const db = await store.database();
@@ -234,16 +249,28 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 3,
 			ready: 3,
 			pending: 0,
+			vector: [
+				[actor, 3],
+				[other, 2],
+			],
 		});
 		expect(await store.append([first, second])).toEqual({
 			inserted: 0,
 			ready: 0,
 			pending: 0,
+			vector: [
+				[actor, 3],
+				[other, 2],
+			],
 		});
 		expect(await store.append([first, first])).toEqual({
 			inserted: 0,
 			ready: 0,
 			pending: 0,
+			vector: [
+				[actor, 3],
+				[other, 2],
+			],
 		});
 		expect(await store.vector(docId)).toEqual([
 			[actor, 3],
@@ -294,6 +321,7 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 3,
 			ready: 0,
 			pending: 3,
+			vector: [],
 		});
 		expect(await store.vector(docId)).toEqual([]);
 		expect(await store.missing(docId, [])).toEqual([]);
@@ -301,6 +329,10 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 1,
 			ready: 4,
 			pending: 0,
+			vector: [
+				[actor, 4],
+				[other, 2],
+			],
 		});
 		expect(await store.vector(docId)).toEqual([
 			[actor, 4],
@@ -389,6 +421,7 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 1,
 			ready: 0,
 			pending: 1,
+			vector: [],
 		});
 		// A future row that omits its own predecessor is a fork.
 		await expect(store.append([row(docId)])).rejects.toMatchObject({
@@ -401,6 +434,7 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 1,
 			ready: 0,
 			pending: 1,
+			vector: [[actor, 2]],
 		});
 		expect(await store.vector(later)).toEqual([[actor, 2]]);
 		expect(await store.missing(later, [[actor, 2]])).toEqual([]);
@@ -415,11 +449,13 @@ describe("IndexedDbPatchStore", () => {
 			inserted: 5,
 			ready: 0,
 			pending: 6,
+			vector: [],
 		});
 		expect(await store.append(prefix.slice(0, 4))).toEqual({
 			inserted: 4,
 			ready: 10,
 			pending: 0,
+			vector: [[actor, 11]],
 		});
 		expect(await store.vector(docId)).toEqual([[actor, 11]]);
 		expect(
@@ -551,7 +587,7 @@ describe("IndexedDbPatchStore", () => {
 			await store.appendEncoded(
 				encodeMessage({ kind: 4, docId, requestId: 1, vv: [], rows: [first] }),
 			),
-		).toEqual({ inserted: 1, ready: 1, pending: 0 });
+		).toEqual({ inserted: 1, ready: 1, pending: 0, vector: [[actor, 2]] });
 		expect(await store.missing(docId, [])).toEqual([first]);
 		await expect(
 			store.appendEncoded(
