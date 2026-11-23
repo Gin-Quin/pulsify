@@ -190,7 +190,22 @@ const operations: CoreOperation[] = [
 		entries: ["65536:1:5"],
 		attributes: { bold: true, color: "red" },
 	},
+	{
+		kind: 5,
+		target: "65536:1:4",
+		entries: ["65536:1:5"],
+		count: 3,
+		attributes: { italic: true },
+	},
 	{ kind: 6, target: "65536:1:1", entries: ["65536:1:2"], after: "65536:1:3" },
+	{
+		kind: 12,
+		target: "65536:1:4",
+		after: "65536:1:5",
+		text: "é🌍",
+		attributes: { bold: true },
+	},
+	{ kind: 13, target: "65536:1:4", first: "65536:1:5", count: 3 },
 ];
 await Bun.write(
 	"fixtures/protocol.json",

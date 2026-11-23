@@ -262,3 +262,34 @@ test("a caret stays where it was while the characters it moved after are on thei
 	applyPulseUpdates(b, exportPulseUpdates(c, []));
 	expect(caret()).toBe(6);
 });
+
+test("E3: writing another field of the pulse does not notify the CodeMirror binding", () => {
+	const Multi = definePulse(
+		"MultiFile",
+		object({ title: "string", code: plainText() }),
+	).materialize();
+	const pulse = createPulse(
+		Multi,
+		{ title: "init", code: "a".repeat(20_000) },
+		options(sid++),
+	);
+	pulses.push(pulse);
+	const view = new EditorView({
+		state: EditorState.create({ doc: "" }),
+		parent: document.body,
+	});
+	views.push(view);
+	const binding = bindCodeMirror(view, pulse.code);
+	let dispatches = 0;
+	const origDispatch = view.dispatch.bind(view);
+	view.dispatch = ((...args: Parameters<typeof view.dispatch>) => {
+		dispatches++;
+		return origDispatch(...args);
+	}) as typeof view.dispatch;
+	const t0 = performance.now();
+	for (let i = 0; i < 100; i++) pulse.title = "t" + i;
+	const elapsed = performance.now() - t0;
+	expect(dispatches).toBe(0);
+	expect(elapsed).toBeLessThan(50);
+	binding.destroy();
+});

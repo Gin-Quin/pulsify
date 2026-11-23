@@ -23,19 +23,31 @@ import {
 	type RichText,
 } from "pulsify-core";
 import {
+	RT_PARENT,
+	directNodeRevision,
+	insertBlockEntry,
 	richTextContext,
+	richTextRedirects,
+	richTextRemovedNodes,
 	createPulsifyHistory,
 	connectEditorHistory,
 	heldSelections,
+	textChangesSince,
+	type CoreEntry,
 	type PulsifyHistory,
 	type PulsifyHistoryOptions,
 } from "pulsify-core/bindings";
 import {
 	anchorOfPosition,
+	buildSimpleBlockNode,
+	ensureFullView,
+	findBlockIndex,
 	matchTokens,
 	positionOfAnchor,
 	readDocument,
 	writeDocument,
+	writeIncrementalLocal,
+	type BlockInfo,
 	type DocumentView,
 	type Token,
 } from "./document.js";
@@ -138,8 +150,10 @@ export function bindProseMirror(
 			throw new TypeError("A selection name and color must be strings");
 	const draws = !!sharing && sharing.draw !== false;
 	let rendered = readDocument(context, schema);
+	let renderedRev = directNodeRevision(context.node);
 	let syncing = false,
-		disposed = false;
+		disposed = false,
+		redrawQueued = false;
 	let unsubscribe: (() => void) | undefined;
 	let pending = new Mapping();
 	let capture = true,
@@ -209,20 +223,268 @@ export function bindProseMirror(
 			view.state.tr.setMeta(key, "selection").setMeta("addToHistory", false),
 		);
 	};
+	// Schedule redraw outside plugin view `update` to avoid re-entering `updateState`.
+	const scheduleRedraw = () => {
+		if (!draws || redrawQueued || disposed || view.isDestroyed) return;
+		redrawQueued = true;
+		queueMicrotask(() => {
+			redrawQueued = false;
+			redraw();
+		});
+	};
 	// Set while this binding renders its own undo or redo.
 	let replaying = false;
+	const tryIncrementalRemote = (currentRev: number): boolean => {
+		const changes = textChangesSince(context.node, renderedRev);
+		if (!changes || !changes.length) return false;
+		for (let i = 0; i < changes.length; i++) {
+			if (changes[i]!.structural) return false;
+		}
+		const redirects = richTextRedirects(context.node);
+		const removed = richTextRemovedNodes(context.node);
+		const affected = new Map<
+			number,
+			{ block: BlockInfo; inserted: CoreEntry[] }
+		>();
+		const touch = (entry: CoreEntry) => {
+			const parentId = entry.marks.get(RT_PARENT)?.value;
+			if (typeof parentId !== "string") return undefined;
+			if (redirects.has(parentId) || removed.has(parentId)) return undefined;
+			const idx = rendered.byId.get(parentId);
+			if (idx === undefined) return undefined;
+			let info = affected.get(idx);
+			if (info) return info;
+			const block = rendered.blocks[idx]!;
+			if (!block.simple || !block.anchor || block.anchor.deleted)
+				return undefined;
+			info = { block, inserted: [] };
+			affected.set(idx, info);
+			return info;
+		};
+		for (let i = 0; i < changes.length; i++) {
+			const change = changes[i]!;
+			for (let j = 0; j < change.deleted.length; j++) {
+				if (!touch(change.deleted[j]!)) return false;
+			}
+			for (let j = 0; j < change.inserted.length; j++) {
+				const entry = change.inserted[j]!;
+				if (entry.deleted) continue;
+				const info = touch(entry);
+				if (!info) return false;
+				info.inserted.push(entry);
+			}
+			for (let j = 0; j < change.marked.length; j++) {
+				const entry = change.marked[j]!;
+				if (entry.deleted) continue;
+				if (!touch(entry)) return false;
+			}
+		}
+		if (!affected.size) {
+			renderedRev = currentRev;
+			redraw();
+			return true;
+		}
+		const ordered = [...affected.entries()].sort(([a], [b]) => a - b);
+		const plans: {
+			idx: number;
+			block: BlockInfo;
+			oldNode: ProseMirrorNode;
+			oldPos: number;
+			oldChars: CoreEntry[];
+			newChars: CoreEntry[];
+			newNode: ProseMirrorNode;
+		}[] = [];
+		for (let p = 0; p < ordered.length; p++) {
+			const [idx, { block, inserted }] = ordered[p]!;
+			const anchor = block.anchor!;
+			const oldChars = block.chars;
+			const newChars: CoreEntry[] = [];
+			for (let i = 0; i < oldChars.length; i++) {
+				const e = oldChars[i]!;
+				if (!e.deleted) newChars.push(e);
+			}
+			const present = new Set<CoreEntry>(newChars);
+			for (let j = 0; j < inserted.length; j++) {
+				if (
+					!insertBlockEntry(newChars, present, anchor, inserted[j]!, block.id)
+				)
+					return false;
+			}
+			const newNode = buildSimpleBlockNode(schema, block.node, newChars);
+			plans.push({
+				idx,
+				block,
+				oldNode: block.node,
+				oldPos: block.pos,
+				oldChars,
+				newChars,
+				newNode,
+			});
+		}
+
+		// Build targeted ProseMirror transaction touching ONLY the affected blocks.
+		const tr = view.state.tr;
+		const edits: {
+			from: number;
+			to: number;
+			newNode: ProseMirrorNode;
+			start: number;
+			end: number;
+		}[] = [];
+		for (let p = 0; p < plans.length; p++) {
+			const { oldNode, oldPos, oldChars, newChars, newNode } = plans[p]!;
+			if (oldNode.eq(newNode)) continue;
+			const oldIds = oldChars.map((e) => e.id);
+			const newIds = newChars.map((e) => e.id);
+			const matches = [...matchTokens(oldIds, newIds)].sort(
+				([a], [b]) => a - b,
+			);
+			// Precompute UTF-16 offsets inside oldNode and newNode.
+			const oldOffsets = new Array<number>(oldChars.length + 1);
+			let off = 0;
+			for (let i = 0; i < oldChars.length; i++) {
+				oldOffsets[i] = off;
+				off += (oldChars[i]!.value as string).length;
+			}
+			oldOffsets[oldChars.length] = off;
+			const newOffsets = new Array<number>(newChars.length + 1);
+			off = 0;
+			for (let i = 0; i < newChars.length; i++) {
+				newOffsets[i] = off;
+				off += (newChars[i]!.value as string).length;
+			}
+			newOffsets[newChars.length] = off;
+
+			let from = 0,
+				start = 0;
+			for (const [newIndex, oldIndex] of [
+				...matches,
+				[newChars.length, oldChars.length],
+			] as [number, number][]) {
+				const to = oldOffsets[oldIndex]!;
+				const end = newOffsets[newIndex]!;
+				if (from !== to || start !== end) {
+					edits.push({
+						from: oldPos + 1 + from,
+						to: oldPos + 1 + to,
+						newNode,
+						start,
+						end,
+					});
+				}
+				from = oldIndex < oldChars.length ? oldOffsets[oldIndex + 1]! : to;
+				start = newIndex < newChars.length ? newOffsets[newIndex + 1]! : end;
+			}
+		}
+		// Apply text replacements from back to front so earlier positions stay valid.
+		for (let i = edits.length - 1; i >= 0; i--) {
+			const edit = edits[i]!;
+			tr.replace(edit.from, edit.to, edit.newNode.slice(edit.start, edit.end));
+		}
+		// Apply mark diffs ONLY inside the affected blocks.
+		let runningDelta = 0;
+		for (let p = 0; p < plans.length; p++) {
+			const plan = plans[p]!;
+			const blockStart = plan.oldPos + runningDelta + 1;
+			runningDelta += plan.newNode.nodeSize - plan.oldNode.nodeSize;
+			plan.newNode.forEach((child, offset) => {
+				if (!child.isText) return;
+				const from = blockStart + offset;
+				const to = from + child.nodeSize;
+				let equal = true;
+				tr.doc.nodesBetween(from, to, (cur) => {
+					if (cur.isText && !Mark.sameSet(cur.marks, child.marks))
+						equal = false;
+				});
+				if (!equal) {
+					tr.removeMark(from, to);
+					for (const mark of child.marks) tr.addMark(from, to, mark);
+				}
+			});
+		}
+
+		// Update `rendered.blocks` positions and entries before mapping selection.
+		const planByIdx = new Map(plans.map((pl) => [pl.idx, pl]));
+		const oldSelection = view.state.selection;
+		// Snapshot only the selection's old block(s) before mutating `rendered.blocks`.
+		const selBlockOld = new Map<
+			number,
+			{ pos: number; chars: CoreEntry[]; node: ProseMirrorNode }
+		>();
+		if (oldSelection instanceof TextSelection) {
+			for (const p of [oldSelection.anchor, oldSelection.head]) {
+				const bi = findBlockIndex(rendered.blocks, p);
+				if (bi >= 0 && !selBlockOld.has(bi)) {
+					const b = rendered.blocks[bi]!;
+					selBlockOld.set(bi, { pos: b.pos, chars: b.chars, node: b.node });
+				}
+			}
+		}
+		let shift = 0;
+		const firstAffected = plans[0]!.idx;
+		for (let idx = firstAffected; idx < rendered.blocks.length; idx++) {
+			const block = rendered.blocks[idx]!;
+			const pl = planByIdx.get(idx);
+			if (pl) {
+				block.pos += shift;
+				shift += pl.newNode.nodeSize - block.node.nodeSize;
+				block.node = pl.newNode;
+				block.chars = pl.newChars;
+			} else if (shift !== 0) {
+				block.pos += shift;
+			}
+		}
+		rendered.doc = tr.doc;
+		rendered.tokensDirty = true;
+		renderedRev = currentRev;
+
+		if (!tr.docChanged) {
+			redraw();
+			return true;
+		}
+		syncing = true;
+		try {
+			tr.setMeta(key, true).setMeta("addToHistory", false);
+			tr.setSelection(
+				mapSelectionIncremental(
+					view.state,
+					rendered,
+					selBlockOld,
+					planByIdx,
+					tr.mapping,
+					replaying,
+				),
+			);
+			view.dispatch(tr);
+			if (!view.state.doc.eq(rendered.doc))
+				throw new Error(
+					"ProseMirror dispatchTransaction must synchronously apply Pulsify transactions without changing their document",
+				);
+		} finally {
+			syncing = false;
+		}
+		return true;
+	};
 	const pull = () => {
 		if (syncing || disposed || view.isDestroyed) return;
 		try {
 			richTextContext(field);
+			const currentRev = directNodeRevision(context.node);
+			if (renderedRev === currentRev) {
+				redraw();
+				return;
+			}
 			history.stopCapturing();
+			if (tryIncrementalRemote(currentRev)) return;
 			const next = readDocument(context, schema);
 			const previous = rendered;
 			rendered = next;
+			renderedRev = currentRev;
 			if (view.state.doc.eq(next.doc)) {
 				redraw();
 				return;
 			}
+			ensureFullView(previous, schema);
 			syncing = true;
 			const tr = replaceDocument(view.state, next.doc, previous, next);
 			tr.setMeta(key, true).setMeta("addToHistory", false);
@@ -337,15 +599,31 @@ export function bindProseMirror(
 						try {
 							richTextContext(field);
 							syncing = true;
-							const change = writeDocument(
-								context,
-								current.state.doc,
-								rendered,
-								mapping,
-								true,
-							);
-							rendered = readDocument(context, schema);
-							historyConnection.record(change, record);
+							const incremental =
+								renderedRev === directNodeRevision(context.node)
+									? writeIncrementalLocal(
+											context,
+											current.state.doc,
+											rendered,
+											mapping,
+											true,
+										)
+									: undefined;
+							if (incremental) {
+								renderedRev = directNodeRevision(context.node);
+								historyConnection.record(incremental, record);
+							} else {
+								const change = writeDocument(
+									context,
+									current.state.doc,
+									rendered,
+									mapping,
+									true,
+								);
+								rendered = readDocument(context, schema);
+								renderedRev = directNodeRevision(context.node);
+								historyConnection.record(change, record);
+							}
 						} catch (error) {
 							// Native quota/validation failures must not leave an editor
 							// showing an edit which the field rejected atomically.
@@ -355,7 +633,7 @@ export function bindProseMirror(
 							syncing = false;
 						}
 					publish();
-					redraw();
+					scheduleRedraw();
 				},
 				destroy() {
 					release();
@@ -414,6 +692,7 @@ export function bindProseMirror(
 		// Establish stable anchors once, after the history plugin has connected.
 		writeDocument(context, rendered.doc, rendered);
 		rendered = readDocument(context, schema);
+		renderedRev = directNodeRevision(context.node);
 		if (sharing) {
 			presence = joinPresence(context.pulse as Pulse<any>, RichTextSelection);
 			held = heldSelections(
@@ -542,6 +821,73 @@ function signature(set: DecorationSet): string {
 	);
 }
 
+/** O(blockSize) selection mapping for incremental remote updates. */
+function mapSelectionIncremental(
+	state: EditorState,
+	rendered: DocumentView,
+	selBlockOld: Map<
+		number,
+		{ pos: number; chars: CoreEntry[]; node: ProseMirrorNode }
+	>,
+	planByIdx: Map<number, { oldChars: CoreEntry[]; newChars: CoreEntry[] }>,
+	mapping: Mapping,
+	restoring: boolean,
+): Selection {
+	if (!(state.selection instanceof TextSelection))
+		return state.selection.map(rendered.doc, mapping);
+	const mapPos = (pos: number): number => {
+		// Find which block `pos` was in before the update.
+		for (const [bi, old] of selBlockOld) {
+			if (pos > old.pos && pos <= old.pos + old.node.nodeSize - 1) {
+				const nextBlock = rendered.blocks[bi]!;
+				const plan = planByIdx.get(bi);
+				if (!plan) {
+					// Block was untouched; just shift by its new pos!
+					return nextBlock.pos + (pos - old.pos);
+				}
+				const kept = new Set(old.chars.map((e) => e.id));
+				const afterById = new Map<string, { pos: number; size: number }>();
+				const restored = new Map<number, number>();
+				let cur = nextBlock.pos + 1;
+				for (let i = 0; i < nextBlock.chars.length; i++) {
+					const e = nextBlock.chars[i]!;
+					const len = (e.value as string).length;
+					afterById.set(e.id, { pos: cur, size: len });
+					if (!kept.has(e.id)) restored.set(cur, len);
+					cur += len;
+				}
+				let left: CoreEntry | undefined, right: CoreEntry | undefined;
+				let oldCur = old.pos + 1;
+				for (let i = 0; i < old.chars.length; i++) {
+					const e = old.chars[i]!;
+					const len = (e.value as string).length;
+					if (oldCur + len <= pos) left = e;
+					if (!right && oldCur >= pos) right = e;
+					oldCur += len;
+				}
+				let at: number;
+				const sl = left && afterById.get(left.id);
+				const sr = right && afterById.get(right.id);
+				if (sl) at = sl.pos + sl.size;
+				else if (sr) at = sr.pos;
+				else
+					at =
+						nextBlock.pos +
+						1 +
+						Math.min(pos - old.pos - 1, nextBlock.node.content.size);
+				if (restoring) {
+					for (let len; (len = restored.get(at));) at += len;
+				}
+				return at;
+			}
+		}
+		return Math.max(0, Math.min(rendered.doc.content.size, mapping.map(pos)));
+	};
+	const anchor = rendered.doc.resolve(mapPos(state.selection.anchor));
+	const head = rendered.doc.resolve(mapPos(state.selection.head));
+	return TextSelection.between(anchor, head);
+}
+
 function replaceDocument(
 	state: EditorState,
 	doc: ProseMirrorNode,
@@ -549,28 +895,6 @@ function replaceDocument(
 	next?: DocumentView,
 ) {
 	const tr = state.tr;
-	// Diff content independently of marks/attributes. Replacing unchanged text
-	// merely to add a mark would discard history maps for local insertions.
-	const attributes = new Map<string, ProseMirrorNode["attrs"]>();
-	for (const root of [state.doc, doc]) {
-		if (!attributes.has(root.type.name))
-			attributes.set(root.type.name, root.attrs);
-		root.descendants((node) => {
-			if (!attributes.has(node.type.name))
-				attributes.set(node.type.name, node.attrs);
-		});
-	}
-	const contentOnly = (node: ProseMirrorNode): ProseMirrorNode => {
-		if (node.isText) return node.mark(Mark.none);
-		const children: ProseMirrorNode[] = [];
-		node.forEach((child) => children.push(contentOnly(child)));
-		return node.type.create(
-			attributes.get(node.type.name),
-			Fragment.fromArray(children),
-		);
-	};
-	const before = contentOnly(state.doc),
-		after = contentOnly(doc);
 	const sameStructure =
 		previous &&
 		next &&
@@ -583,58 +907,92 @@ function replaceDocument(
 	if (sameStructure) {
 		const edits: { from: number; to: number; start: number; end: number }[] =
 			[];
-		const groupTokens = (rendered: DocumentView) => {
-			const blocks = rendered.nodes.filter((span) => span.node.isTextblock);
-			const groups = new Map<string, Token[]>();
-			let index = 0;
-			for (const token of rendered.tokens) {
-				if (!token.entry || token.size <= 0) continue;
-				while (
-					blocks[index] &&
-					token.pos >= blocks[index]!.pos + blocks[index]!.node.nodeSize - 1
-				)
-					index++;
-				const block = blocks[index];
-				if (!block || token.pos <= block.pos) continue;
-				const group = groups.get(block.id);
-				if (group) group.push(token);
-				else groups.set(block.id, [token]);
-			}
-			return groups;
-		};
-		const beforeGroups = groupTokens(previous),
-			afterGroups = groupTokens(next);
+		// Check which textblock indices actually changed before grouping tokens.
+		const changedBlockIds = new Set<string>();
 		for (let index = 0; index < previous.nodes.length; index++) {
 			const oldBlock = previous.nodes[index]!,
 				newBlock = next.nodes[index]!;
-			if (!oldBlock.node.isTextblock) continue;
-			const oldTokens = beforeGroups.get(oldBlock.id) ?? [];
-			const newTokens = afterGroups.get(newBlock.id) ?? [];
-			const matches = [
-				...matchTokens(
-					oldTokens.map((token) => token.entry!.id),
-					newTokens.map((token) => token.entry!.id),
-				),
-			].sort(([a], [b]) => a - b);
-			let from = oldBlock.pos + 1,
-				start = newBlock.pos + 1;
-			for (const [newIndex, oldIndex] of [
-				...matches,
-				[newTokens.length, oldTokens.length],
-			]) {
-				const oldToken = oldTokens[oldIndex!],
-					newToken = newTokens[newIndex!];
-				const to = oldToken?.pos ?? oldBlock.pos + oldBlock.node.nodeSize - 1;
-				const end = newToken?.pos ?? newBlock.pos + newBlock.node.nodeSize - 1;
-				if (!before.slice(from, to).eq(after.slice(start, end)))
-					edits.push({ from, to, start, end });
-				from = to + (oldToken?.size ?? 0);
-				start = end + (newToken?.size ?? 0);
-			}
+			if (oldBlock.node.isTextblock && !oldBlock.node.eq(newBlock.node))
+				changedBlockIds.add(oldBlock.id);
 		}
-		for (const edit of edits.sort((a, b) => b.from - a.from))
-			tr.replace(edit.from, edit.to, doc.slice(edit.start, edit.end));
+		if (changedBlockIds.size) {
+			const groupTokens = (rendered: DocumentView) => {
+				const blocks = rendered.nodes.filter((span) => span.node.isTextblock);
+				const groups = new Map<string, Token[]>();
+				let index = 0;
+				for (const token of rendered.tokens) {
+					if (!token.entry || token.size <= 0) continue;
+					while (
+						blocks[index] &&
+						token.pos >= blocks[index]!.pos + blocks[index]!.node.nodeSize - 1
+					)
+						index++;
+					const block = blocks[index];
+					if (!block || token.pos <= block.pos) continue;
+					if (!changedBlockIds.has(block.id)) continue;
+					const group = groups.get(block.id);
+					if (group) group.push(token);
+					else groups.set(block.id, [token]);
+				}
+				return groups;
+			};
+			const beforeGroups = groupTokens(previous),
+				afterGroups = groupTokens(next);
+			for (let index = 0; index < previous.nodes.length; index++) {
+				const oldBlock = previous.nodes[index]!,
+					newBlock = next.nodes[index]!;
+				if (!changedBlockIds.has(oldBlock.id)) continue;
+				const oldTokens = beforeGroups.get(oldBlock.id) ?? [];
+				const newTokens = afterGroups.get(newBlock.id) ?? [];
+				const matches = [
+					...matchTokens(
+						oldTokens.map((token) => token.entry!.id),
+						newTokens.map((token) => token.entry!.id),
+					),
+				].sort(([a], [b]) => a - b);
+				let from = oldBlock.pos + 1,
+					start = newBlock.pos + 1;
+				for (const [newIndex, oldIndex] of [
+					...matches,
+					[newTokens.length, oldTokens.length],
+				]) {
+					const oldToken = oldTokens[oldIndex!],
+						newToken = newTokens[newIndex!];
+					const to = oldToken?.pos ?? oldBlock.pos + oldBlock.node.nodeSize - 1;
+					const end =
+						newToken?.pos ?? newBlock.pos + newBlock.node.nodeSize - 1;
+					if (from !== to || start !== end)
+						edits.push({ from, to, start, end });
+					from = to + (oldToken?.size ?? 0);
+					start = end + (newToken?.size ?? 0);
+				}
+			}
+			for (const edit of edits.sort((a, b) => b.from - a.from))
+				tr.replace(edit.from, edit.to, doc.slice(edit.start, edit.end));
+		}
 	} else {
+		// Diff content independently of marks/attributes. Replacing unchanged text
+		// merely to add a mark would discard history maps for local insertions.
+		const attributes = new Map<string, ProseMirrorNode["attrs"]>();
+		for (const root of [state.doc, doc]) {
+			if (!attributes.has(root.type.name))
+				attributes.set(root.type.name, root.attrs);
+			root.descendants((node) => {
+				if (!attributes.has(node.type.name))
+					attributes.set(node.type.name, node.attrs);
+			});
+		}
+		const contentOnly = (node: ProseMirrorNode): ProseMirrorNode => {
+			if (node.isText) return node.mark(Mark.none);
+			const children: ProseMirrorNode[] = [];
+			node.forEach((child) => children.push(contentOnly(child)));
+			return node.type.create(
+				attributes.get(node.type.name),
+				Fragment.fromArray(children),
+			);
+		};
+		const before = contentOnly(state.doc),
+			after = contentOnly(doc);
 		const start = before.content.findDiffStart(after.content);
 		if (start !== null) {
 			const end = before.content.findDiffEnd(after.content)!;
@@ -646,27 +1004,58 @@ function replaceDocument(
 			);
 		}
 	}
-	doc.descendants((node, pos) => {
-		if (node.isText) {
-			let equal = true;
-			tr.doc.nodesBetween(pos, pos + node.nodeSize, (current) => {
-				if (current.isText && !Mark.sameSet(current.marks, node.marks))
-					equal = false;
-			});
-			if (!equal) {
-				tr.removeMark(pos, pos + node.nodeSize);
-				for (const mark of node.marks)
-					tr.addMark(pos, pos + node.nodeSize, mark);
+	// Skip unchanged subtrees when syncing marks and node attributes.
+	const syncMarksAndAttrs = (
+		target: ProseMirrorNode,
+		current: ProseMirrorNode,
+		pos: number,
+	) => {
+		if (target.eq(current)) return;
+		if (target.isText) {
+			if (!Mark.sameSet(current.marks, target.marks)) {
+				tr.removeMark(pos, pos + target.nodeSize);
+				for (const mark of target.marks)
+					tr.addMark(pos, pos + target.nodeSize, mark);
 			}
-		} else {
-			const current = tr.doc.nodeAt(pos)!;
-			if (
-				JSON.stringify(current.attrs) !== JSON.stringify(node.attrs) ||
-				!Mark.sameSet(current.marks, node.marks)
-			)
-				tr.setNodeMarkup(pos, undefined, node.attrs, node.marks);
+			return;
 		}
-	});
+		if (
+			pos >= 0 &&
+			(JSON.stringify(current.attrs) !== JSON.stringify(target.attrs) ||
+				!Mark.sameSet(current.marks, target.marks))
+		) {
+			tr.setNodeMarkup(pos, undefined, target.attrs, target.marks);
+		}
+		let childOffset = 0;
+		for (let i = 0; i < target.childCount; i++) {
+			const child = target.child(i);
+			const childPos = pos + 1 + childOffset;
+			const curNode = tr.doc.nodeAt(childPos);
+			if (
+				curNode &&
+				curNode.type === child.type &&
+				curNode.nodeSize === child.nodeSize
+			) {
+				syncMarksAndAttrs(child, curNode, childPos);
+			} else if (child.isText) {
+				let equal = true;
+				tr.doc.nodesBetween(childPos, childPos + child.nodeSize, (cur) => {
+					if (cur.isText && !Mark.sameSet(cur.marks, child.marks))
+						equal = false;
+				});
+				if (!equal) {
+					tr.removeMark(childPos, childPos + child.nodeSize);
+					for (const mark of child.marks)
+						tr.addMark(childPos, childPos + child.nodeSize, mark);
+				}
+			} else {
+				const live = tr.doc.nodeAt(childPos)!;
+				syncMarksAndAttrs(child, live, childPos);
+			}
+			childOffset += child.nodeSize;
+		}
+	};
+	syncMarksAndAttrs(doc, tr.doc, -1);
 	for (const [name, value] of Object.entries(doc.attrs))
 		if (JSON.stringify(state.doc.attrs[name]) !== JSON.stringify(value))
 			tr.setDocAttribute(name, value);

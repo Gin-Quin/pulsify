@@ -279,12 +279,24 @@ Each operation starts with its numeric `kind:uint`, followed by these fields:
 | 9 | Time of the transaction | time:uint |
 | 10 | Restore the document at a version | version:vector, generation:uint |
 | 11 | Set or remove text attributes of a range of entries | target:string, first:string, count:uint, attributes:codec-unknown |
+| 12 | Insert text characters with optional shared attributes | target:string, after:string, text:string, attributes:codec-unknown |
+| 13 | Delete a range of sequence entries | target:string, first:string, count:uint |
 
-Kinds 7 to 9 were added in Pulsify 13, and kinds 10 and 11 in Pulsify 15,
-without a new payload version: an older decoder rejects a payload that
-contains one, and a newer decoder reads every earlier payload. All operation kinds use payload version 3. Encoders and decoders require this
+Kinds 7 to 9 were added in Pulsify 13, kinds 10 and 11 in Pulsify 15, and
+kinds 12 and 13 later, without a new payload version: an older decoder rejects
+a payload that contains one, and a newer decoder reads every earlier payload.
+All operation kinds use payload version 3. Encoders and decoders require this
 version for ordinary, grouped and state envelopes. The Rust relay uses operations
 version 3 in both its ordinary and grouped envelopes; inner rows remain opaque.
+
+Kind 12 inserts the non-empty, well-formed Unicode string `text` into text node
+`target`, creating one RGA entry per Unicode code point chained after `after`
+using the transaction's normal ordinal allocator. When `attributes` is not
+`null`, it is a plain attribute object applied to every inserted entry with the
+transaction's stamp (subject to the same `plainText()` restriction and
+4,194,304 range-mark budget as kind 11). Kind 13 deletes the `count` contiguous
+entries starting at `first` (`actor:clock:serial`) in sequence `target`, subject
+to the same range-mark budget and non-tuple / non-relocation rules as kind 3.
 
 An array move allocates one new RGA position token per source entry, in source
 order using the transaction's normal ordinal allocator. Each token references

@@ -1,5 +1,13 @@
-import type { CoreEntry, Stamp } from "./model.js";
-import type { CoreOperation } from "./operations.js";
+import type { CoreEntry, CoreModel, Stamp } from "./model.js";
+import {
+	attributeEntries,
+	CorePatch,
+	encodeCorePatch,
+	expandEntryRange,
+	type CoreOperation,
+} from "./operations.js";
+import { MAX_PATCH_BYTES, MAX_RANGE_MARKS } from "../protocol/limits.js";
+import { PulseError } from "../protocol/errors.js";
 import { prepareValue } from "./values.js";
 import {
 	RT_NODE,
@@ -28,6 +36,185 @@ export type EditorChange = {
 	}[];
 };
 
+function roughValueSize(value: unknown): number {
+	if (value === null || value === undefined) return 2;
+	if (typeof value === "string") return value.length * 3 + 4;
+	if (typeof value === "number" || typeof value === "boolean") return 10;
+	if (value instanceof Uint8Array) return value.length + 4;
+	if (Array.isArray(value)) {
+		let size = 4;
+		for (let i = 0; i < value.length; i++) size += roughValueSize(value[i]);
+		return size;
+	}
+	if (typeof value === "object") {
+		let size = 8;
+		for (const [k, v] of Object.entries(value))
+			size += k.length * 3 + 4 + roughValueSize(v);
+		return size;
+	}
+	return 16;
+}
+
+/**
+ * Verify a transaction fits within `MAX_PATCH_BYTES` and `MAX_RANGE_MARKS`
+ * before mutating the model or journal, so oversized edits revert atomically.
+ */
+export function assertEditorPatchSize(
+	model: CoreModel,
+	operations: CoreOperation[],
+): void {
+	if (!operations.length) return;
+	let estimate = 64 + model.schemaId.length;
+	let ranged = 0;
+	for (let i = 0; i < operations.length; i++) {
+		const op = operations[i]!;
+		estimate += 48;
+		if (op.kind === 12) {
+			if (!op.text.isWellFormed())
+				throw new TypeError("Strings must be valid Unicode");
+			estimate += op.text.length * 3 + roughValueSize(op.attributes);
+			if (op.attributes)
+				ranged +=
+					op.text.length * Math.max(1, Object.keys(op.attributes).length);
+		} else if (op.kind === 3) {
+			estimate += op.deletes.length * 32 + op.values.length * 64;
+		} else if (op.kind === 5) {
+			estimate +=
+				(op.count !== undefined ? 64 : op.entries.length * 32) +
+				roughValueSize(op.attributes);
+			if (op.count !== undefined)
+				ranged += op.count * Math.max(1, Object.keys(op.attributes).length);
+		} else if (op.kind === 13) {
+			estimate += 64;
+			ranged += op.count;
+		}
+	}
+	if (ranged > MAX_RANGE_MARKS) {
+		let exact = 0;
+		for (let i = 0; i < operations.length; i++) {
+			const op = operations[i]!;
+			if (op.kind === 12 && op.attributes)
+				exact +=
+					Array.from(op.text).length *
+					Math.max(1, Object.keys(op.attributes).length);
+			else if (op.kind === 5 && op.count !== undefined)
+				exact += op.count * Math.max(1, Object.keys(op.attributes).length);
+			else if (op.kind === 13) exact += op.count;
+		}
+		if (exact > MAX_RANGE_MARKS)
+			throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
+	}
+	if (estimate >= MAX_PATCH_BYTES / 2) {
+		encodeCorePatch(
+			new CorePatch(
+				model.sid,
+				model.nextClock,
+				model.lamport + 1,
+				model.schemaId,
+				operations,
+			),
+			model.encoding,
+		);
+	}
+}
+
+function parseEntryId(id: string): { prefix: string; serial: number } | null {
+	const at = id.lastIndexOf(":");
+	if (at < 0) return null;
+	const serial = Number(id.slice(at + 1));
+	if (!Number.isSafeInteger(serial) || serial < 0) return null;
+	return { prefix: id.slice(0, at + 1), serial };
+}
+
+/** Compress contiguous same-transaction entry IDs into ranges (count >= 2) plus loose IDs. */
+function splitEntryRanges(ids: readonly string[]): {
+	ranges: { first: string; count: number }[];
+	loose: string[];
+} {
+	const ranges: { first: string; count: number }[] = [];
+	const loose: string[] = [];
+	let i = 0;
+	while (i < ids.length) {
+		const first = ids[i]!;
+		const parsed = parseEntryId(first);
+		if (!parsed) {
+			loose.push(first);
+			i++;
+			continue;
+		}
+		let count = 1;
+		while (i + count < ids.length) {
+			const next = ids[i + count]!;
+			if (next !== parsed.prefix + (parsed.serial + count)) break;
+			count++;
+		}
+		if (count >= 2) ranges.push({ first, count });
+		else loose.push(first);
+		i += count;
+	}
+	return { ranges, loose };
+}
+
+/** Emit range delete ops (kind 13) and a loose kind 3 delete op when needed. */
+export function pushDeleteOps(
+	operations: CoreOperation[],
+	target: string,
+	deletes: readonly string[],
+): void {
+	if (!deletes.length) return;
+	if (deletes.length === 1) {
+		operations.push({
+			kind: 3,
+			target,
+			after: "",
+			deletes: [deletes[0]!],
+			values: [],
+		});
+		return;
+	}
+	const { ranges, loose } = splitEntryRanges(deletes);
+	if (loose.length)
+		operations.push({
+			kind: 3,
+			target,
+			after: "",
+			deletes: loose,
+			values: [],
+		});
+	for (const { first, count } of ranges)
+		operations.push({ kind: 13, target, first, count });
+}
+
+/** Emit range attribute ops (wire kind 11) and a loose kind 5 op when needed. */
+export function pushAttributeOps(
+	operations: CoreOperation[],
+	target: string,
+	entries: readonly string[],
+	attributes: Attributes,
+): void {
+	if (!entries.length) return;
+	if (entries.length === 1) {
+		operations.push({
+			kind: 5,
+			target,
+			entries: [entries[0]!],
+			attributes,
+		});
+		return;
+	}
+	const { ranges, loose } = splitEntryRanges(entries);
+	if (loose.length)
+		operations.push({ kind: 5, target, entries: loose, attributes });
+	for (const { first, count } of ranges)
+		operations.push({
+			kind: 5,
+			target,
+			entries: [first],
+			count,
+			attributes,
+		});
+}
+
 /** Capture only touched entries, so history costs scale with the edit. */
 export function commitEditorOperations(
 	context: RichTextContext,
@@ -36,6 +223,7 @@ export function commitEditorOperations(
 	const { node, model } = context;
 	const change: EditorChange = { inserted: [], deleted: [], attributes: [] };
 	if (!operations.length) return change;
+	assertEditorPatchSize(model, operations);
 	const updates = new Map<
 		string,
 		{
@@ -48,18 +236,26 @@ export function commitEditorOperations(
 		}
 	>();
 	let serial = 0;
+	const sid = model.sid;
+	const clock = model.nextClock;
+	const prefix = `${sid}:${clock}:`;
 	for (const op of operations) {
 		if (op.kind === 3) {
 			for (const id of op.deletes)
 				if (!node.entries.get(id)?.deleted) change.deleted.push(id);
-			for (const _ of op.values)
-				change.inserted.push(`${model.sid}:${model.nextClock}:${serial++}`);
+			for (let i = 0; i < op.values.length; i++)
+				change.inserted.push(prefix + serial++);
+		} else if (op.kind === 12) {
+			for (const _ of op.text) change.inserted.push(prefix + serial++);
+		} else if (op.kind === 13) {
+			for (const id of expandEntryRange(op.first, op.count))
+				if (!node.entries.get(id)?.deleted) change.deleted.push(id);
 		} else if (op.kind === 5) {
-			for (const id of op.entries) {
+			for (const id of attributeEntries(op)) {
 				const entry = node.entries.get(id);
 				if (!entry) continue; // Attributes of a new entry travel with its undo/redo.
 				for (const [key, after] of Object.entries(op.attributes)) {
-					const identity = JSON.stringify([id, key]);
+					const identity = `${id}\0${key}`;
 					const previous = updates.get(identity);
 					updates.set(identity, {
 						entry: id,
@@ -93,7 +289,7 @@ export function invertEditorChange(
 	context: RichTextContext,
 	change: EditorChange,
 ): EditorChange {
-	const { node, model } = context;
+	const { node } = context;
 	const operations: CoreOperation[] = [];
 	const updates = new Map<string, Attributes>();
 	for (const update of change.attributes) {
@@ -110,57 +306,68 @@ export function invertEditorChange(
 	const deletes = change.inserted.filter(
 		(id) => node.entries.has(id) && !node.entries.get(id)!.deleted,
 	);
-	if (deletes.length)
-		operations.push({
-			kind: 3,
-			target: node.id,
-			after: "",
-			deletes,
-			values: [],
-		});
+	pushDeleteOps(operations, node.id, deletes);
 	for (const id of deletes)
 		if (isRichTextNode(node.entries.get(id)!)) {
 			let attributes = updates.get(id);
 			if (!attributes) updates.set(id, (attributes = {}));
 			attributes[RT_REMOVED] = true;
 		}
-	let serial = 0;
 	for (const id of change.deleted) {
 		const entry = node.entries.get(id);
 		if (!entry?.deleted) continue;
-		const restored = `${model.sid}:${model.nextClock}:${serial++}`;
 		const attributes = { ...editorAttributes(entry), ...updates.get(id) };
+		if (isRichTextNode(entry)) attributes[RT_REMOVED] = null;
+		const prepared = Object.keys(attributes).length
+			? (prepareValue(attributes).value as Attributes)
+			: undefined;
 		// Insert at the original tombstone so unseen children retain their order.
 		operations.push({
-			kind: 3,
+			kind: 12,
 			target: node.id,
 			after: id,
-			deletes: [],
-			values: [{ value: entry.value, constants: [], texts: [] }],
-		});
-		if (isRichTextNode(entry)) attributes[RT_REMOVED] = null;
-		operations.push({
-			kind: 5,
-			target: node.id,
-			entries: [restored],
-			attributes: prepareValue(attributes).value as Attributes,
+			text: entry.value as string,
+			...(prepared ? { attributes: prepared } : {}),
 		});
 	}
-	for (const [entry, attributes] of updates)
-		operations.push({
-			kind: 5,
-			target: node.id,
-			entries: [entry],
-			attributes: prepareValue(attributes).value as Attributes,
-		});
+	const groupedUpdates = new Map<
+		string,
+		{ entries: string[]; attributes: Attributes }
+	>();
+	for (const [entry, attributes] of updates) {
+		const group = JSON.stringify(attributes);
+		const existing = groupedUpdates.get(group);
+		if (existing) existing.entries.push(entry);
+		else
+			groupedUpdates.set(group, {
+				entries: [entry],
+				attributes: prepareValue(attributes).value as Attributes,
+			});
+	}
+	for (const group of groupedUpdates.values())
+		pushAttributeOps(operations, node.id, group.entries, group.attributes);
 	return commitEditorOperations(context, operations);
 }
 export function editorAttributes(entry: CoreEntry): Attributes {
-	return Object.fromEntries(
-		[...entry.marks]
-			.filter(([, mark]) => mark.value != null)
-			.map(([key, mark]) => [key, mark.value]),
-	);
+	const result: Attributes = {};
+	for (const [key, mark] of entry.marks)
+		if (mark.value != null) result[key] = mark.value;
+	return result;
+}
+function rtAttributesOf(input: Attributes): {
+	key: string;
+	prepared: Attributes | undefined;
+} {
+	const filtered: Attributes = {};
+	let hasAny = false;
+	for (const [k, v] of Object.entries(input)) {
+		if (!k.startsWith(RT_PREFIX) || v === undefined || v === null) continue;
+		filtered[k] = v;
+		hasAny = true;
+	}
+	if (!hasAny) return { key: "", prepared: undefined };
+	const prepared = prepareValue(filtered).value as Attributes;
+	return { key: JSON.stringify(prepared), prepared };
 }
 export function reconcileEditorTokens(
 	context: RichTextContext,
@@ -220,14 +427,7 @@ export function reconcileEditorTokens(
 				!retained.has(i) && (!knownEntries || knownEntries.has(entry.id)),
 		)
 		.map((entry) => entry.id);
-	if (deletes.length)
-		operations.push({
-			kind: 3,
-			target: node.id,
-			after: "",
-			deletes,
-			values: [],
-		});
+	pushDeleteOps(operations, node.id, deletes);
 	// A logical deletion also covers duplicate anchors created by concurrent
 	// first bindings. Moving/reordering an existing node keeps its identity.
 	const removedAnchors = old.filter((entry) => {
@@ -239,16 +439,32 @@ export function reconcileEditorTokens(
 		);
 	});
 	if (removedAnchors.length)
-		operations.push({
-			kind: 5,
-			target: node.id,
-			entries: removedAnchors.map((entry) => entry.id),
-			attributes: { [RT_REMOVED]: true },
-		});
+		pushAttributeOps(
+			operations,
+			node.id,
+			removedAnchors.map((entry) => entry.id),
+			{ [RT_REMOVED]: true },
+		);
 	operations.push(...extraOperations);
 	let after = "",
 		entrySerial = 0;
-	let insertion: Extract<CoreOperation, { kind: 3 }> | undefined;
+	const idPrefix = `${model.sid}:${model.nextClock}:`;
+	let insertion:
+		| {
+				op: Extract<CoreOperation, { kind: 12 }>;
+				key: string;
+				raw: Attributes;
+				chunks: string[];
+		  }
+		| undefined;
+	const flushInsertion = () => {
+		if (!insertion) return;
+		if (insertion.chunks.length > 1)
+			insertion.op.text = insertion.chunks.join("");
+		else if (insertion.chunks.length === 1)
+			insertion.op.text = insertion.chunks[0]!;
+		insertion = undefined;
+	};
 	const formatting = new Map<
 		string,
 		{ entries: string[]; attributes: Attributes }
@@ -257,31 +473,47 @@ export function reconcileEditorTokens(
 		const token = desired[i]!,
 			oldIndex = matches.get(i);
 		const entry = oldIndex === undefined ? undefined : old[oldIndex];
-		const entryId =
-			entry?.id ?? `${model.sid}:${model.nextClock}:${entrySerial++}`;
+		const entryId = entry?.id ?? idPrefix + entrySerial++;
 		if (!entry) {
-			if (!insertion)
-				operations.push(
-					(insertion = {
-						kind: 3,
+			if (insertion && insertion.raw === token.attributes) {
+				insertion.chunks.push(token.value);
+			} else {
+				const { key, prepared } = rtAttributesOf(token.attributes);
+				if (insertion && insertion.key === key) {
+					insertion.chunks.push(token.value);
+					insertion.raw = token.attributes;
+				} else {
+					flushInsertion();
+					const op: Extract<CoreOperation, { kind: 12 }> = {
+						kind: 12,
 						target: node.id,
 						after,
-						deletes: [],
-						values: [],
-					}),
-				);
-			insertion.values.push({ value: token.value, constants: [], texts: [] });
-		} else insertion = undefined;
-		const before = entry ? editorAttributes(entry) : {};
-		const original =
-			baseline && entry
-				? previous.get(
-						token.attributes[RT_NODE]
-							? `node:${token.attributes[RT_NODE]}`
-							: `char:${entry.id}`,
-					)
-				: undefined;
+						text: token.value,
+						...(prepared ? { attributes: prepared } : {}),
+					};
+					operations.push(op);
+					insertion = {
+						op,
+						key,
+						raw: token.attributes,
+						chunks: [token.value],
+					};
+				}
+			}
+			after = entryId;
+			continue;
+		}
+		flushInsertion();
+		const before = editorAttributes(entry);
+		const original = baseline
+			? previous.get(
+					token.attributes[RT_NODE]
+						? `node:${token.attributes[RT_NODE]}`
+						: `char:${entry.id}`,
+				)
+			: undefined;
 		const updates: Attributes = {};
+		let hasUpdate = false;
 		for (const attribute of new Set([
 			...Object.keys(before),
 			...Object.keys(token.attributes),
@@ -294,10 +526,12 @@ export function reconcileEditorTokens(
 				JSON.stringify(original[attribute] ?? null) === JSON.stringify(value)
 			)
 				continue;
-			if (JSON.stringify(before[attribute] ?? null) !== JSON.stringify(value))
+			if (JSON.stringify(before[attribute] ?? null) !== JSON.stringify(value)) {
 				updates[attribute] = value;
+				hasUpdate = true;
+			}
 		}
-		if (Object.keys(updates).length) {
+		if (hasUpdate) {
 			const group = JSON.stringify(updates);
 			const existing = formatting.get(group);
 			if (existing) existing.entries.push(entryId);
@@ -309,10 +543,14 @@ export function reconcileEditorTokens(
 		}
 		after = entryId;
 	}
+	flushInsertion();
 	for (const group of formatting.values())
-		operations.push({ kind: 5, target: node.id, ...group });
+		pushAttributeOps(operations, node.id, group.entries, group.attributes);
 	if (trackHistory) return commitEditorOperations(context, operations);
-	if (operations.length) model.commit(operations);
+	if (operations.length) {
+		assertEditorPatchSize(model, operations);
+		model.commit(operations);
+	}
 	return { inserted: [], deleted: [], attributes: [] };
 }
 // Entries have unique identities. An increasing subsequence keeps unchanged

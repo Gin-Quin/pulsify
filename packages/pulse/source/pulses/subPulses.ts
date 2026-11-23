@@ -79,7 +79,7 @@ export function patchTouchesSub(model: CoreModel, patch: CorePatch): boolean {
 	}
 	for (const op of patch.ops) {
 		if (op.kind === 0 || op.kind === 10) return true;
-		if (op.kind === 5 || op.kind === 6) continue;
+		if (op.kind === 5 || op.kind === 6 || op.kind === 12) continue;
 		const target = model.index.get(op.target);
 		if (!target) return true;
 		if (op.kind === 1 || op.kind === 2) {

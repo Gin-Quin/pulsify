@@ -69,28 +69,55 @@ export type CoreOperation =
 	 * The document becomes what it was at `version`, as a new generation.
 	 * Every replica builds that root from its own journal: nothing else travels.
 	 */
-	| { kind: 10; version: [sid: number, clock: number][]; generation: number };
+	| { kind: 10; version: [sid: number, clock: number][]; generation: number }
+	/**
+	 * Insert Unicode code points into a text node with optional shared attributes.
+	 */
+	| {
+			kind: 12;
+			target: string;
+			after: string;
+			text: string;
+			attributes?: Record<string, unknown>;
+	  }
+	/**
+	 * Delete a contiguous range of entries created by one transaction.
+	 */
+	| {
+			kind: 13;
+			target: string;
+			first: string;
+			count: number;
+	  };
+
+/** Yield the `count` sequential entry IDs starting at `first` (`sid:clock:serial`). */
+export function* expandEntryRange(
+	first: string,
+	count: number,
+): Generator<string> {
+	const at = first.lastIndexOf(":"),
+		serial = Number(first.slice(at + 1));
+	if (
+		at < 0 ||
+		!Number.isSafeInteger(serial) ||
+		serial < 0 ||
+		!Number.isSafeInteger(count) ||
+		count < 1 ||
+		!Number.isSafeInteger(serial + count)
+	)
+		throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
+	const prefix = first.slice(0, at + 1);
+	for (let i = 0; i < count; i++) yield prefix + (serial + i);
+}
 
 /** The IDs an attribute operation covers: its list, or its range. */
 export function* attributeEntries(
 	op: Extract<CoreOperation, { kind: 5 }>,
 ): Generator<string> {
 	if (op.count === undefined) return yield* op.entries;
-	const first = op.entries[0] ?? "",
-		at = first.lastIndexOf(":"),
-		serial = Number(first.slice(at + 1));
-	if (
-		op.entries.length !== 1 ||
-		at < 0 ||
-		!Number.isSafeInteger(serial) ||
-		serial < 0 ||
-		!Number.isSafeInteger(op.count) ||
-		op.count < 1 ||
-		!Number.isSafeInteger(serial + op.count)
-	)
+	if (op.entries.length !== 1)
 		throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
-	const prefix = first.slice(0, at + 1);
-	for (let i = 0; i < op.count; i++) yield prefix + (serial + i);
+	yield* expandEntryRange(op.entries[0]!, op.count);
 }
 export class CorePatch {
 	constructor(
@@ -176,6 +203,19 @@ const operationSchema = union({
 			first: "string",
 			count: "uint",
 			attributes: "unknown",
+		},
+		// Text insertion carrying shared attributes for the inserted characters.
+		12: {
+			target: "string",
+			after: "string",
+			text: "string",
+			attributes: "unknown",
+		},
+		// Sequence deletion for the entries one transaction created in a row.
+		13: {
+			target: "string",
+			first: "string",
+			count: "uint",
 		},
 	},
 });
@@ -471,6 +511,14 @@ export function encodeCorePatch(
 				count: op.count,
 				attributes: op.attributes,
 			};
+		if (op.kind === 12)
+			return {
+				kind: 12,
+				target: op.target,
+				after: op.after,
+				text: op.text,
+				attributes: op.attributes ?? null,
+			};
 		return op;
 	});
 	if (patch.time !== undefined) ops.push({ kind: 9, time: patch.time });
@@ -564,6 +612,19 @@ export function decodeCorePatch(
 						unknown
 					>,
 				};
+			if (op.kind === 12) {
+				const attrs =
+					op.attributes === null || op.attributes === undefined
+						? undefined
+						: (prepareValue(op.attributes).value as Record<string, unknown>);
+				return {
+					kind: 12,
+					target: op.target,
+					after: op.after,
+					text: op.text,
+					...(attrs ? { attributes: attrs } : {}),
+				};
+			}
 			if (op.kind === 5)
 				return {
 					...op,

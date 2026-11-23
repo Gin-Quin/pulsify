@@ -12,7 +12,10 @@ import {
 } from "../pulses/PulseArray.js";
 import { createObjectProxy } from "../pulses/PulseObject.js";
 import { createMapProxy } from "../pulses/PulseMap.js";
-import { registerNodeProxy } from "../pulses/nodeRevisions.js";
+import {
+	directNodeRevision,
+	registerNodeProxy,
+} from "../pulses/nodeRevisions.js";
 import type { ProxyContext } from "../pulses/ProxyContext.js";
 import type { IsSameType } from "./IsSameType.js";
 import type { PulseLayout } from "../core/schema.js";
@@ -127,9 +130,16 @@ export function pulsify(
 	else if (node.kind === "text") {
 		const binding = {
 			subscribe(listener: () => void) {
-				context.meta.listeners.add(listener);
+				let last = directNodeRevision(node);
+				const wrapped = () => {
+					const current = directNodeRevision(node);
+					if (current === last && context.meta.model.isAttached(node)) return;
+					last = current;
+					listener();
+				};
+				context.meta.listeners.add(wrapped);
 				return () => {
-					context.meta.listeners.delete(listener);
+					context.meta.listeners.delete(wrapped);
 				};
 			},
 			get pulse() {

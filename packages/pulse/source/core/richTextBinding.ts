@@ -27,12 +27,20 @@ export type RichTextContext = {
 // A property of the field, not a WeakMap: a framework's view reaches it too.
 export const RichTextContextSymbol: unique symbol = Symbol("RichTextContext");
 const anchors = new WeakMap<CoreNode, Set<CoreEntry>>();
+const liveNodeCache = new WeakMap<CoreNode, Set<string>>();
+
+/** Invalidate cached structural liveness when an anchor is added, removed or marked. */
+export function invalidateRichTextStructure(node: CoreNode): void {
+	liveNodeCache.delete(node);
+}
+
 /** Called by native replay, so peers without an editor retain the text projection. */
 export function trackRichTextAnchor(node: CoreNode, entry: CoreEntry): void {
 	let entries = anchors.get(node);
 	if (!entries) anchors.set(node, (entries = new Set()));
 	if (isRichTextNode(entry)) entries.add(entry);
 	else entries.delete(entry);
+	liveNodeCache.delete(node);
 }
 export function richTextContext(field: RichText): RichTextContext {
 	const context: RichTextContext | undefined = Reflect.get(
@@ -79,9 +87,11 @@ export function richTextRemovedNodes(node: CoreNode): Set<string> {
 	}
 	return result;
 }
-export function richTextEntries(node: CoreNode): CoreEntry[] {
+function liveRichTextParents(node: CoreNode): Set<string> | undefined {
 	const structural = anchors.get(node);
-	if (!structural) return node.visible;
+	if (!structural) return undefined;
+	let cached = liveNodeCache.get(node);
+	if (cached) return cached;
 	const parents = new Map<string, string>(),
 		redirects = richTextRedirects(node),
 		removed = richTextRemovedNodes(node),
@@ -108,11 +118,26 @@ export function richTextEntries(node: CoreNode): CoreEntry[] {
 		live.set(id, result);
 		return result;
 	};
-	return node.visible.filter(
-		(entry) =>
-			!isRichTextNode(entry) &&
-			attached(String(entry.marks.get(RT_PARENT)?.value ?? "")),
-	);
+	cached = new Set<string>([""]);
+	for (const id of parents.keys()) if (attached(id)) cached.add(id);
+	for (const id of redirects.keys()) if (attached(id)) cached.add(id);
+	liveNodeCache.set(node, cached);
+	return cached;
+}
+
+export function richTextEntries(node: CoreNode): CoreEntry[] {
+	const live = liveRichTextParents(node);
+	if (!live) return node.visible;
+	const result: CoreEntry[] = [];
+	const visible = node.visible;
+	for (let i = 0; i < visible.length; i++) {
+		const entry = visible[i]!;
+		if (isRichTextNode(entry)) continue;
+		const parent = entry.marks.get(RT_PARENT)?.value;
+		if (live.has(parent === undefined ? "" : String(parent)))
+			result.push(entry);
+	}
+	return result;
 }
 /**
  * Where an anchor is now: the nearest surviving entry at or before the one it
@@ -134,9 +159,94 @@ export function resolveRichTextAnchor(
 		if (!node.order[i]!.deleted) return node.order[i]!;
 	return null;
 }
+function lastLiveInSubtree(
+	root: CoreEntry,
+	parentId: string,
+	present: ReadonlySet<CoreEntry>,
+): CoreEntry | undefined | null {
+	const stack: { node: CoreEntry; childIdx: number }[] = [
+		{ node: root, childIdx: root.children.length - 1 },
+	];
+	let steps = 0;
+	while (stack.length) {
+		if (++steps > 4096) return null;
+		const top = stack[stack.length - 1]!;
+		if (top.childIdx >= 0) {
+			const child = top.node.children[top.childIdx--]!;
+			if (isRichTextNode(child)) return null;
+			stack.push({ node: child, childIdx: child.children.length - 1 });
+			continue;
+		}
+		stack.pop();
+		const cur = top.node;
+		if (isRichTextNode(cur)) return null;
+		if (!cur.deleted) {
+			if (cur.marks.get(RT_PARENT)?.value !== parentId) return null;
+			if (present.has(cur)) return cur;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Insert `entry` into a block's live RGA character array `entries` at its exact
+ * RGA position. Returns `false` if a structural node, missing predecessor, or
+ * deep tombstone chain requires a full document rebuild.
+ */
+export function insertBlockEntry(
+	entries: CoreEntry[],
+	present: Set<CoreEntry>,
+	anchor: CoreEntry,
+	entry: CoreEntry,
+	parentId: string,
+): boolean {
+	if (present.has(entry)) return true;
+	const afterId = entry.after;
+	let pred: CoreEntry;
+	let predIdx: number;
+	if (afterId === anchor.id) {
+		pred = anchor;
+		predIdx = -1;
+	} else {
+		predIdx = -1;
+		for (let i = 0; i < entries.length; i++) {
+			if (entries[i]!.id === afterId) {
+				predIdx = i;
+				break;
+			}
+		}
+		if (predIdx < 0) return false;
+		pred = entries[predIdx]!;
+	}
+	const sibIdx = pred.children.indexOf(entry);
+	if (sibIdx < 0) return false;
+	for (let s = sibIdx - 1; s >= 0; s--) {
+		const found = lastLiveInSubtree(pred.children[s]!, parentId, present);
+		if (found === null) return false;
+		if (found !== undefined) {
+			const foundIdx = entries.indexOf(found);
+			if (foundIdx < 0) return false;
+			entries.splice(foundIdx + 1, 0, entry);
+			present.add(entry);
+			return true;
+		}
+	}
+	entries.splice(predIdx + 1, 0, entry);
+	present.add(entry);
+	return true;
+}
+
 export function richTextContent(node: CoreNode): string {
-	if (!anchors.has(node)) return node.data.join("");
-	return richTextEntries(node)
-		.map((entry) => entry.value as string)
-		.join("");
+	const live = liveRichTextParents(node);
+	if (!live) return node.data.join("");
+	const visible = node.visible;
+	const chunks: string[] = [];
+	for (let i = 0; i < visible.length; i++) {
+		const entry = visible[i]!;
+		if (isRichTextNode(entry)) continue;
+		const parent = entry.marks.get(RT_PARENT)?.value;
+		if (live.has(parent === undefined ? "" : String(parent)))
+			chunks.push(entry.value as string);
+	}
+	return chunks.join("");
 }

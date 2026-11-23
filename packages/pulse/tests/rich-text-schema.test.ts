@@ -19,6 +19,7 @@ import {
 	destroyPulse,
 	exportPulseUpdates,
 	getPulseMeta,
+	plainText,
 	richText,
 	schemaFingerprint,
 	snapshotPulse,
@@ -26,6 +27,7 @@ import {
 	type RichText,
 	type PulseProperties,
 } from "../source/index.js";
+import { plainTextContext, richTextContext } from "../source/bindings.js";
 import { createRuntime } from "../source/pulses/PulseRuntime.js";
 import { defaultPulseOptions } from "../source/pulses/PulseOptions.js";
 
@@ -336,5 +338,82 @@ test("legacy migrations preserve omitted rich-text and object fields with detach
 	} finally {
 		destroyPulse(source);
 		destroyPulse(target);
+	}
+});
+
+test("E3/E4: text subscriptions ignore sibling writes; compact richText ops sync and enforce 1 MiB atomically", () => {
+	const definition = definePulse(
+		"FieldNotifyAndCompact",
+		object({
+			title: "string",
+			body: richText(),
+			code: plainText(),
+		}),
+	).materialize();
+	const source = createPulse(
+		definition,
+		{ title: "a", body: "", code: "" },
+		options(65536),
+	);
+	const peer = createRuntime(
+		definition,
+		source.id,
+		options(65537),
+	) as typeof source;
+	try {
+		let bodyHits = 0;
+		let codeHits = 0;
+		const stopBody = richTextContext(source.body).subscribe(() => bodyHits++);
+		const stopCode = plainTextContext(source.code).subscribe(() => codeHits++);
+		source.title = "b";
+		source.title = "c";
+		expect(bodyHits).toBe(0);
+		expect(codeHits).toBe(0);
+
+		const beforeInsert = getPulseMeta(source).log.vector;
+		source.body.insert(0, "a".repeat(10_000), { bold: true });
+		expect(bodyHits).toBe(1);
+		expect(codeHits).toBe(0);
+		const insertBytes = getPulseMeta(source)
+			.log.missing(beforeInsert)
+			.reduce((sum, row) => sum + row.operations.byteLength, 0);
+		expect(insertBytes).toBeLessThan(12_000);
+
+		const beforeFormat = getPulseMeta(source).log.vector;
+		source.body.format(0, 10_000, { italic: true });
+		const formatBytes = getPulseMeta(source)
+			.log.missing(beforeFormat)
+			.reduce((sum, row) => sum + row.operations.byteLength, 0);
+		expect(formatBytes).toBeLessThan(512);
+
+		const beforeDelete = getPulseMeta(source).log.vector;
+		source.body.delete(0, 5_000);
+		const deleteBytes = getPulseMeta(source)
+			.log.missing(beforeDelete)
+			.reduce((sum, row) => sum + row.operations.byteLength, 0);
+		expect(deleteBytes).toBeLessThan(512);
+
+		// Oversized insert fails locally and atomically without advancing the log.
+		const vv = getPulseMeta(source).log.vector;
+		expect(() => source.body.insert(0, "x".repeat(1_100_000))).toThrow(/1 MiB/);
+		expect(getPulseMeta(source).log.vector).toEqual(vv);
+		expect(source.body.length).toBe(5_000);
+
+		// Syncs cleanly to peer.
+		applyPulseUpdates(peer, exportPulseUpdates(source, []));
+		expect(peer.body.length).toBe(5_000);
+		expect(peer.body.toDelta()).toEqual([
+			{ insert: "a".repeat(5_000), attributes: { bold: true, italic: true } },
+		]);
+
+		// Replacing the richText field notifies the old subscriber (detachment).
+		const beforeReplace = bodyHits;
+		source.body = richText("fresh");
+		expect(bodyHits).toBe(beforeReplace + 1);
+		stopBody();
+		stopCode();
+	} finally {
+		destroyPulse(source);
+		destroyPulse(peer);
 	}
 });

@@ -1,9 +1,15 @@
 import { createCodec, object, type Codec } from "@gin-quin/codec";
 import {
 	RT_NODE,
+	RT_PARENT,
+	RT_REDIRECT,
+	RT_REMOVED,
+	invalidateRichTextStructure,
+	isRichTextNode,
 	richTextContent,
 	trackRichTextAnchor,
 } from "./richTextBinding.js";
+import { recordTextChange } from "../pulses/nodeRevisions.js";
 import {
 	validateVector,
 	type PulseVersionVector,
@@ -25,6 +31,7 @@ import {
 import {
 	attributeEntries,
 	CorePatch,
+	expandEntryRange,
 	type CoreField,
 	type CoreOperation,
 	type CoreScalar,
@@ -1187,6 +1194,33 @@ export class CoreModel {
 					} else if (op.kind === 6) {
 						for (const entry of op.entries) checkEntry(entry);
 						if (op.after) checkEntry(op.after);
+					} else if (op.kind === 12) {
+						if (target.kind !== "text")
+							throw new PulseError("INVALID_MESSAGE", "Expected text target");
+						if (op.after) checkEntry(op.after);
+						if (
+							typeof op.text !== "string" ||
+							!op.text.length ||
+							!op.text.isWellFormed()
+						)
+							throw new PulseError("INVALID_MESSAGE", "Invalid text insertion");
+					} else if (op.kind === 13) {
+						if (target.layout?.kind === "tuple")
+							throw new PulseError(
+								"INVALID_MESSAGE",
+								"Tuple cardinality is fixed",
+							);
+						ranged += op.count;
+						if (!(ranged <= MAX_RANGE_MARKS))
+							throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
+						for (const entry of expandEntryRange(op.first, op.count)) {
+							checkEntry(entry);
+							if (isPosition(entry))
+								throw new PulseError(
+									"INVALID_MESSAGE",
+									"Cannot mutate a relocation token",
+								);
+						}
 					} else {
 						if (op.count !== undefined) {
 							// A range is a few bytes: bound the marks it writes instead.
@@ -1242,6 +1276,32 @@ export class CoreModel {
 								value,
 								target.kind === "text" ? undefined : target.layout?.element,
 							);
+						}
+					}
+					if (op.kind === 12) {
+						const chars = Array.from(op.text);
+						if (!added) sequences.set(target.id, (added = new Set()));
+						for (let i = 0; i < chars.length; i++) added.add(id());
+						if (op.attributes !== undefined) {
+							if (target.layout?.plainText && patch.schema === this.schemaId)
+								throw new PulseError(
+									"INVALID_MESSAGE",
+									"Formatting requires rich text",
+								);
+							if (
+								!op.attributes ||
+								typeof op.attributes !== "object" ||
+								Array.isArray(op.attributes)
+							)
+								throw new PulseError(
+									"INVALID_MESSAGE",
+									"Invalid text attributes",
+								);
+							prepareValue(op.attributes);
+							ranged +=
+								chars.length * Math.max(1, Object.keys(op.attributes).length);
+							if (!(ranged <= MAX_RANGE_MARKS))
+								throw new PulseError("INVALID_MESSAGE", "Invalid entry range");
 						}
 					}
 					if (op.kind === 4) {
@@ -1707,11 +1767,26 @@ export class CoreModel {
 				}
 			} else if (op.kind === 3) {
 				flushDirtyArray(node);
+				const isText = node.kind === "text";
+				let structural = false;
+				const deletedEntries: CoreEntry[] = [];
+				if (isText && op.deletes.length) {
+					for (let i = 0; i < op.deletes.length; i++) {
+						const entry = node.entries.get(op.deletes[i]!);
+						if (entry && !entry.deleted) {
+							if (isRichTextNode(entry)) {
+								structural = true;
+								invalidateRichTextStructure(node);
+							}
+							if (!structural) deletedEntries.push(entry);
+						}
+					}
+				}
 				this.remove(node, op.deletes);
 				const count = op.values.length;
+				let insertedEntries: CoreEntry[] = emptyEntryArray;
 				if (count) {
-					const elementLayout =
-						node.kind === "text" ? undefined : node.layout?.element;
+					const elementLayout = isText ? undefined : node.layout?.element;
 					const entries: CoreEntry[] = new Array(count);
 					let after = op.after;
 					for (let i = 0; i < count; i++) {
@@ -1731,7 +1806,81 @@ export class CoreModel {
 						after = entryId;
 					}
 					this.insertRun(node, entries, hint);
+					insertedEntries = entries;
 				}
+				if (isText)
+					recordTextChange(
+						node,
+						structural,
+						insertedEntries,
+						deletedEntries,
+						emptyEntryArray,
+					);
+			} else if (op.kind === 12) {
+				const chars = Array.from(op.text);
+				const count = chars.length;
+				const entries: CoreEntry[] = new Array(count);
+				let after = op.after;
+				for (let i = 0; i < count; i++) {
+					const entryId = id();
+					entries[i] = {
+						id: entryId,
+						after,
+						stamp,
+						write: stamp,
+						value: chars[i]!,
+						child: undefined,
+						deleted: false,
+						children: [],
+						marks: emptyMarks,
+					};
+					after = entryId;
+				}
+				this.insertRun(node, entries, hint);
+				const attrs = op.attributes;
+				if (attrs) this.mark(node, entries, attrs, stamp);
+				const structural =
+					attrs !== undefined &&
+					(Object.hasOwn(attrs, RT_NODE) ||
+						Object.hasOwn(attrs, RT_REDIRECT) ||
+						Object.hasOwn(attrs, RT_REMOVED));
+				if (structural) invalidateRichTextStructure(node);
+				recordTextChange(
+					node,
+					structural,
+					entries,
+					emptyEntryArray,
+					emptyEntryArray,
+				);
+			} else if (op.kind === 13) {
+				flushDirtyArray(node);
+				const ids: string[] = [];
+				const isText = node.kind === "text";
+				let structural = false;
+				const deletedEntries: CoreEntry[] = [];
+				for (const entryId of expandEntryRange(op.first, op.count)) {
+					ids.push(entryId);
+					if (isText) {
+						const entry = node.entries.get(entryId);
+						if (entry && !entry.deleted) {
+							if (isRichTextNode(entry)) {
+								structural = true;
+								invalidateRichTextStructure(node);
+							}
+							if (!structural && deletedEntries.length <= 256)
+								deletedEntries.push(entry);
+						}
+					}
+				}
+				this.remove(node, ids);
+				if (isText)
+					recordTextChange(
+						node,
+						structural,
+						emptyEntryArray,
+						deletedEntries,
+						emptyEntryArray,
+					);
 			} else if (op.kind === 4) {
 				flushDirtyArray(node);
 				const entry = node.entries.get(op.entry)!;
@@ -1781,9 +1930,25 @@ export class CoreModel {
 				}
 			} else {
 				const entries: CoreEntry[] = [];
-				for (const entryId of attributeEntries(op))
-					entries.push(node.entries.get(entryId)!);
+				let structural =
+					Object.hasOwn(op.attributes, RT_NODE) ||
+					Object.hasOwn(op.attributes, RT_PARENT) ||
+					Object.hasOwn(op.attributes, RT_REDIRECT) ||
+					Object.hasOwn(op.attributes, RT_REMOVED);
+				for (const entryId of attributeEntries(op)) {
+					const entry = node.entries.get(entryId)!;
+					if (!structural && isRichTextNode(entry)) structural = true;
+					entries.push(entry);
+				}
+				if (structural) invalidateRichTextStructure(node);
 				this.mark(node, entries, op.attributes, stamp);
+				recordTextChange(
+					node,
+					structural,
+					emptyEntryArray,
+					emptyEntryArray,
+					entries,
+				);
 			}
 			if (node.kind === "text") markDirtyText(node);
 		}

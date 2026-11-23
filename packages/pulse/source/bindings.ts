@@ -11,6 +11,7 @@ export {
 	RT_REMOVED,
 	RT_TEXTBLOCK,
 	isRichTextNode,
+	insertBlockEntry,
 	newerTextStamp,
 	richTextContext,
 	richTextRedirects,
@@ -25,16 +26,23 @@ export {
 	matchTokens,
 	commitEditorOperations,
 	invertEditorChange,
+	pushDeleteOps,
+	pushAttributeOps,
 	type EditorToken,
 	type EditorChange,
 } from "./core/editorTokens.js";
 export type { CoreEntry, Stamp } from "./core/model.js";
 export type { CoreOperation } from "./core/operations.js";
 export { fingerprintBytes } from "./utilities/fingerprint.js";
-export { RichTextSymbol, PulseRefSymbol } from "./core/values.js";
+export { RichTextSymbol, PulseRefSymbol, prepareValue } from "./core/values.js";
 export { TreeSymbol } from "./core/treeSchema.js";
 export { createPulseViews } from "./utilities/pulseViews.js";
-export { nodeRevision } from "./pulses/nodeRevisions.js";
+export {
+	directNodeRevision,
+	nodeRevision,
+	textChangesSince,
+	type TextChange,
+} from "./pulses/nodeRevisions.js";
 export { defaultPulseOptions } from "./pulses/PulseOptions.js";
 
 export {

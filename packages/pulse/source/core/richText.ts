@@ -3,6 +3,11 @@ import type { CoreEntry, CoreModel, CoreNode } from "./model.js";
 import { RichTextSymbol, prepareValue } from "./values.js";
 import { richTextSchema, type RichTextSchema } from "./richTextSchema.js";
 import {
+	assertEditorPatchSize,
+	pushAttributeOps,
+	pushDeleteOps,
+} from "./editorTokens.js";
+import {
 	isRichTextNode,
 	RT_NODE,
 	RT_PARENT,
@@ -101,8 +106,12 @@ export function createTextProxy(
 		const entries = visible()
 			.slice(index, index + count)
 			.map((entry) => entry.id);
-		if (entries.length && Object.keys(attributes).length)
-			model.commit([{ kind: 5, target: node.id, entries, attributes }]);
+		if (entries.length && Object.keys(attributes).length) {
+			const operations: CoreOperation[] = [];
+			pushAttributeOps(operations, node.id, entries, attributes);
+			assertEditorPatchSize(model, operations);
+			model.commit(operations);
+		}
 	};
 	const context: RichTextContext = {
 		node,
@@ -143,38 +152,22 @@ export function createTextProxy(
 				throw new TypeError(
 					"Create a text block with an editor transaction before inserting into this field",
 				);
-			const chars = Array.from(value);
-			if (!chars.length) return;
-			const clock = model.nextClock;
+			if (!value.length) return;
+			const hasAttributes = Object.keys(prepared).length > 0;
 			const operations: CoreOperation[] = [
 				{
-					kind: 3,
+					kind: 12,
 					target: node.id,
 					after: index
 						? content[index - 1]!.id
 						: neighbor
 							? (node.visible[node.visible.indexOf(neighbor) - 1]?.id ?? "")
 							: (node.visible.at(-1)?.id ?? ""),
-					deletes: [],
-					values: chars.map((char) => ({
-						value: char,
-						constants: [],
-						texts: [],
-					})),
+					text: value,
+					...(hasAttributes ? { attributes: prepared } : {}),
 				},
 			];
-			if (prepared && Object.keys(prepared).length) {
-				// Both operations form one transaction, including quota checks.
-				const entries = chars.map(
-					(_char, offset) => `${model.sid}:${clock}:${offset}`,
-				);
-				operations.push({
-					kind: 5,
-					target: node.id,
-					entries,
-					attributes: prepared,
-				});
-			}
+			assertEditorPatchSize(model, operations);
 			model.commit(operations, content === node.visible ? index : undefined);
 		},
 		delete(index: number, count = 1) {
@@ -184,10 +177,12 @@ export function createTextProxy(
 			const deletes = visible()
 				.slice(index, index + count)
 				.map((entry) => entry.id);
-			if (deletes.length)
-				model.commit([
-					{ kind: 3, target: node.id, after: "", deletes, values: [] },
-				]);
+			if (deletes.length) {
+				const operations: CoreOperation[] = [];
+				pushDeleteOps(operations, node.id, deletes);
+				assertEditorPatchSize(model, operations);
+				model.commit(operations);
+			}
 		},
 		format,
 		toString: text,
