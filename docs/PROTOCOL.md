@@ -283,7 +283,7 @@ Each operation starts with its numeric `kind:uint`, followed by these fields:
 | 13 | Delete a range of sequence entries | target:string, first:string, count:uint |
 
 Kinds 7 to 9 were added in Pulsify 13, kinds 10 and 11 in Pulsify 15, and
-kinds 12 and 13 later, without a new payload version: an older decoder rejects
+kinds 12 and 13 in Pulsify 17, without a new payload version: an older decoder rejects
 a payload that contains one, and a newer decoder reads every earlier payload.
 All operation kinds use payload version 3. Encoders and decoders require this
 version for ordinary, grouped and state envelopes. The Rust relay uses operations
