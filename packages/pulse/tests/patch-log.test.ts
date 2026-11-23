@@ -10,6 +10,11 @@ import {
 	type PulseVersionVector,
 } from "../source/connection/PulseVersionVector";
 import { MAX_LOG_ROWS, PatchLog } from "../source/protocol/PatchLog";
+import { PulseRelay } from "../source/protocol/PulseRelay";
+import {
+	decodeMessage,
+	encodeMessage,
+} from "../source/connection/PulseMessage";
 
 const docId = "journal-contract";
 function patch(clock: number, sid = 65536): CorePatch {
@@ -282,4 +287,96 @@ test("journal: the optimized local path preserves the history row limit", () => 
 	expect(() => log.appendRemoteRows([row(1, 65537)])).toThrow("history limit");
 	expect(log.size).toBe(MAX_LOG_ROWS);
 	expect(log.vector).toEqual([[65536, MAX_LOG_ROWS + 1]]);
+});
+
+test("journal: missing and borrowMissing omit pending rows and still deliver them once ready", () => {
+	const countSyncRows = (pendingCount: number) => {
+		const log = new PatchLog(docId);
+		const dangling = Array.from({ length: pendingCount }, (_, i) => row(i + 2));
+		log.append(dangling);
+		expect(log.vector).toEqual([]);
+		expect(log.pendingCount).toBe(pendingCount);
+		expect(log.missing([])).toEqual([]);
+		expect(log.borrowMissing([])).toEqual([]);
+
+		// Repeated syncs with another ready actor must not re-send pending rows.
+		let sent = 0;
+		let serverVv: PulseVersionVector = [];
+		for (let c = 1; c <= 10; c++) {
+			log.append([row(c, 65537)]);
+			const batch = log.borrowMissing(serverVv);
+			sent += batch.length;
+			serverVv = [[65537, c + 1]];
+		}
+		// Delivering the missing predecessor promotes every waiting row.
+		const ready = log.append([row(1)]);
+		expect(ready).toHaveLength(pendingCount + 1);
+		expect(log.pendingCount).toBe(0);
+		expect(log.missing(serverVv)).toHaveLength(pendingCount + 1);
+		return sent;
+	};
+	// Scaling check (J2): uploaded row count does not grow with n vs 4n pending rows.
+	expect(countSyncRows(100)).toBe(10);
+	expect(countSyncRows(400)).toBe(10);
+});
+
+test("relay: connect bases found and sync rows on the ready frontier", () => {
+	const relay = new PulseRelay();
+	const uploader = relay.open(() => {});
+	uploader.receive(encodeMessage({ kind: 1, docId, requestId: 1, vv: [] }));
+	uploader.receive(
+		encodeMessage({
+			kind: 4,
+			docId,
+			requestId: 2,
+			vv: [],
+			rows: [row(3)],
+		}),
+	);
+
+	// Late joiner sees found: false and no pending rows.
+	const lateFrames: ReturnType<typeof decodeMessage>[] = [];
+	const late = relay.open((bytes) => lateFrames.push(decodeMessage(bytes)));
+	late.receive(encodeMessage({ kind: 1, docId, requestId: 1, vv: [] }));
+	expect(lateFrames).toEqual([
+		{
+			kind: 2,
+			docId,
+			requestId: 1,
+			found: false,
+			complete: true,
+			vv: [],
+			rows: [],
+		},
+	]);
+
+	// Once rows 1 and 2 arrive, the frontier advances and a new joiner gets all 3.
+	uploader.receive(
+		encodeMessage({
+			kind: 4,
+			docId,
+			requestId: 3,
+			vv: [],
+			rows: [row(1), row(2)],
+		}),
+	);
+	const afterFrames: ReturnType<typeof decodeMessage>[] = [];
+	const after = relay.open((bytes) => afterFrames.push(decodeMessage(bytes)));
+	after.receive(encodeMessage({ kind: 1, docId, requestId: 1, vv: [] }));
+	expect(afterFrames).toHaveLength(1);
+	expect(afterFrames[0]).toMatchObject({
+		kind: 2,
+		docId,
+		requestId: 1,
+		found: true,
+		complete: true,
+		vv: [[65536, 4]],
+	});
+	expect(
+		(afterFrames[0] as Extract<ReturnType<typeof decodeMessage>, { kind: 2 }>)
+			.rows,
+	).toHaveLength(3);
+	uploader.close();
+	late.close();
+	after.close();
 });

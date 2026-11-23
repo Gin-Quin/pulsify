@@ -622,6 +622,16 @@ fn differ(held: &[u8], incoming: &[u8]) -> bool {
     !is_gap(held) && !is_gap(incoming) && held != incoming
 }
 
+/// An undo entry recorded while mutating a `PatchLog` during `append`.
+enum RowUndo {
+    Inserted((u64, u64)),
+    Removed {
+        key: (u64, u64),
+        row: Box<PatchRow>,
+        was_pending: bool,
+    },
+}
+
 /// Opaque segments whose operations are immutable; the frontier advances only
 /// when dependencies exist. A register without history keeps one row, the
 /// newest write: see "Fields without history" in `docs/PROTOCOL.md`.
@@ -663,17 +673,71 @@ impl PatchLog {
         self.rows.is_empty()
     }
     pub fn missing(&self, vv: &VersionVector) -> Vec<PatchRow> {
-        self.rows
-            .values()
-            .filter(|row| row.end() > own_clock(vv, row.sid))
-            .cloned()
-            .collect()
+        let mut result = Vec::new();
+        for (&sid, &frontier) in &self.frontier {
+            let remote = own_clock(vv, sid);
+            if remote >= frontier {
+                continue;
+            }
+            if let Some((_, row)) = self.rows.range((sid, 0)..=(sid, remote)).next_back() {
+                if row.end() > remote {
+                    result.push(row.clone());
+                }
+            }
+            for (_, row) in self
+                .rows
+                .range((sid, remote.saturating_add(1))..(sid, frontier))
+            {
+                result.push(row.clone());
+            }
+        }
+        result
     }
     /// Stores rows atomically: a conflict leaves the journal as it was.
     pub fn append(&mut self, rows: &[PatchRow]) -> Result<()> {
-        let mut next = self.clone();
-        next.insert(rows)?;
-        *self = next;
+        let mut row_undo = Vec::new();
+        let mut frontier_undo = Vec::new();
+        let mut fresh = Vec::new();
+        let old_bytes = self.bytes;
+        let result = self.insert(rows, &mut row_undo, &mut frontier_undo, &mut fresh);
+        if result.is_err() {
+            for (sid, prev) in frontier_undo.into_iter().rev() {
+                match prev {
+                    Some(clock) => {
+                        self.frontier.insert(sid, clock);
+                    }
+                    None => {
+                        self.frontier.remove(&sid);
+                    }
+                }
+            }
+            for key in fresh {
+                self.pending.insert(key);
+            }
+            for op in row_undo.into_iter().rev() {
+                match op {
+                    RowUndo::Inserted(key) => {
+                        self.rows.remove(&key);
+                        self.pending.remove(&key);
+                    }
+                    RowUndo::Removed {
+                        key,
+                        row,
+                        was_pending,
+                    } => {
+                        self.rows.insert(key, *row);
+                        if was_pending {
+                            self.pending.insert(key);
+                        }
+                    }
+                }
+            }
+            self.bytes = old_bytes;
+            return result;
+        }
+        for key in fresh {
+            self.settle(key);
+        }
         Ok(())
     }
 
@@ -684,7 +748,25 @@ impl PatchLog {
         self.pending.remove(&key);
     }
 
-    fn insert(&mut self, rows: &[PatchRow]) -> Result<()> {
+    fn drop_row_undo(&mut self, key: (u64, u64), undo: &mut Vec<RowUndo>) {
+        if let Some(row) = self.rows.remove(&key) {
+            self.bytes -= cost(&row);
+            let was_pending = self.pending.remove(&key);
+            undo.push(RowUndo::Removed {
+                key,
+                row: Box::new(row),
+                was_pending,
+            });
+        }
+    }
+
+    fn insert(
+        &mut self,
+        rows: &[PatchRow],
+        row_undo: &mut Vec<RowUndo>,
+        frontier_undo: &mut Vec<(u64, Option<u64>)>,
+        fresh: &mut Vec<(u64, u64)>,
+    ) -> Result<()> {
         // A row that starts below its actor's frontier is already known, or was
         // replaced here: only the sequence numbers its span covers beyond the
         // frontier are news, and they come as a gap row to append.
@@ -725,7 +807,7 @@ impl PatchLog {
                 if row.end() <= existing.end() {
                     continue;
                 }
-                self.drop_row(key);
+                self.drop_row_undo(key, row_undo);
             }
             if let Some(before) = self.rows.range((row.sid, 0)..key).next_back().map(|e| e.1) {
                 // It starts among the writes that a waiting row has replaced.
@@ -749,7 +831,8 @@ impl PatchLog {
                     }
                     break;
                 }
-                self.drop_row((after.sid, after.clock));
+                let after_key = (after.sid, after.clock);
+                self.drop_row_undo(after_key, row_undo);
             }
             self.bytes += cost(&row);
             if self.rows.len() >= 100_000 || self.bytes > 64 * 1024 * 1024 {
@@ -757,34 +840,33 @@ impl PatchLog {
             }
             self.rows.insert(key, row);
             self.pending.insert(key);
+            row_undo.push(RowUndo::Inserted(key));
         }
-        let mut fresh = Vec::new();
         loop {
-            let ready: Vec<_> = self
-                .pending
-                .iter()
-                .filter(|key| {
-                    let row = &self.rows[key];
-                    covers(&self.frontier, &row.dependencies)
-                        && row.clock == self.frontier.get(&row.sid).copied().unwrap_or(1)
-                })
-                .copied()
-                .collect();
+            let mut ready = Vec::new();
+            for &key in &self.pending {
+                let row = &self.rows[&key];
+                if row.clock == self.frontier.get(&row.sid).copied().unwrap_or(1)
+                    && covers(&self.frontier, &row.dependencies)
+                {
+                    let prev = self.frontier.insert(row.sid, row.end());
+                    frontier_undo.push((row.sid, prev));
+                    ready.push(key);
+                }
+            }
             if ready.is_empty() {
                 break;
             }
             for key in ready {
-                let row = &self.rows[&key];
-                self.frontier.insert(row.sid, row.end());
                 self.pending.remove(&key);
                 fresh.push(key);
+            }
+            if self.pending.is_empty() {
+                break;
             }
         }
         if self.frontier.len() > MAX_VECTOR_ENTRIES {
             return Err(limit("Too many actors"));
-        }
-        for key in fresh {
-            self.settle(key);
         }
         Ok(())
     }
@@ -909,6 +991,7 @@ impl Relay {
                 let log = self.documents.get(&doc_id);
                 let rows = log.map(|log| log.missing(&vv)).unwrap_or_default();
                 let vector = log.map(PatchLog::vector).unwrap_or_default();
+                let found = !vector.is_empty();
                 let chunks = chunk_rows(rows);
                 let last = chunks.len() - 1;
                 chunks
@@ -918,7 +1001,7 @@ impl Relay {
                         doc_id: doc_id.clone(),
                         request_id,
                         body: Body::Sync {
-                            found: log.is_some(),
+                            found,
                             complete: i == last,
                             vv: vector.clone(),
                             rows,
@@ -1137,6 +1220,12 @@ mod tests {
             .map(|row| (row.sid, row.clock, row.span))
             .collect()
     }
+    fn held_spans(log: &PatchLog) -> Vec<(u64, u64, u64)> {
+        log.rows
+            .values()
+            .map(|row| (row.sid, row.clock, row.span))
+            .collect()
+    }
 
     #[test]
     fn reads_the_register_of_a_last_value_row() {
@@ -1236,7 +1325,8 @@ mod tests {
         };
         log.append(std::slice::from_ref(&long)).unwrap();
         assert_eq!(log.vector(), vec![(A, 5)]);
-        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 2, 3), (A, 7, 1)]);
+        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 2, 3)]);
+        assert_eq!(held_spans(&log), vec![(A, 1, 1), (A, 2, 3), (A, 7, 1)]);
         // Sent again, or shorter, it changes nothing; other contents conflict.
         log.append(&[long, kept(A, 2), kept(A, 1)]).unwrap();
         assert_eq!(log.vector(), vec![(A, 5)]);
@@ -1268,7 +1358,8 @@ mod tests {
             ..kept(A, 4)
         };
         log.append(&[wide.clone(), kept(A, 5)]).unwrap();
-        assert_eq!(spans(&log), vec![(A, 1, 1), (A, 4, 2), (A, 7, 1)]);
+        assert_eq!(spans(&log), vec![(A, 1, 1)]);
+        assert_eq!(held_spans(&log), vec![(A, 1, 1), (A, 4, 2), (A, 7, 1)]);
         // The row at the frontier covers every waiting row up to the last.
         let long = PatchRow {
             span: 5,
@@ -1302,5 +1393,158 @@ mod tests {
             body: Body::Connect { vv: vec![] }
         })
         .is_err());
+    }
+
+    #[test]
+    fn append_is_atomic_on_error_and_scales_subquadratically() {
+        // Verify rollback restores rows, pending, frontier and bytes identically.
+        let mut log = PatchLog::new("doc");
+        log.append(&[kept(A, 1), kept(A, 4), kept(A, 5)]).unwrap();
+        let snapshot = (
+            log.rows.clone(),
+            log.pending.clone(),
+            log.frontier.clone(),
+            log.bytes,
+        );
+        // Batch drops pending (A, 4) and (A, 5), then fails on a fork at (A, 6).
+        let wide = PatchRow {
+            span: 2,
+            ..kept(A, 4)
+        };
+        let fork = PatchRow {
+            dependencies: vec![(A, 4)],
+            ..kept(A, 6)
+        };
+        assert_eq!(log.append(&[wide, fork]).unwrap_err().code, "CONFLICT");
+        assert_eq!(
+            (
+                log.rows.clone(),
+                log.pending.clone(),
+                log.frontier.clone(),
+                log.bytes
+            ),
+            snapshot
+        );
+        // Verify rollback on MAX_VECTOR_ENTRIES after advancing the frontier.
+        let mut full = PatchLog::new("doc");
+        let actors: Vec<_> = (0..MAX_VECTOR_ENTRIES as u64)
+            .map(|i| kept(A + i, 1))
+            .collect();
+        full.append(&actors).unwrap();
+        let full_snapshot = (
+            full.rows.clone(),
+            full.pending.clone(),
+            full.frontier.clone(),
+            full.bytes,
+        );
+        assert_eq!(
+            full.append(&[kept(A, 2), kept(A + MAX_VECTOR_ENTRIES as u64, 1)])
+                .unwrap_err()
+                .code,
+            "LIMIT_EXCEEDED"
+        );
+        assert_eq!(
+            (full.rows, full.pending, full.frontier, full.bytes),
+            full_snapshot
+        );
+
+        // Scaling regression check (J1): filling 4n rows one-by-one vs n rows.
+        // Quadratic cloning takes ~16x; subquadratic append takes ~4-5x.
+        let measure = |count: u64| {
+            let rows: Vec<_> = (1..=count).map(|c| kept(A, c)).collect();
+            let start = std::time::Instant::now();
+            let mut l = PatchLog::new("doc");
+            for r in &rows {
+                l.append(std::slice::from_ref(r)).unwrap();
+            }
+            assert_eq!(l.len(), count as usize);
+            start.elapsed()
+        };
+        // Warm up once, then compare n vs 4n.
+        let _ = measure(500);
+        let small = measure(2000).as_secs_f64().max(1e-6);
+        let large = measure(8000).as_secs_f64();
+        assert!(
+            large / small < 10.0,
+            "PatchLog::append scaling regressed: 2000={small:.4}s, 8000={large:.4}s (ratio {:.2})",
+            large / small
+        );
+    }
+
+    #[test]
+    fn missing_and_relay_omit_pending_rows_until_ready() {
+        let mut log = PatchLog::new("doc");
+        log.append(&[kept(A, 2)]).unwrap();
+        assert_eq!(log.vector(), vec![]);
+        assert_eq!(log.pending_count(), 1);
+        assert!(log.missing(&vec![]).is_empty());
+
+        // Relay reports found=false and no rows when only pending rows exist.
+        let mut relay = Relay::default();
+        relay
+            .receive(Message {
+                doc_id: "doc".into(),
+                request_id: 1,
+                body: Body::Update {
+                    vv: vec![],
+                    rows: vec![kept(A, 2)],
+                },
+            })
+            .unwrap();
+        let sync = relay
+            .receive(Message {
+                doc_id: "doc".into(),
+                request_id: 2,
+                body: Body::Connect { vv: vec![] },
+            })
+            .unwrap();
+        assert_eq!(
+            sync,
+            vec![Message {
+                doc_id: "doc".into(),
+                request_id: 2,
+                body: Body::Sync {
+                    found: false,
+                    complete: true,
+                    vv: vec![],
+                    rows: vec![],
+                },
+            }]
+        );
+
+        // Once the missing dependency arrives, both rows become ready and served.
+        log.append(&[kept(A, 1)]).unwrap();
+        assert_eq!(log.pending_count(), 0);
+        assert_eq!(log.missing(&vec![]), vec![kept(A, 1), kept(A, 2)]);
+        relay
+            .receive(Message {
+                doc_id: "doc".into(),
+                request_id: 3,
+                body: Body::Update {
+                    vv: vec![],
+                    rows: vec![kept(A, 1)],
+                },
+            })
+            .unwrap();
+        let sync = relay
+            .receive(Message {
+                doc_id: "doc".into(),
+                request_id: 4,
+                body: Body::Connect { vv: vec![] },
+            })
+            .unwrap();
+        assert_eq!(
+            sync,
+            vec![Message {
+                doc_id: "doc".into(),
+                request_id: 4,
+                body: Body::Sync {
+                    found: true,
+                    complete: true,
+                    vv: vec![(A, 3)],
+                    rows: vec![kept(A, 1), kept(A, 2)],
+                },
+            }]
+        );
     }
 }

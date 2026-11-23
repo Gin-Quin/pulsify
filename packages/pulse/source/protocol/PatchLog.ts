@@ -1135,11 +1135,15 @@ export class PatchLog {
 		validateVector(vv);
 		const clocks = new Map(vv),
 			result: PulsePatchRow[] = [];
-		for (const [sid, history] of this.byActor) {
+		for (const [sid, limit] of this.frontier) {
 			const clock = clocks.get(sid) ?? 0;
+			if (clock >= limit) continue;
+			const history = this.byActor.get(sid);
+			if (!history) continue;
 			let i = lowerBound(history, clock);
 			if (i && end(history[i - 1]!) > clock) i--;
-			for (; i < history.length; i++) result.push(history[i]!);
+			for (; i < history.length && history[i]!.clock < limit; i++)
+				result.push(history[i]!);
 		}
 		return result;
 	}
@@ -1181,11 +1185,15 @@ export class PatchLog {
 		validateVector(vv);
 		const clocks = new Map(vv);
 		const result: PulsePatchRow[] = [];
-		for (const [sid, rows] of this.byActor) {
+		for (const [sid, limit] of this.frontier) {
 			const clock = clocks.get(sid) ?? 0;
+			if (clock >= limit) continue;
+			const rows = this.byActor.get(sid);
+			if (!rows) continue;
 			let i = lowerBound(rows, clock);
 			if (i && end(rows[i - 1]!) > clock) i--;
-			for (; i < rows.length; i++) result.push(copyRow(rows[i]!));
+			for (; i < rows.length && rows[i]!.clock < limit; i++)
+				result.push(copyRow(rows[i]!));
 		}
 		return result;
 	}

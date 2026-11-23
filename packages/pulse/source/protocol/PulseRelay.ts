@@ -122,6 +122,8 @@ export class PulseRelay {
 					if (message.kind === 1) {
 						peer.docId = message.docId;
 						const log = this.documents.get(message.docId);
+						const vv = log?.vector ?? [];
+						const found = vv.length > 0;
 						if (
 							peer.protocolVersion === 3 &&
 							log &&
@@ -131,9 +133,9 @@ export class PulseRelay {
 								kind: 2,
 								docId: message.docId,
 								requestId: message.requestId,
-								found: !!log.size,
+								found,
 								complete: true,
-								vv: log.vector,
+								vv,
 								rows: [],
 							}))
 								send(frame);
@@ -147,9 +149,9 @@ export class PulseRelay {
 									kind: 2,
 									docId: message.docId,
 									requestId: message.requestId,
-									found: !!log?.size,
+									found,
 									complete: i === chunks.length - 1,
-									vv: log?.vector ?? [],
+									vv,
 									rows: chunks[i]!,
 								}),
 							);
@@ -178,29 +180,31 @@ export class PulseRelay {
 					// does not tell that something new is to be forwarded.
 					const ready = log.append(message.rows);
 					this.documents.set(message.docId, log);
+					const vv = log.vector;
 					send(
 						encode({
 							kind: 5,
 							docId: message.docId,
 							requestId: message.requestId,
-							vv: log.vector,
+							vv,
 						}),
 					);
 					if (!ready.length && log.size === before) return;
+					const update = {
+						kind: 4 as const,
+						docId: message.docId,
+						requestId: 0,
+						vv,
+						rows: message.rows,
+					};
+					let frames: Partial<Record<1 | 2 | 3, Uint8Array>> | undefined;
 					for (const other of this.peers) {
 						if (other === peer || other.docId !== message.docId) continue;
-						other.send(
-							encodeMessage(
-								{
-									kind: 4,
-									docId: message.docId,
-									requestId: 0,
-									vv: log.vector,
-									rows: message.rows,
-								},
-								{ peerVersion: other.protocolVersion },
-							),
-						);
+						const version = other.protocolVersion;
+						const frame = ((frames ??= {})[version] ??= encodeMessage(update, {
+							peerVersion: version,
+						}));
+						deliver(other, frame);
 					}
 				} catch (error) {
 					const failure = asPulseError(error);

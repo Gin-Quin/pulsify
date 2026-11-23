@@ -290,3 +290,113 @@ test("histories larger than one frame upload and download in complete pages", as
 	destroyPulse(loaded);
 	destroyPulse(seed);
 });
+
+test("relay broadcast survives a throwing middle peer without sending an error to the sender", async () => {
+	const { decodeMessage, encodeMessage } =
+		await import("../source/connection/PulseMessage");
+	const { patchToRow } = await import("../source/connection/PulsePatch");
+	const { CorePatch } = await import("../source/core/operations");
+	const { prepareValue } = await import("../source/core/values");
+
+	const relay = new PulseRelay();
+	const docId = "broadcast-fault";
+	const senderFrames: ReturnType<typeof decodeMessage>[] = [];
+	const firstFrames: ReturnType<typeof decodeMessage>[] = [];
+	const lastFrames: ReturnType<typeof decodeMessage>[] = [];
+	let middleSawConnect = false;
+
+	const sender = relay.open((b) => senderFrames.push(decodeMessage(b)));
+	const first = relay.open((b) => firstFrames.push(decodeMessage(b)));
+	const middle = relay.open(() => {
+		if (middleSawConnect) throw new Error("socket closed");
+		middleSawConnect = true;
+	});
+	const last = relay.open((b) => lastFrames.push(decodeMessage(b)));
+
+	const connect = encodeMessage({ kind: 1, docId, requestId: 1, vv: [] });
+	for (const p of [sender, first, middle, last]) p.receive(connect);
+	senderFrames.length = 0;
+	firstFrames.length = 0;
+	lastFrames.length = 0;
+
+	const row = patchToRow(
+		docId,
+		new CorePatch(65536, 1, 1, "", [{ kind: 0, value: prepareValue("ok") }]),
+		[],
+	);
+	sender.receive(
+		encodeMessage({ kind: 4, docId, requestId: 2, vv: [], rows: [row] }),
+	);
+
+	// Sender gets only its ack, never a follow-up error frame.
+	expect(senderFrames).toEqual([
+		{ kind: 5, docId, requestId: 2, vv: [[65536, 2]] },
+	]);
+	// Both peers before and after the throwing peer receive the update.
+	expect(firstFrames).toHaveLength(1);
+	expect(firstFrames[0]!.kind).toBe(4);
+	expect(lastFrames).toHaveLength(1);
+	expect(lastFrames[0]!.kind).toBe(4);
+	for (const p of [sender, first, middle, last]) p.close();
+});
+
+test("relay broadcast encodes once per protocol version", async () => {
+	const { encodeMessage } = await import("../source/connection/PulseMessage");
+	const { patchToRow } = await import("../source/connection/PulsePatch");
+	const { CorePatch } = await import("../source/core/operations");
+	const { prepareValue } = await import("../source/core/values");
+
+	const docId = "broadcast-scale";
+	const makeRow = (clock: number, sid = 65536) =>
+		patchToRow(
+			docId,
+			new CorePatch(sid, clock, clock, "", [
+				{ kind: 0, value: prepareValue("x".repeat(64)) },
+			]),
+			clock > 1 ? [[sid, clock]] : [],
+		);
+
+	const run = (peerCount: number) => {
+		const relay = new PulseRelay();
+		const receivedV1: Uint8Array[] = [];
+		const receivedV3: Uint8Array[] = [];
+		const peers = [];
+		const connect = encodeMessage({ kind: 1, docId, requestId: 1, vv: [] });
+		const sender = relay.open(() => {}, { protocolVersion: 3 });
+		sender.receive(connect);
+		peers.push(sender);
+		for (let i = 0; i < peerCount; i++) {
+			const version = i % 2 === 0 ? (3 as const) : (1 as const);
+			const bucket = version === 3 ? receivedV3 : receivedV1;
+			const p = relay.open(
+				(bytes) => {
+					if (bytes[2] === 4 || bytes[0] === 2) bucket.push(bytes);
+				},
+				{ protocolVersion: version },
+			);
+			p.receive(connect);
+			peers.push(p);
+		}
+		const frames: Uint8Array[] = [];
+		let clock = 1;
+		for (let r = 0; r < 15; r++) {
+			const rows = Array.from({ length: 40 }, () => makeRow(clock++));
+			frames.push(
+				encodeMessage(
+					{ kind: 4, docId, requestId: 10 + r, vv: [], rows },
+					{ peerVersion: 3 },
+				),
+			);
+		}
+		for (const frame of frames) sender.receive(frame);
+		for (const p of peers) p.close();
+		// Peers sharing a protocol version receive the same encoded buffer.
+		expect(receivedV1.length).toBe((peerCount / 2) * 15);
+		expect(receivedV3.length).toBe((peerCount / 2) * 15);
+		expect(receivedV1[0]).toBe(receivedV1[1]);
+		expect(receivedV3[0]).toBe(receivedV3[1]);
+	};
+
+	// The shared buffers above are the guard: a timing ratio would be flaky.
+	run(100);
+});
