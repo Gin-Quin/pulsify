@@ -5,6 +5,7 @@ import {
 	MAX_ROW_BATCH_NODES,
 } from "./limits.js";
 import { PulseError } from "./errors.js";
+import { rowDependencies, rowOperations } from "./scalarRuns.js";
 
 export { MAX_PATCH_BYTES } from "./limits.js";
 /**
@@ -20,14 +21,12 @@ export function chunkRows(
 	let bytes = 0;
 	let nodes = 0;
 	for (const row of rows) {
-		if (row.operations.length > MAX_PATCH_BYTES)
+		const length = rowOperations(row).length;
+		const dependencies = rowDependencies(row).length;
+		if (length > MAX_PATCH_BYTES)
 			throw new PulseError("LIMIT_EXCEEDED", "Patch payload exceeds 1 MiB");
-		const size =
-			row.operations.length +
-			row.dependencies.length * 16 +
-			row.docId.length * 4 +
-			64;
-		const rowNodes = 7 + 3 * row.dependencies.length;
+		const size = length + dependencies * 16 + row.docId.length * 4 + 64;
+		const rowNodes = 7 + 3 * dependencies;
 		if (
 			chunk.length &&
 			(bytes + size > maxBytes ||

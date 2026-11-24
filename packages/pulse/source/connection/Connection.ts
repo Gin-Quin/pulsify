@@ -98,8 +98,8 @@ export class Connection {
 	}>();
 	/** Probes a session that received nothing for `session.heartbeatMs`. */
 	private idleTimer: ReturnType<typeof setTimeout> | undefined;
-	/** An idle probe is in flight: the idle wait restarts once it settles. */
-	private probing = false;
+	/** A probe is in flight: callers share it, and the idle wait restarts afterward. */
+	private probing: Promise<void> | undefined;
 	private stopRows: (() => void) | undefined;
 	private scheduled = false;
 	private epoch = 0;
@@ -152,15 +152,16 @@ export class Connection {
 		else {
 			const entry = { target: getPulseMeta(this.pulse).log.vector, waiter };
 			this.syncWaiters.add(entry);
-			this.settleWaiters();
-			signal?.addEventListener(
-				"abort",
-				() => {
+			if (signal) {
+				const abort = () => {
 					if (this.syncWaiters.delete(entry))
 						waiter.reject(new PulseError("CLOSED", "Wait aborted"));
-				},
-				{ once: true },
-			);
+				};
+				const detach = () => signal.removeEventListener("abort", abort);
+				signal.addEventListener("abort", abort, { once: true });
+				void waiter.promise.then(detach, detach);
+			}
+			this.settleWaiters();
 		}
 		return waiter.promise;
 	}
@@ -447,23 +448,36 @@ export class Connection {
 	 * it missed. A silent or closed transport reconnects. Runs when the network
 	 * comes back, and after `session.heartbeatMs` without any received frame.
 	 */
-	async probe(): Promise<void> {
-		if (!this.session || !ESTABLISHED.includes(this.status)) return;
+	probe(): Promise<void> {
+		if (this.probing) return this.probing;
+		const session = this.session;
+		if (!session || !ESTABLISHED.includes(this.status))
+			return Promise.resolve();
 		const meta = getPulseMeta(this.pulse);
 		const epoch = this.epoch;
-		try {
-			await this.request({
-				kind: 1,
-				docId: meta.id,
-				requestId: this.nextRequestId++,
-				vv:
-					(this.session.protocolVersion ?? 1) >= 3
-						? meta.log.vector
-						: meta.log.historyVector,
+		clearTimeout(this.idleTimer);
+		this.probing = Promise.resolve()
+			.then(async () => {
+				if (epoch !== this.epoch) return;
+				await this.request({
+					kind: 1,
+					docId: meta.id,
+					requestId: this.nextRequestId++,
+					vv:
+						(session.protocolVersion ?? 1) >= 3
+							? meta.log.vector
+							: meta.log.historyVector,
+				});
+			})
+			.catch((error) => {
+				if (epoch === this.epoch) this.fail(asPulseError(error));
+			})
+			.finally(() => {
+				if (epoch !== this.epoch) return;
+				this.probing = undefined;
+				this.alive();
 			});
-		} catch (error) {
-			if (epoch === this.epoch) this.fail(asPulseError(error));
-		}
+		return this.probing;
 	}
 
 	async fetchHistory(): Promise<void> {
@@ -818,14 +832,7 @@ export class Connection {
 		if (!ms || this.probing) return;
 		clearTimeout(this.idleTimer);
 		this.idleTimer = setTimeout(() => {
-			if (!ESTABLISHED.includes(this.status)) return;
-			const epoch = this.epoch;
-			this.probing = true;
-			void this.probe().finally(() => {
-				if (epoch !== this.epoch) return;
-				this.probing = false;
-				this.alive();
-			});
+			void this.probe();
 		}, ms);
 	}
 	private cleanup(error: Error): void {
@@ -833,7 +840,7 @@ export class Connection {
 		this.scheduled = false;
 		this.queued = undefined;
 		clearTimeout(this.idleTimer);
-		this.probing = false;
+		this.probing = undefined;
 		for (const request of this.pending.values()) request.reject(error);
 		this.pending.clear();
 		this.ended?.reject(error);

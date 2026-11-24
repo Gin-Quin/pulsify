@@ -127,6 +127,23 @@ test("leaving while the room's session is requested stops the opening", async ()
 	expect(sockets).toHaveLength(0);
 });
 
+test("a failed room creation releases the pulses it created", async () => {
+	let scope: RoomOptions["scope"] | undefined;
+	const opening = openRoom(
+		Note,
+		(id, options) => {
+			scope = options.scope;
+			create(id, options);
+			throw new Error("Room creation failed");
+		},
+		new AbortController().signal,
+	);
+	await until(() => answers.length === 1);
+	answers[0]!.answer();
+	await expect(opening).rejects.toThrow("Room creation failed");
+	expect(scope!.pulses.size).toBe(0);
+});
+
 test("leaving while a joined room loads closes its socket", async () => {
 	location.href = "https://pulsify.cloud/demos/notes?room=room-1";
 	const owned = ownRoom((signal) => openRoom(Note, create, signal));

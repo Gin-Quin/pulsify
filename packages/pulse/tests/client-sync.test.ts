@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { getEventListeners } from "node:events";
 import {
 	connectPulse,
 	createMemoryConnector,
@@ -154,6 +155,38 @@ const settledWithin = async (promise: Promise<unknown>, ms: number) => {
 const turn = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("version coverage", () => {
+	test("a completed wait releases its abort listener", async () => {
+		const server = gated();
+		const a = create([server.connector]);
+		await connectPulse(a).synced;
+		const connection = getPulseMeta(a).connections[0]!;
+		const { signal } = new AbortController();
+		await connection.waitSynced(signal);
+		expect(getEventListeners(signal, "abort")).toHaveLength(0);
+
+		server.state.hold = true;
+		a.title = "Unacknowledged";
+		const waiting = connection.waitSynced(signal);
+		expect(getEventListeners(signal, "abort")).toHaveLength(1);
+		connection.close();
+		await expect(waiting).rejects.toMatchObject({ code: "CLOSED" });
+		expect(getEventListeners(signal, "abort")).toHaveLength(0);
+	});
+
+	test("two probes share the same outstanding request", async () => {
+		const server = gated();
+		const a = create([server.connector]);
+		await connectPulse(a).synced;
+		const connection = getPulseMeta(a).connections[0]!;
+		server.state.hold = true;
+		const first = connection.probe();
+		await eventually(() => expect(server.held).toBe(1));
+		expect(connection.probe()).toBe(first);
+		server.release();
+		await first;
+		expect(server.held).toBe(0);
+	});
+
 	test("synced and whenSynced read right after an edit wait for its acknowledgement", async () => {
 		const server = gated();
 		const a = create([server.connector]);

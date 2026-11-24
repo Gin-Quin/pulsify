@@ -115,7 +115,7 @@ export async function openRoom<P extends Pulse<any>>(
 		token: async () => {
 			const current = token;
 			token = undefined;
-			return current ?? (await session(first.room)).token;
+			return current ?? (await session(first.room, signal)).token;
 		},
 		createSocket(url, protocols) {
 			const socket = new WebSocket(url, protocols);
@@ -132,34 +132,30 @@ export async function openRoom<P extends Pulse<any>>(
 		cloud.close();
 		for (const pulse of [...options.scope.pulses.values()]) destroyPulse(pulse);
 	};
-	const opened = (pulse: P): OpenRoom<P> => {
-		if (signal.aborted) {
-			close();
-			throw aborted();
+	const load = async () => {
+		try {
+			return (await loadPulse(definition, first.room, {
+				...options,
+				signal,
+			})) as P;
+		} catch (error) {
+			if (signal.aborted) throw aborted();
+			// The room expired: its root and its grant are gone.
+			if (error instanceof PulseError && error.code === "FORBIDDEN")
+				throw new RoomExpired();
+			if (!(error instanceof PulseError && error.code === "NOT_FOUND"))
+				throw error;
+			// Whoever opened the room left before saving it.
+			return create(first.room, options);
 		}
-		return { pulse, close };
 	};
-	if (!joining) return opened(create(first.room, options));
 	try {
-		return opened(
-			(await loadPulse(definition, first.room, { ...options, signal })) as P,
-		);
+		const pulse = joining ? await load() : create(first.room, options);
+		if (signal.aborted) throw aborted();
+		return { pulse, close };
 	} catch (error) {
-		if (signal.aborted) {
-			close();
-			throw aborted();
-		}
-		// The room expired: its root and its grant are gone.
-		if (error instanceof PulseError && error.code === "FORBIDDEN") {
-			close();
-			throw new RoomExpired();
-		}
-		if (!(error instanceof PulseError && error.code === "NOT_FOUND")) {
-			close();
-			throw error;
-		}
-		// Whoever opened the room left before saving it.
-		return opened(create(first.room, options));
+		close();
+		throw error;
 	}
 }
 

@@ -153,8 +153,8 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 				)
 			)
 				throw new TypeError("waitFor connector is not configured");
-			// The selected connectors only: an unrelated one neither delays nor
-			// fails this load. Their waits are dropped once it settles.
+			// Once data is ready, wait for the selected connectors. Drop their
+			// waits when this load settles.
 			const detach = new AbortController();
 			await bounded(
 				task.ready.then(() =>
