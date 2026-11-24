@@ -46,12 +46,12 @@ append reads nothing from the database.
 
 ## Layout
 
-Five column families, whose keys all start with the document ID and a NUL
+The column families below use keys that start with the document ID and a NUL
 (which an ID cannot contain), followed by big-endian integers:
 
 | Column family | Key | Value |
 | --- | --- | --- |
-| `rows` | `doc_id NUL sid clock` | format byte `0`, span, dependencies (varuints), operations |
+| `rows` | `doc_id NUL sid clock` | format byte `0`, span, dependencies (varuints), operations, or a packed segment |
 | `clocks` | `doc_id NUL sid` | the actor's committed clock |
 | `pending` | `doc_id NUL sid clock` | format byte `0`, span, dependencies of a row that is not ready |
 | `tombstones` | deleted document prefix | permanent deletion marker |
@@ -70,10 +70,31 @@ no row precedes them. Blob garbage collection is enabled for what overwrites
 leave in blob files. A database written by this version cannot be opened by an
 earlier one, which does not know the `values` column family.
 
-Rows are not packed into segments as `SqlitePatchStore.compact` does: RocksDB
-already stores consecutive keys in shared, compressed blocks, and a full read
-is one sequential scan. The format byte leaves room for packed values later.
 A RocksDB database is not readable by the SQLite stores, nor the reverse.
+
+### Pack history on append
+
+Packing is on by default. To write ordinary rows, opt out after opening
+the store and before appending.
+
+```rust
+let mut store = RocksStore::open("pulsify.rocksdb")?;
+store.set_pack_appends(false);
+```
+
+Packing groups 8 to 64 consecutive ready history rows of one actor from the
+same append under the first row's key. Each segment is
+smaller than 4 KiB and contains format byte `1` followed by length-prefixed
+ordinary rows. Each span gives the next row's clock. Reads decode the segment
+and return the original operations and dependencies. The segment and the
+frontier commit in the same RocksDB write batch.
+
+The store reads ordinary rows in existing databases directly. Before the first
+packed write it creates an empty `packed_layout` column family, which makes
+older versions refuse to open the directory. During a rollout, call
+`set_pack_appends(false)` after each open until all readers are upgraded.
+Disabling packing affects new writes. The store continues to read any packed
+segments already in the database.
 
 ## Tests and benchmark
 

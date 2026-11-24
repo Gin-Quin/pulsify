@@ -761,6 +761,87 @@ const storedRows = (db: Database, where = "1") =>
 			.query(`SELECT COUNT(*) AS count FROM pulsify_op_rows WHERE ${where}`)
 			.get() as { count: number }
 	).count;
+
+test("SQLite packs ready history on append and serves the same rows across pages", async () => {
+	using db = new Database(":memory:");
+	const store = new SqlitePatchStore(db, { packAppends: true });
+	const docId = "pack-on-append";
+	const rows = [
+		{ ...row(docId), span: 2 },
+		...Array.from({ length: 71 }, (_, i) => row(docId, i + 3)),
+	];
+	expect(await store.append(rows)).toEqual({
+		inserted: 72,
+		ready: 72,
+		pending: 0,
+		vector: [[actor, 74]],
+	});
+	expect(storedRows(db)).toBe(2);
+	expect(storedRows(db, "packed=1")).toBe(2);
+
+	const reopened = new SqlitePatchStore(db);
+	const remote: [number, number][] = [[actor, 2]];
+	const downloaded: StoredPatchRow[] = [];
+	let cursor: unknown;
+	do {
+		const page = await reopened.missingPage(docId, remote, {
+			after: cursor,
+			maxRows: 7,
+		});
+		expect(page.rows.length).toBeLessThanOrEqual(7);
+		downloaded.push(...page.rows);
+		cursor = page.next;
+	} while (cursor !== undefined);
+	expect(downloaded).toEqual(rows);
+	expect(await reopened.append(rows)).toMatchObject({ inserted: 0 });
+	await expect(
+		reopened.append([{ ...rows[20]!, operations: Uint8Array.of(0, 1) }]),
+	).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+test("SQLite rolls back packed writes when a later row in the same append conflicts", async () => {
+	using db = new Database(":memory:");
+	const store = new SqlitePatchStore(db, {
+		packAppends: true,
+		vectorCacheSize: 1,
+	});
+	const docId = "pack-rollback";
+	const rows = Array.from({ length: 10 }, (_, i) => row(docId, i + 1));
+	await expect(
+		store.append([...rows, { ...rows[5]!, operations: Uint8Array.of(0, 1) }]),
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	expect(storedRows(db)).toBe(0);
+	expect(await store.vector(docId)).toEqual([]);
+	expect(await store.append([...rows, rows[5]!])).toMatchObject({
+		inserted: 10,
+	});
+	expect(storedRows(db, "packed=1")).toBe(1);
+});
+
+test("SQLite leaves values and pending rows separate when packing an append", async () => {
+	using db = new Database(":memory:");
+	const store = new SqlitePatchStore(db, { packAppends: true });
+	const docId = "pack-gap";
+	const history = Array.from({ length: 16 }, (_, i) => row(docId, i + 1));
+	const value = { ...row(docId, 17), operations: encodeValueOp(1, 17) };
+	const waiting = row(docId, 19);
+	expect(await store.append([...history, value, waiting])).toMatchObject({
+		ready: 17,
+		pending: 1,
+	});
+	expect(storedRows(db, "packed=1")).toBe(1);
+	expect(storedRows(db, "ready=0")).toBe(1);
+	expect(await store.missing(docId, [])).toEqual([...history, value]);
+	const next = row(docId, 18);
+	expect(await store.append([next])).toMatchObject({ ready: 2, pending: 0 });
+	expect(await store.missing(docId, [])).toEqual([
+		...history,
+		value,
+		next,
+		waiting,
+	]);
+});
+
 async function compactAll(
 	store: SqlitePatchStore,
 	options: { maxRows?: number; minRows?: number } = {},

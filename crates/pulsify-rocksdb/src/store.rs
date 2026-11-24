@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use pulsify_protocol::{covers_document, document_prefixes, DocumentStore};
 use pulsify_protocol::{
     is_gap, last_register_of, validate_rows, validate_vector, AppendResult, PatchRow, PatchStore,
-    VersionVector, GAP_OPERATIONS, MAX_VECTOR_ENTRIES,
+    VersionVector, GAP_OPERATIONS, MAX_SAFE_INTEGER, MAX_VECTOR_ENTRIES,
 };
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType,
@@ -16,7 +16,7 @@ use std::path::Path;
 // Column families. Every key starts with the document ID and a NUL, which an
 // ID cannot contain, so a document is one contiguous key range in each of
 // them; integers are big-endian, so keys sort by `(doc_id, sid, clock)`.
-/// `doc_id NUL sid clock` to a row: format byte, span, dependencies, operations.
+/// `doc_id NUL sid clock` to a history row or a packed run of rows.
 const ROWS: &str = "rows";
 /// `doc_id NUL sid` to the actor's committed clock.
 const CLOCKS: &str = "clocks";
@@ -33,12 +33,16 @@ const FAMILIES: [&str; 5] = [ROWS, CLOCKS, PENDING, VALUES, TOMBSTONES];
 /// The register index of an unreleased layout: moved to `values` and dropped
 /// when the database is opened.
 const REGISTERS: &str = "registers";
-
-/// First byte of a stored row. Other values are free for later formats, such
-/// as a packed segment of several rows.
+/// Empty column family. Older stores refuse to open it, even if they would
+/// not encounter a packed row on an in-order append.
+const PACKED_LAYOUT: &str = "packed_layout";
 const FORMAT_ROW: u8 = 0;
+const FORMAT_PACKED: u8 = 1;
 /// Values from this size live in blob files (as in the storage benchmark).
 const MIN_BLOB_BYTES: u64 = 4096;
+const MIN_PACKED_ROWS: usize = 8;
+const MAX_PACKED_ROWS: usize = 64;
+const MAX_PACKED_BYTES: usize = 4095;
 
 /// How a [`RocksStore`] is opened. `RocksOptions::default()` is durable.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +179,7 @@ struct Document {
 pub struct RocksStore {
     db: DB,
     sync: bool,
+    pack_appends: bool,
     /// Vectors and pending rows of recently used documents. Only this store
     /// writes to the database, so they cannot go stale.
     documents: HashMap<String, Document>,
@@ -207,8 +212,8 @@ impl RocksStore {
     fn create(database: Options, path: &Path, options: &RocksOptions) -> Result<Self> {
         let cache = Cache::new_lru_cache(options.block_cache_bytes);
         // An unreleased layout kept a register index: it is opened to be moved.
-        let registers = DB::list_cf(&database, path)
-            .is_ok_and(|families| families.iter().any(|name| name == REGISTERS));
+        let existing = DB::list_cf(&database, path).unwrap_or_default();
+        let registers = existing.iter().any(|name| name == REGISTERS);
         let mut families = vec![
             ColumnFamilyDescriptor::new(ROWS, family_options(&cache, Some(options))),
             ColumnFamilyDescriptor::new(CLOCKS, family_options(&cache, None)),
@@ -222,9 +227,16 @@ impl RocksStore {
                 family_options(&cache, None),
             ));
         }
+        if existing.iter().any(|name| name == PACKED_LAYOUT) {
+            families.push(ColumnFamilyDescriptor::new(
+                PACKED_LAYOUT,
+                Options::default(),
+            ));
+        }
         let mut store = Self {
             db: DB::open_cf_descriptors(&database, path, families)?,
             sync: options.sync,
+            pack_appends: true,
             documents: HashMap::new(),
             capacity: options.cached_documents,
             tick: 0,
@@ -301,6 +313,12 @@ impl RocksStore {
     /// break the store.
     pub fn db(&self) -> &DB {
         &self.db
+    }
+    /// Control packing of ready history rows for this open store. Packing is
+    /// on by default. Disable it before the first packed append to keep the
+    /// directory readable by older versions. Existing segments stay readable.
+    pub fn set_pack_appends(&mut self, enabled: bool) {
+        self.pack_appends = enabled;
     }
     /// Writes the in-memory buffers to files. Appends are durable without it.
     pub fn flush(&self) -> Result<()> {
@@ -462,7 +480,7 @@ impl RocksStore {
     /// The rule of `SqliteStore` and of the TypeScript `SqlitePatchStore`,
     /// step for step. A row is ready when it starts before its actor's clock.
     fn append_rows(
-        &self,
+        &mut self,
         prefix: &[u8],
         document: &mut Document,
         rows: &[PatchRow],
@@ -477,6 +495,7 @@ impl RocksStore {
             prefix,
             cursor: None,
             rows: BTreeMap::new(),
+            packed: None,
             values: BTreeMap::new(),
             actor_values: HashMap::new(),
         };
@@ -657,12 +676,17 @@ impl RocksStore {
             batch.put_cf(waiting, row_key(prefix, row.sid, row.start), value);
             row.stored = true;
         }
-        view.write(&mut batch)?;
+        let packed = view.write(&mut batch, frontier)?;
         let clocks = self.family(CLOCKS)?;
         for sid in changed_actors {
             let mut key = prefix.to_vec();
             key.extend_from_slice(&sid.to_be_bytes());
             batch.put_cf(clocks, key, frontier[&sid].to_be_bytes());
+        }
+        // Install the compatibility marker before the first packed batch.
+        // Opening an old directory or writing ordinary rows keeps its layout.
+        if packed && self.db.cf_handle(PACKED_LAYOUT).is_none() {
+            self.db.create_cf(PACKED_LAYOUT, &Options::default())?;
         }
         // Resends alone change nothing: no write, and no sync to wait for.
         if !batch.is_empty() {
@@ -720,9 +744,15 @@ impl RocksStore {
                     break;
                 }
                 let (_, start) = row_key_of(key, prefix).ok_or_else(corrupt)?;
-                let (_, dependencies, operations) = header(value)?;
-                if !is_gap(operations) {
-                    held.push(held_row(start, dependencies, operations));
+                if value.first() == Some(&FORMAT_PACKED) {
+                    for row in unpack(start, value)? {
+                        held.push(held_row(row.clock, row.dependencies, &row.operations));
+                    }
+                } else {
+                    let (_, dependencies, operations) = header(value)?;
+                    if !is_gap(operations) {
+                        held.push(held_row(start, dependencies, operations));
+                    }
                 }
                 cursor.next();
             }
@@ -1005,9 +1035,59 @@ fn encode_header(out: &mut Vec<u8>, span: u64, dependencies: &VersionVector) {
 }
 fn encode(row: &Held<'_>) -> Vec<u8> {
     let mut value = Vec::with_capacity(row.operations.len() + 8 + row.dependencies.len() * 12);
-    encode_header(&mut value, row.span, &row.dependencies);
-    value.extend_from_slice(&row.operations);
+    push_row(&mut value, row);
     value
+}
+fn push_row(value: &mut Vec<u8>, row: &Held<'_>) {
+    encode_header(value, row.span, &row.dependencies);
+    value.extend_from_slice(&row.operations);
+}
+fn varuint_bytes(value: u64) -> usize {
+    (u64::BITS - value.leading_zeros()).max(1).div_ceil(7) as usize
+}
+fn row_bytes(row: &Held<'_>) -> usize {
+    1 + varuint_bytes(row.span)
+        + varuint_bytes(row.dependencies.len() as u64)
+        + row
+            .dependencies
+            .iter()
+            .map(|(sid, clock)| varuint_bytes(*sid) + varuint_bytes(*clock))
+            .sum::<usize>()
+        + row.operations.len()
+}
+
+/// A packed row starts at the key's clock. Each part is a length-prefixed
+/// ordinary row; its span provides the start of the next one.
+fn unpack(mut clock: u64, value: &[u8]) -> Result<Vec<Held<'_>>> {
+    let mut data = value.strip_prefix(&[FORMAT_PACKED]).ok_or_else(corrupt)?;
+    if data.is_empty() || value.len() > MAX_PACKED_BYTES {
+        return Err(corrupt());
+    }
+    let mut rows = Vec::new();
+    while !data.is_empty() {
+        if rows.len() == MAX_PACKED_ROWS {
+            return Err(corrupt());
+        }
+        let mut offset = 0;
+        let size = usize::try_from(read_varuint(data, &mut offset)?).map_err(|_| corrupt())?;
+        let end = offset.checked_add(size).ok_or_else(corrupt)?;
+        let (span, dependencies, operations) = header(data.get(offset..end).ok_or_else(corrupt)?)?;
+        if operations.is_empty() {
+            return Err(corrupt());
+        }
+        rows.push(Held {
+            clock,
+            span,
+            dependencies,
+            operations: Cow::Borrowed(operations),
+        });
+        clock = clock
+            .checked_add(span)
+            .filter(|end| *end <= MAX_SAFE_INTEGER)
+            .ok_or_else(corrupt)?;
+        data = &data[end..];
+    }
+    Ok(rows)
 }
 /// A value: the clock of its write, then the row as `rows` encodes it.
 fn encode_value(row: &Held<'_>) -> Vec<u8> {
@@ -1059,6 +1139,14 @@ impl Held<'_> {
             operations: Cow::Owned(operations.to_vec()),
         })
     }
+    fn into_owned(self) -> Held<'static> {
+        Held {
+            clock: self.clock,
+            span: self.span,
+            dependencies: self.dependencies,
+            operations: Cow::Owned(self.operations.into_owned()),
+        }
+    }
 }
 
 /// What a batch does to a row: `None` removes it.
@@ -1075,6 +1163,8 @@ struct View<'a, 'r> {
     prefix: &'a [u8],
     cursor: Option<DBRawIterator<'a>>,
     rows: BTreeMap<(u64, u64), Change<'r>>,
+    /// The last segment read, so resends can reuse its decoded rows.
+    packed: Option<(u64, Vec<Held<'static>>)>,
     /// Values the batch writes, by actor and register.
     values: BTreeMap<(u64, Vec<u8>), Held<'r>>,
     /// The clocks of an actor's stored values, read once for rows sent again.
@@ -1092,14 +1182,43 @@ impl<'a, 'r> View<'a, 'r> {
         if let Some(change) = self.rows.get(&(sid, clock)) {
             return Ok(change.value.clone());
         }
+        if let Some((actor, rows)) = &self.packed {
+            let last = rows.last().expect("a segment is nonempty");
+            if *actor == sid && rows[0].clock <= clock && clock < last.clock + last.span {
+                return Ok(rows.iter().find(|row| row.clock == clock).cloned());
+            }
+        }
         let key = row_key(self.prefix, sid, clock);
+        let prefix = self.prefix;
+        let packed_layout = self.store.db.cf_handle(PACKED_LAYOUT).is_some();
         let cursor = self.cursor()?;
-        cursor.seek(&key);
-        let found = match cursor.item() {
-            Some((found, value)) if found == key.as_slice() => Some(Held::stored(clock, value)?),
-            _ => None,
-        };
+        // The operation could be inside a segment indexed by an earlier clock.
+        if packed_layout {
+            cursor.seek_for_prev(&key);
+        } else {
+            cursor.seek(&key);
+        }
+        let mut decoded = None;
+        let mut found = None;
+        if let Some((key, value)) = cursor.item() {
+            let (actor, first) = row_key_of(key, prefix).ok_or_else(corrupt)?;
+            if actor == sid {
+                if value.first() == Some(&FORMAT_PACKED) {
+                    let rows: Vec<_> = unpack(first, value)?
+                        .into_iter()
+                        .map(Held::into_owned)
+                        .collect();
+                    found = rows.iter().find(|row| row.clock == clock).cloned();
+                    decoded = Some(rows);
+                } else if first == clock {
+                    found = Some(Held::stored(clock, value)?);
+                }
+            }
+        }
         cursor.status()?;
+        if let Some(rows) = decoded {
+            self.packed = Some((sid, rows));
+        }
         Ok(found)
     }
     /// The nearest row of the actor that starts before this sequence number
@@ -1133,7 +1252,19 @@ impl<'a, 'r> View<'a, 'r> {
                 break;
             }
             if !self.rows.contains_key(&(sid, start)) {
-                stored = Some(Held::stored(start, value)?);
+                stored = if value.first() != Some(&FORMAT_PACKED) {
+                    Some(Held::stored(start, value)?)
+                } else {
+                    // Forward checks start at or beyond the frontier, after
+                    // every packed row. A backward check can find a segment.
+                    let mut rows = unpack(start, value)?.into_iter();
+                    let row = if forward {
+                        rows.next()
+                    } else {
+                        rows.next_back()
+                    };
+                    row.map(Held::into_owned)
+                };
                 break;
             }
             // The batch changed or removed this row, which `changed` covers: look further.
@@ -1258,14 +1389,66 @@ impl<'a, 'r> View<'a, 'r> {
             None => None,
         })
     }
-    /// Adds the changes to the batch.
-    fn write(self, batch: &mut WriteBatch) -> Result<()> {
+    /// Adds the changes to the batch and reports whether it contains a segment.
+    fn write(self, batch: &mut WriteBatch, frontier: &BTreeMap<u64, u64>) -> Result<bool> {
         let rows = self.store.family(ROWS)?;
-        for ((sid, clock), change) in &self.rows {
-            let key = row_key(self.prefix, *sid, *clock);
-            match &change.value {
-                Some(row) => batch.put_cf(rows, key, encode(row)),
-                None => batch.delete_cf(rows, key),
+        let mut changes = self.rows.iter().peekable();
+        let mut run = Vec::new();
+        let mut packed = false;
+        while let Some((&(sid, clock), change)) = changes.next() {
+            let key = row_key(self.prefix, sid, clock);
+            let Some(row) = &change.value else {
+                batch.delete_cf(rows, key);
+                continue;
+            };
+            if !self.store.pack_appends || change.stored || changes.len() < MIN_PACKED_ROWS - 1 {
+                batch.put_cf(rows, key, encode(row));
+                continue;
+            }
+            let mut end = clock + row.span;
+            let ready = frontier.get(&sid).copied().unwrap_or(1);
+            if end > ready {
+                batch.put_cf(rows, key, encode(row));
+                continue;
+            }
+            let size = row_bytes(row);
+            let mut bytes = 1 + varuint_bytes(size as u64) + size;
+            run.push((row, size));
+            while let Some((&(next_sid, next_clock), change)) = changes.peek().copied() {
+                let Some(next) = &change.value else { break };
+                if next_sid != sid
+                    || next_clock != end
+                    || change.stored
+                    || next_clock + next.span > ready
+                    || run.len() == MAX_PACKED_ROWS
+                {
+                    break;
+                }
+                let size = row_bytes(next);
+                let total = bytes + varuint_bytes(size as u64) + size;
+                // Keep short operations in the same RocksDB blocks as
+                // ordinary rows, below the threshold for blob files.
+                if total > MAX_PACKED_BYTES {
+                    break;
+                }
+                run.push((next, size));
+                changes.next();
+                end += next.span;
+                bytes = total;
+            }
+            if run.len() >= MIN_PACKED_ROWS {
+                let mut value = Vec::with_capacity(bytes);
+                value.push(FORMAT_PACKED);
+                for (row, size) in run.drain(..) {
+                    varuint(&mut value, size as u64);
+                    push_row(&mut value, row);
+                }
+                batch.put_cf(rows, key, value);
+                packed = true;
+            } else {
+                for (row, _) in run.drain(..) {
+                    batch.put_cf(rows, row_key(self.prefix, sid, row.clock), encode(row));
+                }
             }
         }
         let values = self.store.family(VALUES)?;
@@ -1273,7 +1456,7 @@ impl<'a, 'r> View<'a, 'r> {
             let key = value_key(self.prefix, *sid, register);
             batch.put_cf(values, key, encode_value(row));
         }
-        Ok(())
+        Ok(packed)
     }
 }
 
@@ -1324,6 +1507,163 @@ mod tests {
             std::env::temp_dir().join(format!("pulsify-rocksdb-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
         path
+    }
+
+    #[test]
+    fn packed_history_survives_reopen_with_ordinary_rows() {
+        let path = directory("packed-history");
+        let mut store = RocksStore::open(&path).unwrap();
+        store.set_pack_appends(false);
+        let mut history = vec![next(A, 1, 2), next(A, 3, 2)];
+        history.extend((5..=10).map(|clock| next(A, clock, 1)));
+        history.push(next(A, 11, 2));
+        history.extend((13..=83).map(|clock| next(A, clock, 1)));
+        store.append(&history[..8]).unwrap();
+        assert!(store.db().cf_handle(PACKED_LAYOUT).is_none());
+        drop(store);
+        // The column families recognized by a store from before packing.
+        drop(DB::open_cf(&database_options(), &path, FAMILIES).unwrap());
+
+        let mut store = RocksStore::open(&path).unwrap();
+        assert_eq!(store.missing("doc", &vec![]).unwrap(), history[..8]);
+        assert!(store.db().cf_handle(PACKED_LAYOUT).is_none());
+        let mut rejected = history[8..].to_vec();
+        let mut changed = history[0].clone();
+        changed.operations.push(42);
+        rejected.push(changed);
+        assert_eq!(store.append(&rejected).unwrap_err().code, "CONFLICT");
+        assert!(store.db().cf_handle(PACKED_LAYOUT).is_none());
+
+        let result = store.append(&history[8..]).unwrap();
+        assert_eq!((result.inserted, result.ready, result.pending), (72, 72, 0));
+        assert_eq!(result.vector, Some(vec![(A, 84)]));
+        let entries = dump(&store);
+        let formats: Vec<_> = entries
+            .iter()
+            .filter(|(family, _, _)| *family == ROWS)
+            .map(|(_, _, bytes)| bytes[0])
+            .collect();
+        assert_eq!(formats[..8], [FORMAT_ROW; 8]);
+        assert_eq!(formats[8..], [FORMAT_PACKED; 2]);
+
+        drop(store);
+        // The set of column families the old store knew how to open.
+        let refused = DB::open_cf(&database_options(), &path, FAMILIES);
+        assert!(matches!(refused, Err(error) if error.to_string().contains(PACKED_LAYOUT)));
+        let mut store = RocksStore::open(&path).unwrap();
+        assert_eq!(store.missing("doc", &vec![]).unwrap(), history);
+        assert_eq!(store.missing("doc", &vec![(A, 12)]).unwrap(), &history[8..]);
+        assert_eq!(store.append(&history).unwrap().inserted, 0);
+
+        let tail: Vec<_> = (84..92).map(|clock| next(A, clock, 1)).collect();
+        store.append(&tail).unwrap();
+        store.set_pack_appends(false);
+        let ordinary: Vec<_> = (92..100).map(|clock| next(A, clock, 1)).collect();
+        store.append(&ordinary).unwrap();
+        let entries = dump(&store);
+        let count_format = |format| {
+            entries
+                .iter()
+                .filter(|(family, _, value)| *family == ROWS && value[0] == format)
+                .count()
+        };
+        assert_eq!(count_format(FORMAT_ROW), 16);
+        assert_eq!(count_format(FORMAT_PACKED), 3);
+        store.delete_documents("doc", true).unwrap();
+        history.extend(tail);
+        history.extend(ordinary);
+        assert_eq!(store.recover_rows("doc").unwrap(), history);
+        assert_eq!(store.delete_documents("doc", false).unwrap(), 1);
+        assert!(store.recover_rows("doc").unwrap().is_empty());
+        drop(store);
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn packed_history_checks_resends_and_neighbour_forks() {
+        let mut store = RocksStore::open_in_memory().unwrap();
+        let mut history: Vec<_> = (1..8).map(|clock| next(A, clock, 1)).collect();
+        history.push(next(A, 8, 2));
+        store.append(&history).unwrap();
+        let before = dump(&store);
+        let sequence = store.db().latest_sequence_number();
+        let mut changed = history[4].clone();
+        changed.operations.push(42);
+        let in_order = next(A, 10, 1);
+        assert_eq!(
+            store.append(&[in_order.clone(), changed]).unwrap_err().code,
+            "CONFLICT"
+        );
+        let fork = row(A, 11, 1, &[(A, 8)]);
+        assert_eq!(store.append(&[fork]).unwrap_err().code, "CONFLICT");
+        assert_eq!(store.db().latest_sequence_number(), sequence);
+        assert_eq!(dump(&store), before);
+
+        store.set_pack_appends(false);
+        assert_eq!(store.append(&history[4..5]).unwrap().inserted, 0);
+        let pending = next(A, 11, 1);
+        assert_eq!(
+            store
+                .append(std::slice::from_ref(&pending))
+                .unwrap()
+                .pending,
+            1
+        );
+        let result = store.append(std::slice::from_ref(&in_order)).unwrap();
+        assert_eq!((result.ready, result.pending), (2, 0));
+        history.extend([in_order, pending]);
+        assert_eq!(store.missing("doc", &vec![]).unwrap(), history);
+    }
+
+    #[test]
+    fn packed_history_keeps_large_operations_pending_rows_and_values_separate() {
+        let mut store = RocksStore::open_in_memory().unwrap();
+        let mut batch: Vec<_> = (1..=23)
+            .map(|clock| {
+                let mut row = next(A, clock, 1);
+                let size = if clock == 23 {
+                    MIN_BLOB_BYTES as usize
+                } else {
+                    340
+                };
+                row.operations = vec![5; size];
+                row
+            })
+            .collect();
+        batch.extend([write(A, 24, 1, 0), gap(A, 25, 1), next(B, 2, 1)]);
+        let result = store.append(&batch).unwrap();
+        assert_eq!(result.pending, 1);
+        let entries = dump(&store);
+        let segments: Vec<_> = entries
+            .iter()
+            .filter(|(family, _, value)| *family == ROWS && value[0] == FORMAT_PACKED)
+            .collect();
+        assert_eq!(segments.len(), 2);
+        assert!(segments
+            .iter()
+            .all(|(_, _, value)| value.len() <= MAX_PACKED_BYTES));
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|(family, _, _)| *family == VALUES)
+                .count(),
+            1
+        );
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|(family, _, _)| *family == PENDING)
+                .count(),
+            1
+        );
+
+        let mut plain = RocksStore::open_in_memory().unwrap();
+        plain.set_pack_appends(false);
+        assert_eq!(plain.append(&batch).unwrap(), result);
+        assert_eq!(
+            store.missing("doc", &vec![]).unwrap(),
+            plain.missing("doc", &vec![]).unwrap()
+        );
     }
 
     #[test]

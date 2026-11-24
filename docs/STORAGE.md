@@ -168,11 +168,20 @@ application's requirements.
 
 ### Compaction
 
-A document keeps one stored row per update that keeps its history (text and
-array edits, versioned fields), and a peer that connects with an empty vector
-reads them all. `SqlitePatchStore.compact()` folds runs of
-consecutive ready rows of one actor into **packed segments**, so that a long
-history is read as a few rows. Values are never packed:
+A peer that connects with an empty vector receives every update that keeps its
+history, including text and array edits and versioned fields. SQLite can store
+consecutive ready rows of one actor as a **packed segment**. A segment holds
+the original operations, clocks and dependencies. Values are stored separately.
+
+Pulsify Cloud packs eligible runs already present in an upload before
+committing it. Each new segment holds 8 to 64 operations and at most 16 KiB.
+An upload is processed as soon as it arrives. Its acknowledgment follows the
+transaction that commits its operations, version vector and attribution.
+Standalone stores enable this option with
+`new SqlitePatchStore(db, { packAppends: true })`.
+
+`SqlitePatchStore.compact()` folds previously stored rows into packed
+segments. Pulsify Cloud runs it when a root is idle.
 
 ```ts
 let after: SqliteCompactCursor | undefined;
@@ -180,14 +189,10 @@ do after = (await store.compact({ after })).next;
 while (after);
 ```
 
-Compaction is opt-in and internal to storage. A store that never calls it keeps
-one row per update. Nothing changes for peers: `missing` returns the rows inside
-a packed segment exactly as they were appended, including the complete row that
-straddles the remote clock; `vector` and the clocks table are untouched, since
-packing never moves the causal frontier; and `append` answers a resend of a
-packed row as before: idempotent when identical, a conflict when it differs,
-overlaps or forks. Packed segments never reach the wire, where a core row still
-spans one sequence number.
+`missing` returns the rows inside a packed segment as they were appended,
+including the complete row that straddles the remote clock. Packing preserves
+the causal frontier. Identical resends are idempotent, and `append` rejects
+conflicting operations. The wire protocol carries individual history rows.
 
 A packed segment is one row of `pulsify_op_rows` with `packed = 1`. It keeps the
 key and the dependencies of its first row, spans all of them, and its
@@ -200,9 +205,10 @@ it; gap rows inside a segment are never served. Encoded rows are concatenated:
 a segment grows by appending.
 
 - **Only ready rows are packed.** Dangling rows stay as they are until promoted.
-- **Size.** A segment holds at most 256 KiB (`MAX_PACKED_BYTES`). A row larger
-  than that stays unpacked.
-- **Threshold.** A run of fewer than `minRows` unpacked rows of one actor
+- **Size.** Idle compaction produces segments of up to 256 KiB
+  (`MAX_PACKED_BYTES`). A row larger than that stays unpacked.
+- **Threshold.** Idle compaction leaves a run of fewer than `minRows` rows
+  of one actor
   (default 64) is left alone, so small documents and short tails are not
   rewritten.
 - **Extension.** A run that follows a packed segment is appended to it while it
@@ -216,9 +222,8 @@ Appending after a compaction costs the same: a row at its actor's frontier is
 still inserted without reading any row. Only a resend of a row that lies inside
 a segment decodes that segment.
 
-Packing a row deletes it, which is one more write per update over its lifetime;
-in exchange a cold read of 10,000 updates of one actor reads 1 row instead of
-10,000, and the database is smaller.
+Idle compaction rewrites already stored runs. Packing during append inserts each
+segment directly. Both reduce the number of stored rows read on a cold load.
 
 Opening a database created before packed segments adds the `packed` column in
 place (`SQLITE_PACKED_MIGRATION`). The Rust `pulsify-sqlite` crate reads packed
@@ -247,8 +252,10 @@ provided: `pulsify-sqlite`, file-compatible with `SqlitePatchStore`, and
 [`pulsify-rocksdb`](../crates/pulsify-rocksdb/README.md), which keeps rows
 under `doc_id NUL sid clock` keys in RocksDB, with clocks and pending rows in
 their own column families. Their tests apply the same random histories to both
-and require identical answers. The RocksDB store does not pack rows into
-segments: consecutive keys already share compressed blocks.
+and require identical answers. RocksDB packs consecutive ready operations of
+one actor within an append by default. Use
+[`RocksStore::set_pack_appends(false)`](../crates/pulsify-rocksdb/README.md#pack-history-on-append)
+to keep writing ordinary rows.
 
 ## Document identifiers
 

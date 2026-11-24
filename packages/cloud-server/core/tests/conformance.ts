@@ -627,17 +627,20 @@ export function describeCloudBackend(
 			// Compaction is scheduled by the host: not every one does.
 			if (wait === undefined) return;
 			const { root, a, first } = await seed("compaction");
+			const connection = getPulseMeta(first).connections[0]!;
 			// A title keeps its last value only: the text edits are the history.
 			for (let index = 1; index <= 200; index++) {
 				first.title = `Title ${index}`;
 				first.body.insert(5, "!");
 				first.body.delete(5, 1);
+				// Leave a long unpacked tail by committing the last edits separately.
+				if (index > 160) await connection.whenSynced;
 			}
 			const b = device("alice");
 			const copy = await loadPulse(Note, first.id, b.options);
 			await eventually(() => expect(copy.title).toBe("Title 200"));
 			const written = (await admin().usage(root)).rows;
-			expect(written).toBeGreaterThan(200);
+			expect(written).toBeGreaterThan(64);
 
 			// Someone comes back before the root stayed idle long enough: nothing moves.
 			a.connector.close();

@@ -2,6 +2,15 @@
 
 All notable changes to Pulsify are documented in this file.
 
+## [19.0.0]
+
+### Storage
+
+- Pulsify Cloud packs consecutive ready SQLite history rows of one actor as part of an upload's existing transaction.
+- RocksDB packs eligible history rows by default. Existing rows remain readable. After the first packed write, opening the directory requires Pulsify 19. To keep writing a directory older readers can open, call `RocksStore::set_pack_appends(false)` after each open and before the first packed write.
+
+Pulsify 19 uses the same wire format as Pulsify 18.
+
 ## [18.0.0]
 
 ### Synchronization

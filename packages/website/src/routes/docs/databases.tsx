@@ -45,9 +45,17 @@ const vector = await store.vector(docId);`;
 const sqlite = `import { Database } from "bun:sqlite";
 import { SqlitePatchStore } from "pulsify-core/storage";
 
-const store = new SqlitePatchStore(new Database("pulsify.db"));
-await store.initialize();
+const store = new SqlitePatchStore(new Database("pulsify.db"), {
+  packAppends: true,
+});
 await store.appendEncoded(frameBytes);`;
+
+const rocksdb = `use pulsify_rocksdb::RocksStore;
+
+let mut store = RocksStore::open("pulsify.rocksdb")?;
+
+// Optional: keep new writes readable by older releases.
+store.set_pack_appends(false);`;
 
 const custom = `import type { PatchStore } from "pulsify-core/storage";
 
@@ -68,14 +76,14 @@ export default function Databases() {
 		<>
 			<Seo
 				title="Self-host: databases · Pulsify Docs"
-				description="Run the Pulsify relay and store in front of your own database. Stores for PostgreSQL and SQLite are included, and any database can implement the interface."
+				description="Run Pulsify with your own database. Learn about PostgreSQL, SQLite, RocksDB, and how Pulsify packs operation history."
 			/>
 			<h1>Self-host: databases</h1>
 			<p>
 				A Pulsify server is a relay plus a store. Run both yourself in front of
-				your own database, or let Pulsify Cloud do it. Stores for PostgreSQL and
-				SQLite are included; any other database can implement the same
-				interface.
+				your own database, or let Pulsify Cloud do it. Pulsify provides stores
+				for PostgreSQL, SQLite, and RocksDB. You can also implement a custom
+				store.
 			</p>
 
 			<h2>How storage works</h2>
@@ -132,7 +140,37 @@ export default function Databases() {
 			</p>
 			<CodeBlock title="store.ts" code={sqlite} />
 			<p>
-				Measurements and the conformance suite for both stores are in the{" "}
+				With <code>packAppends: true</code>, SQLite groups runs of 8 to 64
+				consecutive ready history operations from the same actor into segments
+				of up to 16 KiB. Pulsify Cloud enables this setting by default. Each
+				segment preserves the operations, clocks, and dependencies.
+			</p>
+			<p>
+				Packing happens inside the transaction for the current upload. The relay
+				acknowledges the upload after that transaction commits, and downloads
+				return the individual operations.
+			</p>
+
+			<h2 id="rocksdb">Self-host: RocksDB</h2>
+			<p>
+				The Rust crate <code>pulsify-rocksdb</code> packs history by default
+				starting with Pulsify 19. It groups 8 to 64 consecutive ready operations
+				from one actor in the same upload under one key, with a segment size
+				below 4 KiB. A targeted read decodes the containing segment. The segment
+				and the version vector commit in the same RocksDB write batch.
+			</p>
+			<CodeBlock title="store.rs" code={rocksdb} />
+			<Note>
+				Pulsify 19 opens existing RocksDB databases and reads their ordinary
+				rows directly. After the first packed write, the directory requires
+				Pulsify 19 or later. For a rollout with older readers, call{" "}
+				<code>set_pack_appends(false)</code> after each open and before the
+				first packed write. The setting applies to new writes, and existing
+				segments remain readable with Pulsify 19. Clients and relays still
+				exchange Pulsify 18-compatible frames.
+			</Note>
+			<p>
+				See the layout, measurements, and conformance tests in the{" "}
 				<a href={`${GITHUB_URL}/blob/main/docs/STORAGE.md`}>storage guide</a>.
 			</p>
 

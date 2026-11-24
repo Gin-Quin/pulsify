@@ -154,7 +154,10 @@ export class SqliteCloudStorage implements CloudRootStorage {
 	readonly patches: SqlitePatchStore;
 	constructor(private readonly db: SqliteConnection) {
 		// A root is the only writer of its database: vectors can stay in memory.
-		this.patches = new SqlitePatchStore(db, { vectorCacheSize: 128 });
+		this.patches = new SqlitePatchStore(db, {
+			vectorCacheSize: 128,
+			packAppends: true,
+		});
 		const existing = db
 			.query(
 				"SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name IN ('pulsify_cloud_grants','pulsify_cloud_subscriptions','pulsify_cloud_watches','pulsify_cloud_expiry','pulsify_cloud_snapshots','pulsify_cloud_actors','pulsify_cloud_received','pulsify_cloud_snapshot_frames')",

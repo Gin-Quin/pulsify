@@ -1,6 +1,6 @@
 {
 	"name": "pulsify-cloud-server",
-	"version": "18.0.0",
+	"version": "19.0.0",
 	"description": "Pulsify Cloud server: one isolated root per namespace, multiplexed WebSockets and built-in access control.",
 	"type": "module",
 	"exports": {
@@ -28,8 +28,8 @@
 	],
 	"license": "FSL-1.1-ALv2",
 	"peerDependencies": {
-		"pulsify-core": "^18.0.0",
-		"pulsify-cloud": "^18.0.0"
+		"pulsify-core": "^19.0.0",
+		"pulsify-cloud": "^19.0.0"
 	},
 	"repository": {
 		"type": "git",

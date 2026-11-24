@@ -86,6 +86,8 @@ type SqliteMissingCursor = {
 };
 const MISSING_SCAN_BATCH = 128;
 const MISSING_INLINE_BYTES = 16 * 1024;
+const MIN_APPEND_PACK_ROWS = 8;
+const MAX_APPEND_PACK_ROWS = 64;
 const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
 	a.length === b.length && a.every((byte, i) => b[i] === byte);
 const copyVector = (vector: PulseVersionVector): PulseVersionVector =>
@@ -192,6 +194,18 @@ const COMPACT_CALL_BYTES = 16 * MAX_PACKED_BYTES;
 /** Operations up to this size come with the scan; larger ones are read when packed. */
 const COMPACT_INLINE_BYTES = 4096;
 
+function joinPackedRows(parts: readonly Uint8Array[]): Uint8Array {
+	const payload = new Uint8Array(
+		parts.reduce((total, part) => total + part.length, 0),
+	);
+	let offset = 0;
+	for (const part of parts) {
+		payload.set(part, offset);
+		offset += part.length;
+	}
+	return payload;
+}
+
 export type SqlitePatchStoreOptions = {
 	/**
 	 * Keep the version vectors of up to this many documents in memory, so
@@ -199,15 +213,18 @@ export type SqlitePatchStoreOptions = {
 	 * store is the single writer of its database, as in a Durable Object.
 	 */
 	vectorCacheSize?: number;
+	/** Pack small runs of consecutive history rows in the append transaction. */
+	packAppends?: boolean;
 };
 
 /** Writes only indexed operation metadata and opaque bytes; never materializes a document. */
 export class SqlitePatchStore implements DocumentStore {
 	private readonly vectors = new Map<string, PulseVersionVector>();
 	private readonly vectorCacheSize: number;
+	private readonly packAppends: boolean;
 	constructor(
 		private readonly db: SqliteConnection,
-		{ vectorCacheSize = 0 }: SqlitePatchStoreOptions = {},
+		{ vectorCacheSize = 0, packAppends = false }: SqlitePatchStoreOptions = {},
 	) {
 		// Skip DDL and migration checks when the schema is already current.
 		const objects = db
@@ -253,6 +270,7 @@ export class SqlitePatchStore implements DocumentStore {
 				}).immediate();
 		}
 		this.vectorCacheSize = vectorCacheSize;
+		this.packAppends = packAppends;
 	}
 	async appendEncoded(frame: Uint8Array): Promise<AppendResult> {
 		return this.append(rowsFromFrame(frame));
@@ -288,6 +306,44 @@ export class SqlitePatchStore implements DocumentStore {
 				const insert = this.db.query(
 					"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready) VALUES(?,?,?,?,?,?,?)",
 				);
+				const history:
+					(StoredPatchRow & { dependencyJson: string })[] | undefined =
+					this.packAppends && rows.length >= MIN_APPEND_PACK_ROWS
+						? []
+						: undefined;
+				let historyBytes = 0;
+				const flushHistory = (): void => {
+					if (!history?.length) return;
+					if (history.length < MIN_APPEND_PACK_ROWS) {
+						for (const row of history)
+							insert.run(
+								docId,
+								row.sid,
+								row.clock,
+								row.span,
+								row.dependencyJson,
+								row.operations,
+								1,
+							);
+					} else {
+						const first = history[0]!;
+						const last = history.at(-1)!;
+						this.db
+							.query(
+								"INSERT INTO pulsify_op_rows(doc_id,sid,time_start,span,dependencies,operations,ready,packed) VALUES(?,?,?,?,?,?,1,1)",
+							)
+							.run(
+								docId,
+								first.sid,
+								first.clock,
+								last.clock + last.span - first.clock,
+								first.dependencyJson,
+								joinPackedRows(history.map(encodePackedRow)),
+							);
+					}
+					history.length = 0;
+					historyBytes = 0;
+				};
 				const frontier = new Map(
 					this.vectors.get(docId) ?? this.readVector(docId),
 				);
@@ -401,6 +457,7 @@ export class SqlitePatchStore implements DocumentStore {
 					const deps = rowDependencies(row);
 					const reached = frontier.get(row.sid) ?? 1;
 					if (row.clock < reached) {
+						flushHistory();
 						// Known, or replaced here: only its contents can conflict, and
 						// only its span can say that more writes were replaced.
 						const held = heldAt(row.sid, row.clock);
@@ -434,6 +491,8 @@ export class SqlitePatchStore implements DocumentStore {
 						if (row.clock > 1 && ownClock(deps, row.sid) < row.clock)
 							throw new PulseError("CONFLICT", "Actor history fork");
 					} else {
+						// Duplicate, fork and overlap checks must see earlier rows in this append.
+						flushHistory();
 						const existing = get.get(
 							docId,
 							row.sid,
@@ -493,16 +552,43 @@ export class SqlitePatchStore implements DocumentStore {
 					inserted++;
 					fresh.push(row);
 					if (readyNow) {
-						if (keep(row.sid, row.clock, dependencies, operations))
-							insert.run(
-								docId,
-								row.sid,
-								row.clock,
-								row.span,
-								dependencies,
-								operations,
-								1,
-							);
+						if (keep(row.sid, row.clock, dependencies, operations)) {
+							// JSON overestimates the dependency bytes. Leave room for the
+							// span and length headers and keep segments inline for paging.
+							const size = operations.length + dependencies.length + 16;
+							if (!history || size > MISSING_INLINE_BYTES) {
+								flushHistory();
+								insert.run(
+									docId,
+									row.sid,
+									row.clock,
+									row.span,
+									dependencies,
+									operations,
+									1,
+								);
+							} else {
+								const previous = history.at(-1);
+								if (
+									previous &&
+									(previous.sid !== row.sid ||
+										previous.clock + previous.span !== row.clock ||
+										history.length === MAX_APPEND_PACK_ROWS ||
+										historyBytes + size > MISSING_INLINE_BYTES)
+								)
+									flushHistory();
+								history.push({
+									docId,
+									sid: row.sid,
+									clock: row.clock,
+									span: row.span,
+									dependencies: deps,
+									operations,
+									dependencyJson: dependencies,
+								});
+								historyBytes += size;
+							}
+						}
 						frontier.set(row.sid, row.clock + row.span);
 						changedActors.add(row.sid);
 						ready++;
@@ -520,6 +606,7 @@ export class SqlitePatchStore implements DocumentStore {
 						actorPending.set(row.sid, true);
 					}
 				}
+				flushHistory();
 				let pendingCount = 0;
 				if (!hasPending) {
 					if (frontier.size > MAX_VECTOR_ENTRIES)
@@ -1191,14 +1278,7 @@ export class SqlitePatchStore implements DocumentStore {
 								(get.get(docId, sid, clock) as RecordRow).operations,
 							),
 						);
-					const payload = new Uint8Array(
-						parts.reduce((total, part) => total + part.length, 0),
-					);
-					let offset = 0;
-					for (const part of parts) {
-						payload.set(part, offset);
-						offset += part.length;
-					}
+					const payload = joinPackedRows(parts);
 					remove.run(docId, sid, clock, end);
 					write.run(end - clock, payload, docId, sid, clock);
 					segments++;
