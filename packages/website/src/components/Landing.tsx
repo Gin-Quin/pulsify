@@ -735,7 +735,7 @@ export function Everywhere() {
 					<div class={styles.cloudTeaser}>
 						<Icon name="cloud" size="1.5rem" class={styles.icon} />
 						<div>
-							<strong>Pulsify Cloud is coming.</strong>
+							<strong>Pulsify Cloud is available.</strong>
 							<span class={styles.text}>
 								{" "}
 								A managed sync backend. One connector, no database to run.
