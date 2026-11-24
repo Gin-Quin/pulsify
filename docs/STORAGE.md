@@ -235,7 +235,11 @@ Implement `PatchStore` from `pulsify-core/storage` and pass the store to
 idempotent duplicates, conflicts that roll back the whole batch, and rows that
 stay dangling until their predecessors and dependencies are stored. Any database
 with ordered keys and atomic batches can provide it. `IndexedDbPatchStore` in
-`pulsify-indexeddb` is an example outside SQL.
+`pulsify-indexeddb` is an example outside SQL. Like the SQL stores, it pages
+`missingPage` by seeking each actor's rows and its `clock` index of values
+(`[docId, sid, clock]`, added by schema version 5 and built from the values an
+older database holds) in bounded batches, so a page reads what it returns. A
+version 5 database cannot be opened by a release that expects version 4.
 
 In Rust, the `PatchStore` trait of `pulsify-protocol` is the same contract,
 and `relay_frame` and `Hub` serve frames from any implementation. Two are

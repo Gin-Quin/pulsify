@@ -12,9 +12,18 @@ import {
 } from "pulsify-core";
 import { encodeMessage } from "pulsify-core/protocol";
 import type { StoredPatchRow } from "pulsify-core/storage";
-import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
+import {
+	IDBFactory,
+	IDBIndex,
+	IDBKeyRange,
+	IDBObjectStore,
+} from "fake-indexeddb";
 import { IndexedDbPatchStore } from "../source/index";
 import { lastValueStoreConformance } from "../../../pulse/tests/history-store.js";
+import {
+	encodeValueOp,
+	pagingStoreConformance,
+} from "../../../pulse/tests/paging-store.js";
 
 const actor = 70001,
 	other = 70002;
@@ -100,6 +109,53 @@ test("IndexedDB pagination seeks forward without rescanning earlier pages or nei
 });
 
 lastValueStoreConformance("IndexedDB", async () => create());
+pagingStoreConformance("IndexedDB", async () => create());
+
+test("a page reads its values by clock, not every value of the actor", async () => {
+	const store = create(),
+		docId = crypto.randomUUID();
+	// 1000 distinct registers: one value each.
+	for (let i = 0; i < 1000; i += 500)
+		await store.append(
+			Array.from({ length: 500 }, (_, j) => ({
+				...row(docId, i + j + 1),
+				operations: encodeValueOp(i + j + 1, i + j + 1),
+			})),
+		);
+	const prototypes = [IDBIndex.prototype, IDBObjectStore.prototype];
+	const originals = prototypes.map((prototype) => prototype.getAll);
+	let read = 0;
+	try {
+		for (const [i, prototype] of prototypes.entries())
+			prototype.getAll = function (
+				this: IDBIndex | IDBObjectStore,
+				query?: IDBValidKey | IDBKeyRange | null,
+				count?: number,
+			) {
+				const pending = originals[i]!.call(this, query, count);
+				const store = "objectStore" in this ? this.objectStore : this;
+				pending.addEventListener("success", () => {
+					if (store.name === "values") read += pending.result.length;
+				});
+				return pending;
+			};
+		let page = await store.missingPage(docId, [[actor, 500]], {
+			maxRows: 2,
+		});
+		expect(page.rows.map((r) => r.clock)).toEqual([500, 501]);
+		page = await store.missingPage(docId, [[actor, 500]], {
+			maxRows: 2,
+			after: page.next,
+		});
+		expect(page.rows.map((r) => r.clock)).toEqual([502, 503]);
+		// Two pages, each at most one scan batch: never the 1000 values.
+		expect(read).toBeGreaterThan(0);
+		expect(read).toBeLessThanOrEqual(2 * 128);
+	} finally {
+		prototypes.forEach((prototype, i) => (prototype.getAll = originals[i]!));
+		store.close();
+	}
+});
 
 describe("IndexedDbPatchStore", () => {
 	test("a database from before version 13 is upgraded in place", async () => {
@@ -237,6 +293,68 @@ describe("IndexedDbPatchStore", () => {
 				[other, 4],
 			]),
 		).toEqual([next]);
+		store.close();
+	});
+	test("a version 4 database indexes its values by clock and serves them in order", async () => {
+		const options = storeOptions(),
+			docId = crypto.randomUUID();
+		// The version 4 layout: values keyed by register, without the clock index.
+		const old = await new Promise<IDBDatabase>((resolve, reject) => {
+			const open = options.indexedDB.open(options.name, 4);
+			open.onupgradeneeded = () => {
+				open.result.createObjectStore("tombstones");
+				open.result
+					.createObjectStore("rows", { keyPath: ["docId", "sid", "clock"] })
+					.createIndex("state", ["docId", "ready", "sid", "end"]);
+				open.result.createObjectStore("clocks", { keyPath: ["docId", "sid"] });
+				open.result.createObjectStore("values", {
+					keyPath: ["docId", "sid", "register"],
+				});
+			};
+			open.onsuccess = () => resolve(open.result);
+			open.onerror = () => reject(open.error);
+		});
+		// Register keys sort the other way round from clocks.
+		const values = [1, 2, 3, 4].map((clock) => ({
+			...row(docId, clock),
+			operations: encodeValueOp(10 - clock, clock),
+		}));
+		await new Promise<void>((resolve, reject) => {
+			const tx = old.transaction(["values", "clocks"], "readwrite");
+			for (const value of values)
+				tx.objectStore("values").put({
+					docId,
+					sid: actor,
+					register: `r${10 - value.clock}`,
+					clock: value.clock,
+					dependencies: value.dependencies,
+					operations: value.operations,
+				});
+			tx.objectStore("clocks").put({ docId, sid: actor, clock: 5 });
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+		old.close();
+
+		const store = new IndexedDbPatchStore(options);
+		const db = await store.database();
+		expect(db.version).toBe(5);
+		expect([
+			...db.transaction("values").objectStore("values").indexNames,
+		]).toEqual(["clock"]);
+		expect(await store.missing(docId, [])).toEqual(values);
+		expect(await store.missing(docId, [[actor, 3]])).toEqual(values.slice(2));
+		const first = await store.missingPage(docId, [], { maxRows: 3 });
+		expect(first.rows).toEqual(values.slice(0, 3));
+		const second = await store.missingPage(docId, [], {
+			maxRows: 3,
+			after: first.next,
+		});
+		expect(second).toEqual({
+			rows: values.slice(3),
+			vv: [[actor, 5]],
+			next: undefined,
+		});
 		store.close();
 	});
 	test("append is opaque, idempotent, isolated and queryable from a vector", async () => {

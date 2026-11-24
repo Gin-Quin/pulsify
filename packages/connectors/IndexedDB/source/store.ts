@@ -72,8 +72,9 @@ type IndexedDbMissingCursor = {
 const MISSING_SCAN_BATCH = 128;
 
 // Version 3 adds the values. Version 2 was never released: its `registers`
-// store is dropped, and its rows stay as history rows.
-const VERSION = 4;
+// store is dropped, and its rows stay as history rows. Version 5 indexes the
+// values by clock.
+const VERSION = 5;
 const TOMBSTONES = "tombstones";
 const ROWS = "rows";
 const CLOCKS = "clocks";
@@ -83,6 +84,8 @@ const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
 /** Register bytes as a key every IndexedDB implementation orders the same. */
 const registerKey = (register: Uint8Array): string =>
 	String.fromCharCode(...register);
+/** `[docId, sid, clock]` of the values: an actor's values in clock order. */
+const VALUES_BY_CLOCK = "clock";
 /** `[docId, ready, sid, end]`: ready rows to send, or pending rows to promote. */
 const BY_STATE = "state";
 
@@ -271,83 +274,91 @@ export class IndexedDbPatchStore implements DocumentStore {
 					const from = resuming ? cursor.from : Math.max(peer.get(sid) ?? 0, 1);
 					const straddle = resuming ? cursor.straddle : true;
 					if (from >= frontier) continue;
-					const anchorPromise =
-						straddle && from > 1
-							? request(
-									rows.openCursor(
-										keys.bound([docId, sid], [docId, sid, from]),
-										"prev",
-									),
-								)
-							: Promise.resolve(null);
-					const valuesPromise = request<ValueRecord[]>(
-						values.getAll(keys.bound([docId, sid], [docId, sid, []])),
-					);
-					const [anchorCursor, keptRecords] = await Promise.all([
-						anchorPromise,
-						valuesPromise,
+					/**
+					 * Reads `source`, keyed by `[docId, sid, clock]`, in clock order
+					 * from `start` up to the frontier, one bounded batch at a time.
+					 */
+					const scan = <R extends { clock: number }>(
+						source: IDBObjectStore | IDBIndex,
+						start: number,
+						keep: (record: R) => StoredPatchRow | undefined,
+					) => {
+						let position = start;
+						// An empty open range is a DataError in IndexedDB, not an empty result.
+						let done = position >= frontier;
+						let queue: StoredPatchRow[] = [];
+						let index = 0;
+						return {
+							async peek(): Promise<StoredPatchRow | undefined> {
+								while (index >= queue.length && !done) {
+									const batch = await request<R[]>(
+										source.getAll(
+											keys.bound(
+												[docId, sid, position],
+												[docId, sid, frontier],
+												false,
+												true,
+											),
+											MISSING_SCAN_BATCH,
+										),
+									);
+									done = batch.length < MISSING_SCAN_BATCH;
+									if (batch.length) position = batch.at(-1)!.clock + 1;
+									if (position >= frontier) done = true;
+									queue = [];
+									index = 0;
+									for (const record of batch) {
+										const row = keep(record);
+										if (row) queue.push(row);
+									}
+								}
+								return queue[index];
+							},
+							take: (): StoredPatchRow => queue[index++]!,
+						};
+					};
+					// With a straddle, each scan starts at its last record at or before `from`.
+					const anchor = async (
+						source: IDBObjectStore | IDBIndex,
+					): Promise<number> => {
+						if (!straddle || from <= 1) return from;
+						const found = await request(
+							source.openKeyCursor(
+								keys.bound([docId, sid], [docId, sid, from]),
+								"prev",
+							),
+						);
+						return found ? (found.key as [string, number, number])[2] : from;
+					};
+					const byClock = values.index(VALUES_BY_CLOCK);
+					const [opStart, valStart] = await Promise.all([
+						anchor(rows),
+						anchor(byClock),
 					]);
-					const anchor = anchorCursor?.value as RowRecord | undefined;
-					let opCursor = anchor?.clock ?? from;
-					let opDone = false;
-					const opQueue: StoredPatchRow[] = [];
-					let opIndex = 0;
-					const fillOps = async () => {
-						opQueue.length = 0;
-						opIndex = 0;
-						while (!opDone && !opQueue.length) {
-							const batch = await request<RowRecord[]>(
-								rows.getAll(
-									keys.bound(
-										[docId, sid, opCursor],
-										[docId, sid, frontier],
-										false,
-										true,
-									),
-									MISSING_SCAN_BATCH,
-								),
-							);
-							if (batch.length < MISSING_SCAN_BATCH) opDone = true;
-							if (!batch.length) break;
-							opCursor = batch.at(-1)!.clock + 1;
-							// An empty open range is a DataError in IndexedDB, not an empty result.
-							if (opCursor >= frontier) opDone = true;
-							for (const rec of batch) {
-								if (!rec.ready) continue;
-								if (!straddle && rec.clock < from) continue;
-								if (isGap(rec.operations)) continue;
-								opQueue.push(unpack(rec));
-							}
-						}
+					const ops = scan<RowRecord>(rows, opStart, (record) =>
+						record.ready &&
+						(straddle || record.clock >= from) &&
+						!isGap(record.operations)
+							? unpack(record)
+							: undefined,
+					);
+					const vals = scan<ValueRecord>(byClock, valStart, (record) =>
+						isGap(record.operations) ? undefined : unpackValue(record),
+					);
+					const takeHeld = async (): Promise<StoredPatchRow | undefined> => {
+						const op = await ops.peek();
+						const val = await vals.peek();
+						if (!op && !val) return undefined;
+						return op && (!val || op.clock <= val.clock)
+							? ops.take()
+							: vals.take();
 					};
-					const valList = keptRecords
-						.map(unpackValue)
-						.filter(
-							(row) =>
-								row.clock < frontier &&
-								(straddle || row.clock >= from) &&
-								!isGap(row.operations),
-						)
-						.sort((a, b) => a.clock - b.clock);
-					let valIndex = 0;
-					const takeHeld = (): StoredPatchRow | undefined => {
-						const op = opQueue[opIndex];
-						const val = valList[valIndex];
-						if (!op) return val ? valList[valIndex++] : undefined;
-						if (!val) return opQueue[opIndex++];
-						return op.clock <= val.clock
-							? opQueue[opIndex++]
-							: valList[valIndex++];
-					};
-					if (opIndex >= opQueue.length && !opDone) await fillOps();
-					let curr = takeHeld();
-					if (curr && opIndex >= opQueue.length && !opDone) await fillOps();
-					let next = curr ? takeHeld() : undefined;
+					let curr = await takeHeld();
+					let next = curr ? await takeHeld() : undefined;
 					if (straddle) {
 						while (curr && next && next.clock <= from) {
 							curr = next;
-							if (opIndex >= opQueue.length && !opDone) await fillOps();
-							next = takeHeld();
+							next = await takeHeld();
 						}
 					}
 					if (!curr || curr.clock > from) {
@@ -389,8 +400,7 @@ export class IndexedDbPatchStore implements DocumentStore {
 								} satisfies IndexedDbMissingCursor,
 							};
 						curr = next;
-						if (curr && opIndex >= opQueue.length && !opDone) await fillOps();
-						next = curr ? takeHeld() : undefined;
+						next = curr ? await takeHeld() : undefined;
 					}
 				}
 				return { rows: page, vv, next: undefined };
@@ -632,10 +642,14 @@ export class IndexedDbPatchStore implements DocumentStore {
 					db.createObjectStore(CLOCKS, { keyPath: ["docId", "sid"] });
 				if (db.objectStoreNames.contains("registers"))
 					db.deleteObjectStore("registers");
-				if (!db.objectStoreNames.contains(VALUES))
-					db.createObjectStore(VALUES, {
-						keyPath: ["docId", "sid", "register"],
-					});
+				const valueStore = db.objectStoreNames.contains(VALUES)
+					? open.transaction!.objectStore(VALUES)
+					: db.createObjectStore(VALUES, {
+							keyPath: ["docId", "sid", "register"],
+						});
+				// Built from the values a version 3 or 4 database already holds.
+				if (!valueStore.indexNames.contains(VALUES_BY_CLOCK))
+					valueStore.createIndex(VALUES_BY_CLOCK, ["docId", "sid", "clock"]);
 			};
 			open.onerror = () =>
 				reject(
