@@ -2,15 +2,27 @@
 
 All notable changes to Pulsify are documented in this file.
 
-## [Unreleased]
+## [18.0.0]
 
-### Fixes
+### Synchronization
 
-- **Live delivery**: a stored upload reaches every other session, whatever happens to one of them.
-  - A grouped upload just under 8 MiB reached envelope 1 sessions of Pulsify Cloud and `PulseRelay` not at all: it now arrives as bounded `update` frames, in order, each with the committed vector. `encodeBroadcastFrames` (`pulsify-core/protocol`) makes them; `encodeBroadcast` is unchanged.
-  - Pulsify Cloud encodes an update once per envelope instead of once per session.
-  - The local server closes a socket whose frame Bun dropped (`send` answered 0) with 1013, so that its client reconnects and downloads what it missed.
-  - The Rust `Hub` forwards stored rows even when the sender's own sink is gone; a retransmission stores nothing, so the other sessions never got them.
+- Sync waits track the version held when they begin. While an upload waits for an acknowledgment, subsequent edits share one follow-up upload.
+- A load waiting for selected connectors honors its deadline and abort signal after its data is ready. Valid download pages reset the request inactivity timer.
+- Plain WebSocket connectors probe silent sessions after 30 seconds by default. Set `heartbeatMs: false` to disable probes. They use the existing sync request.
+
+### Live delivery
+
+- Pulsify Cloud and `PulseRelay` split oversized legacy broadcasts into ordered update frames and encode each batch once per negotiated envelope. Use `encodeBroadcastFrames` in a custom relay to send all frames for a broadcast.
+- If Bun drops a frame, the local Cloud server closes that socket so the client reconnects and downloads the missing rows.
+- The TypeScript relay and the Rust `Hub` forward stored rows to healthy sessions even if acknowledging the writer fails.
+
+### Storage and frontend
+
+- PostgreSQL paginates missing history with bounded keyset reads. CI runs its conformance tests against PostgreSQL 16.
+- IndexedDB schema version 5 builds a clock index on existing retained values for bounded paging. Older Pulsify releases cannot open the upgraded database.
+- React tracks pending pulse loads per scope and document ID. The website closes demo rooms when visitors leave their route.
+
+The wire format is compatible with Pulsify 17.
 
 ## [17.0.0]
 
