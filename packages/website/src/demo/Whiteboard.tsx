@@ -92,9 +92,16 @@ const FONT_SIZE = 24;
 export default function WhiteboardDemo() {
 	return (
 		<Room
-			open={() =>
-				openRoom(Sketch, (id) =>
-					createPulse(Sketch, { id, shapes: {} }, { connect: true }),
+			open={(signal) =>
+				openRoom(
+					Sketch,
+					(id, options) =>
+						createPulse(
+							Sketch,
+							{ id, shapes: {} },
+							{ ...options, connect: true },
+						),
+					signal,
 				)
 			}
 		>

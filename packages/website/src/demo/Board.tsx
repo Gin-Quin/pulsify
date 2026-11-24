@@ -43,21 +43,25 @@ const SAMPLES = [
 export default function BoardDemo() {
 	return (
 		<Room
-			open={() =>
-				openRoom(Kanban, (id) => {
-					const pulse = createPulse(
-						Kanban,
-						{ id, cards: {} },
-						{ connect: true },
-					);
-					for (const title of COLUMNS) {
-						const column = pulse.cards.createNode({ title });
-						if (title === COLUMNS[0])
-							for (const sample of SAMPLES)
-								column.createNode({ title: sample });
-					}
-					return pulse;
-				})
+			open={(signal) =>
+				openRoom(
+					Kanban,
+					(id, options) => {
+						const pulse = createPulse(
+							Kanban,
+							{ id, cards: {} },
+							{ ...options, connect: true },
+						);
+						for (const title of COLUMNS) {
+							const column = pulse.cards.createNode({ title });
+							if (title === COLUMNS[0])
+								for (const sample of SAMPLES)
+									column.createNode({ title: sample });
+						}
+						return pulse;
+					},
+					signal,
+				)
 			}
 		>
 			{(pulse: Kanban) => <Columns pulse={pulse} />}

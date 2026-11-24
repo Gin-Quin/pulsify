@@ -4,23 +4,37 @@ import {
 	createSignal,
 	For,
 	Match,
+	onCleanup,
 	Show,
 	Switch,
 	type JSX,
 } from "solid-js";
 import { renderSVG } from "uqr";
 import { Icon, type IconName } from "~/components/Icon";
-import { createStatus, me, online, RoomExpired, setOnline } from "./room";
+import {
+	createStatus,
+	me,
+	online,
+	ownRoom,
+	RoomExpired,
+	setOnline,
+	type OpenRoom,
+} from "./room";
 import styles from "./Shell.module.css";
 
 type Someone = { name: string; color: string };
 
-/** A demo window, with its room once open. */
+/**
+ * A demo window, with its room once open. It owns the room: leaving the page
+ * closes its socket and pulses, or stops the opening.
+ */
 export function Room<P>(props: {
-	open: () => Promise<P>;
+	open: (signal: AbortSignal) => Promise<OpenRoom<P>>;
 	children: (room: P) => JSX.Element;
 }) {
-	const [room] = createResource(() => props.open());
+	const owned = ownRoom(props.open);
+	onCleanup(owned.dispose);
+	const [room] = createResource(() => owned.pulse);
 	return (
 		<div class={styles.app}>
 			<Switch

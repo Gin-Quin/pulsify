@@ -2,13 +2,16 @@
 // the online switch. Client only: import it from a clientOnly component.
 import { createCloudConnector } from "pulsify-cloud";
 import {
+	createPulseScope,
+	destroyPulse,
 	loadPulse,
 	PulseError,
-	setDefaultPulseOptions,
 	setOnlineMode,
 	subscribePulseStatus,
 	type AnyPulseDefinition,
+	type Connector,
 	type Pulse,
+	type PulseScope,
 	type SynchronizationStatus,
 } from "pulsify-core";
 import { createSignal, onCleanup } from "solid-js";
@@ -54,11 +57,12 @@ export const me: Person = (() => {
 
 type Session = { url: string; room: string; token: string };
 /** The website's backend, worker.ts: a new room, or a token for one. */
-async function session(room?: string): Promise<Session> {
+async function session(room?: string, signal?: AbortSignal): Promise<Session> {
 	const response = await fetch("/api/demo", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ room }),
+		signal: signal ?? null,
 	});
 	const body = await response.json().catch(() => ({}));
 	if (!response.ok)
@@ -77,18 +81,29 @@ export class RoomExpired extends Error {
 
 const sockets = new Set<WebSocket>();
 
+/** What a room's pulses are created and loaded with: its own scope and socket. */
+export type RoomOptions = { scope: PulseScope; connectors: Connector[] };
+/** An open room: its root pulse, and `close` to destroy its pulses and socket. */
+export type OpenRoom<P> = { pulse: P; close(): void };
+
+const aborted = () => new DOMException("The room was closed", "AbortError");
+
 /**
  * Join the room of the URL, or open a new one and write it in the URL. A room
  * is a root of its own on Pulsify Cloud: one Durable Object. Its root document
- * is made by `create` for the visitor who opened it.
+ * is made by `create`, with the room's options, for the visitor who opened it.
+ * Each room has its own scope and connector, nothing global: once `signal`
+ * aborts, opening stops and whatever it made is closed.
  */
 export async function openRoom<P extends Pulse<any>>(
 	definition: AnyPulseDefinition,
-	create: (id: string) => P,
-): Promise<P> {
+	create: (id: string, options: RoomOptions) => P,
+	signal: AbortSignal,
+): Promise<OpenRoom<P>> {
 	const url = new URL(location.href);
 	const joining = url.searchParams.get("room") ?? undefined;
-	const first = await session(joining);
+	const first = await session(joining, signal);
+	if (signal.aborted) throw aborted();
 	if (!joining) {
 		url.searchParams.set("room", first.room);
 		history.replaceState(null, "", url);
@@ -109,19 +124,72 @@ export async function openRoom<P extends Pulse<any>>(
 			return socket;
 		},
 	});
-	setDefaultPulseOptions({ connectors: [cloud] });
-	if (!joining) return create(first.room);
+	const options: RoomOptions = {
+		scope: createPulseScope(),
+		connectors: [cloud],
+	};
+	const close = () => {
+		cloud.close();
+		for (const pulse of [...options.scope.pulses.values()]) destroyPulse(pulse);
+	};
+	const opened = (pulse: P): OpenRoom<P> => {
+		if (signal.aborted) {
+			close();
+			throw aborted();
+		}
+		return { pulse, close };
+	};
+	if (!joining) return opened(create(first.room, options));
 	try {
-		return (await loadPulse(definition, first.room)) as P;
+		return opened(
+			(await loadPulse(definition, first.room, { ...options, signal })) as P,
+		);
 	} catch (error) {
+		if (signal.aborted) {
+			close();
+			throw aborted();
+		}
 		// The room expired: its root and its grant are gone.
-		if (error instanceof PulseError && error.code === "FORBIDDEN")
+		if (error instanceof PulseError && error.code === "FORBIDDEN") {
+			close();
 			throw new RoomExpired();
-		if (!(error instanceof PulseError && error.code === "NOT_FOUND"))
+		}
+		if (!(error instanceof PulseError && error.code === "NOT_FOUND")) {
+			close();
 			throw error;
+		}
 		// Whoever opened the room left before saving it.
-		return create(first.room);
+		return opened(create(first.room, options));
 	}
+}
+
+/**
+ * Owns a room for one component: `dispose`, on unmount, aborts the opening,
+ * or closes the room once open, even if it opens later.
+ */
+export function ownRoom<P>(
+	open: (signal: AbortSignal) => Promise<OpenRoom<P>>,
+): {
+	pulse: Promise<P>;
+	dispose(): void;
+} {
+	const controller = new AbortController();
+	let room: OpenRoom<P> | undefined;
+	const pulse = open(controller.signal).then((opened) => {
+		room = opened;
+		if (controller.signal.aborted) {
+			opened.close();
+			throw aborted();
+		}
+		return opened.pulse;
+	});
+	return {
+		pulse,
+		dispose() {
+			controller.abort();
+			room?.close();
+		},
+	};
 }
 
 const [online, setOnlineSignal] = createSignal(true);

@@ -66,22 +66,25 @@ const newId = () => crypto.randomUUID().slice(0, 8);
 export default function DocsDemo() {
 	return (
 		<Room
-			open={() =>
-				openRoom(Docs, (id) =>
-					createPulse(
-						Docs,
-						{
-							id,
-							files: {
-								[newId()]: {
-									title: "Welcome",
-									created: Date.now(),
-									body: WELCOME,
+			open={(signal) =>
+				openRoom(
+					Docs,
+					(id, options) =>
+						createPulse(
+							Docs,
+							{
+								id,
+								files: {
+									[newId()]: {
+										title: "Welcome",
+										created: Date.now(),
+										body: WELCOME,
+									},
 								},
 							},
-						},
-						{ connect: true },
-					),
+							{ ...options, connect: true },
+						),
+					signal,
 				)
 			}
 		>

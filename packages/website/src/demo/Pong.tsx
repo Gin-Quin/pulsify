@@ -59,13 +59,16 @@ const RIGHT = "#e879f9";
 export default function Pong() {
 	return (
 		<Room
-			open={() =>
-				openRoom(Table, (id) =>
-					createPulse(
-						Table,
-						{ id, left: me.id, leftScore: 0, rightScore: 0 },
-						{ connect: true },
-					),
+			open={(signal) =>
+				openRoom(
+					Table,
+					(id, options) =>
+						createPulse(
+							Table,
+							{ id, left: me.id, leftScore: 0, rightScore: 0 },
+							{ ...options, connect: true },
+						),
+					signal,
 				)
 			}
 		>
