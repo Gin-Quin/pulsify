@@ -106,6 +106,7 @@ export {
 	relayStoreMessage,
 	streamStoreMessage,
 	encodeBroadcast,
+	encodeBroadcastFrames,
 } from "./protocol/StoreRelay.js";
 export { encodePresenceLeave } from "./protocol/presenceFrames.js";
 export {

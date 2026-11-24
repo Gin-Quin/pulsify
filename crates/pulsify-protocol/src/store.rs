@@ -266,36 +266,42 @@ impl<T: PatchStore, S: Sink> Hub<T, S> {
         );
         Ok(session)
     }
-    /// Relays one frame. Responses go to `session`, new rows to the document's other sessions.
+    /// Relays one frame. Responses go to `session`, new rows to the document's
+    /// other sessions. Stored rows are forwarded even when the sender's own
+    /// sink is gone: a retransmission stores nothing, so it would forward
+    /// nothing. That session is then closed, and the call fails with `CLOSED`.
     pub fn send(&mut self, session: u64, bytes: &[u8]) -> Result<(), T::Error> {
         let peer = self
             .sessions
             .get(&session)
             .ok_or_else(|| Error::new("CLOSED", "Unknown or closed session"))?;
         let output = relay_frame(&mut self.store, bytes, Some(&peer.doc_id))?;
+        let mut gone = Vec::new();
         for frame in output.responses {
             if !peer.sink.deliver(session, frame) {
-                self.sessions.remove(&session);
-                return Err(Error::new("CLOSED", "Session receiver is gone").into());
+                gone.push(session);
+                break;
             }
         }
-        if output.broadcast.is_empty() {
-            return Ok(());
-        }
-        let mut gone = Vec::new();
-        for (id, other) in &self.sessions {
-            if *id == session || other.doc_id != output.doc_id {
-                continue;
-            }
-            for frame in &output.broadcast {
-                if !other.sink.deliver(*id, frame.clone()) {
-                    gone.push(*id);
-                    break;
+        if !output.broadcast.is_empty() {
+            for (id, other) in &self.sessions {
+                if *id == session || other.doc_id != output.doc_id {
+                    continue;
+                }
+                for frame in &output.broadcast {
+                    if !other.sink.deliver(*id, frame.clone()) {
+                        gone.push(*id);
+                        break;
+                    }
                 }
             }
         }
+        let sender_gone = gone.first() == Some(&session);
         for id in gone {
             self.sessions.remove(&id);
+        }
+        if sender_gone {
+            return Err(Error::new("CLOSED", "Session receiver is gone").into());
         }
         Ok(())
     }

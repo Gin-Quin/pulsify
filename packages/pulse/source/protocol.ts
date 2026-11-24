@@ -29,6 +29,7 @@ export {
 	relayStoreMessage,
 	streamStoreMessage,
 	encodeBroadcast,
+	encodeBroadcastFrames,
 } from "./protocol/StoreRelay.js";
 export type {
 	StoreRelaySession,

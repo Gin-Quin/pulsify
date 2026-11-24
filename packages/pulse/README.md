@@ -866,14 +866,15 @@ subject })` names the user you authenticated, which every peer reads as
 does the forwarding itself:
 
 ```ts
-import { encodeBroadcast, encodePresenceLeave, relayStoreMessage } from "pulsify-core/protocol";
+import { encodeBroadcastFrames, encodePresenceLeave, relayStoreMessage } from "pulsify-core/protocol";
 
 // peer: a positive number no other open session of the document uses.
 const result = await relayStoreMessage(store, bytes, { docId, readOnly, peer, subject });
 for (const frame of result.responses) socket.send(frame);
 if (result.presence) session.presence = true; // this client understands presence
 for (const other of othersOf(docId, socket)) {
-  if (result.broadcast) other.send(encodeBroadcast(docId, result.broadcast));
+  if (result.broadcast)
+    for (const frame of encodeBroadcastFrames(docId, result.broadcast)) other.send(frame);
   const { presence } = result;
   if (presence && other.presence && (!presence.to || presence.to === other.peer))
     other.send(presence.frame);
@@ -1059,7 +1060,7 @@ history use string field keys in new patches to preserve old layout identities.
 
 A `Connector` supplies `kind: "local" | "remote"`, for a local store an optional `actorPool` name (see [Actor IDs](#actor-ids)), and `open({ docId, identity, signal, onMessage, onClose })`, returning a session with asynchronous `send(Uint8Array)` and idempotent `close()`. `identity` is the one of the pulse's scope, for a connector that authenticates as an account; a session may also implement `declareActors(actors)`, called with actors the scope created itself, and answer through `onActorsRefused(actors)` of `open` (see [Actors and accounts](#actors-and-accounts)). Deliver complete binary frames, honor cancellation and report transport closure. A WebSocket factory can be supplied to `createWebSocketConnector` for custom runtime/authentication integration, and a `{docId}` placeholder in its URL is replaced per session for servers that route before the first frame. See the [protocol specification](../../docs/PROTOCOL.md).
 
-Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to `encodeBroadcast` to the document's other peers. `pulsify-cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
+Authorization is a server decision taken at the session boundary, outside the replicated data. `PulseRelay.open(send, { readOnly: true, docId })` serves connect and sync and answers any upload with `FORBIDDEN`; `docId` pins the session to one document before its connect frame. `relayStoreMessage(store, frame, session)` serves one frame directly from a `PatchStore` without an in-memory journal, committing rows before the acknowledgement and returning the frames to send back plus the rows to send to the document's other peers with `encodeBroadcastFrames` (bounded frames, encoded once per envelope). `pulsify-cloud-server` builds a managed backend on these pieces: one actor per root pulse (a Cloudflare Durable Object), one multiplexed WebSocket per user and root, and reader/editor/owner grants stored in each root.
 
 Durable operation stores are available from `pulsify-core/storage` for
 PostgreSQL and SQLite; any other database can implement the exported

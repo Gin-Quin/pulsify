@@ -11,10 +11,21 @@ import {
 	relayStoreMessage,
 	streamStoreMessage,
 	encodeBroadcast,
+	encodeBroadcastFrames,
 	encodeMessage,
 	decodeMessage,
+	definePulse,
+	exportPulseUpdates,
+	applyPulseUpdates,
+	getPulseMeta,
+	snapshotPulse,
+	versioned,
 	type Connector,
 } from "../source/index";
+import { object } from "@gin-quin/codec";
+import { MAX_FRAME_BYTES } from "../source/protocol/limits";
+import { createRuntime } from "../source/pulses/PulseRuntime";
+import { defaultPulseOptions } from "../source/pulses/PulseOptions";
 import { SqlitePatchStore } from "../source/storage/sqlite";
 import { Document, data, eventually } from "./helpers";
 
@@ -169,5 +180,109 @@ describe("store relay", () => {
 		}
 		const allRows = messages.flatMap((m) => (m.kind === 2 ? m.rows : []));
 		expect(allRows).toEqual(await store.missing(docId, []));
+	});
+
+	test("a grouped upload near 8 MiB reaches every envelope in bounded frames, encoded once each", () => {
+		const Big = definePulse(
+			"RelayBig",
+			versioned(object({ title: "string" })),
+		).materialize();
+		const options = (sessionId: number) => ({
+			...defaultPulseOptions,
+			sessionId,
+			scope: createPulseScope(),
+		});
+		const writer = createPulse(Big, { id: "big", title: "" }, options(65536));
+		const base = exportPulseUpdates(writer, [], { peerVersion: 2 });
+		const start = getPulseMeta(writer).log.vector;
+		for (let i = 0; i < 4096; i++) writer.title = String(i).padStart(2000, "x");
+		const [upload, ...more] = exportPulseUpdates(writer, start, {
+			peerVersion: 2,
+		});
+		expect(more).toEqual([]);
+		expect(upload![0]).toBe(2);
+		const uploaded = decodeMessage(upload!);
+		if (uploaded.kind !== 4) throw new Error("Expected an update");
+		const vv = getPulseMeta(writer).log.vector;
+		const broadcast = { rows: uploaded.rows, vv };
+		expect(() => encodeBroadcast("big", broadcast, 1)).toThrow("8 MiB");
+		expect(encodeBroadcastFrames("big", broadcast, 2)).toEqual([
+			upload as Uint8Array<ArrayBuffer>,
+		]);
+
+		const relay = new PulseRelay();
+		const inbox = (protocolVersion: 1 | 2) => {
+			const frames: Uint8Array[] = [];
+			const peer = relay.open((bytes) => frames.push(bytes), {
+				protocolVersion,
+			});
+			peer.receive(
+				encodeMessage({ kind: 1, docId: "big", requestId: 1, vv: [] }),
+			);
+			return { peer, frames };
+		};
+		const sender = inbox(2);
+		const legacy = inbox(1);
+		const other = inbox(1);
+		const modern = inbox(2);
+		for (const frame of [...base, upload!]) sender.peer.receive(frame);
+		const updates = (frames: Uint8Array[]) => frames.slice(2); // The sync, then the base update.
+		expect(decodeMessage(sender.frames.at(-1)!)).toEqual({
+			kind: 5,
+			docId: "big",
+			requestId: 0,
+			vv,
+		});
+		expect(updates(modern.frames)).toEqual([upload!]);
+		const chunks = updates(legacy.frames);
+		expect(chunks.length).toBeGreaterThan(1);
+		// The same frames, not a copy per peer.
+		chunks.forEach((frame, i) => expect(updates(other.frames)[i]).toBe(frame));
+		for (const frame of chunks) {
+			expect(frame[0]).toBe(1);
+			expect(frame.length).toBeLessThanOrEqual(MAX_FRAME_BYTES);
+			expect(decodeMessage(frame)).toMatchObject({ kind: 4, vv });
+		}
+		// Applied in order, the chunks rebuild the writer's document exactly.
+		const replica = createRuntime(Big, "big", options(65537)) as typeof writer;
+		applyPulseUpdates(replica, legacy.frames);
+		expect(snapshotPulse(replica)).toEqual(snapshotPulse(writer));
+		expect(getPulseMeta(replica).log.missing([])).toEqual(
+			getPulseMeta(writer).log.missing([]),
+		);
+	});
+
+	test("a sender whose socket fails still forwards what it stored", () => {
+		const relay = new PulseRelay();
+		let failing = false;
+		const writer = relay.open(() => {
+			if (failing) throw new Error("Socket gone");
+		});
+		const received: Uint8Array[] = [];
+		const reader = relay.open((bytes) => received.push(bytes));
+		const connect = encodeMessage({
+			kind: 1,
+			docId: "doc",
+			requestId: 1,
+			vv: [],
+		});
+		writer.receive(connect);
+		reader.receive(connect);
+		received.length = 0;
+		const pulse = createPulse(Document, data("doc"), {
+			scope: createPulseScope(),
+		});
+		const upload = exportPulseUpdates(pulse, []);
+		failing = true;
+		for (const frame of upload)
+			expect(() => writer.receive(frame)).toThrow("Socket gone");
+		expect(received.map((frame) => decodeMessage(frame).kind)).toEqual(
+			upload.map(() => 4),
+		);
+		expect(relay.getLog("doc")?.vector).toEqual(getPulseMeta(pulse).log.vector);
+		// Sent again, the rows are duplicates: nothing more is forwarded.
+		failing = false;
+		for (const frame of upload) writer.receive(frame);
+		expect(received).toHaveLength(upload.length);
 	});
 });

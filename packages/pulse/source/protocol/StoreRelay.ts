@@ -5,6 +5,7 @@ import type { MissingPage, PatchStore } from "../storage/rows.js";
 import { chunkRows } from "./chunkRows.js";
 import { asPulseError, PulseError } from "./errors.js";
 import {
+	MAX_FRAME_BYTES,
 	MAX_MESSAGE_ROWS,
 	MAX_PATCH_BYTES,
 	MAX_ROW_BATCH_NODES,
@@ -200,7 +201,7 @@ export async function streamStoreMessage(
 /**
  * Serve one protocol frame from a durable store, without an in-memory journal.
  * Rows are committed before the acknowledgement is produced. The caller owns
- * sockets: send `responses` to the peer and `encodeBroadcast` to the others.
+ * sockets: send `responses` to the peer and `encodeBroadcastFrames` to the others.
  * Presence frames are not served from the store: forward `presence` as it
  * says, and send `encodePresenceLeave` to the others when a session ends.
  */
@@ -216,6 +217,12 @@ export async function relayStoreMessage(
 	return { ...streamed, responses };
 }
 
+/**
+ * One update frame of the broadcast. It throws `LIMIT_EXCEEDED` when the rows
+ * do not fit one frame of `peerVersion`: an upload that fit grouped (envelope
+ * 2) can be larger than 8 MiB once each row is spelled out (envelope 1). Use
+ * `encodeBroadcastFrames` to always get frames.
+ */
 export function encodeBroadcast(
 	docId: string,
 	broadcast: StoreRelayBroadcast,
@@ -225,4 +232,38 @@ export function encodeBroadcast(
 		{ kind: 4, docId, requestId: 0, vv: broadcast.vv, rows: broadcast.rows },
 		{ peerVersion },
 	);
+}
+
+/** What rows may take of an envelope 1 frame, leaving room for its largest vector. */
+const ENVELOPE_1_ROW_BYTES = MAX_FRAME_BYTES - 64 * 1024;
+
+/**
+ * The broadcast as update frames of `peerVersion`, in order: one frame when
+ * it fits, else bounded chunks of its rows, each with the committed vector,
+ * like the pages of a download. Encode once per envelope and send the same
+ * frames to every peer that negotiated it.
+ */
+export function encodeBroadcastFrames(
+	docId: string,
+	broadcast: StoreRelayBroadcast,
+	peerVersion: 1 | 2 | 3 = 1,
+): Uint8Array<ArrayBuffer>[] {
+	const chunks = () =>
+		chunkRows(broadcast.rows).map((rows) =>
+			encodeBroadcast(docId, { rows, vv: broadcast.vv }, peerVersion),
+		);
+	// Envelope 1 spells out every row: when the rows' estimated size alone
+	// does not fit one frame, do not encode a frame only to throw it away.
+	if (
+		peerVersion === 1 &&
+		chunkRows(broadcast.rows, ENVELOPE_1_ROW_BYTES).length > 1
+	)
+		return chunks();
+	try {
+		return [encodeBroadcast(docId, broadcast, peerVersion)];
+	} catch (error) {
+		if (!(error instanceof PulseError) || error.code !== "LIMIT_EXCEEDED")
+			throw error;
+	}
+	return chunks();
 }

@@ -23,7 +23,7 @@ cargo run --manifest-path crates/pulsify-protocol/Cargo.toml -- sample
 
 The CLI accepts one hex frame per stdin line. `roundtrip` decodes and re-encodes each frame; `relay` retains an in-memory document journal for that process and responds to connect/uploads. Hex is only a testing transport; the protocol itself is binary.
 
-For durable stores, the `PatchStore` trait describes what `pulsify-sqlite` and `pulsify-rocksdb` implement; `relay_frame` serves one frame from any of them, and `Hub` adds sessions pinned to a document with broadcast to the document's other sessions.
+For durable stores, the `PatchStore` trait describes what `pulsify-sqlite` and `pulsify-rocksdb` implement; `relay_frame` serves one frame from any of them, and `Hub` adds sessions pinned to a document with broadcast to the document's other sessions; rows it stored are forwarded even when the sender's own sink is gone.
 
 The crate stores operation payloads as opaque bytes, except for the head of a last-value row: `last_register_of` reads the register and the Lamport time of a write to a field without history (operation kinds 7 and 8), and `is_gap` recognizes a gap row, without a schema. The journal keeps the newest row of each such register, as `docs/PROTOCOL.md` ("Fields without history") describes. It validates the envelope and causal metadata, buffers gaps and handles retransmissions. Applying CRDT operations, verifying their inner spans, authorizing document access, storing data durably and broadcasting across multiple peers belong to the embedding application. The TypeScript interoperability test verifies a real create/load/offline-edit cycle against the Rust relay.
 

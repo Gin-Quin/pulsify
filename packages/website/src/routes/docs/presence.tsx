@@ -95,7 +95,7 @@ socket.data.peer = relay.open((bytes) => socket.sendBinary(bytes), {
 });`;
 
 const storeRelay = `import type { ServerWebSocket } from "bun";
-import { encodeBroadcast, encodePresenceLeave, relayStoreMessage } from "pulsify-core/protocol";
+import { encodeBroadcastFrames, encodePresenceLeave, relayStoreMessage } from "pulsify-core/protocol";
 
 // presence: a peer number, who it is, and whether this client uses presence
 type Session = { docId: string; readOnly: boolean; peer: number; subject: string; presence?: boolean };
@@ -118,12 +118,12 @@ Bun.serve<Session>({
       const { docId } = socket.data;
       const result = await relayStoreMessage(store, new Uint8Array(message), socket.data);
       for (const frame of result.responses) socket.sendBinary(frame);
-      const update = result.broadcast && encodeBroadcast(docId, result.broadcast);
+      const update = result.broadcast ? encodeBroadcastFrames(docId, result.broadcast) : [];
       const { presence } = result;
       if (presence) socket.data.presence = true;
       for (const other of rooms.get(docId) ?? []) {
         if (other === socket) continue;
-        if (update) other.sendBinary(update);
+        for (const frame of update) other.sendBinary(frame);
         // presence: to the others that use it, or to the one peer this frame answers
         if (presence && other.data.presence && (!presence.to || presence.to === other.data.peer))
           other.sendBinary(presence.frame);

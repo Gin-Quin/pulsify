@@ -3,6 +3,7 @@ import { historyRequestOf, stateDeltaOf } from "./stateDeltas.js";
 import { decodeMessage, encodeMessage } from "../connection/PulseMessage.js";
 import type { PulsePatchRow } from "../connection/PulsePatch.js";
 import { chunkRows } from "./chunkRows.js";
+import { encodeBroadcastFrames } from "./StoreRelay.js";
 import { asPulseError, PulseError } from "./errors.js";
 import { PatchLog } from "./PatchLog.js";
 import {
@@ -114,6 +115,9 @@ export class PulseRelay {
 						"Grouped transport was not negotiated",
 					);
 				const message = decodeMessage(bytes);
+				// The sender's own socket failing must not keep stored rows from
+				// the others: its error is thrown once they have them.
+				let unsent: { error: unknown } | undefined;
 				try {
 					if (peer.docId !== undefined && peer.docId !== message.docId)
 						throw new PulseError("INVALID_MESSAGE", "One document per session");
@@ -181,30 +185,32 @@ export class PulseRelay {
 					const ready = log.append(message.rows);
 					this.documents.set(message.docId, log);
 					const vv = log.vector;
-					send(
-						encode({
-							kind: 5,
-							docId: message.docId,
-							requestId: message.requestId,
-							vv,
-						}),
-					);
+					try {
+						send(
+							encode({
+								kind: 5,
+								docId: message.docId,
+								requestId: message.requestId,
+								vv,
+							}),
+						);
+					} catch (error) {
+						unsent = { error };
+					}
 					if (!ready.length && log.size === before) return;
-					const update = {
-						kind: 4 as const,
-						docId: message.docId,
-						requestId: 0,
-						vv,
-						rows: message.rows,
-					};
-					let frames: Partial<Record<1 | 2 | 3, Uint8Array>> | undefined;
+					const broadcast = { rows: message.rows, vv };
+					// Encoded once per envelope, in bounded frames: an upload that
+					// fit grouped may not fit one frame of an older envelope.
+					const frames: Partial<Record<1 | 2 | 3, Uint8Array[]>> = {};
 					for (const other of this.peers) {
 						if (other === peer || other.docId !== message.docId) continue;
 						const version = other.protocolVersion;
-						const frame = ((frames ??= {})[version] ??= encodeMessage(update, {
-							peerVersion: version,
-						}));
-						deliver(other, frame);
+						for (const frame of (frames[version] ??= encodeBroadcastFrames(
+							message.docId,
+							broadcast,
+							version,
+						)))
+							deliver(other, frame);
 					}
 				} catch (error) {
 					const failure = asPulseError(error);
@@ -217,6 +223,8 @@ export class PulseRelay {
 							message: failure.message,
 						}),
 					);
+				} finally {
+					if (unsent) throw unsent.error;
 				}
 			},
 		};

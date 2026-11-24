@@ -79,6 +79,30 @@ mod tests {
     }
 
     #[test]
+    fn a_gone_writer_still_forwards_what_it_stored() {
+        let mut hub = hub();
+        let inbox: Inbox = Rc::default();
+        let reader = hub.open("doc", "reader", sink(&inbox, true)).unwrap();
+        let writer = hub.open("doc", "writer", sink(&inbox, false)).unwrap();
+        let rows = vec![next(A, 1, 1)];
+        assert_eq!(
+            hub.send(writer, &upload(1, rows.clone())).unwrap_err().code,
+            "CLOSED"
+        );
+        let received = inbox.take();
+        assert_eq!(received.len(), 2, "the ACK, then the reader's update");
+        assert_eq!(received[0], (writer, Body::Ack { vv: vec![(A, 2)] }));
+        assert_eq!(received[1].0, reader);
+        assert!(matches!(&received[1].1, Body::Update { rows: got, .. } if *got == rows));
+        assert_eq!(hub.store().vector("doc").unwrap(), vec![(A, 2)]);
+        assert_eq!(hub.session_count(), 1);
+        // The writer reconnects and uploads again: a duplicate, forwarded to no one.
+        let again = hub.open("doc", "writer", sink(&inbox, true)).unwrap();
+        hub.send(again, &upload(2, rows)).unwrap();
+        assert_eq!(inbox.take(), vec![(again, Body::Ack { vv: vec![(A, 2)] })]);
+    }
+
+    #[test]
     fn invalid_frames_fail_the_call_but_keep_the_session() {
         let mut hub = hub();
         let inbox: Inbox = Rc::default();

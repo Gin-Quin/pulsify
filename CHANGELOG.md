@@ -2,6 +2,16 @@
 
 All notable changes to Pulsify are documented in this file.
 
+## [Unreleased]
+
+### Fixes
+
+- **Live delivery**: a stored upload reaches every other session, whatever happens to one of them.
+  - A grouped upload just under 8 MiB reached envelope 1 sessions of Pulsify Cloud and `PulseRelay` not at all: it now arrives as bounded `update` frames, in order, each with the committed vector. `encodeBroadcastFrames` (`pulsify-core/protocol`) makes them; `encodeBroadcast` is unchanged.
+  - Pulsify Cloud encodes an update once per envelope instead of once per session.
+  - The local server closes a socket whose frame Bun dropped (`send` answered 0) with 1013, so that its client reconnects and downloads what it missed.
+  - The Rust `Hub` forwards stored rows even when the sender's own sink is gone; a retransmission stores nothing, so the other sessions never got them.
+
 ## [17.0.0]
 
 ### Performance

@@ -10,6 +10,16 @@ import {
 import type { CloudSecrets } from "../source/index.js";
 
 /**
+ * What Bun's `ServerWebSocket.send` answers for a frame the server sends: 0
+ * drops it, -1 sends it but reports backpressure (queued), `undefined` sends
+ * it as usual.
+ */
+export type Pressure = (
+	socket: LocalCloudSocket,
+	data: string | Uint8Array,
+) => 0 | -1 | undefined;
+
+/**
  * The local server (`pulsify-cloud-server/local`) in a temporary directory,
  * with what tests need on top: outages, a transport that died silently and a
  * count of the heartbeats. Used to run the backend conformance suite under Bun.
@@ -22,12 +32,30 @@ export function startCloudHost(
 	const cloud = createLocalCloud({ directory, secrets, ...options });
 	let frozen = false;
 	let pings = 0;
+	let pressure: Pressure | undefined;
 	const serve = (port: number) =>
 		Bun.serve<LocalCloudSocket>({
 			port,
 			fetch: cloud.fetch,
 			websocket: {
 				...cloud.websocket,
+				open(socket) {
+					const send = (data: string | Uint8Array<ArrayBuffer>) => {
+						const answer = pressure?.(socket.data, data);
+						if (answer === 0) return 0;
+						const sent = socket.send(data);
+						return answer ?? sent;
+					};
+					return cloud.websocket.open!(
+						new Proxy(socket, {
+							get(target, key) {
+								if (key === "send") return send;
+								const value = Reflect.get(target, key, target);
+								return typeof value === "function" ? value.bind(target) : value;
+							},
+						}),
+					);
+				},
 				message(socket, message) {
 					if (frozen) return;
 					if (message === CLOUD_PING) pings++;
@@ -58,6 +86,10 @@ export function startCloudHost(
 		},
 		get pings() {
 			return pings;
+		},
+		/** Answer for Bun's `send` from now on: see `Pressure`. */
+		pressure(next: Pressure | undefined) {
+			pressure = next;
 		},
 		stop() {
 			cloud.close();

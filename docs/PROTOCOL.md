@@ -729,7 +729,12 @@ schema codec.
 
 Outgoing rows are chunked near 2 MiB, within the per-message row limit and the
 Rust relay's 300,000-node structural budget. The chunker reserves room for the
-largest vector and frame metadata. Transport cancellation rejects unfinished
+largest vector and frame metadata. A relay forwards an upload in the envelope
+of each receiver: one frame when it fits, else these chunks in order, each an
+`update` (request ID 0) with the committed vector (`encodeBroadcastFrames`).
+A grouped upload just under 8 MiB can take several envelope 1 frames, since
+envelope 1 spells out every row. Rows a relay has stored reach the document's
+other sessions even when sending to one of them, the uploader included, fails. Transport cancellation rejects unfinished
 initialization and removes listeners. A connected client retries a lost
 transport with backoff; every reconnection starts a fresh session that assumes
 nothing about the peer: a connect with the local vector, then uploads of every

@@ -340,7 +340,13 @@ Each frame is processed as follows:
    append in one storage transaction, which also notes the socket's subject
    as the sender of the rows it adds ([authors](#authors)), acknowledge with
    the stored vector, and when rows were inserted broadcast an `update`
-   (request ID 0) to every other socket subscribed to the document.
+   (request ID 0) to every other socket subscribed to the document, or
+   watching one of its ancestors, once per socket. The frames are encoded
+   once per envelope, in bounded chunks when the rows do not fit one frame
+   of that envelope ("Bounds, encoding and lifecycle" in `PROTOCOL.md`). A
+   socket that cannot take them is closed (the local server closes one whose
+   frame Bun dropped with 1013): its client reconnects, and its download
+   brings the rows.
 
 Storage conflicts answer `CONFLICT`, actor overflow `LIMIT_EXCEEDED`.
 

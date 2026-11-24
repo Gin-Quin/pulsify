@@ -351,7 +351,13 @@ export function createLocalCloud(options: LocalCloudOptions): LocalCloud {
 					keepSubscriptions: () => true,
 					watches: new Set(),
 					keepWatches: () => true,
-					send: (data) => void socket.send(data),
+					send: (data) => {
+						// Bun answers 0 for a frame it dropped (-1 queued it). A
+						// dropped frame may be a committed update: close the socket,
+						// so that the client reconnects and its download brings it.
+						if (socket.send(data) === 0)
+							socket.close(1013, "Frame dropped, reconnect");
+					},
 					close: (code, reason) => socket.close(code, reason),
 				});
 			},

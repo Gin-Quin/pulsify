@@ -2,7 +2,7 @@ import {
 	chunkRows,
 	createPresenceBudget,
 	decodeMessage,
-	encodeBroadcast,
+	encodeBroadcastFrames,
 	encodeMessage,
 	encodePresenceLeave,
 	PRESENCE_KIND,
@@ -674,16 +674,39 @@ export class CloudRoot {
 			{ docId, readOnly: !canWrite(role), protocolVersion: peer.envelope },
 		);
 		for await (const frame of result.responses) safely(() => peer.send(frame));
-		if (!result.broadcast) return;
+		const { broadcast } = result;
+		if (!broadcast) return;
+		// Persisted: every other session gets the rows, whatever one of them
+		// does. Frames are made once per envelope, in bounded chunks: an upload
+		// that fit grouped (envelope 2) may not fit one envelope 1 frame.
+		const frames = new Map<CloudEnvelope, Uint8Array[] | null>();
+		const deliver = (other: CloudPeer) => {
+			let encoded = frames.get(other.envelope);
+			if (encoded === undefined) {
+				try {
+					encoded = encodeBroadcastFrames(docId, broadcast, other.envelope);
+				} catch {
+					encoded = null;
+				}
+				frames.set(other.envelope, encoded);
+			}
+			// A session that cannot get the update is closed: it reconnects, and
+			// its download brings the rows. It never stays silently behind.
+			try {
+				if (!encoded) throw new Error("Update could not be encoded");
+				for (const frame of encoded) other.send(frame);
+			} catch {
+				safely(() => other.close(1011, "Update could not be sent"));
+			}
+		};
+		// ponytail: scans every session and watch of the root per upload; index
+		// them by document and prefix if roots get thousands of sessions.
 		const delivered = new Set<string>([peer.id]);
 		for (const [connection, documents] of this.subscriptions) {
 			if (connection === peer.id || !documents.has(docId)) continue;
 			delivered.add(connection);
 			const other = this.peers.get(connection);
-			if (other)
-				safely(() =>
-					other.send(encodeBroadcast(docId, result.broadcast!, other.envelope)),
-				);
+			if (other) deliver(other);
 		}
 		for (const [connection, prefixes] of this.watches) {
 			if (delivered.has(connection)) continue;
@@ -698,9 +721,7 @@ export class CloudRoot {
 			const other = this.peers.get(connection);
 			if (!other || !this.role(other.subject, docId)) continue;
 			delivered.add(connection);
-			safely(() =>
-				other.send(encodeBroadcast(docId, result.broadcast!, other.envelope)),
-			);
+			deliver(other);
 		}
 	}
 
