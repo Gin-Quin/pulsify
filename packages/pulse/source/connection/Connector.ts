@@ -16,6 +16,14 @@ export type ConnectorSession = {
 	 * other actors, which this client only relays, are never declared.
 	 */
 	declareActors?(actors: readonly number[]): void;
+	/**
+	 * For a transport that cannot see a peer vanish (a plain WebSocket behind
+	 * a NAT or proxy that drops it silently): after this long without any
+	 * received frame, the pulse sends a sync request (kind 1, as on `online`)
+	 * and reconnects unless it is answered within `timeoutMs`. One at a time:
+	 * the idle wait starts again once it is answered. Unset: never.
+	 */
+	heartbeatMs?: number | undefined;
 	send(bytes: Uint8Array): Promise<void>;
 	close(): void;
 };

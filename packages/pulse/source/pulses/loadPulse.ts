@@ -6,6 +6,7 @@ import {
 } from "../connection/connectPulse.js";
 import type { Connector } from "../connection/Connector.js";
 import { PulseError } from "../protocol/errors.js";
+import { deferred } from "../utilities/deferred.js";
 import { destroyPulse, type Pulse } from "./Pulse.js";
 import type {
 	AnyPulseDefinition,
@@ -138,6 +139,9 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 			if (pushed?.length) getPulseMeta(pulse).applyRows(pushed);
 		}
 		const task = connectPulse(pulse, input);
+		// An attempt already in progress ignores this load's deadline and
+		// signal: they bound this load, without stopping that attempt.
+		const timeoutMs = input.timeoutMs ?? getPulseMeta(pulse).options.timeoutMs;
 		if (Array.isArray(input.waitFor)) {
 			const required = input.waitFor;
 			if (
@@ -149,18 +153,29 @@ async function loadOne<Definition extends AnyPulseDefinition>(
 				)
 			)
 				throw new TypeError("waitFor connector is not configured");
-			await task.ready;
-			await Promise.all(
-				getPulseMeta(pulse)
-					.connections.filter((connection) =>
-						required.includes(connection.connector),
-					)
-					.map((connection) => connection.whenSynced),
+			// The selected connectors only: an unrelated one neither delays nor
+			// fails this load. Their waits are dropped once it settles.
+			const detach = new AbortController();
+			await bounded(
+				task.ready.then(() =>
+					Promise.all(
+						getPulseMeta(pulse)
+							.connections.filter((connection) =>
+								required.includes(connection.connector),
+							)
+							.map((connection) => connection.waitSynced(detach.signal)),
+					),
+				),
+				timeoutMs,
+				input.signal,
+				detach,
 			);
 		} else
-			await task[
-				input.waitFor === "all" ? "synced" : (input.waitFor ?? "ready")
-			];
+			await bounded(
+				task[input.waitFor === "all" ? "synced" : (input.waitFor ?? "ready")],
+				timeoutMs,
+				input.signal,
+			);
 		return pulse as Pulse<ModelFromDefinition<Definition>>;
 	} catch (error) {
 		await getPulseMeta(pulse).deletion?.catch(() => {});
@@ -201,6 +216,38 @@ async function loadSubPulses(
 		);
 	}
 	await Promise.all(tasks);
+}
+
+/**
+ * `promise`, or a rejection after `timeoutMs` or on `signal`, for one load:
+ * what it waits for goes on. `detach` aborts once it settles either way.
+ */
+function bounded<T>(
+	promise: Promise<T>,
+	timeoutMs: number,
+	signal?: AbortSignal,
+	detach?: AbortController,
+): Promise<T> {
+	const result = deferred<T>();
+	const done = () => {
+		clearTimeout(timer);
+		signal?.removeEventListener("abort", abort);
+		detach?.abort();
+	};
+	const timer = setTimeout(() => {
+		done();
+		result.reject(
+			new PulseError("TIMEOUT", "Initial synchronization timed out"),
+		);
+	}, timeoutMs);
+	const abort = () => {
+		done();
+		result.reject(new PulseError("CLOSED", "Load aborted"));
+	};
+	if (signal?.aborted) abort();
+	else signal?.addEventListener("abort", abort, { once: true });
+	void promise.then(result.resolve, result.reject).finally(done);
+	return result.promise;
 }
 
 registerSubPulseLoader({

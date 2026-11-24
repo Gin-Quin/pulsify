@@ -187,7 +187,11 @@ public rollback transaction: local subscribers can observe each intermediate
 state, and a failed later write leaves earlier writes committed. Writes after an
 `await` may start another batch. Large batches split at protocol limits, and
 separate documents or connectors have separate uploads. `connection.syncBack()`
-explicitly waits for an upload and acknowledgement.
+resolves once the connector acknowledged every row written before the call.
+While an acknowledgement is pending, later writes and calls share one
+follow-up upload instead of queueing one each. `connection.whenSynced` also
+resolves on the frontier at the read, and waits through outages;
+`connection.waitSynced(signal)` is the same wait, dropped on `signal`.
 
 The scheduler works in browsers, Node, Bun and Workers. On Cloudflare Workers,
 materialize schema definitions at module startup: Codec and Pulsify compile
@@ -710,18 +714,20 @@ Creation starts disconnected by default. Pass `{ connectors: [connector], connec
 | `connected` | All configured connectors have completed their initial download. |
 | `synced` | Initial synchronization is complete and all configured connectors have acknowledged the local history. |
 
-`loadPulse` waits for `ready` by default. `waitFor` accepts `"connected"`, `"synced"`, `"all"` (alias of `"synced"`) or an array of configured connectors. Missing documents, non-retryable errors, aborts and `timeoutMs` settle the promises with a `PulseError`; an earlier `ready` may already have succeeded. Pass `signal` to cancel initial loading. With no connectors, a created document resolves immediately and loading an unknown ID rejects with `NOT_FOUND`.
+A call while an attempt is in progress returns that attempt's promises: they settle with it, on its deadline and signal, not the new call's. A call after a successful attempt returns it only while every connector still covers the local history, so an edit made just before is always awaited.
+
+`loadPulse` waits for `ready` by default. `waitFor` accepts `"connected"`, `"synced"`, `"all"` (alias of `"synced"`) or an array of configured connectors, which waits for those only: an unrelated connector neither delays nor fails the load. A load keeps its own `timeoutMs` and `signal` even when it joins a pulse that is already loaded or connecting: they reject that load, without stopping the synchronization it joined, which may also settle it earlier. Missing documents, non-retryable errors, aborts and `timeoutMs` settle the promises with a `PulseError`; an earlier `ready` may already have succeeded. Pass `signal` to cancel initial loading. With no connectors, a created document resolves immediately and loading an unknown ID rejects with `NOT_FOUND`.
 
 ### Reconnection
 
 `connectPulse` means "stay synchronized with every connector, local or remote, until `disconnectPulse` or `destroyPulse`". Each connector has its own lifecycle:
 
-- A closed transport, a failed opening or a request without an answer within `timeoutMs` (`CLOSED`, `CONNECTION_FAILED`, `TIMEOUT`, see `isRetryable`) puts the connection in `reconnecting`. It retries after `initialDelayMs × factor^n`, capped at `maxDelayMs` and shortened by up to `jitter` at random (`reconnect` option, defaults 250 ms, ×2, 30 s, 0.25; `false` gives up after one failure).
+- A closed transport, a failed opening or a request without an answer within `timeoutMs` (counted from the last page, for a paged download) (`CLOSED`, `CONNECTION_FAILED`, `TIMEOUT`, see `isRetryable`) puts the connection in `reconnecting`. It retries after `initialDelayMs × factor^n`, capped at `maxDelayMs` and shortened by up to `jitter` at random (`reconnect` option, defaults 250 ms, ×2, 30 s, 0.25; `false` gives up after one failure).
 - Every new session is a complete synchronization: the connector's state is considered unknown, so the session sends the local version vector, downloads what is missing and uploads everything the connector has not acknowledged.
 - `FORBIDDEN`, incompatible documents, invalid frames and exceptions thrown while applying received data (for example by a migration) stop that connector with status `error`. A connector can mark any error with `new PulseError(code, message, { retryable })`.
 - Lazy waking: when a pulse has rows to upload (a local edit) while a connector is down, that connector retries within a second instead of waiting for the full backoff, and at most once a second while it stays down. Passive documents keep their backoff.
 - `onError` receives one report per outage, not one per attempt. Connections emit `reconnecting(error, delayMs, attempt)`, and expose `status`, `attempt` and `lastError`.
-- The browser's `online` event and `setOnlineMode(true)` retry waiting connections at once and probe established ones; while `navigator.onLine` is false or `setOnlineMode(false)` is set, attempts wait. Between those events, connectors detect transports that died without closing, once per socket (the cloud connector pings idle sockets); a connector reports it with `onClose(error)`.
+- The browser's `online` event and `setOnlineMode(true)` retry waiting connections at once and probe established ones; while `navigator.onLine` is false or `setOnlineMode(false)` is set, attempts wait. Between those events, connectors detect transports that died without closing, once per socket (the cloud connector pings idle sockets); a connector reports it with `onClose(error)`. A session that sets `heartbeatMs` is probed after that long without a received frame: `createWebSocketConnector` does every 30 s (`{ heartbeatMs }`, `false` to disable), which detects a socket that a NAT or proxy dropped silently.
 - `timeoutMs` bounds the promises, not the intent: after a `TIMEOUT` the connectors keep trying. Calling `connectPulse` again after a settled attempt returns new promises and retries failing or stopped connectors at once.
 
 `getPulseMeta(pulse).status` is `idle`, `syncing`, `ready`, `synced`, `offline` (a connector is being retried) or `error`; `subscribePulseStatus(pulse, (status) => …)` reports it now and on every change. Its engine/journal fields are internal state: do not mutate them directly.

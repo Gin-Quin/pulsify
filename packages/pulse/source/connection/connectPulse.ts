@@ -29,6 +29,9 @@ const established = (connection: Connection) =>
  * connector acknowledged the local history. They reject on `timeoutMs` (the
  * connectors keep retrying), on a non-retryable error, on abort or disconnect.
  * Calling again after a settled attempt retries failing connectors now.
+ * A call during an attempt returns its promises. A call after a successful
+ * attempt starts a new one unless every connector has already acknowledged
+ * the current local history.
  */
 export function connectPulse<P extends Pulse<any>>(
 	pulse: P,
@@ -42,7 +45,10 @@ export function connectPulse<P extends Pulse<any>>(
 		(!previousState?.settled ||
 			(previousState.succeeded &&
 				meta.connections.every(
-					(connection) => connection.active && established(connection),
+					(connection) =>
+						connection.active &&
+						connection.status === "synced" &&
+						vectorCovers(connection.clockVector, meta.log.vector),
 				)))
 	)
 		return previous;

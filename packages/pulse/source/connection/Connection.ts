@@ -81,11 +81,25 @@ export class Connection {
 	>();
 	private readonly pending = new Map<
 		number,
-		{ resolve(message: PulseMessage): void; reject(error: unknown): void }
+		{
+			resolve(message: PulseMessage): void;
+			reject(error: unknown): void;
+			/** Restart the inactivity timeout; `false` stops it. */
+			arm(again?: boolean): void;
+		}
 	>();
 	private nextRequestId = 1;
 	private outbound: Promise<void> = Promise.resolve();
-	private syncWaiters = new Set<ReturnType<typeof deferred<void>>>();
+	/** The upload that waits behind the one in flight: later demands join it. */
+	private queued: { epoch: number; run: Promise<void> } | undefined;
+	private syncWaiters = new Set<{
+		target: PulseVersionVector;
+		waiter: ReturnType<typeof deferred<void>>;
+	}>();
+	/** Probes a session that received nothing for `session.heartbeatMs`. */
+	private idleTimer: ReturnType<typeof setTimeout> | undefined;
+	/** An idle probe is in flight: the idle wait restarts once it settles. */
+	private probing = false;
 	private stopRows: (() => void) | undefined;
 	private scheduled = false;
 	private epoch = 0;
@@ -115,16 +129,48 @@ export class Connection {
 	private demanded = false;
 	private stopOnline: (() => void) | undefined;
 
-	/** Resolves after the next complete upload; rejects when stopped or closed. */
+	/**
+	 * Resolves once an established session of this connector has acknowledged
+	 * every row the pulse held at the call, edits made just before included.
+	 * Waits through outages; rejects when stopped or closed.
+	 */
 	get whenSynced(): Promise<void> {
+		return this.waitSynced();
+	}
+	/**
+	 * `whenSynced`, given up on `signal`: the wait is dropped and rejects with
+	 * `CLOSED`, while the connection goes on.
+	 */
+	waitSynced(signal?: AbortSignal): Promise<void> {
 		const waiter = deferred<void>();
-		if (this.status === "synced") waiter.resolve();
-		else if (this.status === "error" || this.status === "closed")
+		if (this.status === "error" || this.status === "closed")
 			waiter.reject(
 				this.lastError ?? new PulseError("CLOSED", "Connection is closed"),
 			);
-		else this.syncWaiters.add(waiter);
+		else if (signal?.aborted)
+			waiter.reject(new PulseError("CLOSED", "Wait aborted"));
+		else {
+			const entry = { target: getPulseMeta(this.pulse).log.vector, waiter };
+			this.syncWaiters.add(entry);
+			this.settleWaiters();
+			signal?.addEventListener(
+				"abort",
+				() => {
+					if (this.syncWaiters.delete(entry))
+						waiter.reject(new PulseError("CLOSED", "Wait aborted"));
+				},
+				{ once: true },
+			);
+		}
 		return waiter.promise;
+	}
+	private settleWaiters(): void {
+		if (!ESTABLISHED.includes(this.status)) return;
+		for (const entry of this.syncWaiters)
+			if (vectorCovers(this.clockVector, entry.target)) {
+				entry.waiter.resolve();
+				this.syncWaiters.delete(entry);
+			}
 	}
 	get active(): boolean {
 		return this.wanted;
@@ -365,6 +411,8 @@ export class Connection {
 			if (response.kind !== 2)
 				throw new PulseError("INVALID_MESSAGE", "Expected sync response");
 			this.status = "connected";
+			this.alive();
+			this.settleWaiters();
 			this.downloaded = true;
 			this.attempt = 0;
 			this.retryRequested = false;
@@ -397,7 +445,7 @@ export class Connection {
 	/**
 	 * Check that an established session still answers, and download anything
 	 * it missed. A silent or closed transport reconnects. Runs when the network
-	 * comes back; connectors detect dead transports themselves in between.
+	 * comes back, and after `session.heartbeatMs` without any received frame.
 	 */
 	async probe(): Promise<void> {
 		if (!this.session || !ESTABLISHED.includes(this.status)) return;
@@ -446,9 +494,16 @@ export class Connection {
 			throw new PulseError("INVALID_MESSAGE", "Expected history sync response");
 	}
 
+	/**
+	 * Upload what the connector has not acknowledged, after the upload in
+	 * flight. Resolves once the frontier at the call is acknowledged. Calls
+	 * made while an upload waits join it: it reads the frontier when it starts.
+	 */
 	syncBack(): Promise<void> {
 		const epoch = this.epoch;
-		const run = this.outbound.then(async () => {
+		if (this.queued?.epoch === epoch) return this.queued.run;
+		const run: Promise<void> = this.outbound.then(async () => {
+			if (this.queued?.run === run) this.queued = undefined;
 			if (
 				epoch !== this.epoch ||
 				!this.session ||
@@ -482,12 +537,12 @@ export class Connection {
 			this.status = vectorCovers(this.clockVector, meta.log.vector)
 				? "synced"
 				: "syncing";
-			for (const waiter of this.syncWaiters) waiter.resolve();
-			this.syncWaiters.clear();
+			this.settleWaiters();
 			refreshPulseStatus(meta);
 			if (this.status === "synced") this.emit("synced");
 		});
 		this.outbound = run;
+		this.queued = { epoch, run };
 		void run.catch((error) => {
 			if (epoch === this.epoch) this.fail(asPulseError(error));
 		});
@@ -564,13 +619,21 @@ export class Connection {
 	): Promise<PulseMessage> {
 		const result = deferred<PulseMessage>();
 		const epoch = this.epoch;
-		const timer = setTimeout(() => {
-			const error = new PulseError("TIMEOUT", "Peer did not respond");
-			result.reject(error);
-			// A peer that stops answering is treated as a lost transport.
-			if (epoch === this.epoch) this.fail(error);
-		}, getPulseMeta(this.pulse).options.timeoutMs);
-		this.pending.set(requestId, result);
+		const timeoutMs = getPulseMeta(this.pulse).options.timeoutMs;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		// Inactivity, not total time: each page of a paged answer re-arms it.
+		const arm = (again = true) => {
+			clearTimeout(timer);
+			if (!again) return;
+			timer = setTimeout(() => {
+				const error = new PulseError("TIMEOUT", "Peer did not respond");
+				result.reject(error);
+				// A peer that stops answering is treated as a lost transport.
+				if (epoch === this.epoch) this.fail(error);
+			}, timeoutMs);
+		};
+		arm();
+		this.pending.set(requestId, { ...result, arm });
 		try {
 			if (!this.session) throw new PulseError("CLOSED", "Transport is closed");
 			void this.session.send(frame).catch(result.reject);
@@ -597,6 +660,7 @@ export class Connection {
 	private receive(bytes: Uint8Array): void {
 		if (!ESTABLISHED.includes(this.status) && this.status !== "connecting")
 			return;
+		this.alive();
 		if (isPresenceFrame(bytes)) {
 			getPulseMeta(this.pulse).presence?.receive(this, bytes);
 			return;
@@ -635,20 +699,24 @@ export class Connection {
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
 				this.apply(message.rows);
 				if (epoch !== this.epoch) return;
-				if (!message.complete) return;
+				this.settleWaiters();
+				if (!message.complete) return request.arm();
 				// A download is not complete while a restore it brought waits
 				// for history: the document would be read, and edited, as it
-				// was before the restore.
-				if (this.recovery && !this.historyRequests.has(message.requestId))
+				// was before the restore. That history request has its own timeout.
+				if (this.recovery && !this.historyRequests.has(message.requestId)) {
+					request.arm(false);
 					void this.recovery.then(() => {
 						if (epoch === this.epoch) request.resolve(message);
 					});
-				else request.resolve(message);
+				} else request.resolve(message);
 			} else if (message.kind === 4 && message.requestId === 0) {
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
 				this.apply(message.rows);
+				if (epoch === this.epoch) this.settleWaiters();
 			} else if (message.kind === 5 && this.pending.has(message.requestId)) {
 				this.clockVector = mergeVectors(this.clockVector, message.vv);
+				this.settleWaiters();
 				this.pending.get(message.requestId)!.resolve(message);
 			} else
 				throw new PulseError("INVALID_MESSAGE", "Unexpected peer response");
@@ -741,9 +809,31 @@ export class Connection {
 		this.close();
 		this.listeners.clear();
 	}
+	/**
+	 * Something arrived: restart the idle wait of a session whose connector
+	 * asks for heartbeats. Once it elapses, a probe checks the session.
+	 */
+	private alive(): void {
+		const ms = this.session?.heartbeatMs;
+		if (!ms || this.probing) return;
+		clearTimeout(this.idleTimer);
+		this.idleTimer = setTimeout(() => {
+			if (!ESTABLISHED.includes(this.status)) return;
+			const epoch = this.epoch;
+			this.probing = true;
+			void this.probe().finally(() => {
+				if (epoch !== this.epoch) return;
+				this.probing = false;
+				this.alive();
+			});
+		}, ms);
+	}
 	private cleanup(error: Error): void {
 		this.epoch++;
 		this.scheduled = false;
+		this.queued = undefined;
+		clearTimeout(this.idleTimer);
+		this.probing = false;
 		for (const request of this.pending.values()) request.reject(error);
 		this.pending.clear();
 		this.ended?.reject(error);
@@ -754,7 +844,7 @@ export class Connection {
 		this.session = undefined;
 	}
 	private rejectWaiters(error: Error): void {
-		for (const waiter of this.syncWaiters) waiter.reject(error);
+		for (const { waiter } of this.syncWaiters) waiter.reject(error);
 		this.syncWaiters.clear();
 	}
 	private fail(error: Error): void {

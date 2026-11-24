@@ -58,6 +58,11 @@ Every variant starts with `docId:string, requestId:uint`, in that order.
 A session serves one document. `requestId` correlates a request and response;
 server pushes use update with request ID zero. A connect request can receive
 several sync pages with the same ID. Only the last has `complete = true`.
+A client may send connect again on an established session, to check that it
+still answers (on the browser's `online` event, or as the WebSocket
+connector's heartbeat after 30 s without a received frame); it is answered
+like the first one. A client's request timeout counts inactivity: each page
+restarts it.
 Reference relays acknowledge accepted history in memory. A relay using durable
 storage must commit the database transaction before sending its ack.
 

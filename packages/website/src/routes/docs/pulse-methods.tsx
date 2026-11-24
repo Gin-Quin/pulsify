@@ -139,7 +139,7 @@ const stop = connection.on("reconnecting", (error, delayMs, attempt) => {
 connection.once("synced", hideBanner);
 connection.status;    // "connecting" | "synced" | "reconnecting" | "error" | …
 connection.lastError;
-await connection.whenSynced; // the next complete upload to that connector`;
+await connection.whenSynced; // that connector acknowledged every edit made so far`;
 
 const errors = `import { isRetryable, loadPulse, PulseError } from "pulsify-core";
 

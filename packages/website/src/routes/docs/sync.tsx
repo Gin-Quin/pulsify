@@ -148,8 +148,9 @@ export default function Sync() {
 			<ul>
 				<li>
 					<strong>Lost connection.</strong> A closed transport, a failed opening
-					or a request without an answer within <code>timeoutMs</code> marks the
-					connection as <code>reconnecting</code>. It waits{" "}
+					or a request without an answer within <code>timeoutMs</code> (since
+					the last page, for a paged download) marks the connection as{" "}
+					<code>reconnecting</code>. It waits{" "}
 					<code>initialDelayMs × factor^n</code>, capped at{" "}
 					<code>maxDelayMs</code> and shortened at random by <code>jitter</code>
 					, then opens a new session.
@@ -188,6 +189,15 @@ export default function Sync() {
 					intent: after a <code>TIMEOUT</code>, connectors keep retrying.
 					Calling <code>connectPulse</code> again returns a new set of promises
 					and retries at once.
+				</li>
+				<li>
+					<strong>Silent sockets.</strong> A WebSocket session that receives
+					nothing for 30 s sends a sync request; without an answer within{" "}
+					<code>timeoutMs</code>, it reconnects. Set{" "}
+					<code>
+						{"createWebSocketConnector(url, factory, { heartbeatMs })"}
+					</code>{" "}
+					to change it, <code>false</code> to disable it.
 				</li>
 			</ul>
 

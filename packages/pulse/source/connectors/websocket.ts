@@ -7,6 +7,8 @@ import { PulseError } from "../protocol/errors.js";
  * A `{docId}` placeholder in the URL is replaced by the encoded document ID, for
  * servers that route a session before its first frame. Pass `presence: true`
  * for a relay that forwards presence frames (pulsify-core 10 or later).
+ * A session that receives nothing for `heartbeatMs` (default 30 s) is probed
+ * with a sync request, which any relay answers; `false` disables it.
  */
 export function createWebSocketConnector(
 	template: string,
@@ -14,8 +16,19 @@ export function createWebSocketConnector(
 		url,
 		protocols,
 	) => new WebSocket(url, protocols),
-	options: { protocolVersion?: 1 | 2 | 3; presence?: boolean } = {},
+	options: {
+		protocolVersion?: 1 | 2 | 3;
+		presence?: boolean;
+		heartbeatMs?: number | false;
+	} = {},
 ): Connector {
+	const heartbeatMs =
+		options.heartbeatMs === false ? undefined : (options.heartbeatMs ?? 30_000);
+	if (
+		heartbeatMs !== undefined &&
+		!(Number.isFinite(heartbeatMs) && heartbeatMs > 0)
+	)
+		throw new TypeError("heartbeatMs must be positive or false");
 	return {
 		kind: "remote",
 		open({ docId, signal, onMessage, onClose }): Promise<ConnectorSession> {
@@ -67,6 +80,7 @@ export function createWebSocketConnector(
 									? 2
 									: 1,
 						presence: options.presence === true,
+						heartbeatMs,
 						close() {
 							if (closed) return;
 							finish();
