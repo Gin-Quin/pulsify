@@ -12,6 +12,7 @@ import {
 	getPulseMeta,
 	joinPresence,
 	loadPulse,
+	PulseError,
 	PulseRelay,
 	pulseRef,
 	richText,
@@ -23,6 +24,7 @@ import {
 } from "pulsify-core";
 import { JSDOM } from "jsdom";
 import {
+	Component,
 	createElement as h,
 	memo,
 	StrictMode,
@@ -547,6 +549,69 @@ test("useLoadPulse suspends until the pulse is loaded, on the client only", asyn
 	a.title = "Remote";
 	await until("Remote");
 	expect(container.textContent).toBe("Remote");
+});
+
+class Boundary extends Component<
+	{ children?: ReactNode },
+	{ error?: unknown }
+> {
+	override state: { error?: unknown } = {};
+	static getDerivedStateFromError(error: unknown) {
+		return { error };
+	}
+	override render() {
+		return this.state.error
+			? `Failed: ${(this.state.error as Error).message}`
+			: this.props.children;
+	}
+}
+
+test("useLoadPulse loads one ID in two scopes without sharing a wait or an error", async () => {
+	const connector = createMemoryConnector();
+	const a = track(note({ connectors: [connector], sessionId: 65538 }));
+	await connectPulse(a).synced;
+	const denied = {
+		kind: "remote" as const,
+		async open(): Promise<never> {
+			throw new PulseError("FORBIDDEN", "denied", { retryable: false });
+		},
+	};
+	const failing = { scope: createPulseScope(), connectors: [denied] };
+	const working = {
+		scope: createPulseScope(),
+		connectors: [connector],
+		sessionId: 65539,
+	};
+	type Options = typeof working | typeof failing;
+	function Title({ options }: { options: Options }) {
+		return useLoadPulse(Note, a.id, options as typeof working).title;
+	}
+	const load = (options: Options, key: string) =>
+		h(
+			Boundary,
+			{ key },
+			h(Suspense, { fallback: "Loading " }, h(Title, { options })),
+		);
+	const until = async (container: HTMLElement, text: string) => {
+		for (let i = 0; i < 50 && container.textContent !== text; i++)
+			await act(() => new Promise((resolve) => setTimeout(resolve, 5)));
+		expect(container.textContent).toBe(text);
+	};
+	const error = console.error;
+	console.error = () => {};
+	try {
+		// The failing scope starts its load first.
+		const both = render([load(failing, "failing"), load(working, "working")]);
+		await until(both.container, "Failed: deniedDraft");
+		track(working.scope.pulses.get(a.id) as NotePulse);
+		// The failure reached its boundary; a render in a later task loads again.
+		await act(() => new Promise((resolve) => setTimeout(resolve)));
+		const again = render(load(failing, "again"));
+		expect(again.container.textContent).toBe("Loading ");
+		await until(again.container, "Failed: denied");
+	} finally {
+		console.error = error;
+	}
 });
 
 test("useLoadPulse returns a pulse created already without suspending", () => {

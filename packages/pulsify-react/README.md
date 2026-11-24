@@ -33,7 +33,9 @@ function NotePage({ id }: { id: string }) {
 
 It returns a pulse loaded or created already at once, loads again when the ID
 changes, and throws a failed load to the nearest error boundary, loading again
-on the next render. Then it works as `usePulse`.
+on a later render (React's immediate retry sees the same error). Loads are
+kept per scope: components loading one ID in different scopes (`options.scope`)
+never wait for, or fail with, each other's load. Then it works as `usePulse`.
 
 `usePulse(pulse)` returns a proxy of the live pulse that records what the
 component reads. Local and remote changes re-render it only when one of those

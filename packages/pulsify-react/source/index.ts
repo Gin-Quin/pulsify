@@ -282,9 +282,12 @@ export function usePulse<P extends Pulse<any>>(input: P): P {
 	return root.proxy as P;
 }
 
-/** Loads in flight, by ID, so a suspended component finds its promise again. */
-// ponytail: keyed by ID only, as the default scope is; key by scope too if apps load one ID in several scopes.
-const loads = new Map<string, { promise: Promise<void>; error?: unknown }>();
+type Load = { promise: Promise<void>; error?: unknown };
+/**
+ * Loads in flight, by scope then ID, so a suspended component finds its
+ * promise again, and one scope never waits for, or fails with, another's.
+ */
+const loadsByScope = new WeakMap<object, Map<string, Load>>();
 const subscribeNothing = () => () => {};
 const onClient = () => true;
 
@@ -307,9 +310,11 @@ export function useLoadPulse<Definition extends AnyPulseDefinition>(
 	const loaded = scope.pulses.get(id);
 	if (loaded && getPulseMeta(loaded).loaded)
 		return usePulse(loaded as Pulse<ModelFromDefinition<Definition>>);
+	let loads = loadsByScope.get(scope);
+	if (!loads) loadsByScope.set(scope, (loads = new Map()));
 	let load = loads.get(id);
 	if (!load) {
-		const entry: { promise: Promise<void>; error?: unknown } = {
+		const entry: Load = {
 			promise: loadPulse(definition, id, options).then(
 				() => void loads.delete(id),
 				(error) => void (entry.error = error ?? new Error("loadPulse failed")),
@@ -318,7 +323,13 @@ export function useLoadPulse<Definition extends AnyPulseDefinition>(
 		loads.set(id, (load = entry));
 	}
 	if (load.error !== undefined) {
-		loads.delete(id);
+		// React renders again at once after an error: that retry must throw it
+		// too, or it would start a new load and never reach the error boundary.
+		// Any later render starts again.
+		const failed = load;
+		setTimeout(() => {
+			if (loads.get(id) === failed) loads.delete(id);
+		});
 		throw load.error;
 	}
 	throw load.promise;
