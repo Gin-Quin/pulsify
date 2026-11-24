@@ -28,6 +28,7 @@ import {
 import { encodeMessage } from "../source/connection/PulseMessage.js";
 import { lastRegisterOf } from "../source/core/operations.js";
 import { MAX_VECTOR_ENTRIES } from "../source/protocol/limits.js";
+import { encodeValueOp, pagingStoreConformance } from "./paging-store.js";
 
 const actor = 70001,
 	other = 70002;
@@ -47,6 +48,7 @@ function row(
 	};
 }
 function conformance(name: string, create: () => Promise<PatchStore>): void {
+	pagingStoreConformance(name, create);
 	describe(name, () => {
 		test("state-only transport cannot be persisted as exact operation history", async () => {
 			const store = await create(),
@@ -1076,28 +1078,6 @@ deletionStoreConformance(
 );
 
 describe("storage performance and snapshot regressions", () => {
-	// Build a valid varuint-encoded v3 kind-7 last-value write for arbitrary register index.
-	const encodeValueOp = (registerId: number, lamport: number): Uint8Array => {
-		const out: number[] = [];
-		const pushUint = (n: number) => {
-			for (; n >= 128; n = Math.floor(n / 128)) out.push((n % 128) | 128);
-			out.push(n);
-		};
-		pushUint(3);
-		pushUint(lamport);
-		pushUint(0); // schema
-		pushUint(1); // 1 op
-		pushUint(7); // kind 7
-		pushUint(1);
-		out.push(114); // target "r"
-		pushUint(1); // numeric field tag
-		pushUint(registerId);
-		pushUint(0); // layout
-		pushUint(1);
-		out.push(1);
-		return Uint8Array.from(out);
-	};
-
 	test("S1: SQLite missing uses clock index and stays sub-quadratic in an actor's values", async () => {
 		const measure = async (count: number) => {
 			const db = new Database(":memory:");
@@ -1429,6 +1409,75 @@ describe("storage performance and snapshot regressions", () => {
 				const t1 = await measure(250);
 				const t4 = await measure(1000);
 				expect(t4).toBeLessThan(Math.max(t1 * 8, 50));
+			} finally {
+				await sql.close();
+			}
+		});
+		test("PostgreSQL missingPage reads a page's worth of rows and payloads, not the whole history", async () => {
+			const sql = new SQL(process.env["PULSIFY_TEST_POSTGRES"]!);
+			try {
+				const pg = new PostgresPatchStore((q, p) =>
+					sql.unsafe(q, p as never[]),
+				);
+				await pg.initialize();
+				// One page, and the table rows it read, counted in one transaction.
+				const read = (
+					docId: string,
+					options: Parameters<PostgresPatchStore["missingPage"]>[2],
+				) =>
+					sql.begin(async (tx) => {
+						const store = new PostgresPatchStore((q, p) =>
+							tx.unsafe(q, p as never[]),
+						);
+						// The counters can hold the backend's unflushed earlier work.
+						const tuples = async () =>
+							(
+								await tx.unsafe(
+									"SELECT SUM(COALESCE(idx_tup_fetch,0)+seq_tup_read)::int AS n FROM pg_stat_xact_user_tables WHERE relname IN ('pulsify_op_rows','pulsify_values')",
+								)
+							)[0].n as number;
+						const before = await tuples();
+						const page = await store.missingPage(docId, [], options);
+						return { page, tuples: (await tuples()) - before };
+					});
+				const append = async (
+					docId: string,
+					count: number,
+					operations: (clock: number) => Uint8Array | undefined,
+				) => {
+					for (let i = 0; i < count; i += 100)
+						await pg.append(
+							Array.from({ length: Math.min(100, count - i) }, (_, j) => {
+								const clock = i + j + 1,
+									ops = operations(clock);
+								return {
+									...row(docId, clock),
+									...(ops ? { operations: ops } : {}),
+								};
+							}),
+						);
+				};
+				// A long history, half history rows, half distinct registers.
+				const narrow = `pg-page-${crypto.randomUUID()}`;
+				await append(narrow, 8000, (clock) =>
+					clock % 2 ? encodeValueOp(clock, clock) : undefined,
+				);
+				const small = await read(narrow, { maxRows: 2 });
+				expect(small.page.rows.map((r) => r.clock)).toEqual([1, 2]);
+				expect(small.tuples).toBeLessThan(200);
+				// Wide values: the byte budget stops the page after a few rows.
+				const wide = `pg-wide-${crypto.randomUUID()}`;
+				await append(wide, 300, (clock) => {
+					const head = encodeValueOp(clock, clock),
+						bytes = new Uint8Array(60_000);
+					crypto.getRandomValues(bytes);
+					bytes.set(head);
+					return bytes;
+				});
+				const large = await read(wide, {});
+				expect(large.page.rows.length).toBeLessThan(40);
+				expect(large.page.next).toBeDefined();
+				expect(large.tuples).toBeLessThan(200);
 			} finally {
 				await sql.close();
 			}

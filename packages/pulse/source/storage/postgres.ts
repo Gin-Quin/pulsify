@@ -2,7 +2,12 @@ import type { PulseVersionVector } from "../connection/PulseVersionVector.js";
 import { validateVector } from "../connection/PulseVersionVector.js";
 import { PulseError } from "../protocol/errors.js";
 import { validateDocId } from "../protocol/validateDocId.js";
-import { MAX_VECTOR_ENTRIES } from "../protocol/limits.js";
+import {
+	MAX_MESSAGE_ROWS,
+	MAX_PATCH_BYTES,
+	MAX_ROW_BATCH_NODES,
+	MAX_VECTOR_ENTRIES,
+} from "../protocol/limits.js";
 import { rowDependencies, rowOperations } from "../protocol/scalarRuns.js";
 import {
 	rowsFromFrame,
@@ -286,7 +291,113 @@ LANGUAGE sql STABLE AS $$
  FROM bounds a WHERE NOT EXISTS (SELECT 1 FROM held h WHERE h.sid=a.sid AND h.time_start<=a.since)
  ORDER BY 1,2
 $$;
+
+-- One bounded page of what pulsify_missing returns. STABLE, so every read sees the snapshot of
+-- the calling statement. The first row carries the document vector; when a budget stops the
+-- page, a last row (sid, next_from, next_straddle) says where to resume. Actors are walked in
+-- sid order from p_after_sid. Each one's rows and values are merged by keyset from its lower
+-- bound, 64 keys and sizes at a time; a payload is read only for a row the page serves. Null
+-- budgets are unbounded; the first row of a page is always served.
+CREATE OR REPLACE FUNCTION pulsify_missing_page(
+ p_doc_id text, p_sids bigint[], p_clocks bigint[],
+ p_after_sid bigint, p_after_from bigint, p_after_straddle boolean,
+ p_max_rows bigint, p_max_bytes bigint, p_max_nodes bigint, p_row_bytes bigint
+) RETURNS TABLE(sid bigint, time_start bigint, span bigint, dependencies jsonb, operations bytea,
+ vv jsonb, next_from bigint, next_straddle boolean)
+-- Its statements are planned once for any document: a bitmap or sequential scan would read
+-- every row of an actor where an ordered index scan stops after a batch.
+LANGUAGE plpgsql STABLE SET jit=off SET enable_bitmapscan=off SET enable_seqscan=off AS $$
+DECLARE
+ v_actor record; v_held record; v_curr record; v_have boolean; v_pos bigint;
+ v_from bigint; v_straddle boolean; v_op_from bigint; v_val_from bigint;
+ c_start bigint; c_span bigint; c_deps jsonb; c_bytes bigint; c_value boolean;
+ c_from bigint; c_straddle boolean;
+ v_rows bigint := 0; v_bytes bigint := 0; v_nodes bigint := 0; v_size bigint; v_cost bigint;
+BEGIN
+ vv := (SELECT COALESCE(jsonb_agg(jsonb_build_array(c.sid,c.clock) ORDER BY c.sid),'[]'::jsonb)
+  FROM pulsify_doc_clocks c WHERE c.doc_id=p_doc_id);
+ RETURN NEXT;
+ vv := NULL;
+ FOR v_actor IN SELECT c.sid AS id,c.clock AS frontier,COALESCE(r.clock,0) AS known
+  FROM pulsify_doc_clocks c LEFT JOIN unnest(p_sids,p_clocks) AS r(id,clock) ON r.id=c.sid
+  WHERE c.doc_id=p_doc_id AND c.clock>COALESCE(r.clock,0) AND (p_after_sid IS NULL OR c.sid>=p_after_sid)
+  ORDER BY c.sid
+ LOOP
+  IF v_actor.id=p_after_sid THEN v_from:=p_after_from; v_straddle:=p_after_straddle;
+  ELSE v_from:=GREATEST(v_actor.known,1); v_straddle:=true;
+  END IF;
+  CONTINUE WHEN v_from>=v_actor.frontier;
+  v_op_from:=v_from; v_val_from:=v_from;
+  IF v_straddle THEN
+   v_op_from:=COALESCE((SELECT o.time_start FROM pulsify_op_rows o WHERE o.doc_id=p_doc_id
+    AND o.sid=v_actor.id AND o.time_start<=v_from ORDER BY o.time_start DESC LIMIT 1),v_from);
+   v_val_from:=COALESCE((SELECT w.clock FROM pulsify_values w WHERE w.doc_id=p_doc_id
+    AND w.sid=v_actor.id AND w.clock<=v_from ORDER BY w.clock DESC LIMIT 1),v_from);
+  END IF;
+  v_have:=false; v_pos:=LEAST(v_op_from,v_val_from);
+  LOOP
+   -- The next keys of both, then the frontier, which closes the last span.
+   FOR v_held IN SELECT h.t,h.d,h.n,h.v FROM (
+    (SELECT o.time_start AS t,o.dependencies AS d,octet_length(o.operations)::bigint AS n,false AS v
+     FROM pulsify_op_rows o WHERE o.doc_id=p_doc_id AND o.sid=v_actor.id
+     AND o.time_start>=GREATEST(v_op_from,v_pos) AND o.ready AND o.operations<>'\\x03010000'::bytea
+     ORDER BY o.time_start LIMIT 64)
+    UNION ALL
+    (SELECT w.clock,w.dependencies,octet_length(w.operations)::bigint,true FROM pulsify_values w
+     WHERE w.doc_id=p_doc_id AND w.sid=v_actor.id AND w.clock>=GREATEST(v_val_from,v_pos)
+     ORDER BY w.clock LIMIT 64)
+    UNION ALL SELECT v_actor.frontier,NULL::jsonb,NULL::bigint,NULL::boolean
+   ) h ORDER BY h.t LIMIT 64
+   LOOP
+    c_start:=NULL;
+    IF NOT v_have THEN
+     -- No held row starts at or before v_from: a gap row covers up to the first one.
+     IF v_held.t>v_from THEN
+      c_start:=v_from; c_span:=v_held.t-v_from; c_bytes:=4; c_value:=NULL;
+      c_deps:=CASE WHEN v_from>1 THEN jsonb_build_array(jsonb_build_array(v_actor.id,v_from)) ELSE '[]'::jsonb END;
+      c_from:=v_from; c_straddle:=false;
+     END IF;
+    ELSIF NOT (v_straddle AND v_held.t<=v_from) THEN
+     -- The held row before this one runs to it.
+     c_start:=v_curr.t; c_span:=v_held.t-v_curr.t; c_deps:=v_curr.d; c_bytes:=v_curr.n; c_value:=v_curr.v;
+     c_straddle:=v_straddle AND v_curr.t<v_from;
+     c_from:=CASE WHEN c_straddle THEN v_from ELSE v_curr.t END;
+    END IF;
+    IF c_start IS NOT NULL THEN
+     v_size:=c_bytes+jsonb_array_length(c_deps)*16+p_row_bytes;
+     v_cost:=7+3*jsonb_array_length(c_deps);
+     IF v_rows>0 AND (v_rows>=p_max_rows OR v_bytes+v_size>p_max_bytes OR v_nodes+v_cost>p_max_nodes) THEN
+      sid:=v_actor.id; time_start:=NULL; span:=NULL; dependencies:=NULL; operations:=NULL;
+      next_from:=c_from; next_straddle:=c_straddle;
+      RETURN NEXT; RETURN;
+     END IF;
+     sid:=v_actor.id; time_start:=c_start; span:=c_span; dependencies:=c_deps;
+     operations:=CASE
+      WHEN c_value IS NULL THEN '\\x03010000'::bytea
+      WHEN c_value THEN (SELECT w.operations FROM pulsify_values w
+       WHERE w.doc_id=p_doc_id AND w.sid=v_actor.id AND w.clock=c_start LIMIT 1)
+      ELSE (SELECT o.operations FROM pulsify_op_rows o
+       WHERE o.doc_id=p_doc_id AND o.sid=v_actor.id AND o.time_start=c_start)
+     END;
+     RETURN NEXT;
+     v_rows:=v_rows+1; v_bytes:=v_bytes+v_size; v_nodes:=v_nodes+v_cost;
+    END IF;
+    v_curr:=v_held; v_have:=true; v_pos:=v_held.t+1;
+   END LOOP;
+   EXIT WHEN v_curr.d IS NULL;
+  END LOOP;
+ END LOOP;
+END;
+$$;
 `;
+
+/** Where a page stopped: the actor, and the clock its next page starts from. */
+type PostgresMissingCursor = {
+	sid: number;
+	from: number;
+	straddle: boolean;
+	vv: PulseVersionVector;
+};
 
 function unpack(row: Record<string, unknown>): StoredPatchRow {
 	return {
@@ -365,30 +476,56 @@ export class PostgresPatchStore implements PatchStore {
 	async missingPage(
 		docId: string,
 		remote: PulseVersionVector,
-		_options?: MissingPageOptions,
+		{
+			after,
+			maxBytes = 2 * MAX_PATCH_BYTES,
+			maxRows = MAX_MESSAGE_ROWS,
+			maxNodes = MAX_ROW_BATCH_NODES,
+		}: MissingPageOptions = {},
 	): Promise<MissingPage> {
 		validateDocId(docId);
 		validateVector(remote);
+		const cursor = after as PostgresMissingCursor | undefined;
+		const budget = (value: number) =>
+			Number.isFinite(value) ? Math.max(0, Math.floor(value)) : null;
 		const result = await this.query(
-			`SELECT
- CASE WHEN row_number() OVER () = 1 THEN (
-  SELECT COALESCE(jsonb_agg(jsonb_build_array(sid, clock) ORDER BY sid), '[]'::jsonb)
-  FROM pulsify_doc_clocks WHERE doc_id=$1::text
- ) END AS vv,
- m.sid, m.time_start, m.span, m.dependencies, m.operations
-FROM (SELECT 1) AS anchor
-LEFT JOIN pulsify_missing($1::text,$2::bigint[],$3::bigint[]) m ON true`,
-			[docId, remote.map(([sid]) => sid), remote.map(([, clock]) => clock)],
+			"SELECT * FROM pulsify_missing_page($1::text,$2::bigint[],$3::bigint[],$4::bigint,$5::bigint,$6::boolean,$7::bigint,$8::bigint,$9::bigint,$10::bigint)",
+			[
+				docId,
+				remote.map(([sid]) => sid),
+				remote.map(([, clock]) => clock),
+				cursor?.sid ?? null,
+				cursor?.from ?? null,
+				cursor?.straddle ?? null,
+				budget(maxRows),
+				budget(maxBytes),
+				budget(maxNodes),
+				// The per-row overhead SqlitePatchStore counts too.
+				docId.length * 4 + 64,
+			],
 		);
-		const rawVv = (result[0]?.["vv"] as [number, number][] | undefined) ?? [];
-		const vv: PulseVersionVector = rawVv.map(([sid, clock]) => [
-			Number(sid),
-			Number(clock),
-		]);
+		const live: PulseVersionVector = (
+			result[0]!["vv"] as [number, number][]
+		).map(([sid, clock]) => [Number(sid), Number(clock)]);
+		// Actors served by earlier pages keep the frontier they were served to.
+		const vv: PulseVersionVector = cursor
+			? [
+					...cursor.vv.filter(([sid]) => sid < cursor.sid),
+					...live.filter(([sid]) => sid >= cursor.sid),
+				]
+			: live;
 		const rows: StoredPatchRow[] = [];
-		for (const row of result)
-			if (row["sid"] !== null && row["sid"] !== undefined)
+		let next: PostgresMissingCursor | undefined;
+		for (const row of result.slice(1))
+			if (row["time_start"] !== null)
 				rows.push(unpack({ ...row, doc_id: docId }));
-		return { rows, vv, next: undefined };
+			else
+				next = {
+					sid: Number(row["sid"]),
+					from: Number(row["next_from"]),
+					straddle: row["next_straddle"] === true,
+					vv,
+				};
+		return { rows, vv, next };
 	}
 }

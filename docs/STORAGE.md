@@ -122,8 +122,20 @@ last-value reads by clock; `initialize()` drops any legacy
 `pulsify_rows_frontier` index. `missing` calls `pulsify_missing(doc_id, sids, clocks)`,
 which joins the remote vector given as two numeric arrays, computes each behind
 actor's lower bound once, reads its rows and values from those bounds, and
-computes the spans; operation bytes remain `bytea`. `missingPage` reads the
-document vector and missing rows in one snapshot. Clock and ready-state updates commit
+computes the spans; operation bytes remain `bytea`. `missingPage` calls
+`pulsify_missing_page`, a `STABLE` function, so the document vector and a page's
+rows come from one snapshot. It walks behind actors in `sid` order and seeks
+each one's rows and values by keyset from where the previous page stopped,
+64 keys and sizes at a time, and reads a payload only for a row the page
+serves: a page costs what it returns, whatever the history's length or the
+width of the rows it does not serve. The function disables bitmap and
+sequential scans for its own statements, so its cached plans stay ordered
+index scans that stop after a batch. It honors `maxRows`, `maxBytes` and `maxNodes`
+as `SqlitePatchStore` does (the first row of a page is always served) and its
+pages concatenate to what `missing` returns. Across pages, an actor already
+served keeps the clock it was served to in `vv`; later actors are read at their
+current clock, so appends between pages never leave a hole. A value overwritten
+between pages becomes a gap row. Clock and ready-state updates commit
 atomically. Ordinary logged tables retain PostgreSQL durability guarantees.
 
 `PostgresQuery` is a small driver boundary. Drivers must bind the third append

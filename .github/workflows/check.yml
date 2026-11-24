@@ -87,6 +87,18 @@ jobs:
       - run: bun run test:rocksdb
   storage:
     runs-on: ubuntu-latest
+    # A throwaway server for the PostgreSQL store's conformance tests.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PULSIFY_TEST_POSTGRES: postgres://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -101,6 +113,7 @@ jobs:
           key: storage-${{ runner.os }}-${{ hashFiles('crates/pulsify-db-bench/Cargo.lock', 'crates/pulsify-db-bench/Cargo.toml') }}
       - run: bun install --frozen-lockfile
       - run: bun run test:storage
+      - run: bun test packages/pulse/tests/history-storage.test.ts
       - run: bun run test:database:rust
   benchmarks:
     runs-on: ubuntu-latest
